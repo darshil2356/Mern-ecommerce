@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: mern-ecommerce-admin
+    runtime: node
+    buildCommand: npm install && npm run build
+    startCommand: npx serve -s build
+    envVars:
+      - key: NODE_ENV
+        value: production

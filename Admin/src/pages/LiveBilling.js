@@ -13,6 +13,10 @@ const LiveBilling = () => {
 const [sgstPercent, setSgstPercent] = useState(0);
 const [discountPercent, setDiscountPercent] = useState(0);
 
+const clampNonNegative = (v) => {
+  if (v === "" || isNaN(v)) return 0;
+  return Math.max(0, Number(v));
+};
 
 
 
@@ -339,7 +343,7 @@ const payableAmount = useMemo(
         Customer Details
       </h2>
 
-      <div>
+      {/* <div>
         <label className="text-xs font-medium">Customer Name</label>
         <input
           className="w-[4/5] border-b border-gray-300 focus:border-black outline-none py-1"
@@ -348,9 +352,11 @@ const payableAmount = useMemo(
             setCustomer({ ...customer, name: e.target.value })
           }
         />
-      </div>
+      </div> */}
 
-      <div>
+      
+
+      {/* <div>
         <label className="text-xs font-medium">Address</label>
         <input
           className="w-[4/5] border-b border-gray-300 focus:border-black outline-none py-1"
@@ -366,7 +372,37 @@ const payableAmount = useMemo(
         <input
           className="w-[4/5] border-b border-gray-300 focus:border-black outline-none py-1"
         />
-      </div>
+      </div> */}
+
+      <div className="space-y-2">
+  <div className="flex items-end gap-3">
+    <label className="w-24 text-xs font-medium">Name</label>
+    <input
+      className="flex-1 border-b border-gray-300 focus:border-black outline-none py-1"
+      value={customer.name}
+      onChange={(e) => setCustomer({ ...customer, name: e.target.value })}
+    />
+  </div>
+
+  <div className="flex items-end gap-3">
+    <label className="w-24 text-xs font-medium">Address</label>
+    <input
+      className="flex-1 border-b border-gray-300 focus:border-black outline-none py-1"
+      value={customer.address}
+      onChange={(e) => setCustomer({ ...customer, address: e.target.value })}
+    />
+  </div>
+
+  <div className="flex items-end gap-3">
+    <label className="w-24 text-xs font-medium">Contact</label>
+    <input
+      className="flex-1 border-b border-gray-300 focus:border-black outline-none py-1"
+      value={customer.contact}
+      onChange={(e) => setCustomer({ ...customer, contact: e.target.value })}
+    />
+  </div>
+</div>
+
     </div>
 
     {/* RIGHT – Date / Time (34%) */}
@@ -543,34 +579,50 @@ const payableAmount = useMemo(
         <td>₹ {grandTotal.toFixed(2)}</td>
 
         <td>
-          <input
+          {/* <input
             type="number"
             className="w-16 text-center border rounded"
             value={cgstPercent}
             onChange={(e) => setCgstPercent(+e.target.value)}
-          />
+          /> */}
+
+          <input
+  type="number"
+  min={0}
+  step={1}
+  className="w-16 text-center border rounded"
+  value={cgstPercent}
+  onChange={(e) => setCgstPercent(clampNonNegative(e.target.value))}
+/>
+
         </td>
 
         <td>₹ {cgstAmount.toFixed(2)}</td>
 
         <td>
-          <input
-            type="number"
-            className="w-16 text-center border rounded"
-            value={sgstPercent}
-            onChange={(e) => setSgstPercent(+e.target.value)}
-          />
+         <input
+  type="number"
+  min={0}
+  step={1}
+  className="w-16 text-center border rounded"
+  value={sgstPercent}
+  onChange={(e) => setSgstPercent(clampNonNegative(e.target.value))}
+/>
+
         </td>
 
         <td>₹ {sgstAmount.toFixed(2)}</td>
 
         <td>
           <input
-            type="number"
-            className="w-16 text-center border rounded"
-            value={discountPercent}
-            onChange={(e) => setDiscountPercent(+e.target.value)}
-          />
+  type="number"
+  min={0}
+  step={1}
+  className="w-16 text-center border rounded"
+  value={discountPercent}
+  onChange={(e) => setDiscountPercent(clampNonNegative(e.target.value))}
+/>
+
         </td>
 
         <td>₹ {discountAmount.toFixed(2)}</td>

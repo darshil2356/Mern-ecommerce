@@ -38,7 +38,12 @@ let schema = yup.object().shape({
     .min(1, "Pick at least one color")
     .required("Color is Required"),
   quantity: yup.number().required("Quantity is Required"),
-    videos: yup.array().optional(),   
+    // videos: yup.array().optional(),  
+    inventoryType: yup
+    .string()
+    .oneOf(["online", "offline"])
+    .required("Inventory Type is Required"),
+  videos: yup.array().optional(), 
 });
 
 const Addproduct = () => {
@@ -173,22 +178,7 @@ videoState?.forEach((v) => {
   // });
 
 
-  useEffect(() => {
-  formik.setFieldValue("images", imgState);
-  formik.setFieldValue("videos", videoState);
-}, [imgState, videoState]);
-
-
-//   useEffect(() => {
-//   formik.values.color = color ? color : [];
-//   formik.values.images = img;
-//   formik.values.videos = vid;
-// }, [color, img, vid]);
-
-useEffect(() => {
-  formik.values.images = img;   // from imgState
-  formik.values.videos = vid;   // from videoState
-}, [img, vid]);
+ 
 
 
 
@@ -202,6 +192,8 @@ useEffect(() => {
       tags: productTag || "",
       color: productColors || "",
       quantity: productQuantity || "",
+      inventoryType: newProduct?.productInventoryType || "", // ✅
+
       images: productImages || "",
         videos: [],          // ✅ REQUIRED
     },
@@ -230,6 +222,33 @@ useEffect(() => {
   setColor(e);
   formik.setFieldValue("color", e);
 };
+
+ useEffect(() => {
+  formik.setFieldValue("images", imgState);
+  formik.setFieldValue("videos", videoState);
+}, [imgState, videoState]);
+
+
+//   useEffect(() => {
+//   formik.values.color = color ? color : [];
+//   formik.values.images = img;
+//   formik.values.videos = vid;
+// }, [color, img, vid]);
+
+useEffect(() => {
+  formik.values.images = img;   // from imgState
+  formik.values.videos = vid;   // from videoState
+}, [img, vid]);
+
+
+useEffect(() => {
+  if (getProductId && newProduct.productInventoryType) {
+    formik.setFieldValue(
+      "inventoryType",
+      newProduct.productInventoryType
+    );
+  }
+}, [newProduct.productInventoryType]);
 
 
   return (
@@ -357,6 +376,21 @@ useEffect(() => {
           <div className="error">
             {formik.touched.quantity && formik.errors.quantity}
           </div>
+          <select
+  name="inventoryType"
+  onChange={formik.handleChange}
+  onBlur={formik.handleBlur}
+  value={formik.values.inventoryType}
+  className="form-control py-3 mb-3"
+>
+  <option value="">Select Inventory Type</option>
+  <option value="online">Online</option>
+  <option value="offline">Offline</option>
+</select>
+<div className="error">
+  {formik.touched.inventoryType && formik.errors.inventoryType}
+</div>
+
           <div className="bg-white border-1 p-5 text-center">
             {/* <Dropzone
               onDrop={(acceptedFiles) => dispatch(uploadImg(acceptedFiles))}

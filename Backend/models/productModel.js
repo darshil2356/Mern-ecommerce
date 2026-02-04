@@ -30,6 +30,13 @@ var productSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
+    inventoryType: {
+  type: String,
+  enum: ["online", "offline"],
+  required: true,
+  default: "online",
+},
+
 
     // ✅ NEW FIELD
     barcode: {
@@ -68,6 +75,7 @@ videos: [
     url: String,
   }
 ],
+
 
     color: [{ type: mongoose.Schema.Types.ObjectId, ref: "Color" }],
     tags: String,

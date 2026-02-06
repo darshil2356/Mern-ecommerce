@@ -30,13 +30,17 @@ var productSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
-    inventoryType: {
-  type: String,
-  enum: ["online", "offline"],
-  required: true,
-  default: "online",
-},
-
+    inventory: {
+      offline: {
+        type: Boolean,
+        default: true, // always true
+        immutable: true, // cannot be changed after creation
+      },
+      online: {
+        type: Boolean,
+        default: false, // admin can enable
+      },
+    },
 
     // ✅ NEW FIELD
     barcode: {
@@ -63,19 +67,18 @@ var productSchema = new mongoose.Schema(
     // ],
 
     images: [
-  {
-    public_id: String,
-    url: String,
-  }
-],
+      {
+        public_id: String,
+        url: String,
+      },
+    ],
 
-videos: [
-  {
-    public_id: String,
-    url: String,
-  }
-],
-
+    videos: [
+      {
+        public_id: String,
+        url: String,
+      },
+    ],
 
     color: [{ type: mongoose.Schema.Types.ObjectId, ref: "Color" }],
     tags: String,
@@ -91,9 +94,9 @@ videos: [
       default: 0,
     },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 
 //Export the model
-module.exports = mongoose.model("Product", productSchema);
+module.exports = mongoose.model("Product", productSchema);  

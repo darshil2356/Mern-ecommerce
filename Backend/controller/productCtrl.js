@@ -54,11 +54,13 @@ const updateProduct = asyncHandler(async (req, res) => {
 
     const { barcode, ...safeBody } = req.body;
 
-const updateProduct = await Product.findByIdAndUpdate(
-  id,
-  safeBody,
-  { new: true }
-);
+if (safeBody.inventory) {
+  safeBody.inventory = {
+    offline: true,
+    online: !!safeBody.inventory.online,
+  };
+}
+
 
     res.json(updateProduct);
   } catch (error) {

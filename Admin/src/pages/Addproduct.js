@@ -39,10 +39,13 @@ let schema = yup.object().shape({
     .required("Color is Required"),
   quantity: yup.number().required("Quantity is Required"),
     // videos: yup.array().optional(),  
-    inventoryType: yup
-    .string()
-    .oneOf(["online", "offline"])
-    .required("Inventory Type is Required"),
+  inventory: yup.object({
+  offline: yup.boolean().oneOf([true]),
+  online: yup.boolean(),
+}),
+
+
+
   videos: yup.array().optional(), 
 });
 
@@ -192,7 +195,12 @@ videoState?.forEach((v) => {
       tags: productTag || "",
       color: productColors || "",
       quantity: productQuantity || "",
-      inventoryType: newProduct?.productInventoryType || "", // ✅
+      inventory: {
+  offline: true,
+  online: newProduct?.inventory?.online ?? false,
+},
+
+
 
       images: productImages || "",
         videos: [],          // ✅ REQUIRED
@@ -242,13 +250,14 @@ useEffect(() => {
 
 
 useEffect(() => {
-  if (getProductId && newProduct.productInventoryType) {
-    formik.setFieldValue(
-      "inventoryType",
-      newProduct.productInventoryType
-    );
+  if (getProductId && newProduct.inventory) {
+    formik.setFieldValue("inventory", {
+      offline: true,
+      online: newProduct.inventory.online ?? false,
+    });
   }
-}, [newProduct.productInventoryType]);
+}, [getProductId, newProduct.inventory]);
+
 
 
   return (
@@ -376,20 +385,40 @@ useEffect(() => {
           <div className="error">
             {formik.touched.quantity && formik.errors.quantity}
           </div>
-          <select
-  name="inventoryType"
-  onChange={formik.handleChange}
-  onBlur={formik.handleBlur}
-  value={formik.values.inventoryType}
-  className="form-control py-3 mb-3"
->
-  <option value="">Select Inventory Type</option>
-  <option value="online">Online</option>
-  <option value="offline">Offline</option>
-</select>
-<div className="error">
-  {formik.touched.inventoryType && formik.errors.inventoryType}
+          <div className="mb-3">
+  <label className="fw-bold mb-2 d-block">Inventory Availability</label>
+
+  {/* OFFLINE – always enabled */}
+  <div className="form-check mb-1">
+    <input
+      className="form-check-input"
+      type="checkbox"
+      checked={true}
+      disabled
+    />
+    <label className="form-check-label">
+      Offline 
+    </label>
+  </div>
+
+  {/* ONLINE – optional */}
+  <div className="form-check">
+    <input
+      className="form-check-input"
+      type="checkbox"
+      name="inventory.online"
+      checked={formik.values.inventory.online}
+      onChange={(e) =>
+        formik.setFieldValue("inventory.online", e.target.checked)
+      }
+    />
+    <label className="form-check-label">
+      Online Store
+    </label>
+  </div>
 </div>
+
+
 
           <div className="bg-white border-1 p-5 text-center">
             {/* <Dropzone

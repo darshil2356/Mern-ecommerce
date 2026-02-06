@@ -213,9 +213,8 @@
 
 
 
-
 import { useSelector, useDispatch } from "react-redux";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { getAllProducts } from "../features/products/productSlilce";
 
 const ShopTheLook = ({ navigate }) => {
@@ -225,75 +224,45 @@ const ShopTheLook = ({ navigate }) => {
     dispatch(getAllProducts());
   }, [dispatch]);
 
-  // ✅ FIXED: always an array
-  // const productState = useSelector(
-  //   (state) => state?.product?.product?.products || []
-  // );
-
+  // products array
   const productState = useSelector(
-  (state) => state?.product?.product || []
-);
+    (state) => state?.product?.product || []
+  );
 
-
-useEffect(() => {
-  console.log("SHOP THE LOOK PRODUCTS", productState);
-}, [productState]);
-
-  useEffect(() => {
-  console.log("SHOP THE LOOK RAW PRODUCTS ↓↓↓");
-  productState.forEach((p, i) => {
-    console.log(i, {
-      id: p._id,
-      videos: p.videos,
-      images: p.images,
-    });
-  });
-}, [productState]);
-
-
- const dynamicVideos = productState
-  .filter(
-    (p) =>
-      Array.isArray(p?.videos) &&
-      p.videos.length > 0 &&
-      p.videos[0]?.url
-  )
-  .map((p) => ({
-    src: p.videos[0].url,
-    productId: p._id,
-    name: p.title, // optional, since you want product name
-  }));
-
+  // build video list
+  const dynamicVideos = productState
+    .filter(
+      (p) =>
+        Array.isArray(p?.videos) &&
+        p.videos.length > 0 &&
+        p.videos[0]?.url
+    )
+    .map((p) => ({
+      src: p.videos[0].url,
+      productId: p._id,
+      name: p.title,
+    }));
 
   const videoRefs = useRef([]);
-  const [active, setActive] = useState(0);
 
+  // 🔥 PLAY ALL VIDEOS TOGETHER
   useEffect(() => {
     if (!dynamicVideos.length) return;
-    const interval = setInterval(() => {
-      setActive((prev) => (prev + 1) % dynamicVideos.length);
-    }, 5000);
-    return () => clearInterval(interval);
-  }, [dynamicVideos.length]);
 
-  useEffect(() => {
-    videoRefs.current.forEach((video, index) => {
-      if (!video) return;
-      if (index === active) {
-        video.currentTime = 0;
+    const playAll = () => {
+      videoRefs.current.forEach((video) => {
+        if (!video) return;
+        video.muted = true;
+        video.loop = true;
         video.play().catch(() => {});
-      } else {
-        video.pause();
-      }
+      });
+    };
+
+    // wait for DOM + refs
+    requestAnimationFrame(() => {
+      requestAnimationFrame(playAll);
     });
-  }, [active, dynamicVideos.length]);
-
-  const fullState = useSelector((state) => state.product);
-
-useEffect(() => {
-  console.log("FULL PRODUCT SLICE ↓↓↓", fullState);
-}, [fullState]);
-
+  }, [dynamicVideos.length]);
 
   return (
     <div className="row">
@@ -305,43 +274,30 @@ useEffect(() => {
             <div className="text-muted">No videos available</div>
           ) : (
             dynamicVideos.map((item, index) => (
-              // <div
-              //   key={index}
-              //   style={{
-              //     minWidth: "280px",
-              //     height: "460px",
-              //     borderRadius: "12px",
-              //     overflow: "hidden",
-              //     background: "#000",
-              //     border:
-              //       index === active ? "2px solid black" : "1px solid #ddd",
-              //   }}
-              // >
-
               <div
-  key={index}
-  style={{
-    width: "270px",              // 👈 portrait width
-    aspectRatio: "9 / 16",       // 👈 reel ratio
-    borderRadius: "14px",
-    overflow: "hidden",
-    backgroundColor: "#000",
-    border:
-      index === active ? "2px solid #000" : "1px solid #ddd",
-    display: "flex",
-    flexDirection: "column",
-  }}
->
+                key={index}
+                style={{
+                  width: "270px",
+                  aspectRatio: "9 / 16",
+                  borderRadius: "14px",
+                  overflow: "hidden",
+                  backgroundColor: "#000",
+                  border: "1px solid #ddd",
+                  display: "flex",
+                  flexDirection: "column",
+                }}
+              >
+                <div className="text-white text-center py-2">
+                  {item.name}
+                </div>
 
-                  <div className="text-white text-center py-2">
-    {item.name}
-  </div>
                 <video
                   ref={(el) => (videoRefs.current[index] = el)}
-                  src={item.src}   // ✅ CLOUDINARY URL
+                  src={item.src}
                   muted
                   playsInline
-                  preload="metadata"
+                  loop
+                  preload="auto"
                   style={{
                     width: "100%",
                     height: "420px",

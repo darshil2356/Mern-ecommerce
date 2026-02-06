@@ -65,7 +65,7 @@ const ShopTheLook = ({ navigate }) => {
                 className="btn btn-dark position-absolute bottom-0 w-100 rounded-0"
                 onClick={() => navigate(`/product/${item.productId}`)}
               >
-                Shop This Look
+                Shop This Lookfdsafaaaaaaaa
               </button>
             </div>
           </SwiperSlide>

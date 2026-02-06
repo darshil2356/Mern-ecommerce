@@ -58,7 +58,7 @@ export const resetState = createAction("Reset_all");
 
 const initialState = {
   products: [],
-  productInventoryType: "", // ✅ ADD
+
   isError: false,
   isLoading: false,
   isSuccess: false,
@@ -115,7 +115,8 @@ export const productSlice = createSlice({
         state.productTag = action.payload.tags;
         state.productColors = action.payload.color;
         state.productQuantity = action.payload.quantity;
-         state.productInventoryType = action.payload.inventoryType; // ✅ ADD THIS
+        state.inventory = action.payload.inventory;
+
 
         state.productImages = action.payload.images;
       })

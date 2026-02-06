@@ -32,7 +32,7 @@ const updateProduct = async (product) => {
       tags: product.productData.tags,
       color: product.productData.color,
       images: product.productData.images,
-         inventoryType: product.productData.inventoryType, // ✅ ADD
+       inventory: product.productData.inventory,
       videos: product.productData.videos,               // ✅ ALSO ADD (you use videos)
     },
     config

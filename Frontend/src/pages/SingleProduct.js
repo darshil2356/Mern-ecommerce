@@ -144,6 +144,18 @@ const toImageUrl = (url) => {
     return false;
   };
 
+  const media = [
+  ...(productState?.images || []).map((i) => ({
+    type: "image",
+    url: i.url,
+  })),
+  ...(productState?.videos || []).map((v) => ({
+    type: "video",
+    url: v.url,
+  })),
+];
+
+
   return (
     <>
       <Meta title={"Product Name"} />
@@ -181,17 +193,96 @@ const toImageUrl = (url) => {
             </div> */}
 
 <div className="other-product-images d-flex flex-wrap gap-15">
-  {productState?.images?.map((item, index) => (
-    <div key={index}>
-      <img
-        src={toImageUrl(item.url)}
-        className="img-fluid"
-        alt=""
-        style={{ width: "100px", height: "100px", objectFit: "cover" }}
-      />
+  {productState?.images?.map((item, index) => {
+    const video = isVideo(item.url);
+
+    return (
+//       <div key={index}>
+//         {video ? (
+//           <video
+//   src={item.url}
+//   poster={toImageUrl(item.url)}   // 👈 important
+//   muted
+//   playsInline
+//   autoPlay
+//   loop
+//   preload="auto"
+//   style={{
+//     width: "100px",
+//     height: "100px",
+//     objectFit: "cover",
+//     borderRadius: "6px",
+//     display: "block",
+//     background: "#000",
+//   }}
+// />
+
+
+//         ) : (
+//           <img
+//             src={item.url}
+//             className="img-fluid"
+//             alt=""
+//             style={{
+//               width: "100px",
+//               height: "100px",
+//               objectFit: "cover",
+//               borderRadius: "6px",
+//             }}
+//           />
+//         )}
+//       </div>
+
+<div
+  className="other-product-images d-flex flex-nowrap gap-15"
+  style={{ overflowX: "auto" }}
+>
+  {media.map((item, index) => (
+    <div
+      key={index}
+      style={{
+        flex: "0 0 auto",   // 👈 prevents vertical stacking
+      }}
+    >
+      {item.type === "video" ? (
+        <video
+          src={item.url}
+          poster={toImageUrl(item.url)}
+          muted
+          playsInline
+          autoPlay
+          loop
+          preload="auto"
+          style={{
+            width: "100px",
+            height: "100px",
+            objectFit: "cover",
+            borderRadius: "6px",
+            display: "block",
+            background: "#000",
+          }}
+        />
+      ) : (
+        <img
+          src={item.url}
+          alt=""
+          style={{
+            width: "100px",
+            height: "100px",
+            objectFit: "cover",
+            borderRadius: "6px",
+            display: "block",
+          }}
+        />
+      )}
     </div>
   ))}
 </div>
+
+    );
+  })}
+</div>
+
 
 
           </div>

@@ -35,6 +35,18 @@
       getblogs();
       getProducts();
     }, []);
+
+    
+    useEffect(() => {
+  if (!productState) return;
+
+  productState
+    .filter(item => item?.inventory?.online === true)
+    .forEach(item => {
+      console.log("Only online items ",item.title);
+    });
+}, [productState]);
+
     const getblogs = () => {
       dispatch(getAllBlogs());
     };
@@ -228,6 +240,7 @@
            {productState &&
   productState.map((item, index) => {
     if (item.tags === "featured") {
+      
       return (
         <div
           key={index}
@@ -263,7 +276,9 @@
 
             <div className="product-details">
               <h6 className="brand">{item?.brand}</h6>
+             
               <h5 className="product-title">
+                
                 {item?.title?.substr(0, 70)}...
               </h5>
 

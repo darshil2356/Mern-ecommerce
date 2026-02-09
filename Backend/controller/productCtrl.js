@@ -17,21 +17,51 @@ const validateMongoDbId = require("../utils/validateMongodbId");
 //   }
 // });
 
+// const createProduct = asyncHandler(async (req, res) => {
+//   try {
+//     if (req.body.title) {
+//       req.body.slug = slugify(req.body.title);
+//     }
+
+//     // 1️⃣ Create product first (without barcode)
+//     const product = await Product.create(req.body);
+
+//     // 2️⃣ Generate barcode from Mongo _id
+//     const shortId = product._id.toString().slice(-6).toUpperCase();
+//     const barcode = `PRD-${shortId}`;
+
+//     // 3️⃣ Save barcode once
+//     product.barcode = barcode;
+//     await product.save();
+
+//     res.json(product);
+//   } catch (error) {
+//     throw new Error(error);
+//   }
+// });
+
+
+
 const createProduct = asyncHandler(async (req, res) => {
   try {
+    console.log("RAW REQ BODY:", req.body);
+
     if (req.body.title) {
       req.body.slug = slugify(req.body.title);
     }
 
-    // 1️⃣ Create product first (without barcode)
+    // 🔑 NORMALIZE INVENTORY
+    req.body.inventory = {
+      offline: true,
+      online: req.body.inventory?.online === true,
+    };
+
+    console.log("NORMALIZED INVENTORY:", req.body.inventory);
+
     const product = await Product.create(req.body);
 
-    // 2️⃣ Generate barcode from Mongo _id
     const shortId = product._id.toString().slice(-6).toUpperCase();
-    const barcode = `PRD-${shortId}`;
-
-    // 3️⃣ Save barcode once
-    product.barcode = barcode;
+    product.barcode = `PRD-${shortId}`;
     await product.save();
 
     res.json(product);
@@ -41,32 +71,66 @@ const createProduct = asyncHandler(async (req, res) => {
 });
 
 
+
+
+
+// const updateProduct = asyncHandler(async (req, res) => {
+//   const { id } = req.params;
+//   validateMongoDbId(id);
+//   try {
+//     if (req.body.title) {
+//       req.body.slug = slugify(req.body.title);
+//     }
+//     // const updateProduct = await Product.findByIdAndUpdate(id, req.body, {
+//     //   new: true,
+//     // });
+
+//     const { barcode, ...safeBody } = req.body;
+
+// if (safeBody.inventory) {
+//   safeBody.inventory = {
+//     offline: true,
+//     online: !!safeBody.inventory.online,
+//   };
+// }
+
+
+//     res.json(updateProduct);
+//   } catch (error) {
+//     throw new Error(error);
+//   }
+// });
+
+
+
+
 const updateProduct = asyncHandler(async (req, res) => {
   const { id } = req.params;
   validateMongoDbId(id);
-  try {
-    if (req.body.title) {
-      req.body.slug = slugify(req.body.title);
-    }
-    // const updateProduct = await Product.findByIdAndUpdate(id, req.body, {
-    //   new: true,
-    // });
 
-    const { barcode, ...safeBody } = req.body;
-
-if (safeBody.inventory) {
-  safeBody.inventory = {
-    offline: true,
-    online: !!safeBody.inventory.online,
-  };
-}
-
-
-    res.json(updateProduct);
-  } catch (error) {
-    throw new Error(error);
+  if (req.body.title) {
+    req.body.slug = slugify(req.body.title);
   }
+
+  const { barcode, ...safeBody } = req.body;
+
+  if (safeBody.inventory) {
+    safeBody.inventory = {
+      offline: true,
+      online: !!safeBody.inventory.online,
+    };
+  }
+
+  const updatedProduct = await Product.findByIdAndUpdate(
+    id,
+    safeBody,
+    { new: true }
+  );
+
+  res.json(updatedProduct);
 });
+
+
 
 const deleteProduct = asyncHandler(async (req, res) => {
   const { id } = req.params;
@@ -91,51 +155,94 @@ const getaProduct = asyncHandler(async (req, res) => {
   }
 });
 
+// const getAllProduct = asyncHandler(async (req, res) => {
+//   try {
+//     // Filtering
+//     const queryObj = { ...req.query };
+
+//       // 🔑 ADD THIS
+//     if (queryObj.store === "true") {
+//       queryObj["inventory.online"] = true;
+//     }
+//     const excludeFields = ["page", "sort", "limit", "fields"];
+//     excludeFields.forEach((el) => delete queryObj[el]);
+//     let queryStr = JSON.stringify(queryObj);
+//     queryStr = queryStr.replace(/\b(gte|gt|lte|lt)\b/g, (match) => `$${match}`);
+
+//     let query = Product.find(JSON.parse(queryStr));
+
+//     // Sorting
+
+//     if (req.query.sort) {
+//       const sortBy = req.query.sort.split(",").join(" ");
+//       query = query.sort(sortBy);
+//     } else {
+//       query = query.sort("-createdAt");
+//     }
+
+//     // limiting the fields
+
+//     if (req.query.fields) {
+//       const fields = req.query.fields.split(",").join(" ");
+//       query = query.select(fields);
+//     } else {
+//       query = query.select("-__v");
+//     }
+
+//     // pagination
+
+//     const page = req.query.page;
+//     const limit = req.query.limit;
+//     const skip = (page - 1) * limit;
+//     query = query.skip(skip).limit(limit);
+//     if (req.query.page) {
+//       const productCount = await Product.countDocuments();
+//       if (skip >= productCount) throw new Error("This Page does not exists");
+//     }
+//     const product = await query;
+//     res.json(product);
+//   } catch (error) {
+//     throw new Error(error);
+//   }
+// });
+
 const getAllProduct = asyncHandler(async (req, res) => {
   try {
-    // Filtering
+    // 🔒 HARD GATE FOR PUBLIC STORE
+    if (req.query.store === "true") {
+      const products = await Product.find({
+        "inventory.online": true,
+      }).sort("-createdAt");
+
+
+      return res.json(products);
+    }
+    console.log("req.query",{...req.query})
+
+    // 👇 everything below is ADMIN / INTERNAL
     const queryObj = { ...req.query };
     const excludeFields = ["page", "sort", "limit", "fields"];
     excludeFields.forEach((el) => delete queryObj[el]);
+
     let queryStr = JSON.stringify(queryObj);
-    queryStr = queryStr.replace(/\b(gte|gt|lte|lt)\b/g, (match) => `$${match}`);
+    queryStr = queryStr.replace(/\b(gte|gt|lte|lt)\b/g, (m) => `$${m}`);
 
     let query = Product.find(JSON.parse(queryStr));
 
-    // Sorting
-
     if (req.query.sort) {
-      const sortBy = req.query.sort.split(",").join(" ");
-      query = query.sort(sortBy);
+      query = query.sort(req.query.sort.split(",").join(" "));
     } else {
       query = query.sort("-createdAt");
     }
 
-    // limiting the fields
-
-    if (req.query.fields) {
-      const fields = req.query.fields.split(",").join(" ");
-      query = query.select(fields);
-    } else {
-      query = query.select("-__v");
-    }
-
-    // pagination
-
-    const page = req.query.page;
-    const limit = req.query.limit;
-    const skip = (page - 1) * limit;
-    query = query.skip(skip).limit(limit);
-    if (req.query.page) {
-      const productCount = await Product.countDocuments();
-      if (skip >= productCount) throw new Error("This Page does not exists");
-    }
     const product = await query;
     res.json(product);
   } catch (error) {
     throw new Error(error);
   }
 });
+
+
 const addToWishlist = asyncHandler(async (req, res) => {
   const { _id } = req.user;
   const { prodId } = req.body;

@@ -206,20 +206,41 @@ videoState?.forEach((v) => {
         videos: [],          // ✅ REQUIRED
     },
     validationSchema: schema,
+    // onSubmit: (values) => {
+    //   console.log(values);
+    //   if (getProductId !== undefined) {
+    //     const data = { id: getProductId, productData: values };
+    //     dispatch(updateAProduct(data));
+    //   } else {
+    //     dispatch(createProducts(values));
+    //     formik.resetForm();
+    //     setColor(null);
+    //     setTimeout(() => {
+    //       dispatch(resetState());
+    //     }, 3000);
+    //   }
+    // },
+
     onSubmit: (values) => {
-      console.log(values);
-      if (getProductId !== undefined) {
-        const data = { id: getProductId, productData: values };
-        dispatch(updateAProduct(data));
-      } else {
-        dispatch(createProducts(values));
-        formik.resetForm();
-        setColor(null);
-        setTimeout(() => {
-          dispatch(resetState());
-        }, 3000);
-      }
+  console.log("RAW FORM VALUES:", values);
+
+  const payload = {
+    ...values,
+    inventory: {
+      offline: true,
+      ...(values.inventory.online ? { online: true } : {}),
     },
+  };
+
+  console.log("FINAL PAYLOAD SENT TO API:", payload);
+
+  if (getProductId) {
+    dispatch(updateAProduct({ id: getProductId, productData: payload }));
+  } else {
+    dispatch(createProducts(payload));
+  }
+}
+
   });
   // const handleColors = (e) => {
   //   setColor(e);

@@ -92,23 +92,24 @@ const Addproduct = () => {
 
   useEffect(() => {
     if (getProductId !== undefined) {
+      dispatch(resetState());          // ✅ ADD THIS LINE
       dispatch(getAProduct(getProductId));
     } else {
       dispatch(resetState());
     }
   }, [getProductId]);
-  useEffect(() => {
-    if (isSuccess && createdProduct) {
-      toast.success("Product Added Successfullly!");
-    }
-    if (isSuccess && updatedProduct) {
-      toast.success("Product Updated Successfullly!");
-      navigate("/admin/list-product");
-    }
-    if (isError) {
-      toast.error("Something Went Wrong!");
-    }
-  }, [isSuccess, isError, isLoading]);
+  // useEffect(() => {
+  //   if (isSuccess && createdProduct) {
+  //     toast.success("Product Added Successfullly!");
+  //   }
+  //   if (isSuccess && updatedProduct) {
+  //     toast.success("Product Updated Successfullly!");
+  //     navigate("/admin/list-product");
+  //   }
+  //   if (isError) {
+  //     toast.error("Something Went Wrong!");
+  //   }
+  // }, [isSuccess, isError, isLoading]);
   const coloropt = [];
   colorState.forEach((i) => {
     coloropt.push({
@@ -186,6 +187,7 @@ videoState?.forEach((v) => {
 
 
   const formik = useFormik({
+     enableReinitialize: true,
     initialValues: {
       title: productName || "",
       description: productDesc || "",
@@ -221,9 +223,7 @@ videoState?.forEach((v) => {
     //   }
     // },
 
-    onSubmit: (values) => {
-  console.log("RAW FORM VALUES:", values);
-
+onSubmit: async (values) => {
   const payload = {
     ...values,
     inventory: {
@@ -232,14 +232,23 @@ videoState?.forEach((v) => {
     },
   };
 
-  console.log("FINAL PAYLOAD SENT TO API:", payload);
+  try {
+    if (getProductId) {
+      await dispatch(
+        updateAProduct({ id: getProductId, productData: payload })
+      ).unwrap();
 
-  if (getProductId) {
-    dispatch(updateAProduct({ id: getProductId, productData: payload }));
-  } else {
-    dispatch(createProducts(payload));
+      toast.success("Product Updated Successfully!");
+      navigate("/admin/list-product");
+    } else {
+      await dispatch(createProducts(payload)).unwrap();
+      toast.success("Product Added Successfully!");
+    }
+  } catch (err) {
+    toast.error("Something went wrong");
   }
 }
+
 
   });
   // const handleColors = (e) => {

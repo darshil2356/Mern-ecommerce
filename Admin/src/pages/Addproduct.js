@@ -12,6 +12,8 @@ import { getCategories } from "../features/pcategory/pcategorySlice";
 import { getColors } from "../features/color/colorSlice";
 import { Select } from "antd";
 import Dropzone from "react-dropzone";
+import { clearUploads } from "../features/upload/uploadSlice";
+
 // import { delImg, uploadImg } from "../features/upload/uploadSlice";
 import {
   uploadImg,
@@ -243,6 +245,18 @@ onSubmit: async (values) => {
     } else {
       await dispatch(createProducts(payload)).unwrap();
       toast.success("Product Added Successfully!");
+
+
+
+       // ✅ HARD RESET (THIS FIXES YOUR ISSUE)
+      formik.resetForm();
+      dispatch(resetState());
+      dispatch(delImg());
+      dispatch(delVideo());
+      dispatch(clearUploads());   // ← ADD THIS ONLY
+
+      navigate("/admin/list-product");   // ✅ ADD THIS LINE
+
     }
   } catch (err) {
     toast.error("Something went wrong");
@@ -261,10 +275,43 @@ onSubmit: async (values) => {
   formik.setFieldValue("color", e);
 };
 
- useEffect(() => {
-  formik.setFieldValue("images", imgState);
-  formik.setFieldValue("videos", videoState);
-}, [imgState, videoState]);
+// // Add this effect to sync existing product images into the upload state
+// useEffect(() => {
+//   if (getProductId && isSuccess && productImages) {
+//     // We create an array that matches the structure your uploadSlice expects
+//     const existingImages = productImages.map((img) => ({
+//       public_id: img.public_id,
+//       url: img.url,
+//     }));
+    
+//     // You need an action in your uploadSlice to "set" or "push" existing images
+//     // If you don't have one, I'll show you how to handle it via formik below.
+//     formik.setFieldValue("images", existingImages);
+//   }
+// }, [getProductId, isSuccess, productImages]);
+
+//  useEffect(() => {
+//   formik.setFieldValue("images", imgState);
+//   formik.setFieldValue("videos", videoState);
+// }, [imgState, videoState]);
+
+// MERGED EFFECT: Handles both new uploads and pre-filling edit data
+useEffect(() => {
+  if (getProductId && imgState.length === 0 && productImages) {
+    // 1. If Editing and no NEW images uploaded yet, show existing ones
+    formik.setFieldValue("images", productImages);
+  } else {
+    // 2. If new images are uploaded (imgState has data), use those
+    formik.setFieldValue("images", imgState);
+  }
+  
+  // Same logic for videos
+  if (getProductId && videoState.length === 0 && newProduct?.videos) {
+    formik.setFieldValue("videos", newProduct.videos);
+  } else {
+    formik.setFieldValue("videos", videoState);
+  }
+}, [imgState, videoState, productImages]); // Add productImages to dependency
 
 
 //   useEffect(() => {
@@ -273,10 +320,15 @@ onSubmit: async (values) => {
 //   formik.values.videos = vid;
 // }, [color, img, vid]);
 
+// useEffect(() => {
+//   formik.values.images = img;   // from imgState
+//   formik.values.videos = vid;   // from videoState
+// }, [img, vid]);
+
 useEffect(() => {
-  formik.values.images = img;   // from imgState
-  formik.values.videos = vid;   // from videoState
-}, [img, vid]);
+  formik.setFieldValue("images", imgState);
+  formik.setFieldValue("videos", videoState);
+}, [imgState, videoState]);
 
 
 useEffect(() => {
@@ -473,7 +525,8 @@ useEffect(() => {
           </div>
           <div className="showimages d-flex flex-wrap gap-3">
             
-            {imgState?.map((i, j) => {
+            {/* {imgState?.map((i, j) => { */}
+              {formik.values.images && formik.values.images.map((i, j) => {
               return (
                 <div className=" position-relative" key={j}>
                   <button

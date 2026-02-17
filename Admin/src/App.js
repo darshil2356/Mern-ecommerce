@@ -2,6 +2,7 @@ import "./App.css";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import Dashboard from "./pages/Dashboard";
 import Login from "./pages/Login";
+import './utils/axiosSetup'
 
 import MainLayout from "./components/MainLayout";
 import Enquiries from "./pages/Enquiries";

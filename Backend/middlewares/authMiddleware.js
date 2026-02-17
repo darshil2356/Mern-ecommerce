@@ -16,12 +16,23 @@ const authMiddleware = asyncHandler(async (req, res, next) => {
         req.user = user;
         next();
       }
-    } catch (error) {
-      throw new Error("Not Authorized token expired,Please Login again");
-    }
+    } 
+    // catch (error) {
+    //   throw new Error("Not Authorized token expired,Please Login again");
+    // }
+
+    catch (error) {
+  res.status(401);
+  throw new Error("Not Authorized token expired,Please Login again");
+}
+  // } else {
+  //   throw new Error("THere is no token attached to header");
+  // }
+
   } else {
-    throw new Error("THere is no token attached to header");
-  }
+  res.status(401);
+  throw new Error("THere is no token attached to header");
+}
 });
 
 const isAdmin = asyncHandler(async (req, res, next) => {

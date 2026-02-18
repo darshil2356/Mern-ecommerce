@@ -45,6 +45,9 @@ app.use("/public", express.static("public"));
 app.use("/api/product", productRouter);
 
 
+app.use("/api/user", require("./routes/userRoute"));
+
+
 
 app.use(notFound);
 app.use(errorHandler);

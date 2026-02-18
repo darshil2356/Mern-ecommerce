@@ -1,238 +1,25 @@
-// import { useEffect, useRef, useState } from "react";
-
-// // IMPORTANT: this bypasses React Router completely
-// const VIDEO_BASE = process.env.PUBLIC_URL + "/videos";
-
-// const videos = [
-//   { src: `${VIDEO_BASE}/look1.mp4`, productId: "123" },
-//   { src: `${VIDEO_BASE}/look2.mp4`, productId: "456" },
-//   { src: `${VIDEO_BASE}/look3.mp4`, productId: "789" },
-// ];
-
-// const ShopTheLook = ({ navigate }) => {
-//   const videoRefs = useRef([]);
-//   const [active, setActive] = useState(0);
-
-//   // change slide every 5s
-//   useEffect(() => {
-//     const interval = setInterval(() => {
-//       setActive((prev) => (prev + 1) % videos.length);
-//     }, 5000);
-
-//     return () => clearInterval(interval);
-//   }, []);
-
-//   // play only active video
-//   useEffect(() => {
-//     videoRefs.current.forEach((video, index) => {
-//       if (!video) return;
-
-//       if (index === active) {
-//         video.currentTime = 0;
-//         video.play().catch(() => {});
-//       } else {
-//         video.pause();
-//       }
-//     });
-//   }, [active]);
-
-//   return (
-//     <div className="row">
-//       <div className="col-12">
-//         <h3 className="section-heading mb-4">Shop the Look</h3>
-
-//         <div className="d-flex gap-3 overflow-auto">
-//           {videos.map((item, index) => (
-//             <div
-//               key={index}
-//               style={{
-//                 minWidth: "280px",
-//                 height: "460px",
-//                 borderRadius: "12px",
-//                 overflow: "hidden",
-//                 border: index === active ? "2px solid black" : "1px solid #ddd",
-//                 background: "#000",
-//               }}
-//             >
-//               <video
-//                 ref={(el) => (videoRefs.current[index] = el)}
-//                 src={item.src}
-//                 muted
-//                 playsInline
-//                 preload="metadata"
-//                 style={{
-//                   width: "100%",
-//                   height: "420px",
-//                   objectFit: "cover",
-//                   display: "block",
-//                 }}
-//                 onError={(e) => {
-//                   console.error("VIDEO FAILED:", e.target.src);
-//                 }}
-//               />
-
-//               <button
-//                 className="btn btn-dark w-100 rounded-0"
-//                 onClick={() => navigate(`/product/${item.productId}`)}
-//               >
-//                 Shop This Look
-//               </button>
-//             </div>
-//           ))}
-//         </div>
-//       </div>
-//     </div>
-//   );
-// };
-
-// export default ShopTheLook;
-
-
-
-// import { useSelector } from "react-redux";
-// import { useEffect, useRef, useState } from "react";
-// import { useDispatch } from "react-redux";
-// import { getAllProducts } from "../features/products/productSlilce";
-
-
-
-
-
-
-
-
-// const ShopTheLook = ({ navigate }) => {
-//   const productState = useSelector(
-//   (state) => state?.product?.product?.products || []
-// );
-
-
-
-//   const fullProductState = useSelector((state) => state.product);
-// console.log("FULL PRODUCT STATE", fullProductState);
-
-// useEffect(() => {
-//   console.log("PRODUCTS USED IN SHOP THE LOOK", productState);
-// }, [productState]);
-
-
-
-//   const dynamicVideos = Array.isArray(productState)
-//     ? productState
-//         .filter((p) => Array.isArray(p?.videos) && p.videos.length > 0)
-//         .map((p) => ({
-//           src: p.videos[0].url,
-//           productId: p._id,
-//         }))
-//     : [];
-
-//   // const videos =
-//   //   dynamicVideos.length > 0 ? dynamicVideos : fallbackVideos;
-
-//   const videoRefs = useRef([]);
-//   const [active, setActive] = useState(0);
-
-//   const dispatch = useDispatch();
-
-// useEffect(() => {
-//   dispatch(getAllProducts());
-
-// }, [dispatch]);
-// console.log("PRODUCTS USED IN SHOP THE LOOK", productState);
-
-
-//   useEffect(() => {
-//     const interval = setInterval(() => {
-//       setActive((prev) => (prev + 1) % videos.length);
-//     }, 5000);
-//     return () => clearInterval(interval);
-//   }, [videos.length]);
-
-//   useEffect(() => {
-//     videoRefs.current.forEach((video, index) => {
-//       if (!video) return;
-//       if (index === active) {
-//         video.currentTime = 0;
-//         video.play().catch(() => {});
-//       } else {
-//         video.pause();
-//       }
-//     });
-//   }, [active, videos.length]);
-
-//   return (
-//     <div className="row">
-//       <div className="col-12">
-//         <h3 className="section-heading mb-4">Shop the Look</h3>
-
-//         <div className="d-flex gap-3 overflow-auto">
-//           {videos.map((item, index) => (
-//             <div
-//               key={index}
-//               style={{
-//                 minWidth: "280px",
-//                 height: "460px",
-//                 borderRadius: "12px",
-//                 overflow: "hidden",
-//                 background: "#000",
-//                 border: index === active ? "2px solid black" : "1px solid #ddd",
-//               }}
-//             >
-//               <video
-//                 ref={(el) => (videoRefs.current[index] = el)}
-//                 src={item.src}
-//                 muted
-//                 playsInline
-//                 preload="metadata"
-//                 style={{
-//                   width: "100%",
-//                   height: "420px",
-//                   objectFit: "cover",
-//                   display: "block",
-//                 }}
-//               />
-
-//               <button
-//                 className="btn btn-dark w-100 rounded-0"
-//                 onClick={() => navigate(`/product/${item.productId}`)}
-//               >
-//                 Shop This Look
-//               </button>
-//             </div>
-//           ))}
-//         </div>
-//       </div>
-//     </div>
-//   );
-// };
-
-// export default ShopTheLook;
-
-
-
-
-
-
 import { useSelector, useDispatch } from "react-redux";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { getAllProducts } from "../features/products/productSlilce";
+import { motion } from "framer-motion";
+import { BsPlay, BsHeart, BsBag } from "react-icons/bs";
 
 const ShopTheLook = ({ navigate }) => {
   const dispatch = useDispatch();
+  const videoRefs = useRef([]);
+  const [activeVideo, setActiveVideo] = useState(0);
 
   useEffect(() => {
     dispatch(getAllProducts());
   }, [dispatch]);
 
-  // products array
-  const productState = useSelector(
-    (state) => state?.product?.product || []
-  );
+  const productState = useSelector((state) => state?.product?.product || []);
 
-  // build video list
+  // Build video list from products with videos
   const dynamicVideos = productState
     .filter(
       (p) =>
+        p &&
         Array.isArray(p?.videos) &&
         p.videos.length > 0 &&
         p.videos[0]?.url
@@ -241,84 +28,282 @@ const ShopTheLook = ({ navigate }) => {
       src: p.videos[0].url,
       productId: p._id,
       name: p.title,
+      price: p.price,
+      image: p.images?.[0]?.url
     }));
 
-  const videoRefs = useRef([]);
-
-  // 🔥 PLAY ALL VIDEOS TOGETHER
+  // Auto-play management - handle Promise rejections
   useEffect(() => {
     if (!dynamicVideos.length) return;
 
-    const playAll = () => {
-      videoRefs.current.forEach((video) => {
-        if (!video) return;
-        video.muted = true;
-        video.loop = true;
-        video.play().catch(() => {});
-      });
-    };
+    const interval = setInterval(() => {
+      setActiveVideo((prev) => (prev + 1) % dynamicVideos.length);
+    }, 5000);
 
-    // wait for DOM + refs
-    requestAnimationFrame(() => {
-      requestAnimationFrame(playAll);
-    });
+    return () => clearInterval(interval);
   }, [dynamicVideos.length]);
 
+  useEffect(() => {
+    if (!dynamicVideos.length) return;
+    
+    videoRefs.current.forEach((video, index) => {
+      if (!video) return;
+      try {
+        if (index === activeVideo) {
+          video.currentTime = 0;
+          const playPromise = video.play();
+          if (playPromise !== undefined) {
+            playPromise.catch(() => {
+              // Ignore play interruption errors
+            });
+          }
+        } else {
+          video.pause();
+        }
+      } catch (e) {
+        // Ignore errors
+      }
+    });
+  }, [activeVideo, dynamicVideos.length]);
+
+  if (dynamicVideos.length === 0) {
+    return null;
+  }
+
   return (
-    <div className="row">
-      <div className="col-12">
-        <h3 className="section-heading mb-4">Shop the Look</h3>
+    <div style={{ position: 'relative' }}>
+      {/* Scroll Container */}
+      <div 
+        className="d-flex gap-4 overflow-auto pb-4"
+        style={{ 
+          scrollbarWidth: 'none', 
+          msOverflowStyle: 'none',
+          paddingBottom: '16px'
+        }}
+      >
+        {dynamicVideos.map((item, index) => (
+          <motion.div
+            key={`${item.productId}-${index}`}
+            initial={{ opacity: 0, scale: 0.9 }}
+            whileInView={{ opacity: 1, scale: 1 }}
+            viewport={{ once: true }}
+            transition={{ delay: Math.min(index * 0.1, 0.3) }}
+            style={{
+              minWidth: '280px',
+              aspectRatio: '9/16',
+              borderRadius: '20px',
+              overflow: 'hidden',
+              position: 'relative',
+              cursor: 'pointer',
+              boxShadow: index === activeVideo 
+                ? '0 20px 50px rgba(212, 175, 55, 0.3)' 
+                : '0 8px 30px rgba(0,0,0,0.2)',
+              transform: index === activeVideo ? 'scale(1.02)' : 'scale(1)',
+              transition: 'all 0.4s ease'
+            }}
+            onClick={() => navigate(`/product/${item.productId}`)}
+          >
+            {/* Video */}
+            <video
+              ref={(el) => (videoRefs.current[index] = el)}
+              src={item.src}
+              muted
+              loop
+              playsInline
+              preload="auto"
+              style={{
+                width: '100%',
+                height: '100%',
+                objectFit: 'cover',
+                transition: 'transform 0.5s ease'
+              }}
+            />
 
-        <div className="d-flex gap-3 overflow-auto">
-          {dynamicVideos.length === 0 ? (
-            <div className="text-muted">No videos available</div>
-          ) : (
-            dynamicVideos.map((item, index) => (
-              <div
-                key={index}
-                style={{
-                  width: "270px",
-                  aspectRatio: "9 / 16",
-                  borderRadius: "14px",
-                  overflow: "hidden",
-                  backgroundColor: "#000",
-                  border: "1px solid #ddd",
-                  display: "flex",
-                  flexDirection: "column",
-                }}
-              >
-                <div className="text-white text-center py-2">
+            {/* Gradient Overlay */}
+            <div style={{
+              position: 'absolute',
+              inset: 0,
+              background: 'linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.3) 40%, transparent 60%, rgba(0,0,0,0.5) 100%)',
+              pointerEvents: 'none'
+            }} />
+
+            {/* Play Icon (if not active) */}
+            {index !== activeVideo && (
+              <div style={{
+                position: 'absolute',
+                top: '50%',
+                left: '50%',
+                transform: 'translate(-50%, -50%)',
+                width: '60px',
+                height: '60px',
+                background: 'rgba(255,255,255,0.2)',
+                backdropFilter: 'blur(10px)',
+                borderRadius: '50%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#fff',
+                fontSize: '24px'
+              }}>
+                <BsPlay />
+              </div>
+            )}
+
+            {/* Active Indicator */}
+            {index === activeVideo && (
+              <div style={{
+                position: 'absolute',
+                top: '16px',
+                left: '16px',
+                background: '#d4af37',
+                color: '#1a1a1a',
+                padding: '4px 12px',
+                borderRadius: '20px',
+                fontSize: '11px',
+                fontWeight: 600,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px'
+              }}>
+                <span style={{ 
+                  width: '6px', 
+                  height: '6px', 
+                  background: '#1a1a1a', 
+                  borderRadius: '50%'
+                }} />
+                Playing
+              </div>
+            )}
+
+            {/* Product Info */}
+            <div style={{
+              position: 'absolute',
+              bottom: 0,
+              left: 0,
+              right: 0,
+              padding: '20px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '12px'
+            }}>
+              <div>
+                <h4 style={{
+                  fontFamily: "'Playfair Display', serif",
+                  fontSize: '18px',
+                  color: '#ffffff',
+                  marginBottom: '6px',
+                  lineHeight: 1.3,
+                  display: '-webkit-box',
+                  WebkitLineClamp: 2,
+                  WebkitBoxOrient: 'vertical',
+                  overflow: 'hidden'
+                }}>
                   {item.name}
-                </div>
+                </h4>
+                <p style={{
+                  color: '#d4af37',
+                  fontSize: '20px',
+                  fontWeight: 700,
+                  margin: 0
+                }}>
+                  ₹{item.price?.toLocaleString()}
+                </p>
+              </div>
 
-                <video
-                  ref={(el) => (videoRefs.current[index] = el)}
-                  src={item.src}
-                  muted
-                  playsInline
-                  loop
-                  preload="auto"
-                  style={{
-                    width: "100%",
-                    height: "420px",
-                    objectFit: "cover",
-                    display: "block",
-                  }}
-                />
-
+              {/* Action Buttons */}
+              <div style={{ display: 'flex', gap: '10px' }}>
                 <button
-                  className="btn btn-dark w-100 rounded-0"
-                  onClick={() => navigate(`/product/${item.productId}`)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    navigate(`/product/${item.productId}`);
+                  }}
+                  style={{
+                    flex: 1,
+                    background: '#d4af37',
+                    color: '#1a1a1a',
+                    border: 'none',
+                    borderRadius: '30px',
+                    padding: '12px 20px',
+                    fontSize: '13px',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px',
+                    transition: 'all 0.3s ease'
+                  }}
                 >
-                  Shop This Look
+                  <BsBag /> Shop Now
                 </button>
               </div>
-            ))
-          )}
-        </div>
+            </div>
+
+            {/* Side Stats */}
+            <div style={{
+              position: 'absolute',
+              right: '12px',
+              bottom: '140px',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: '16px'
+            }}>
+              <div style={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                color: '#fff',
+                gap: '4px'
+              }}>
+                <BsHeart style={{ fontSize: '22px' }} />
+                <span style={{ fontSize: '11px', fontWeight: 500 }}>0</span>
+              </div>
+            </div>
+          </motion.div>
+        ))}
       </div>
+
+      {/* View All Button */}
+      {dynamicVideos.length > 0 && (
+        <div style={{ textAlign: 'center', marginTop: '30px' }}>
+          <button
+            onClick={() => navigate('/reels')}
+            style={{
+              background: 'transparent',
+              color: '#d4af37',
+              border: '2px solid #d4af37',
+              borderRadius: '30px',
+              padding: '14px 36px',
+              fontSize: '14px',
+              fontWeight: 600,
+              cursor: 'pointer',
+              transition: 'all 0.3s ease',
+              textTransform: 'uppercase',
+              letterSpacing: '1px'
+            }}
+            onMouseEnter={(e) => {
+              e.target.style.background = '#d4af37';
+              e.target.style.color = '#1a1a1a';
+            }}
+            onMouseLeave={(e) => {
+              e.target.style.background = 'transparent';
+              e.target.style.color = '#d4af37';
+            }}
+          >
+            View All Reels
+          </button>
+        </div>
+      )}
+
+      <style jsx>{`
+        .d-flex.gap-4.overflow-auto::-webkit-scrollbar {
+          display: none;
+        }
+      `}</style>
     </div>
   );
 };
 
 export default ShopTheLook;
+

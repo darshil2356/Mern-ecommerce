@@ -237,22 +237,47 @@ const getaProduct = asyncHandler(async (req, res) => {
 
 const getAllProduct = asyncHandler(async (req, res) => {
   try {
-    // 🔒 HARD GATE FOR PUBLIC STORE
-    if (req.query.store === "true") {
-      const products = await Product.find({
-        "inventory.online": true,
-      }).sort("-createdAt");
-
-
-      return res.json(products);
-    }
-    console.log("req.query",{...req.query})
-
-    // 👇 everything below is ADMIN / INTERNAL
     const queryObj = { ...req.query };
+    
+    // Remove helper params
     const excludeFields = ["page", "sort", "limit", "fields"];
     excludeFields.forEach((el) => delete queryObj[el]);
 
+    // 🔒 HARD GATE FOR PUBLIC STORE - but allow filters too!
+    if (req.query.store === "true") {
+      // Start with online products only
+      queryObj["inventory.online"] = true;
+      
+      // Add other filters if provided
+      if (req.query.category) {
+        queryObj.category = req.query.category;
+      }
+      if (req.query.brand) {
+        queryObj.brand = req.query.brand;
+      }
+      if (req.query.tags) {
+        queryObj.tags = req.query.tags;
+      }
+      if (req.query["price[gte]"]) {
+        queryObj.price = { $gte: parseInt(req.query["price[gte]"]) };
+      }
+      if (req.query["price[lte]"]) {
+        queryObj.price = { ...queryObj.price, $lte: parseInt(req.query["price[lte]"]) };
+      }
+      
+      let query = Product.find(queryObj);
+
+      if (req.query.sort) {
+        query = query.sort(req.query.sort.split(",").join(" "));
+      } else {
+        query = query.sort("-createdAt");
+      }
+
+      const products = await query;
+      return res.json(products);
+    }
+
+    // 👇 everything below is ADMIN / INTERNAL (no store=true)
     let queryStr = JSON.stringify(queryObj);
     queryStr = queryStr.replace(/\b(gte|gt|lte|lt)\b/g, (m) => `$${m}`);
 

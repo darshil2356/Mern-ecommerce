@@ -25,6 +25,7 @@ import { PrivateRoutes } from "./routing/PrivateRoutes";
 import { OpenRoutes } from "./routing/OpenRoutes";
 import Orders from "./pages/Orders";
 import Profile from "./pages/Profile";
+import Reels from "./pages/Reels";
 
 function App() {
   return (
@@ -39,6 +40,10 @@ function App() {
             <Route path="product/:id" element={<SingleProduct />} />
             <Route path="blogs" element={<Blog />} />
             <Route path="blog/:id" element={<SingleBlog />} />
+            
+            {/* Reels Page - Full Screen Reel-Based Shopping */}
+            <Route path="reels" element={<Reels />} />
+            
             <Route
               path="cart"
               element={
@@ -110,3 +115,4 @@ function App() {
 }
 
 export default App;
+

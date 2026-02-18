@@ -1,269 +1,283 @@
-// // import React from "react";
-// // import { Link } from "react-router-dom";
-// // import { BsLinkedin, BsGithub, BsYoutube, BsInstagram } from "react-icons/bs";
-// // import newsletter from "../images/newsletter.png";
-// // const Footer = () => {
-// //   return (
-// //     <>
-// //       <footer className="py-4">
-// //         <div className="container-xxl">
-// //           <div className="row align-items-center">
-// //             <div className="col-5">
-// //               <div className="footer-top-data d-flex gap-30 align-items-center">
-// //                 <img src={newsletter} alt="newsletter" />
-// //                 <h2 className="mb-0 text-white">Sign Up for Newsletter</h2>
-// //               </div>
-// //             </div>
-// //             <div className="col-7">
-// //               <div className="input-group">
-// //                 <input
-// //                   type="text"
-// //                   className="form-control py-1"
-// //                   placeholder="Your Email Address"
-// //                   aria-label="Your Email Address"
-// //                   aria-describedby="basic-addon2"
-// //                 />
-// //                 <span className="input-group-text p-2" id="basic-addon2">
-// //                   Subscribe
-// //                 </span>
-// //               </div>
-// //             </div>
-// //           </div>
-// //         </div>
-// //       </footer>
-// //       <footer className="py-4">
-// //         <div className="container-xxl">
-// //           <div className="row">
-// //             <div className="col-4">
-// //               <h4 className="text-white mb-4">Contact Us</h4>
-// //               <div>
-// //                 <address className="text-white fs-6">
-// //                   Hno : Daiict college, Reliance Cross Rd, <br />{" "}
-// //                   Gandhinagar,Gujarat <br />
-// //                   PinCode: 382007
-// //                 </address>
-// //                 <a
-// //                   href="tel:+91 8264954234"
-// //                   className="mt-3 d-block mb-1 text-white"
-// //                 >
-// //                   +91 8264954234
-// //                 </a>
-// //                 <a
-// //                   href="mailto:devjariwala8444@gmail.com"
-// //                   className="mt-2 d-block mb-0 text-white"
-// //                 >
-// //                   devjariwala8444@gmail.com
-// //                 </a>
-// //                 <div className="social_icons d-flex align-items-center gap-30 mt-4">
-// //                   <a className="text-white" href="#">
-// //                     <BsLinkedin className="fs-4" />
-// //                   </a>
-// //                   <a className="text-white" href="#">
-// //                     <BsInstagram className="fs-4" />
-// //                   </a>
-// //                   <a className="text-white" href="#">
-// //                     <BsGithub className="fs-4" />
-// //                   </a>
-// //                   <a className="text-white" href="#">
-// //                     <BsYoutube className="fs-4" />
-// //                   </a>
-// //                 </div>
-// //               </div>
-// //             </div>
-// //             <div className="col-3">
-// //               <h4 className="text-white mb-4">Information</h4>
-// //               <div className="footer-link d-flex flex-column">
-// //                 <Link to="/privacy-policy" className="text-white py-2 mb-1">
-// //                   Privacy Policy
-// //                 </Link>
-// //                 <Link to="/refund-policy" className="text-white py-2 mb-1">
-// //                   Refund Policy
-// //                 </Link>
-// //                 <Link to="/shipping-policy" className="text-white py-2 mb-1">
-// //                   Shipping Policy
-// //                 </Link>
-// //                 <Link to="/term-conditions" className="text-white py-2 mb-1">
-// //                   Terms & Conditions
-// //                 </Link>
-// //                 <Link className="text-white py-2 mb-1">Blogs</Link>
-// //               </div>
-// //             </div>
-// //             <div className="col-3">
-// //               <h4 className="text-white mb-4">Account</h4>
-// //               <div className="footer-link d-flex flex-column">
-// //                 <Link className="text-white py-2 mb-1">About Us</Link>
-// //                 <Link className="text-white py-2 mb-1">Faq</Link>
-// //                 <Link className="text-white py-2 mb-1">Contact</Link>
-// //               </div>
-// //             </div>
-// //             <div className="col-2">
-// //               <h4 className="text-white mb-4">Quick Links</h4>
-// //               <div className="footer-link d-flex flex-column">
-// //                 <Link className="text-white py-2 mb-1">Laptops</Link>
-// //                 <Link className="text-white py-2 mb-1">Headphones</Link>
-// //                 <Link className="text-white py-2 mb-1">Tablets</Link>
-// //                 <Link className="text-white py-2 mb-1">Watch</Link>
-// //               </div>
-// //             </div>
-// //           </div>
-// //         </div>
-// //       </footer>
-// //       <footer className="py-4">
-// //         <div className="container-xxl">
-// //           <div className="row">
-// //             <div className="col-12">
-// //               <p className="text-center mb-0 text-white">
-// //                 &copy; {new Date().getFullYear()}; Powered by Cart Corner
-// //               </p>
-// //             </div>
-// //           </div>
-// //         </div>
-// //       </footer>
-// //     </>
-// //   );
-// // };
-
-// // export default Footer;
-
-
 import React from "react";
 import { Link } from "react-router-dom";
-import { BsLinkedin, BsGithub, BsYoutube, BsInstagram } from "react-icons/bs";
-import newsletter from "../images/newsletter.png";
+import { BsInstagram, BsFacebook, BsTwitter, BsYoutube, BsArrowRight, BsEnvelope, BsTelephone, BsPinMap } from "react-icons/bs";
+import { motion } from "framer-motion";
 
 const Footer = () => {
   return (
     <>
       {/* Newsletter Section */}
-      <footer className="py-4">
+      <section className="newsletter-section">
         <div className="container-xxl">
-          <div className="row align-items-center g-3">
-            <div className="col-12 col-md-6">
-              <div className="footer-top-data d-flex align-items-center gap-15">
-                <img src={newsletter} alt="newsletter" />
-                <h2 className="mb-0 text-white fs-5">
-                  Sign Up for Newsletter
-                </h2>
-              </div>
+          <div className="row align-items-center">
+            <div className="col-12 col-lg-6 mb-4 mb-lg-0">
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.6 }}
+              >
+                <h2 className="newsletter-title">Join Our Fashion Community</h2>
+                <p className="newsletter-description">
+                  Subscribe to get special offers, free giveaways, and new arrivals
+                </p>
+              </motion.div>
             </div>
-
-            <div className="col-12 col-md-6">
-              <div className="input-group">
-                <input
-                  type="email"
-                  className="form-control py-2"
-                  placeholder="Your Email Address"
-                />
-                <span className="input-group-text">
-                  Subscribe
-                </span>
-              </div>
+            <div className="col-12 col-lg-6">
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.6, delay: 0.2 }}
+              >
+                <form className="newsletter-form" onSubmit={(e) => e.preventDefault()}>
+                  <input
+                    type="email"
+                    className="newsletter-input"
+                    placeholder="Enter your email address"
+                  />
+                  <button type="submit" className="newsletter-btn">
+                    Subscribe
+                  </button>
+                </form>
+              </motion.div>
             </div>
           </div>
         </div>
-      </footer>
+      </section>
 
       {/* Main Footer */}
-      <footer className="py-4">
+      <footer style={{ background: '#1a1a1a', paddingTop: '80px' }}>
         <div className="container-xxl">
-          <div className="row gy-4">
-            {/* Contact */}
-            <div className="col-12 col-sm-6 col-lg-4">
-              <h4 className="text-white mb-4">Contact Us</h4>
-              <address className="text-white fs-6">
-                Hno : Daiict college, Reliance Cross Rd,
-                <br />
-                Gandhinagar, Gujarat
-                <br />
-                PinCode: 382007
-              </address>
-
-              <a
-                href="tel:+918264954234"
-                className="d-block mt-2 text-white"
-              >
-                +91 8264954234
-              </a>
-
-              <a
-                href="mailto:devjariwala8444@gmail.com"
-                className="d-block mt-1 text-white"
-              >
-                devjariwala8444@gmail.com
-              </a>
-
-              <div className="social_icons d-flex gap-15 mt-4">
-                <a className="text-white" href="#">
-                  <BsLinkedin className="fs-4" />
-                </a>
-                <a className="text-white" href="#">
-                  <BsInstagram className="fs-4" />
-                </a>
-                <a className="text-white" href="#">
-                  <BsGithub className="fs-4" />
-                </a>
-                <a className="text-white" href="#">
-                  <BsYoutube className="fs-4" />
-                </a>
-              </div>
-            </div>
-
-            {/* Information */}
-            <div className="col-6 col-sm-6 col-lg-3">
-              <h4 className="text-white mb-4">Information</h4>
-              <div className="footer-link d-flex flex-column">
-                <Link to="/privacy-policy" className="text-white py-1">
-                  Privacy Policy
+          <div className="row gy-5">
+            {/* Brand Column */}
+            <div className="col-12 col-md-6 col-lg-4">
+              <div className="footer-brand">
+                <Link to="/" style={{ textDecoration: 'none' }}>
+                  <h2 
+                    className="footer-logo"
+                    style={{ 
+                      fontFamily: "'Playfair Display', serif",
+                      fontSize: '32px',
+                      color: '#ffffff'
+                    }}
+                  >
+                    <span style={{ color: '#d4af37' }}>VOGUE</span>
+                    <span style={{ color: '#ffffff' }}>CRAFT</span>
+                  </h2>
                 </Link>
-                <Link to="/refund-policy" className="text-white py-1">
-                  Refund Policy
-                </Link>
-                <Link to="/shipping-policy" className="text-white py-1">
-                  Shipping Policy
-                </Link>
-                <Link to="/term-conditions" className="text-white py-1">
-                  Terms & Conditions
-                </Link>
-                <Link className="text-white py-1">
-                  Blogs
-                </Link>
-              </div>
-            </div>
-
-            {/* Account */}
-            <div className="col-6 col-sm-6 col-lg-3">
-              <h4 className="text-white mb-4">Account</h4>
-              <div className="footer-link d-flex flex-column">
-                <Link className="text-white py-1">About Us</Link>
-                <Link className="text-white py-1">FAQ</Link>
-                <Link className="text-white py-1">Contact</Link>
+                <p className="footer-description" style={{ marginTop: '20px', lineHeight: 1.8 }}>
+                  Discover the latest trends in fashion at VogueCraft. We bring you premium quality clothing with style that speaks volumes.
+                </p>
+                <div className="social-links">
+                  <a 
+                    href="https://instagram.com" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="social-icon"
+                    style={{ color: '#ffffff' }}
+                  >
+                    <BsInstagram />
+                  </a>
+                  <a 
+                    href="https://facebook.com" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="social-icon"
+                    style={{ color: '#ffffff' }}
+                  >
+                    <BsFacebook />
+                  </a>
+                  <a 
+                    href="https://twitter.com" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="social-icon"
+                    style={{ color: '#ffffff' }}
+                  >
+                    <BsTwitter />
+                  </a>
+                  <a 
+                    href="https://youtube.com" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="social-icon"
+                    style={{ color: '#ffffff' }}
+                  >
+                    <BsYoutube />
+                  </a>
+                </div>
               </div>
             </div>
 
             {/* Quick Links */}
-            <div className="col-12 col-sm-6 col-lg-2">
-              <h4 className="text-white mb-4">Quick Links</h4>
-              <div className="footer-link d-flex flex-column">
-                <Link className="text-white py-1">Laptops</Link>
-                <Link className="text-white py-1">Headphones</Link>
-                <Link className="text-white py-1">Tablets</Link>
-                <Link className="text-white py-1">Watch</Link>
+            <div className="col-6 col-md-4 col-lg-2">
+              <h4 className="footer-title">Quick Links</h4>
+              <ul className="footer-links">
+                <li><Link to="/">Home</Link></li>
+                <li><Link to="/product">Shop</Link></li>
+                <li><Link to="/reels">Reels</Link></li>
+                <li><Link to="/my-orders">My Orders</Link></li>
+                <li><Link to="/contact">Contact</Link></li>
+              </ul>
+            </div>
+
+            {/* Customer Service */}
+            <div className="col-6 col-md-4 col-lg-2">
+              <h4 className="footer-title">Customer Service</h4>
+              <ul className="footer-links">
+                <li><Link to="/privacy-policy">Privacy Policy</Link></li>
+                <li><Link to="/refund-policy">Refund Policy</Link></li>
+                <li><Link to="/shipping-policy">Shipping Policy</Link></li>
+                <li><Link to="/term-conditions">Terms & Conditions</Link></li>
+                <li><Link to="/blogs">Blog</Link></li>
+              </ul>
+            </div>
+
+            {/* Contact Info */}
+            <div className="col-12 col-md-4 col-lg-4">
+              <h4 className="footer-title">Contact Us</h4>
+              <div style={{ color: 'rgba(255,255,255,0.7)', fontSize: '14px', lineHeight: 2 }}>
+                <div className="d-flex align-items-start gap-3 mb-3">
+                  <BsPinMap style={{ fontSize: '18px', color: '#d4af37', marginTop: '4px' }} />
+                  <span>
+                    Daiict College, Reliance Cross Rd,<br />
+                    Gandhinagar, Gujarat 382007
+                  </span>
+                </div>
+                <div className="d-flex align-items-center gap-3 mb-3">
+                  <BsTelephone style={{ fontSize: '16px', color: '#d4af37' }} />
+                  <a href="tel:+918264954234" style={{ color: 'rgba(255,255,255,0.7)' }}>
+                    +91 8264954234
+                  </a>
+                </div>
+                <div className="d-flex align-items-center gap-3">
+                  <BsEnvelope style={{ fontSize: '16px', color: '#d4af37' }} />
+                  <a href="mailto:devjariwala8444@gmail.com" style={{ color: 'rgba(255,255,255,0.7)' }}>
+                    devjariwala8444@gmail.com
+                  </a>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Footer Bottom */}
+          <div className="footer-bottom" style={{ 
+            borderTop: '1px solid rgba(255,255,255,0.1)', 
+            paddingTop: '30px',
+            marginTop: '60px',
+            paddingBottom: '30px',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            gap: '20px'
+          }}>
+            <p className="copyright" style={{ color: 'rgba(255,255,255,0.5)', fontSize: '14px', margin: 0 }}>
+              © {new Date().getFullYear()} <span style={{ color: '#d4af37' }}>VogueCraft</span>. All rights reserved.
+            </p>
+            <div className="payment-methods">
+              <span style={{ color: 'rgba(255,255,255,0.5)', fontSize: '12px', marginRight: '10px' }}>We Accept:</span>
+              <div className="d-flex gap-2">
+                <span style={{ 
+                  background: 'rgba(255,255,255,0.1)', 
+                  padding: '6px 12px', 
+                  borderRadius: '4px',
+                  fontSize: '12px',
+                  color: '#fff'
+                }}>Visa</span>
+                <span style={{ 
+                  background: 'rgba(255,255,255,0.1)', 
+                  padding: '6px 12px', 
+                  borderRadius: '4px',
+                  fontSize: '12px',
+                  color: '#fff'
+                }}>MasterCard</span>
+                <span style={{ 
+                  background: 'rgba(255,255,255,0.1)', 
+                  padding: '6px 12px', 
+                  borderRadius: '4px',
+                  fontSize: '12px',
+                  color: '#fff'
+                }}>UPI</span>
               </div>
             </div>
           </div>
         </div>
       </footer>
 
-      {/* Bottom Bar */}
-      <footer className="py-4">
-        <div className="container-xxl">
-          <p className="text-center mb-0 text-white">
-            &copy; {new Date().getFullYear()} Powered by Cart Corner
-          </p>
-        </div>
-      </footer>
+      <style jsx>{`
+        .footer-links {
+          list-style: none;
+          padding: 0;
+          margin: 0;
+        }
+        
+        .footer-links li {
+          margin-bottom: 12px;
+        }
+        
+        .footer-links a {
+          color: rgba(255, 255, 255, 0.7);
+          text-decoration: none;
+          font-size: 14px;
+          transition: all 0.3s ease;
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+        }
+        
+        .footer-links a::before {
+          content: '';
+          width: 0;
+          height: 2px;
+          background: #d4af37;
+          transition: width 0.3s ease;
+        }
+        
+        .footer-links a:hover {
+          color: #d4af37;
+          padding-left: 5px;
+        }
+        
+        .footer-links a:hover::before {
+          width: 6px;
+        }
+        
+        .social-links {
+          display: flex;
+          gap: 12px;
+          margin-top: 24px;
+        }
+        
+        .social-icon {
+          width: 40px;
+          height: 40px;
+          background: rgba(255, 255, 255, 0.1);
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 18px;
+          transition: all 0.3s ease;
+        }
+        
+        .social-icon:hover {
+          background: #d4af37;
+          color: #1a1a1a;
+          transform: translateY(-3px);
+        }
+        
+        @media (max-width: 768px) {
+          .footer-bottom {
+            flex-direction: column;
+            text-align: center;
+          }
+        }
+      `}</style>
     </>
   );
 };
 
 export default Footer;
+

@@ -23,6 +23,8 @@ const {
   getUserCart,
 
   createOrder,
+  registerUser,
+   
 
   removeProductFromCart,
   updateProductQuantityFromCart,
@@ -50,7 +52,9 @@ router.post(
   isAdmin,
   createOfflineOrder
 );
-router.post("/register", createUser);
+// router.post("/register", createUser);
+router.post("/register", registerUser);
+
 router.post("/forgot-password-token", forgotPasswordToken);
 // router.get("/barcode/:barcode", getProductByBarcode);
 

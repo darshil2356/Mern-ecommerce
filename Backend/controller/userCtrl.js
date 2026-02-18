@@ -79,38 +79,93 @@ const createOfflineOrder = asyncHandler(async (req, res) => {
 });
 
 
+const registerUser = asyncHandler(async (req, res) => {
+  const { email, password } = req.body;
+
+  const existingUser = await User.findOne({ email });
+
+  // Case 1: New online user
+  if (!existingUser) {
+    const newUser = await User.create(req.body);
+    return res.json(newUser);
+  }
+
+  // Case 2: Offline user activating account
+  if (existingUser && !existingUser.password) {
+    existingUser.password = password;
+    await existingUser.save();
+
+    return res.json({
+      message: "Account activated successfully",
+    });
+  }
+
+  // Case 3: Already activated
+  throw new Error("User Already Exists");
+});
+
+
+
 // Create a User ----------------------------------------------
 
-const createUser = asyncHandler(async (req, res) => {
-  /**
-   * TODO:Get the email from req.body
-   */
-  const email = req.body.email;
-  /**
-   * TODO:With the help of email find the user exists or not
-   */
-  const findUser = await User.findOne({ email: email });
+// const createUser = asyncHandler(async (req, res) => {
+//   /**
+//    * TODO:Get the email from req.body
+//    */
+//   const email = req.body.email;
+//   /**
+//    * TODO:With the help of email find the user exists or not
+//    */
+//   const findUser = await User.findOne({ email: email });
 
-  if (!findUser) {
-    /**
-     * TODO:if user not found user create a new user
-     */
-    const newUser = await User.create(req.body);
-    res.json(newUser);
-  } else {
-    /**
-     * TODO:if user found then thow an error: User already exists
-     */
-    throw new Error("User Already Exists");
+//   if (!findUser) {
+//     /**
+//      * TODO:if user not found user create a new user
+//      */
+//     const newUser = await User.create(req.body);
+//     res.json(newUser);
+//   } else {
+//     /**
+//      * TODO:if user found then thow an error: User already exists
+//      */
+//     throw new Error("User Already Exists");
+//   }
+// });
+const createUser = asyncHandler(async (req, res) => {
+  const { email, firstname, lastname, mobile } = req.body;
+
+  const existingUser = await User.findOne({ email });
+
+  if (existingUser) {
+    throw new Error("User already exists");
   }
+
+  const newUser = await User.create({
+    firstname,
+    lastname,
+    email,
+    mobile,
+    password: null,   // IMPORTANT
+    role: "user",
+  });
+
+  res.json(newUser);
 });
+
+
 
 // Login a user
 const loginUserCtrl = asyncHandler(async (req, res) => {
   const { email, password } = req.body;
   // check if user exists or not
   const findUser = await User.findOne({ email });
-  if (findUser && (await findUser.isPasswordMatched(password))) {
+  // if (findUser && (await findUser.isPasswordMatched(password))) {
+  if (!findUser || !findUser.password) {
+  throw new Error("Invalid Credentials");
+}
+
+if (await findUser.isPasswordMatched(password)) {
+
     const refreshToken = await generateRefreshToken(findUser?._id);
     const updateuser = await User.findByIdAndUpdate(
       findUser.id,
@@ -710,4 +765,5 @@ module.exports = {
   updateProductQuantityFromCart,
   createOfflineOrder,
   getProductByBarcode,
+  registerUser
 };

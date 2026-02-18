@@ -28,6 +28,11 @@ const clampNonNegative = (v) => {
   const [taxPercent, setTaxPercent] = useState(0);
   const [discount, setDiscount] = useState(0);
 
+  const [customers, setCustomers] = useState([]);
+const [searchTerm, setSearchTerm] = useState("");
+const [showDropdown, setShowDropdown] = useState(false);
+
+
   /* =========================
      AUTO FOCUS SCANNER INPUT
      ========================= */
@@ -213,6 +218,32 @@ const clampNonNegative = (v) => {
   return () => window.removeEventListener("keydown", handleKeyDown);
 }, []);
 
+
+useEffect(() => {
+  const fetchCustomers = async () => {
+    try {
+      const res = await axios.get(`${base_url}user/all-users`, config);
+      setCustomers(res.data.filter(u => u.role !== "admin"));
+    } catch (err) {
+      console.error("Failed to fetch customers");
+    }
+  };
+
+  fetchCustomers();
+}, []);
+
+
+
+const filteredCustomers = useMemo(() => {
+  if (!searchTerm) return [];
+  return customers.filter((c) =>
+    `${c.firstname} ${c.lastname}`
+      .toLowerCase()
+      .includes(searchTerm.toLowerCase())
+  );
+}, [searchTerm, customers]);
+
+
   /* =========================
      FINALIZE SALE
      ========================= */
@@ -375,14 +406,51 @@ const payableAmount = useMemo(
       </div> */}
 
       <div className="space-y-2">
-  <div className="flex items-end gap-3">
+  {/* <div className="flex items-end gap-3">
     <label className="w-24 text-xs font-medium">Name</label>
     <input
       className="flex-1 border-b border-gray-300 focus:border-black outline-none py-1"
       value={customer.name}
       onChange={(e) => setCustomer({ ...customer, name: e.target.value })}
     />
-  </div>
+  </div> */}
+
+  <div className="flex items-end gap-3 relative">
+  <label className="w-24 text-xs font-medium">Name</label>
+
+  <input
+    className="flex-1 border-b border-gray-300 focus:border-black outline-none py-1"
+    value={searchTerm}
+    onChange={(e) => {
+      setSearchTerm(e.target.value);
+      setShowDropdown(true);
+    }}
+    onFocus={() => setShowDropdown(true)}
+  />
+
+  {showDropdown && filteredCustomers.length > 0 && (
+    <div className="absolute top-8 left-24 w-[300px] bg-white border rounded shadow-md max-h-40 overflow-y-auto z-50">
+      {filteredCustomers.map((cust) => (
+        <div
+          key={cust._id}
+          className="p-2 hover:bg-gray-100 cursor-pointer text-sm"
+          onClick={() => {
+            setCustomer({
+              name: cust.firstname + " " + cust.lastname,
+              address: cust.address || "",
+              contact: cust.mobile || "",
+            });
+            setSearchTerm(cust.firstname + " " + cust.lastname);
+            setShowDropdown(false);
+          }}
+        >
+          {cust.firstname} {cust.lastname}
+        </div>
+      ))}
+    </div>
+  )}
+</div>
+
 
   <div className="flex items-end gap-3">
     <label className="w-24 text-xs font-medium">Address</label>

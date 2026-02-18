@@ -6,123 +6,161 @@ import { getOrders } from "../features/user/userSlice";
 
 const Orders = () => {
   const dispatch = useDispatch();
+
   const orderState = useSelector(
     (state) => state?.auth?.getorderedProduct?.orders
   );
 
-  const getTokenFromLocalStorage = localStorage.getItem("customer")
+  const customer = localStorage.getItem("customer")
     ? JSON.parse(localStorage.getItem("customer"))
     : null;
 
-  const config2 = {
-    headers: {
-      Authorization: `Bearer ${
-        getTokenFromLocalStorage !== null ? getTokenFromLocalStorage.token : ""
-      }`,
-      Accept: "application/json",
-    },
+  useEffect(() => {
+    if (customer?.token) {
+      dispatch(
+        getOrders({
+          headers: {
+            Authorization: `Bearer ${customer.token}`,
+          },
+        })
+      );
+    }
+  }, [dispatch]);
+
+  const formatDate = (date) => {
+    return new Date(date).toLocaleDateString("en-IN", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    });
   };
 
-  useEffect(() => {
-    dispatch(getOrders(config2));
-  }, []);
+  const formatPrice = (price) => {
+    return `₹ ${price?.toLocaleString("en-IN")}`;
+  };
+
   return (
     <>
       <BreadCrumb title="My Orders" />
-      <Container class1="cart-wrapper home-wrapper-2 py-5">
+
+      <Container class1="home-wrapper-2 py-5">
         <div className="row">
           <div className="col-12">
-            <div className="row">
-              <div className="col-3">
-                <h5>Order Id</h5>
-              </div>
-              <div className="col-3">
-                <h5>Total Amount</h5>
-              </div>
-              <div className="col-3">
-                <h5>Total Amount after Discount</h5>
-              </div>
-              <div className="col-3">
-                <h5>Status</h5>
-              </div>
-            </div>
+            <h3 className="mb-4 fw-bold">My Orders</h3>
 
-            <div className="col-12  mt-3">
-              {orderState &&
-                orderState?.map((item, index) => {
-                  return (
-                    <div
-                      style={{ backgroundColor: "#febd69" }}
-                      className="row pt-3 my-3"
-                      key={index}
-                    >
-                      <div className="col-3">
-                        <p>{item?._id}</p>
-                      </div>
-                      <div className="col-3">
-                        <p>{item?.totalPrice}</p>
-                      </div>
-                      <div className="col-3">
-                        <p>{item?.totalPriceAfterDiscount}</p>
-                      </div>
-                      <div className="col-3">
-                        <p>{item?.orderStatus}</p>
-                      </div>
-                      <div className="col-12">
-                        <div
-                          className="row py-3"
-                          style={{ backgroundColor: "#232f3e" }}
-                        >
-                          <div className="col-3">
-                            <h6 className="text-white">ProductName</h6>
-                          </div>
-                          <div className="col-3">
-                            <h6 className="text-white">Quantity</h6>
-                          </div>
-                          <div className="col-3">
-                            <h6 className="text-white">Price</h6>
-                          </div>
-                          <div className="col-3">
-                            <h6 className="text-white">Color</h6>
-                          </div>
-                          {item?.orderItems?.map((i, index) => {
-                            return (
-                              <div className="col-12">
-                                <div className="row py-3">
-                                  <div className="col-3">
-                                    <p className="text-white">
-                                      {i?.product?.title}
-                                    </p>
-                                  </div>
-                                  <div className="col-3">
-                                    <p className="text-white">{i?.quantity}</p>
-                                  </div>
-                                  <div className="col-3">
-                                    <p className="text-white">{i?.price}</p>
-                                  </div>
-                                  <div className="col-3">
-                                    <ul className="colors ps-0">
-                                      <li
-                                        style={{
-                                          backgroundColor: i?.color.title,
-                                        }}
-                                      ></li>
-                                    </ul>
-                                  </div>
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
+            {!orderState || orderState.length === 0 ? (
+              <div className="text-center py-5">
+                <h5>No Orders Found</h5>
+              </div>
+            ) : (
+              orderState.map((order) => (
+                <div
+                  key={order._id}
+                  className="card mb-4 shadow-sm border-0"
+                  style={{ borderRadius: "12px" }}
+                >
+                  {/* Order Header */}
+                  <div
+                    className="card-header d-flex justify-content-between align-items-center"
+                    style={{ background: "#f8f9fa" }}
+                  >
+                    <div>
+                      <small className="text-muted">Order ID</small>
+                      <div className="fw-semibold">{order._id}</div>
+                    </div>
+
+                    <div>
+                      <small className="text-muted">Placed On</small>
+                      <div className="fw-semibold">
+                        {formatDate(order.createdAt)}
                       </div>
                     </div>
-                  );
-                })}
-            </div>
+
+                    <div>
+                      <small className="text-muted">Total</small>
+                      <div className="fw-bold text-success">
+                        {formatPrice(order.totalPriceAfterDiscount)}
+                      </div>
+                    </div>
+
+                    <span
+                      className={`badge ${
+                        order.orderStatus === "Delivered"
+                          ? "bg-success"
+                          : order.orderStatus === "Ordered"
+                          ? "bg-warning text-dark"
+                          : "bg-secondary"
+                      }`}
+                    >
+                      {order.orderStatus}
+                    </span>
+                  </div>
+
+                  {/* Order Items */}
+                  <div className="card-body">
+                    {order.orderItems?.map((item) => (
+                      <div
+                        key={item._id}
+                        className="row align-items-center mb-3 border-bottom pb-3"
+                      >
+                        {/* Product Image */}
+                        <div className="col-md-2">
+                          {item?.product?.images?.[0]?.url ? (
+                            <img
+                              src={item.product.images[0].url}
+                              alt="product"
+                              className="img-fluid rounded"
+                            />
+                          ) : (
+                            <div
+                              style={{
+                                height: "80px",
+                                background: "#eee",
+                                borderRadius: "8px",
+                              }}
+                            ></div>
+                          )}
+                        </div>
+
+                        {/* Product Info */}
+                        <div className="col-md-4">
+                          <h6 className="mb-1">
+                            {item?.product?.title || "Product Not Available"}
+                          </h6>
+                          <small className="text-muted">
+                            Qty: {item.quantity}
+                          </small>
+                        </div>
+
+                        {/* Price */}
+                        <div className="col-md-3 fw-semibold">
+                          {formatPrice(item.price)}
+                        </div>
+
+                        {/* Color */}
+                        <div className="col-md-3">
+                          <div className="d-flex align-items-center gap-2">
+                            <div
+                              style={{
+                                width: "20px",
+                                height: "20px",
+                                borderRadius: "50%",
+                                backgroundColor: item?.color?.title,
+                                border: "1px solid #ccc",
+                              }}
+                            ></div>
+                            <small>{item?.color?.title}</small>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         </div>
       </Container>
-      .
     </>
   );
 };

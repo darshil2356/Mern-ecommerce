@@ -1,16 +1,13 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import ReactStars from "react-rating-stars-component";
 import BreadCrumb from "../components/BreadCrumb";
 import Meta from "../components/Meta";
 import ProductCard from "../components/ProductCard";
 import ReactImageZoom from "react-image-zoom";
 import Color from "../components/Color";
-import { TbGitCompare } from "react-icons/tb";
 import { AiOutlineHeart, AiFillHeart } from "react-icons/ai";
-import { Link, useLocation, useNavigate } from "react-router-dom";
-import watch from "../images/watch.jpg";
+import { useLocation, useNavigate } from "react-router-dom";
 import Container from "../components/Container";
-import { addToWishlist } from "../features/products/productSlilce";
 import { useDispatch, useSelector } from "react-redux";
 import {
   addRating,
@@ -37,18 +34,18 @@ const SingleProduct = () => {
   console.log(wishlistState);
 
   const isVideo = (url) => {
-  return url?.includes("/video/") || url?.endsWith(".mp4");
-};
+    return url?.includes("/video/") || url?.endsWith(".mp4");
+  };
 
-const toImageUrl = (url) => {
-  if (!url) return "";
-  if (url.includes("/video/upload/")) {
-    return url
-      .replace("/video/upload/", "/image/upload/")
-      .replace(".mp4", ".jpg");
-  }
-  return url;
-};
+  const toImageUrl = (url) => {
+    if (!url) return "";
+    if (url.includes("/video/upload/")) {
+      return url
+        .replace("/video/upload/", "/image/upload/")
+        .replace(".mp4", ".jpg");
+    }
+    return url;
+  };
 
 
 
@@ -81,16 +78,6 @@ const toImageUrl = (url) => {
       );
     }
   };
-  // const props = {
-  //   width: 594,
-  //   height: 600,
-  //   zoomWidth: 600,
-
-  //   img: productState?.images[0].url
-  //     ? productState?.images[0].url
-  //     : "https://images.pexels.com/photos/190819/pexels-photo-190819.jpeg?cs=srgb&dl=pexels-fernando-arcos-190819.jpg&fm=jpg",
-  // };
-
   const [orderedProduct, setorderedProduct] = useState(true);
   const copyToClipboard = (text) => {
     console.log("text", text);
@@ -102,7 +89,7 @@ const toImageUrl = (url) => {
     textField.remove();
   };
 
-  const closeModal = () => {};
+  const closeModal = () => { };
   const [popularProduct, setPopularProduct] = useState([]);
 
   useEffect(() => {
@@ -145,15 +132,15 @@ const toImageUrl = (url) => {
   };
 
   const media = [
-  ...(productState?.images || []).map((i) => ({
-    type: "image",
-    url: i.url,
-  })),
-  ...(productState?.videos || []).map((v) => ({
-    type: "video",
-    url: v.url,
-  })),
-];
+    ...(productState?.images || []).map((i) => ({
+      type: "image",
+      url: i.url,
+    })),
+    ...(productState?.videos || []).map((v) => ({
+      type: "video",
+      url: v.url,
+    })),
+  ];
 
 
   return (
@@ -163,128 +150,71 @@ const toImageUrl = (url) => {
       <Container class1="main-product-wrapper py-5 home-wrapper-2">
         <div className="row">
           <div className="col-6">
-            {/* <div className="main-product-image">
-              <div>
-                <ReactImageZoom {...props} />
-              </div>
-            </div> */}
+            <div className="main-product-image">
+              <ReactImageZoom
+                width={594}
+                height={600}
+                zoomWidth={600}
+                img={
+                  toImageUrl(productState?.images?.[0]?.url) ||
+                  "https://images.pexels.com/photos/190819/pexels-photo-190819.jpeg"
+                }
+              />
+            </div>
+            <div className="other-product-images d-flex flex-wrap gap-15">
+              {productState?.images?.map((item, index) => {
+                const video = isVideo(item.url);
 
-           <div className="main-product-image">
-  <ReactImageZoom
-    width={594}
-    height={600}
-    zoomWidth={600}
-    img={
-      toImageUrl(productState?.images?.[0]?.url) ||
-      "https://images.pexels.com/photos/190819/pexels-photo-190819.jpeg"
-    }
-  />
-</div>
-
-
-            {/* <div className="other-product-images d-flex flex-wrap gap-15">
-              {productState?.images.map((item, index) => {
                 return (
-                  <div>
-                    <img src={item?.url} className="img-fluid" alt="" />
+                  <div
+                    className="other-product-images d-flex flex-nowrap gap-15"
+                    style={{ overflowX: "auto" }}
+                  >
+                    {media.map((item, index) => (
+                      <div
+                        key={index}
+                        style={{
+                          flex: "0 0 auto",   // 👈 prevents vertical stacking
+                        }}
+                      >
+                        {item.type === "video" ? (
+                          <video
+                            src={item.url}
+                            poster={toImageUrl(item.url)}
+                            muted
+                            playsInline
+                            autoPlay
+                            loop
+                            preload="auto"
+                            style={{
+                              width: "100px",
+                              height: "100px",
+                              objectFit: "cover",
+                              borderRadius: "6px",
+                              display: "block",
+                              background: "#000",
+                            }}
+                          />
+                        ) : (
+                          <img
+                            src={item.url}
+                            alt=""
+                            style={{
+                              width: "100px",
+                              height: "100px",
+                              objectFit: "cover",
+                              borderRadius: "6px",
+                              display: "block",
+                            }}
+                          />
+                        )}
+                      </div>
+                    ))}
                   </div>
+
                 );
               })}
-            </div> */}
-
-<div className="other-product-images d-flex flex-wrap gap-15">
-  {productState?.images?.map((item, index) => {
-    const video = isVideo(item.url);
-
-    return (
-//       <div key={index}>
-//         {video ? (
-//           <video
-//   src={item.url}
-//   poster={toImageUrl(item.url)}   // 👈 important
-//   muted
-//   playsInline
-//   autoPlay
-//   loop
-//   preload="auto"
-//   style={{
-//     width: "100px",
-//     height: "100px",
-//     objectFit: "cover",
-//     borderRadius: "6px",
-//     display: "block",
-//     background: "#000",
-//   }}
-// />
-
-
-//         ) : (
-//           <img
-//             src={item.url}
-//             className="img-fluid"
-//             alt=""
-//             style={{
-//               width: "100px",
-//               height: "100px",
-//               objectFit: "cover",
-//               borderRadius: "6px",
-//             }}
-//           />
-//         )}
-//       </div>
-
-<div
-  className="other-product-images d-flex flex-nowrap gap-15"
-  style={{ overflowX: "auto" }}
->
-  {media.map((item, index) => (
-    <div
-      key={index}
-      style={{
-        flex: "0 0 auto",   // 👈 prevents vertical stacking
-      }}
-    >
-      {item.type === "video" ? (
-        <video
-          src={item.url}
-          poster={toImageUrl(item.url)}
-          muted
-          playsInline
-          autoPlay
-          loop
-          preload="auto"
-          style={{
-            width: "100px",
-            height: "100px",
-            objectFit: "cover",
-            borderRadius: "6px",
-            display: "block",
-            background: "#000",
-          }}
-        />
-      ) : (
-        <img
-          src={item.url}
-          alt=""
-          style={{
-            width: "100px",
-            height: "100px",
-            objectFit: "cover",
-            borderRadius: "6px",
-            display: "block",
-          }}
-        />
-      )}
-    </div>
-  ))}
-</div>
-
-    );
-  })}
-</div>
-
-
-
+            </div>
           </div>
           <div className="col-6">
             <div className="main-product-details">
@@ -330,23 +260,6 @@ const toImageUrl = (url) => {
                   <h3 className="product-heading">Availablity :</h3>
                   <p className="product-data">In Stock</p>
                 </div>
-                {/* <div className="d-flex gap-10 flex-column mt-2 mb-3">
-                  <h3 className="product-heading">Size :</h3>
-                  <div className="d-flex flex-wrap gap-15">
-                    <span className="badge border border-1 bg-white text-dark border-secondary">
-                      S
-                    </span>
-                    <span className="badge border border-1 bg-white text-dark border-secondary">
-                      M
-                    </span>
-                    <span className="badge border border-1 bg-white text-dark border-secondary">
-                      XL
-                    </span>
-                    <span className="badge border border-1 bg-white text-dark border-secondary">
-                      XXL
-                    </span>
-                  </div>
-                </div> */}
                 {alreadyAdded === false && (
                   <div className="d-flex gap-10 flex-column mt-2 mb-3">
                     <h3 className="product-heading">Color :</h3>
@@ -383,8 +296,6 @@ const toImageUrl = (url) => {
                   >
                     <button
                       className="button border-0"
-                      // data-bs-toggle="modal"
-                      // data-bs-target="#staticBackdrop"
                       type="button"
                       onClick={() => {
                         alreadyAdded ? navigate("/cart") : uploadCart();
@@ -392,15 +303,9 @@ const toImageUrl = (url) => {
                     >
                       {alreadyAdded ? "Go to Cart" : "Add to Cart "}
                     </button>
-                    {/* <button className="button signup">Buy It Now</button> */}
                   </div>
                 </div>
                 <div className="d-flex align-items-center gap-15">
-                  {/* <div>
-                    <a href="">
-                      <TbGitCompare className="fs-5 me-2" /> Add to Compare
-                    </a>
-                  </div> */}
                   <div>
                     {isFilled ? (
                       <AiFillHeart
@@ -552,61 +457,6 @@ const toImageUrl = (url) => {
           <ProductCard data={popularProduct} />
         </div>
       </Container>
-
-      {/* <div
-        className="modal fade"
-        id="staticBackdrop"
-        data-bs-backdrop="static"
-        data-bs-keyboard="false"
-        tabindex="-1"
-        aria-labelledby="staticBackdropLabel"
-        aria-hidden="true"
-      >
-        <div className="modal-dialog modal-dialog-centered ">
-          <div className="modal-content">
-            <div className="modal-header py-0 border-0">
-              <button
-                type="button"
-                className="btn-close"
-                data-bs-dismiss="modal"
-                aria-label="Close"
-              ></button>
-            </div>
-            <div className="modal-body py-0">
-              <div className="d-flex align-items-center">
-                <div className="flex-grow-1 w-50">
-                  <img src={watch} className="img-fluid" alt="product imgae" />
-                </div>
-                <div className="d-flex flex-column flex-grow-1 w-50">
-                  <h6 className="mb-3">Apple Watch</h6>
-                  <p className="mb-1">Quantity: asgfd</p>
-                  <p className="mb-1">Color: asgfd</p>
-                  <p className="mb-1">Size: asgfd</p>
-                </div>
-              </div>
-            </div>
-            <div className="modal-footer border-0 py-0 justify-content-center gap-30">
-              <button type="button" className="button" data-bs-dismiss="modal">
-                View My Cart
-              </button>
-              <button type="button" className="button signup">
-                Checkout
-              </button>
-            </div>
-            <div className="d-flex justify-content-center py-3">
-              <Link
-                className="text-dark"
-                to="/product"
-                onClick={() => {
-                  closeModal();
-                }}
-              >
-                Continue To Shopping
-              </Link>
-            </div>
-          </div>
-        </div>
-      </div> */}
     </>
   );
 };

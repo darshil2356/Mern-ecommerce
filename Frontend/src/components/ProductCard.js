@@ -1,13 +1,6 @@
 import React, { useEffect } from "react";
 import ReactStars from "react-rating-stars-component";
 import { useLocation, useNavigate } from "react-router-dom";
-
-import wish from "../images/wish.svg";
-// import wishlist from "../images/wishlist.svg";
-// import watch from "../images/watch.jpg";
-// import watch2 from "../images/watch-1.avif";
-// import addcart from "../images/add-cart.svg";
-import view from "../images/view.svg";
 import { useDispatch, useSelector } from "react-redux";
 import { addToWishlist } from "../features/products/productSlilce";
 import { AiFillHeart, AiOutlineHeart } from "react-icons/ai";
@@ -18,19 +11,19 @@ const ProductCard = (props) => {
   const navigate = useNavigate();
   const { grid, data } = props;
   const dispatch = useDispatch();
-  console.log(data);
   const location = useLocation();
-
-
-  const isVideo = (url) => {
-  return url?.includes("/video/") || url?.endsWith(".mp4");
-};
-
-
   const wishlistState = useSelector((state) => state?.auth?.wishlist?.wishlist);
-
   const [wishlist, setWishlist] = useState(wishlistState || []);
-
+  const [autoPlayIndexes, setAutoPlayIndexes] = useState([]);
+  useEffect(() => {
+    if (data?.length > 0) {
+      const shuffled = [...data.keys()]
+        .sort(() => 0.5 - Math.random());
+      // 👉 choose how many videos should autoplay
+      const randomCount = Math.floor(data.length * 0.3); // 30% autoplay
+      setAutoPlayIndexes(shuffled.slice(0, randomCount));
+    }
+  }, [data]);
   useEffect(() => {
     setWishlist(wishlistState || []);
   }, [wishlistState]);
@@ -61,9 +54,8 @@ const ProductCard = (props) => {
         return (
           <div
             key={index}
-            className={` ${
-              location.pathname == "/product" ? `gr-${grid}` : "col-3"
-            } `}
+            className={` ${location.pathname == "/product" ? `gr-${grid}` : "col-3"
+              } `}
           >
             <div className="product-card position-relative">
               <div className="wishlist-icon position-absolute">
@@ -78,95 +70,96 @@ const ProductCard = (props) => {
                   )}
                 </button>
               </div>
-
-              {/* <div className="product-image">
-                <img
-                  src={item?.images[0]?.url}
-                  // className="img-fluid d"
-                  alt="product image"
-                  height={"250px"}
-                  width={"100%"}
-                  onClick={() => navigate("/product/" + item?._id)}
-                />
-                <img
-                  src={item?.images[0]?.url}
-                  // className="img-fluid d"
-                  alt="product image"
-                  height={"250px"}
-                  width={"100%"}
-                  onClick={() => navigate("/product/" + item?._id)}
-                />
-              </div> */}
               <div
-  className="product-image"
-  onClick={() => navigate("/product/" + item?._id)}
->
-  {/* {isVideo(item?.images?.[0]?.url) ? (
-    <video
-      src={item.images[0].url}
-      muted
-      playsInline
-      preload="metadata"
-      style={{
-        width: "100%",
-        height: "250px",
-        objectFit: "cover",
-      }}
-    />
-  ) : (
-    <img
-      src={item?.images?.[0]?.url}
-      alt="product"
-      style={{
-        width: "100%",
-        height: "250px",
-        objectFit: "cover",
-      }}
-    />
-  )} */}
+                className="product-image"
+                onClick={() => navigate("/product/" + item?._id)}
+                style={{
+                  cursor: "pointer",
+                  overflow: "hidden",
+                  borderRadius: "12px",
+                }}
+              >
+                {item?.videos?.[0]?.url ? (
+                  <video
+                    src={item.videos[0].url}
+                    muted
+                    loop
+                    playsInline
+                    autoPlay={autoPlayIndexes.includes(index)}
+                    preload="metadata"
+                    style={{
+                      width: "100%",
+                      height: "250px",
+                      objectFit: "cover",
+                      display: "block",
+                    }}
+                    onMouseEnter={(e) => e.target.play()}
+                    onMouseLeave={(e) => {
+                      if (!autoPlayIndexes.includes(index)) {
+                        e.target.pause();
+                        e.target.currentTime = 0;
+                      }
+                    }}
+                  />
 
-  <img
-  src={item?.images?.[0]?.url}
-  alt="product"
-  style={{ width: "100%", height: "250px", objectFit: "cover" }}
-/>
 
-</div>
-
+                ) : item?.images?.[0]?.url ? (
+                  <img
+                    src={item.images[0].url}
+                    alt={item?.title || "product"}
+                    style={{
+                      width: "100%",
+                      height: "250px",
+                      objectFit: "cover",
+                      display: "block",
+                    }}
+                  />
+                ) : (
+                  <div
+                    style={{
+                      width: "100%",
+                      height: "250px",
+                      background: "#f5f5f5",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      fontSize: "14px",
+                      color: "#999",
+                    }}
+                  >
+                    No Media Available
+                  </div>
+                )}
+              </div>
               <div className="product-details">
+                <div className="wishlist-icon position-absolute">
+                  <button
+                    className="border-0 bg-transparent"
+                    onClick={(e) => addToWish(item?._id)}
+                  >
+                    {isWishlist ? (
+                      <AiFillHeart className="fs-5 me-1" />
+                    ) : (
+                      <AiOutlineHeart className="fs-5 me-1" />
+                    )}
+                  </button>
+                </div>
                 <h6 className="brand">{item?.brand}</h6>
                 <h5 className="product-title">
                   {grid === 12 || grid === 6
                     ? item?.title
-                    : item?.title?.substr(0, 80) + "..."}
+                    : item?.title?.length > 80
+                      ? item.title.slice(0, 80) + "..."
+                      : item?.title}
                 </h5>
-                <ReactStars
+                {/* <ReactStars
                   count={5}
                   size={24}
                   value={item?.totalrating}
                   edit={false}
                   activeColor="#ffd700"
-                />
-
+                /> */}
                 <p className="price">Rs.{item?.price}</p>
-              </div>
-              <div className="action-bar position-absolute">
-                <div className="d-flex flex-column gap-15">
-                  {/* <button className="border-0 bg-transparent">
-                    <img src={prodcompare} alt="compare" />
-                  </button> */}
-
-                  {/* <button className="border-0 bg-transparent">
-                    <img
-                      onClick={() => navigate("/product/" + item?._id)}
-                      src={view}
-                      alt="view"
-                    />
-                  </button> */}
-                  {/* <button className="border-0 bg-transparent">
-                    <img src={addcart} alt="addcart" />
-                  </button> */}
-                </div>
               </div>
             </div>
           </div>

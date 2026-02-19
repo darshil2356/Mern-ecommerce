@@ -13,6 +13,10 @@ const LiveBilling = () => {
 const [sgstPercent, setSgstPercent] = useState(0);
 const [discountPercent, setDiscountPercent] = useState(0);
 
+const [contactSearch, setContactSearch] = useState("");
+const [showContactDropdown, setShowContactDropdown] = useState(false);
+
+
 const clampNonNegative = (v) => {
   if (v === "" || isNaN(v)) return 0;
   return Math.max(0, Number(v));
@@ -219,29 +223,83 @@ const [showDropdown, setShowDropdown] = useState(false);
 }, []);
 
 
+// useEffect(() => {
+//   const fetchCustomers = async () => {
+//     try {
+//       const res = await axios.get(`${base_url}user/all-users`, config);
+//       setCustomers(res.data.filter(u => u.role !== "admin"));
+//     } catch (err) {
+//       console.error("Failed to fetch customers");
+//     }
+//   };
+
+//   fetchCustomers();
+// }, []);
+
+
 useEffect(() => {
-  const fetchCustomers = async () => {
+  if (!searchTerm.trim()) {
+    setCustomers([]);
+    return;
+  }
+
+  const delay = setTimeout(async () => {
     try {
-      const res = await axios.get(`${base_url}user/all-users`, config);
-      setCustomers(res.data.filter(u => u.role !== "admin"));
+      const res = await axios.get(
+        `${base_url}user/search?query=${searchTerm}`,
+        config
+      );
+      setCustomers(res.data);
     } catch (err) {
-      console.error("Failed to fetch customers");
+      console.error(err);
     }
-  };
+  }, 400); // debounce 400ms
 
-  fetchCustomers();
-}, []);
+  return () => clearTimeout(delay);
+}, [searchTerm]);
 
 
 
-const filteredCustomers = useMemo(() => {
-  if (!searchTerm) return [];
-  return customers.filter((c) =>
-    `${c.firstname} ${c.lastname}`
-      .toLowerCase()
-      .includes(searchTerm.toLowerCase())
-  );
-}, [searchTerm, customers]);
+// const filteredCustomers = useMemo(() => {
+//   if (!searchTerm) return [];
+//   return customers.filter((c) =>
+//     `${c.firstname} ${c.lastname}`
+//       .toLowerCase()
+//       .includes(searchTerm.toLowerCase())
+//   );
+// }, [searchTerm, customers]);
+
+// const filteredByContact = useMemo(() => {
+//   if (!contactSearch.trim()) return [];
+
+//   return customers.filter((c) =>
+//     String(c.mobile || "").includes(contactSearch.trim())
+//   );
+// }, [contactSearch, customers]);
+
+
+useEffect(() => {
+  if (!contactSearch.trim()) {
+    setCustomers([]);
+    return;
+  }
+
+  const delay = setTimeout(async () => {
+    try {
+      const res = await axios.get(
+        `${base_url}user/search?query=${contactSearch}`,
+        config
+      );
+      setCustomers(res.data);
+    } catch (err) {
+      console.error(err);
+    }
+  }, 400);
+
+  return () => clearTimeout(delay);
+}, [contactSearch]);
+
+
 
 
   /* =========================
@@ -428,9 +486,9 @@ const payableAmount = useMemo(
     onFocus={() => setShowDropdown(true)}
   />
 
-  {showDropdown && filteredCustomers.length > 0 && (
+  {showDropdown && customers.length > 0 && (
     <div className="absolute top-8 left-24 w-[300px] bg-white border rounded shadow-md max-h-40 overflow-y-auto z-50">
-      {filteredCustomers.map((cust) => (
+      {customers.map((cust) => (
         <div
           key={cust._id}
           className="p-2 hover:bg-gray-100 cursor-pointer text-sm"
@@ -461,14 +519,55 @@ const payableAmount = useMemo(
     />
   </div>
 
-  <div className="flex items-end gap-3">
+  {/* <div className="flex items-end gap-3">
     <label className="w-24 text-xs font-medium">Contact</label>
     <input
       className="flex-1 border-b border-gray-300 focus:border-black outline-none py-1"
       value={customer.contact}
       onChange={(e) => setCustomer({ ...customer, contact: e.target.value })}
     />
-  </div>
+  </div> */}
+
+  <div className="flex items-end gap-3 relative">
+  <label className="w-24 text-xs font-medium">Contact</label>
+
+  <input
+    className="flex-1 border-b border-gray-300 focus:border-black outline-none py-1"
+    value={contactSearch}
+    onChange={(e) => {
+      setContactSearch(e.target.value);
+      setShowContactDropdown(true);
+    }}
+    onFocus={() => setShowContactDropdown(true)}
+  />
+
+  {showContactDropdown && customers.length > 0 && (
+    <div className="absolute top-8 left-24 w-[300px] bg-white border rounded shadow-md max-h-40 overflow-y-auto z-50">
+      {customers.map((cust) => (
+        <div
+          key={cust._id}
+          className="p-2 hover:bg-gray-100 cursor-pointer text-sm"
+          onClick={() => {
+            setCustomer({
+              name: cust.firstname + " " + cust.lastname,
+              address: cust.address || "",
+              contact: cust.mobile || "",
+            });
+            setContactSearch(cust.mobile);
+            setSearchTerm(cust.firstname + " " + cust.lastname);
+            setShowContactDropdown(false);
+          }}
+        >
+          <div>{cust.mobile}</div>
+          <div className="text-xs text-gray-500">
+            {cust.firstname} {cust.lastname}
+          </div>
+        </div>
+      ))}
+    </div>
+  )}
+</div>
+
 </div>
 
     </div>

@@ -96,7 +96,7 @@ const [selectedTitle, setSelectedTitle] = useState("");
       // barcode: productState[i].barcode || "-",
       barcode: productState[i].barcode ? (
   <>
-    <span className="me-2">{productState[i].barcode}</span>
+    {/* <span className="me-2">{productState[i].barcode}</span>  */}
     <button
       className="btn btn-sm btn-outline-primary me-1"
       onClick={() => {

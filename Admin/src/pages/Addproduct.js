@@ -13,6 +13,8 @@ import { getColors } from "../features/color/colorSlice";
 import { Select } from "antd";
 import Dropzone from "react-dropzone";
 import { clearUploads } from "../features/upload/uploadSlice";
+import { useRef } from "react";
+import BarcodePreview from "../components/BarcodePreview";
 
 // import { delImg, uploadImg } from "../features/upload/uploadSlice";
 import {
@@ -35,20 +37,20 @@ let schema = yup.object().shape({
   brand: yup.string().required("Brand is Required"),
   category: yup.string().required("Category is Required"),
   tags: yup.string().required("Tag is Required"),
-  color: yup
-    .array()
-    .min(1, "Pick at least one color")
-    .required("Color is Required"),
-  quantity: yup.number().required("Quantity is Required"),
-    // videos: yup.array().optional(),  
+  color: yup.string().required("Color is Required"),
+
+  //   size: yup
+  // .array()
+  // .min(1, "Pick at least one size")
+  // .required("Size is Required"),
+
+  // quantity: yup.number().required("Quantity is Required"),
+  // videos: yup.array().optional(),
   inventory: yup.object({
-  offline: yup.boolean().oneOf([true]),
-  online: yup.boolean(),
-}),
-
-
-
-  videos: yup.array().optional(), 
+    offline: yup.boolean().oneOf([true]),
+    online: yup.boolean(),
+  }),
+  videos: yup.array().optional(),
 });
 
 const Addproduct = () => {
@@ -59,6 +61,7 @@ const Addproduct = () => {
   const [color, setColor] = useState([]);
   const [images, setImages] = useState([]);
   const [videos, setVideos] = useState([]);
+  const [previewBarcode, setPreviewBarcode] = useState("");
 
   console.log(color);
   useEffect(() => {
@@ -85,33 +88,23 @@ const Addproduct = () => {
     productCategory,
     productTag,
     productColors,
+     productSize,   // 👈 ADD THIS
     productQuantity,
     productImages,
+     productVideos,
   } = newProduct;
 
   const videoState = useSelector((state) => state?.upload?.videos);
 
-
   useEffect(() => {
     if (getProductId !== undefined) {
-      dispatch(resetState());          // ✅ ADD THIS LINE
+      dispatch(resetState()); // ✅ ADD THIS LINE
       dispatch(getAProduct(getProductId));
     } else {
       dispatch(resetState());
     }
   }, [getProductId]);
-  // useEffect(() => {
-  //   if (isSuccess && createdProduct) {
-  //     toast.success("Product Added Successfullly!");
-  //   }
-  //   if (isSuccess && updatedProduct) {
-  //     toast.success("Product Updated Successfullly!");
-  //     navigate("/admin/list-product");
-  //   }
-  //   if (isError) {
-  //     toast.error("Something Went Wrong!");
-  //   }
-  // }, [isSuccess, isError, isLoading]);
+
   const coloropt = [];
   colorState.forEach((i) => {
     coloropt.push({
@@ -136,36 +129,14 @@ const Addproduct = () => {
   });
 
   const vid = [];
-videoState?.forEach((v) => {
-  vid.push({
-    public_id: v.public_id,
-    url: v.url,
-  });
-});
-
-
-  const productcolor = [];
-  productColors?.forEach((i) => {
-    productcolor.push({
-      label: (
-        <div className="col-3">
-          <ul
-            className="colors ps-0"
-            style={{
-              width: "20px",
-              height: "20px",
-              marginBottom: "10px",
-              backgroundColor: i.title,
-              borderRadius: "50%", // Added inline style for rounded shape
-              listStyle: "none", // Hide bullet points
-              border: "2px solid transparent",
-            }}
-          ></ul>
-        </div>
-      ),
-      value: i._id,
+  videoState?.forEach((v) => {
+    vid.push({
+      public_id: v.public_id,
+      url: v.url,
     });
   });
+
+
 
   const img = [];
   imgState?.forEach((i) => {
@@ -175,21 +146,8 @@ videoState?.forEach((v) => {
     });
   });
 
-  // const imgshow = [];
-  // productImages?.forEach((i) => {
-  //   imgshow.push({
-  //     public_id: i.public_id,
-  //     url: i.url,
-  //   });
-  // });
-
-
- 
-
-
-
   const formik = useFormik({
-     enableReinitialize: true,
+    enableReinitialize: true,
     initialValues: {
       title: productName || "",
       description: productDesc || "",
@@ -197,17 +155,24 @@ videoState?.forEach((v) => {
       brand: productBrand || "",
       category: productCategory || "",
       tags: productTag || "",
-      color: productColors || "",
-      quantity: productQuantity || "",
+      color: productColors?._id || productColors || undefined,
+      // size: productSize || [],
+
+      // quantity: productQuantity || "",
+
+
+
+sizeStock: newProduct?.sizeStock || [],
+
+
       inventory: {
-  offline: true,
-  online: newProduct?.inventory?.online ?? false,
-},
-
-
+        offline: true,
+        online: newProduct?.inventory?.online ?? false,
+      },
 
       images: productImages || "",
-        videos: [],          // ✅ REQUIRED
+      // videos: [], // ✅ REQUIRED
+      videos: productVideos || [],
     },
     validationSchema: schema,
     // onSubmit: (values) => {
@@ -225,122 +190,123 @@ videoState?.forEach((v) => {
     //   }
     // },
 
-onSubmit: async (values) => {
-  const payload = {
-    ...values,
-    inventory: {
-      offline: true,
-      ...(values.inventory.online ? { online: true } : {}),
+    onSubmit: async (values) => {
+       const totalQuantity = values.sizeStock.reduce(
+    (sum, item) => sum + Number(item.quantity || 0),
+    0
+  );
+      const payload = {
+        ...values,
+        quantity: totalQuantity,   // 🔥 REQUIRED FOR MONGOOSE
+        inventory: {
+          offline: true,
+          ...(values.inventory.online ? { online: true } : {}),
+        },
+      };
+
+      try {
+        if (getProductId) {
+          await dispatch(
+            updateAProduct({ id: getProductId, productData: payload }),
+          ).unwrap();
+
+          toast.success("Product Updated Successfully!");
+          navigate("/admin/list-product");
+        } else {
+          await dispatch(createProducts(payload)).unwrap();
+          toast.success("Product Added Successfully!");
+
+          // ✅ HARD RESET (THIS FIXES YOUR ISSUE)
+          formik.resetForm();
+          dispatch(resetState());
+          dispatch(delImg());
+          dispatch(delVideo());
+          dispatch(clearUploads()); // ← ADD THIS ONLY
+
+          navigate("/admin/list-product"); // ✅ ADD THIS LINE
+        }
+      } catch (err) {
+        toast.error("Something went wrong");
+      }
     },
-  };
-
-  try {
-    if (getProductId) {
-      await dispatch(
-        updateAProduct({ id: getProductId, productData: payload })
-      ).unwrap();
-
-      toast.success("Product Updated Successfully!");
-      navigate("/admin/list-product");
-    } else {
-      await dispatch(createProducts(payload)).unwrap();
-      toast.success("Product Added Successfully!");
-
-
-
-       // ✅ HARD RESET (THIS FIXES YOUR ISSUE)
-      formik.resetForm();
-      dispatch(resetState());
-      dispatch(delImg());
-      dispatch(delVideo());
-      dispatch(clearUploads());   // ← ADD THIS ONLY
-
-      navigate("/admin/list-product");   // ✅ ADD THIS LINE
-
-    }
-  } catch (err) {
-    toast.error("Something went wrong");
-  }
-}
-
-
   });
-  // const handleColors = (e) => {
-  //   setColor(e);
-  //   console.log(color);
-  // };
 
   const handleColors = (e) => {
-  setColor(e);
-  formik.setFieldValue("color", e);
-};
+    setColor(e);
+    formik.setFieldValue("color", e);
+  };
 
-// // Add this effect to sync existing product images into the upload state
-// useEffect(() => {
-//   if (getProductId && isSuccess && productImages) {
-//     // We create an array that matches the structure your uploadSlice expects
-//     const existingImages = productImages.map((img) => ({
-//       public_id: img.public_id,
-//       url: img.url,
-//     }));
-    
-//     // You need an action in your uploadSlice to "set" or "push" existing images
-//     // If you don't have one, I'll show you how to handle it via formik below.
-//     formik.setFieldValue("images", existingImages);
-//   }
-// }, [getProductId, isSuccess, productImages]);
+  // useEffect(() => {
+  //   if (getProductId && imgState.length === 0 && productImages) {
+  //     // 1. If Editing and no NEW images uploaded yet, show existing ones
+  //     formik.setFieldValue("images", productImages);
+  //   } else {
+  //     // 2. If new images are uploaded (imgState has data), use those
+  //     formik.setFieldValue("images", imgState);
+  //   }
 
-//  useEffect(() => {
-//   formik.setFieldValue("images", imgState);
-//   formik.setFieldValue("videos", videoState);
-// }, [imgState, videoState]);
+  //   // Same logic for videos
+  //   if (getProductId && videoState.length === 0 && newProduct?.videos) {
+  //     formik.setFieldValue("videos", newProduct.videos);
+  //   } else {
+  //     formik.setFieldValue("videos", videoState);
+  //   }
+  // }, [imgState, videoState, productImages]); // Add productImages to dependency
 
-// MERGED EFFECT: Handles both new uploads and pre-filling edit data
-useEffect(() => {
-  if (getProductId && imgState.length === 0 && productImages) {
-    // 1. If Editing and no NEW images uploaded yet, show existing ones
-    formik.setFieldValue("images", productImages);
+
+
+
+
+  useEffect(() => {
+  // IMAGES
+  if (getProductId) {
+    if (imgState.length > 0) {
+      formik.setFieldValue("images", imgState);
+    } else if (productImages) {
+      formik.setFieldValue("images", productImages);
+    }
   } else {
-    // 2. If new images are uploaded (imgState has data), use those
     formik.setFieldValue("images", imgState);
   }
-  
-  // Same logic for videos
-  if (getProductId && videoState.length === 0 && newProduct?.videos) {
-    formik.setFieldValue("videos", newProduct.videos);
+
+  // VIDEOS
+  if (getProductId) {
+    if (videoState.length > 0) {
+      formik.setFieldValue("videos", videoState);
+    } else if (productVideos) {
+      formik.setFieldValue("videos", productVideos);
+    }
   } else {
     formik.setFieldValue("videos", videoState);
   }
-}, [imgState, videoState, productImages]); // Add productImages to dependency
+}, [imgState, videoState, productImages, productVideos, getProductId]);
 
 
-//   useEffect(() => {
-//   formik.values.color = color ? color : [];
-//   formik.values.images = img;
-//   formik.values.videos = vid;
-// }, [color, img, vid]);
-
-// useEffect(() => {
-//   formik.values.images = img;   // from imgState
-//   formik.values.videos = vid;   // from videoState
-// }, [img, vid]);
-
-useEffect(() => {
-  formik.setFieldValue("images", imgState);
-  formik.setFieldValue("videos", videoState);
-}, [imgState, videoState]);
 
 
-useEffect(() => {
-  if (getProductId && newProduct.inventory) {
-    formik.setFieldValue("inventory", {
-      offline: true,
-      online: newProduct.inventory.online ?? false,
-    });
-  }
-}, [getProductId, newProduct.inventory]);
+  // useEffect(() => {
+  //   formik.setFieldValue("images", imgState);
+  //   formik.setFieldValue("videos", videoState);
+  // }, [imgState, videoState]);
 
+  useEffect(() => {
+    if (getProductId && newProduct.inventory) {
+      formik.setFieldValue("inventory", {
+        offline: true,
+        online: newProduct.inventory.online ?? false,
+      });
+    }
+  }, [getProductId, newProduct.inventory]);
 
+  useEffect(() => {
+    if (formik.values.title) {
+      const random = Math.random().toString(36).substring(2, 8).toUpperCase();
+
+      setPreviewBarcode(`PRD-${random}`);
+    } else {
+      setPreviewBarcode("");
+    }
+  }, [formik.values.title]);
 
   return (
     <div>
@@ -445,72 +411,136 @@ useEffect(() => {
           </div>
 
           <Select
-            mode="multiple"
-            allowClear
-            className="w-100"
-            placeholder="Select colors"
-            defaultValue={productcolor || color}
-            onChange={(i) => handleColors(i)}
-            options={coloropt}
-          />
+  allowClear
+  className="w-100"
+  placeholder="Select color"
+  value={formik.values.color}
+  onChange={(value) => formik.setFieldValue("color", value)}
+  options={coloropt}
+/>
+
+
+
+
           <div className="error">
             {formik.touched.color && formik.errors.color}
           </div>
-          <CustomInput
-            type="number"
-            label="Enter Product Quantity"
-            name="quantity"
-            onChng={formik.handleChange("quantity")}
-            onBlr={formik.handleBlur("quantity")}
-            val={formik.values.quantity}
-          />
+         
+
+          {/* SIZE SELECTOR */}
+
+
+<Select
+  mode="multiple"
+  allowClear
+  className="w-100 mt-3"
+  placeholder="Select sizes"
+  value={formik.values.sizeStock.map(s => s.size)}
+  onChange={(selectedSizes) => {
+
+    const existing = formik.values.sizeStock;
+
+    const updated = selectedSizes.map(size => {
+      const found = existing.find(s => s.size === size);
+      return found ? found : { size, quantity: "" };
+    });
+
+    formik.setFieldValue("sizeStock", updated);
+  }}
+  options={[
+    { label: "XS", value: "XS" },
+    { label: "S", value: "S" },
+    { label: "M", value: "M" },
+    { label: "L", value: "L" },
+    { label: "XL", value: "XL" },
+    { label: "2XL", value: "2XL" },
+    { label: "3XL", value: "3XL" },
+  ]}
+/>
+
+
+{formik.values.sizeStock.length > 0 && (
+  <div className="mt-4">
+    <table className="table table-bordered">
+      <thead>
+        <tr>
+          <th>Sr No</th>
+          <th>Size</th>
+          <th>Quantity</th>
+        </tr>
+      </thead>
+      <tbody>
+        {formik.values.sizeStock.map((item, index) => (
+          <tr key={item.size}>
+            <td>{index + 1}</td>
+            <td>{item.size}</td>
+            <td>
+              <input
+                type="number"
+                className="form-control"
+                value={item.quantity}
+                min={0}
+                onChange={(e) => {
+                  const updated = [...formik.values.sizeStock];
+                  updated[index].quantity = Number(e.target.value);
+                  formik.setFieldValue("sizeStock", updated);
+                }}
+              />
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  </div>
+)}
+
+
+<div className="error">
+  {formik.touched.size && formik.errors.size}
+</div>
+
           <div className="error">
             {formik.touched.quantity && formik.errors.quantity}
           </div>
           <div className="mb-3">
-  <label className="fw-bold mb-2 d-block">Inventory Availability</label>
+            <label className="fw-bold mb-2 d-block">
+              Inventory Availability
+            </label>
 
-  {/* OFFLINE – always enabled */}
-  <div className="form-check mb-1">
-    <input
-      className="form-check-input"
-      type="checkbox"
-      checked={true}
-      disabled
-    />
-    <label className="form-check-label">
-      Offline 
-    </label>
-  </div>
+            {/* OFFLINE – always enabled */}
+            <div className="form-check mb-1">
+              <input
+                className="form-check-input"
+                type="checkbox"
+                checked={true}
+                disabled
+              />
+              <label className="form-check-label">Offline</label>
+            </div>
 
-  {/* ONLINE – optional */}
-  <div className="form-check">
-    <input
-      className="form-check-input"
-      type="checkbox"
-      name="inventory.online"
-      checked={formik.values.inventory.online}
-      onChange={(e) =>
-        formik.setFieldValue("inventory.online", e.target.checked)
-      }
-    />
-    <label className="form-check-label">
-      Online Store
-    </label>
-  </div>
-</div>
-
-
+            {/* ONLINE – optional */}
+            <div className="form-check">
+              <input
+                className="form-check-input"
+                type="checkbox"
+                name="inventory.online"
+                checked={formik.values.inventory.online}
+                onChange={(e) =>
+                  formik.setFieldValue("inventory.online", e.target.checked)
+                }
+              />
+              <label className="form-check-label">Online Store</label>
+            </div>
+          </div>
 
           <div className="bg-white border-1 p-5 text-center">
             {/* <Dropzone
               onDrop={(acceptedFiles) => dispatch(uploadImg(acceptedFiles))}
             > */}
             <Dropzone
-  accept={{ "image/*": [] }}
-  onDrop={(files) => dispatch(uploadImg(files))}
->
-
+              accept={{ "image/*": [] }}
+              onDrop={(files) => dispatch(uploadImg(files))}
+            >
               {({ getRootProps, getInputProps }) => (
                 <section>
                   <div {...getRootProps()}>
@@ -524,70 +554,71 @@ useEffect(() => {
             </Dropzone>
           </div>
           <div className="showimages d-flex flex-wrap gap-3">
-            
             {/* {imgState?.map((i, j) => { */}
-              {formik.values.images && formik.values.images.map((i, j) => {
-              return (
-                <div className=" position-relative" key={j}>
-                  <button
-                    type="button"
-                    onClick={() => dispatch(delImg(i.public_id))}
-                    className="btn-close position-absolute"
-                    style={{ top: "10px", right: "10px" }}
-                  ></button>
-                  <img src={i.url} alt="" width={200} height={200} />
-                </div>
-              );
-            })}
+            {formik.values.images &&
+              formik.values.images.map((i, j) => {
+                return (
+                  <div className=" position-relative" key={j}>
+                    <button
+                      type="button"
+                      onClick={() => dispatch(delImg(i.public_id))}
+                      className="btn-close position-absolute"
+                      style={{ top: "10px", right: "10px" }}
+                    ></button>
+                    <img src={i.url} alt="" width={200} height={200} />
+                  </div>
+                );
+              })}
           </div>
           {/* VIDEO UPLOAD SECTION */}
-<div className="bg-white border-1 p-5 text-center mt-4">
-  <h5 className="mb-3">Upload Product Videos (Reels)</h5>
+          <div className="bg-white border-1 p-5 text-center mt-4">
+            <h5 className="mb-3">Upload Product Videos (Reels)</h5>
 
-  {/* <Dropzone
-    accept={{ "video/mp4": [".mp4"] }}
-    onDrop={(acceptedFiles) =>
-      dispatch(uploadImg(acceptedFiles, "video"))
-    }
-  > */}
-  <Dropzone
-  accept={{ "video/mp4": [".mp4"] }}
-  onDrop={(files) => dispatch(uploadVideo(files))}
->
+            <Dropzone
+              accept={{ "video/mp4": [".mp4"] }}
+              onDrop={(files) => dispatch(uploadVideo(files))}
+            >
+              {({ getRootProps, getInputProps }) => (
+                <section>
+                  <div {...getRootProps()} style={{ cursor: "pointer" }}>
+                    <input {...getInputProps()} />
+                    <p>
+                      Drag & drop videos here, or click to select (MP4 only)
+                    </p>
+                  </div>
+                </section>
+              )}
+            </Dropzone>
+          </div>
 
-    {({ getRootProps, getInputProps }) => (
-      <section>
-        <div {...getRootProps()} style={{ cursor: "pointer" }}>
-          <input {...getInputProps()} />
-          <p>Drag & drop videos here, or click to select (MP4 only)</p>
-        </div>
-      </section>
-    )}
-  </Dropzone>
-</div>
+          {/* VIDEO PREVIEW */}
+          <div className="d-flex flex-wrap gap-3 mt-4">
+            {/* {videoState?.map((v, i) => ( */}
+            {formik.values.videos?.map((v, i) => (
 
-{/* VIDEO PREVIEW */}
-<div className="d-flex flex-wrap gap-3 mt-4">
-  {videoState?.map((v, i) => (
-    <div className="position-relative" key={i}>
-      <button
-        type="button"
-        onClick={() => dispatch(delImg(v.public_id))}
-        className="btn-close position-absolute"
-        style={{ top: "10px", right: "10px", zIndex: 2 }}
-      ></button>
+              <div className="position-relative" key={i}>
+                <button
+                  type="button"
+                  onClick={() => dispatch(delVideo(v.public_id))}
+                  className="btn-close position-absolute"
+                  style={{ top: "10px", right: "10px", zIndex: 2 }}
+                ></button>
 
-      <video
-        src={v.url}
-        width={200}
-        height={300}
-        muted
-        controls
-        style={{ objectFit: "cover" }}
-      />
-    </div>
-  ))}
-</div>
+                <video
+                  src={v.url}
+                  width={200}
+                  height={300}
+                  muted
+                  controls
+                  style={{ objectFit: "cover" }}
+                />
+              </div>
+            ))}
+          </div>
+          <BarcodePreview
+            barcode={previewBarcode}
+            title={formik.values.title}
+          />
 
           <button
             className="btn btn-success border-0 rounded-3 my-5"

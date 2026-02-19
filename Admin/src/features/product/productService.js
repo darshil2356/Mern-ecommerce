@@ -27,13 +27,17 @@ const updateProduct = async (product) => {
       description: product.productData.description,
       price: product.productData.price,
       brand: product.productData.brand,
-      quantity: product.productData.quantity,
+      // quantity: product.productData.quantity,
       category: product.productData.category,
       tags: product.productData.tags,
       color: product.productData.color,
+      //  size: product.productData.size,   // 👈 ADD THIS
       images: product.productData.images,
        inventory: product.productData.inventory,
       videos: product.productData.videos,               // ✅ ALSO ADD (you use videos)
+
+      sizeStock: product.productData.sizeStock,
+
     },
     config
   );

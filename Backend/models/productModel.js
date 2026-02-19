@@ -81,6 +81,26 @@ var productSchema = new mongoose.Schema(
     ],
 
     color: [{ type: mongoose.Schema.Types.ObjectId, ref: "Color" }],
+//     size: {
+//   type: [String],
+//   enum: ["XS", "S", "M", "L", "XL", "2XL", "3XL"],
+//   default: [],
+// },
+
+
+sizeStock: [
+  {
+    size: {
+      type: String,
+      enum: ["XS","S","M","L","XL","2XL","3XL"],
+    },
+    quantity: {
+      type: Number,
+      default: 0,
+    },
+  },
+],
+
     tags: String,
     ratings: [
       {

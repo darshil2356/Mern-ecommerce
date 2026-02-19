@@ -732,6 +732,28 @@ const getProductByBarcode = asyncHandler(async (req, res) => {
   });
 });
 
+const searchUsers = asyncHandler(async (req, res) => {
+  const { query } = req.query;
+
+  if (!query || query.trim() === "") {
+    return res.json([]);
+  }
+
+  const users = await User.find({
+    role: "user",
+    $or: [
+      { firstname: { $regex: query, $options: "i" } },
+      { lastname: { $regex: query, $options: "i" } },
+      { mobile: { $regex: query } }
+    ]
+  })
+    .limit(10)
+    .select("firstname lastname mobile address");
+
+  res.json(users);
+});
+
+
 
 module.exports = {
   createUser,
@@ -765,5 +787,7 @@ module.exports = {
   updateProductQuantityFromCart,
   createOfflineOrder,
   getProductByBarcode,
-  registerUser
+  registerUser,
+  searchUsers,
+
 };

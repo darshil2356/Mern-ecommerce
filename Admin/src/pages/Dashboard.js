@@ -159,7 +159,11 @@ useEffect(() => {
   setOrderData(
     filteredOrders.map((order, i) => ({
       key: i,
-      name: `${order.user.firstname} ${order.user.lastname}`,
+      // name: `${order.user.firstname} ${order.user.lastname}`,
+      name: order.user
+  ? `${order.user.firstname || ""} ${order.user.lastname || ""}`
+  : "Deleted User",
+
       product: order.orderItems?.length,
       price: order.totalPrice,
       dprice: order.totalPriceAfterDiscount,

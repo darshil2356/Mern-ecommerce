@@ -1,4 +1,4 @@
-import { React, useEffect, useState } from "react";
+import { React, useEffect, useState, useRef } from "react";
 import CustomInput from "../components/CustomInput";
 import ReactQuill from "react-quill";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -10,11 +10,13 @@ import { useDispatch, useSelector } from "react-redux";
 import { getBrands } from "../features/brand/brandSlice";
 import { getCategories } from "../features/pcategory/pcategorySlice";
 import { getColors } from "../features/color/colorSlice";
-import { Select } from "antd";
+import { Select, Modal } from "antd";
 import Dropzone from "react-dropzone";
 import { clearUploads } from "../features/upload/uploadSlice";
-import { useRef } from "react";
-import BarcodePreview from "../components/BarcodePreview";
+import JsBarcode from "jsbarcode";
+import { FaEye, FaDownload } from "react-icons/fa";
+import { MdPrint } from "react-icons/md";
+import BarcodeModal from "../components/BarcodeModal";
 
 // import { delImg, uploadImg } from "../features/upload/uploadSlice";
 import {
@@ -62,6 +64,12 @@ const Addproduct = () => {
   const [images, setImages] = useState([]);
   const [videos, setVideos] = useState([]);
   const [previewBarcode, setPreviewBarcode] = useState("");
+  
+  // Modal state for barcode view
+  const [barcodeModalOpen, setBarcodeModalOpen] = useState(false);
+  const [selectedBarcode, setSelectedBarcode] = useState("");
+  const [selectedBarcodeTitle, setSelectedBarcodeTitle] = useState("");
+  const barcodeSvgRef = useRef(null);
 
   console.log(color);
   useEffect(() => {
@@ -467,28 +475,108 @@ sizeStock: newProduct?.sizeStock || [],
           <th>Sr No</th>
           <th>Size</th>
           <th>Quantity</th>
+          <th>Barcode</th>
+          <th>Actions</th>
         </tr>
       </thead>
       <tbody>
-        {formik.values.sizeStock.map((item, index) => (
-          <tr key={item.size}>
-            <td>{index + 1}</td>
-            <td>{item.size}</td>
-            <td>
-              <input
-                type="number"
-                className="form-control"
-                value={item.quantity}
-                min={0}
-                onChange={(e) => {
-                  const updated = [...formik.values.sizeStock];
-                  updated[index].quantity = Number(e.target.value);
-                  formik.setFieldValue("sizeStock", updated);
-                }}
-              />
-            </td>
-          </tr>
-        ))}
+        {formik.values.sizeStock.map((item, index) => {
+          // Generate preview barcode
+          const previewBarcode = formik.values.title 
+            ? `PRD-${formik.values.title.substring(0, 3).toUpperCase()}-${item.size}`
+            : '';
+            
+          return (
+            <tr key={item.size}>
+              <td>{index + 1}</td>
+              <td>{item.size}</td>
+              <td>
+                <input
+                  type="number"
+                  className="form-control"
+                  value={item.quantity}
+                  min={0}
+                  onChange={(e) => {
+                    const updated = [...formik.values.sizeStock];
+                    updated[index].quantity = Number(e.target.value);
+                    formik.setFieldValue("sizeStock", updated);
+                  }}
+                />
+              </td>
+              <td style={{ fontSize: "12px" }}>{previewBarcode || "-"}</td>
+              <td>
+                <div className="d-flex gap-1">
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-outline-primary d-flex align-items-center justify-content-center"
+                    style={{ width: "32px", height: "32px" }}
+                    onClick={() => {
+                      if (previewBarcode) {
+                        setSelectedBarcode(previewBarcode);
+                        setSelectedBarcodeTitle(`${formik.values.title} - Size ${item.size}`);
+                        setBarcodeModalOpen(true);
+                      }
+                    }}
+                    title="View Barcode"
+                  >
+                    <FaEye size={14} />
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-outline-success d-flex align-items-center justify-content-center"
+                    style={{ width: "32px", height: "32px" }}
+                    onClick={() => {
+                      if (previewBarcode) {
+                        const canvas = document.createElement("canvas");
+                        JsBarcode(canvas, previewBarcode, {
+                          format: "CODE128",
+                          width: 2,
+                          height: 80,
+                          displayValue: true,
+                        });
+                        const link = document.createElement("a");
+                        link.href = canvas.toDataURL("image/png");
+                        link.download = `${previewBarcode}.png`;
+                        link.click();
+                      }
+                    }}
+                    title="Download Barcode"
+                  >
+                    <FaDownload size={14} />
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-outline-dark d-flex align-items-center justify-content-center"
+                    style={{ width: "32px", height: "32px" }}
+                    onClick={() => {
+                      if (previewBarcode) {
+                        const printWindow = window.open("", "", "width=600,height=400");
+                        printWindow.document.write(`
+                          <html>
+                            <head><title>${formik.values.title} - ${item.size}</title></head>
+                            <body style="text-align:center;">
+                              <h4>${formik.values.title} - ${item.size}</h4>
+                              <svg id="barcode"></svg>
+                              <script src="https://cdn.jsdelivr.net/npm/jsbarcode/dist/JsBarcode.all.min.js"><\/script>
+                              <script>
+                                JsBarcode("#barcode", "${previewBarcode}", { format: "CODE128", width: 2, height: 80, displayValue: true });
+                                window.print();
+                              <\/script>
+                            </body>
+                          </html>
+                        `);
+                        printWindow.document.close();
+                      }
+                    }}
+                    title="Print Barcode"
+                  >
+                    <MdPrint size={16} />
+                  </button>
+                </div>
+              </td>
+            </tr>
+          );
+        })}
       </tbody>
     </table>
   </div>
@@ -615,11 +703,6 @@ sizeStock: newProduct?.sizeStock || [],
               </div>
             ))}
           </div>
-          <BarcodePreview
-            barcode={previewBarcode}
-            title={formik.values.title}
-          />
-
           <button
             className="btn btn-success border-0 rounded-3 my-5"
             type="submit"
@@ -628,6 +711,14 @@ sizeStock: newProduct?.sizeStock || [],
           </button>
         </form>
       </div>
+      
+      {/* Barcode Preview Modal */}
+      <BarcodeModal
+        open={barcodeModalOpen}
+        onClose={() => setBarcodeModalOpen(false)}
+        barcode={selectedBarcode}
+        title={selectedBarcodeTitle}
+      />
     </div>
   );
 };

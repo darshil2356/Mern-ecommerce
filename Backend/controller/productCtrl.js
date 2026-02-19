@@ -40,8 +40,6 @@ const validateMongoDbId = require("../utils/validateMongodbId");
 //   }
 // });
 
-
-
 const createProduct = asyncHandler(async (req, res) => {
   try {
     console.log("RAW REQ BODY:", req.body);
@@ -62,6 +60,24 @@ const createProduct = asyncHandler(async (req, res) => {
 
     const shortId = product._id.toString().slice(-6).toUpperCase();
     product.barcode = `PRD-${shortId}`;
+    
+    // Generate unique barcodes for each size in sizeStock
+    if (product.sizeStock && product.sizeStock.length > 0) {
+      for (let i = 0; i < product.sizeStock.length; i++) {
+        let sizeBarcode = `PRD-${shortId}-${product.sizeStock[i].size}`;
+        
+        // Ensure barcode is unique by checking database
+        let counter = 1;
+        let originalBarcode = sizeBarcode;
+        while (await Product.findOne({ "sizeStock.barcode": sizeBarcode })) {
+          sizeBarcode = `${originalBarcode}-${counter}`;
+          counter++;
+        }
+        
+        product.sizeStock[i].barcode = sizeBarcode;
+      }
+    }
+    
     await product.save();
 
     res.json(product);
@@ -69,6 +85,7 @@ const createProduct = asyncHandler(async (req, res) => {
     throw new Error(error);
   }
 });
+
 
 
 
@@ -112,13 +129,26 @@ const updateProduct = asyncHandler(async (req, res) => {
     req.body.slug = slugify(req.body.title);
   }
 
-  const { barcode, ...safeBody } = req.body;
+  // Don't allow manual barcode updates from frontend
+  const { barcode, sizeStock, ...safeBody } = req.body;
 
   if (safeBody.inventory) {
     safeBody.inventory = {
       offline: true,
       online: !!safeBody.inventory.online,
     };
+  }
+
+  const existingProduct = await Product.findById(id);
+  
+  // If sizeStock is being updated, regenerate barcodes for each size
+  if (sizeStock && sizeStock.length > 0) {
+    const shortId = existingProduct._id.toString().slice(-6).toUpperCase();
+    const updatedSizeStock = sizeStock.map(item => ({
+      ...item,
+      barcode: item.barcode || `PRD-${shortId}-${item.size}`
+    }));
+    safeBody.sizeStock = updatedSizeStock;
   }
 
   const updatedProduct = await Product.findByIdAndUpdate(
@@ -129,8 +159,6 @@ const updateProduct = asyncHandler(async (req, res) => {
 
   res.json(updatedProduct);
 });
-
-
 
 const deleteProduct = asyncHandler(async (req, res) => {
   const { id } = req.params;
@@ -144,16 +172,6 @@ const deleteProduct = asyncHandler(async (req, res) => {
   }
 });
 
-const getaProduct = asyncHandler(async (req, res) => {
-  const { id } = req.params;
-  validateMongoDbId(id);
-  try {
-    const findProduct = await Product.findById(id).populate("color");
-    res.json(findProduct);
-  } catch (error) {
-    throw new Error(error);
-  }
-});
 
 // const getAllProduct = asyncHandler(async (req, res) => {
 //   try {
@@ -205,6 +223,17 @@ const getaProduct = asyncHandler(async (req, res) => {
 //     throw new Error(error);
 //   }
 // });
+
+const getaProduct = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  validateMongoDbId(id);
+  try {
+    const findProduct = await Product.findById(id).populate("color");
+    res.json(findProduct);
+  } catch (error) {
+    throw new Error(error);
+  }
+});
 
 const getAllProduct = asyncHandler(async (req, res) => {
   try {
@@ -342,3 +371,4 @@ module.exports = {
   addToWishlist,
   rating,
 };
+

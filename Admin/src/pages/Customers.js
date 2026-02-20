@@ -55,6 +55,7 @@
 import React, { useEffect, useState } from "react";
 import { Table, Button, Modal, Form, Input } from "antd";
 import { useDispatch, useSelector } from "react-redux";
+import { Link } from "react-router-dom";
 import { getCustomers, createCustomer } from "../features/customers/customerSlice";
 
 // const columns = [
@@ -71,6 +72,15 @@ const columns = [
   { title: "Last Name", dataIndex: "lastname" },
   { title: "Email", dataIndex: "email" },
   { title: "Mobile", dataIndex: "mobile" },
+  { 
+    title: "Action", 
+    dataIndex: "action",
+    render: (_, record) => (
+      <Link to={`/admin/customer/${record._id}`}>
+        <Button type="link">View</Button>
+      </Link>
+    )
+  },
 ];
 
 
@@ -95,6 +105,7 @@ const Customers = () => {
 
  const data1 = customerstate.map((item, index) => ({
   key: index + 1,
+  _id: item._id,
   firstname: item.firstname,
   lastname: item.lastname,
   email: item.email,

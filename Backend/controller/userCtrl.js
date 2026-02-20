@@ -18,12 +18,26 @@ const { createPasswordResetToken } = require("../models/userModel");
 
 
 const createOfflineOrder = asyncHandler(async (req, res) => {
-  const { items, paymentMethod } = req.body;
+  const { items, paymentMethod, customer } = req.body;
   const adminId = req.user._id;
 
   if (!items || items.length === 0) {
     res.status(400);
     throw new Error("No items provided");
+  }
+
+  // Find the actual customer by mobile if provided
+  let customerId = adminId; // Default to admin (for walk-in customers)
+  if (customer && customer.contact) {
+    const actualCustomer = await User.findOne({ mobile: customer.contact, role: "user" });
+    if (actualCustomer) {
+      customerId = actualCustomer._id;
+      
+      // Update customer's total orders and last order date
+      actualCustomer.totalOrders = (actualCustomer.totalOrders || 0) + 1;
+      actualCustomer.lastOrderDate = new Date();
+      await actualCustomer.save();
+    }
   }
 
   let orderItems = [];
@@ -60,7 +74,7 @@ const createOfflineOrder = asyncHandler(async (req, res) => {
   }
 
   const order = await Order.create({
-    user: adminId,
+    user: customerId,
     orderItems,
     totalPrice,
     totalPriceAfterDiscount: totalPrice,
@@ -841,6 +855,71 @@ const updateGstin = asyncHandler(async (req, res) => {
   }
 });
 
+// Get customer details with order history
+const getCustomerDetails = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  validateMongoDbId(id);
+
+  try {
+    // Get customer user
+    const customer = await User.findById(id);
+    
+    if (!customer) {
+      res.status(404);
+      throw new Error("Customer not found");
+    }
+
+    // Get all orders for this customer
+    const orders = await Order.find({ user: id })
+      .populate("orderItems.product")
+      .populate("orderItems.color")
+      .sort({ createdAt: -1 });
+
+    // Calculate statistics
+    const totalOrders = orders.length;
+    const totalPurchaseAmount = orders.reduce((sum, order) => sum + (order.totalPriceAfterDiscount || 0), 0);
+    const lastOrder = orders.length > 0 ? orders[0] : null;
+
+    // Calculate total savings offered
+    const totalSavings = orders.reduce((sum, order) => {
+      return sum + ((order.totalPrice || 0) - (order.totalPriceAfterDiscount || 0));
+    }, 0);
+
+    res.json({
+      customer: {
+        _id: customer._id,
+        firstname: customer.firstname,
+        lastname: customer.lastname,
+        email: customer.email,
+        mobile: customer.mobile,
+        address: customer.address,
+        gstin: customer.gstin,
+        createdAt: customer.createdAt,
+        offerDiscount: customer.offerDiscount,
+        offerType: customer.offerType,
+      },
+      statistics: {
+        totalOrders,
+        totalPurchaseAmount,
+        totalSavings,
+        lastOrderDate: lastOrder ? lastOrder.createdAt : null,
+      },
+      orders: orders.map(order => ({
+        _id: order._id,
+        orderItems: order.orderItems,
+        totalPrice: order.totalPrice,
+        totalPriceAfterDiscount: order.totalPriceAfterDiscount,
+        orderStatus: order.orderStatus,
+        mode: order.mode,
+        paymentInfo: order.paymentInfo,
+        createdAt: order.createdAt,
+      }))
+    });
+  } catch (error) {
+    throw new Error(error);
+  }
+});
+
 
 
 module.exports = {
@@ -881,5 +960,6 @@ module.exports = {
   updateGstin,
   getCustomerOffer,
   updateCustomerOffer,
+  getCustomerDetails,
 
 };

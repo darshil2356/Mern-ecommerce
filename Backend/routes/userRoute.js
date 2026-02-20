@@ -6,7 +6,8 @@ const {
   getGstin,
   updateGstin,
   getCustomerOffer,
-  updateCustomerOffer
+  updateCustomerOffer,
+  getCustomerDetails
 } = require("../controller/userCtrl");
 const { authMiddleware, isAdmin } = require("../middlewares/authMiddleware");
 
@@ -30,6 +31,9 @@ router.put("/gstin", authMiddleware, updateGstin);
 // Customer offer routes - protected by auth middleware
 router.get("/customer-offer", authMiddleware, isAdmin, getCustomerOffer);
 router.put("/customer-offer", authMiddleware, isAdmin, updateCustomerOffer);
+
+// Get customer details with order history - protected by auth middleware
+router.get("/customer/:id", authMiddleware, isAdmin, getCustomerDetails);
 
 module.exports = router;
 

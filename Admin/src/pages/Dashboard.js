@@ -12,7 +12,7 @@ const Dashboard = () => {
   const dispatch = useDispatch();
   const monthlyDataState = useSelector((state) => state?.auth?.monthlyData);
   const yearlyDataState = useSelector((state) => state?.auth?.yearlyData);
-  const [selectedMode, setSelectedMode] = useState("ONLINE");
+  const [selectedMode, setSelectedMode] = useState("OFFLINE");
   const [dateRange, setDateRange] = useState(null);
   const orderState = useSelector((state) => state?.auth?.orders?.orders);
 
@@ -32,14 +32,14 @@ const Dashboard = () => {
   }, [orderState, selectedMode, dateRange]);
 
   const totalIncome = useMemo(() => {
-    return filteredOrders.reduce((sum, order) => sum + (order.totalPrice || 0), 0);
+    return filteredOrders.reduce((sum, order) => sum + (order.totalPriceAfterDiscount || order.totalPrice || 0), 0);
   }, [filteredOrders]);
 
   const totalSales = useMemo(() => filteredOrders.length, [filteredOrders]);
 
   const totalDiscount = useMemo(() => {
     return filteredOrders.reduce((sum, order) => {
-      const discount = (order.totalPrice || 0) - (order.totalPriceAfterDiscount || 0);
+      const discount = order.discountAmount || ((order.totalPrice || 0) - (order.totalPriceAfterDiscount || 0));
       return sum + discount;
     }, 0);
   }, [filteredOrders]);
@@ -79,7 +79,9 @@ const Dashboard = () => {
     filteredOrders.forEach((order) => {
       const date = new Date(order.createdAt);
       const month = monthNames[date.getMonth()];
-      incomeByMonth[month] = (incomeByMonth[month] || 0) + order.totalPrice;
+      // Use totalPriceAfterDiscount for actual revenue received
+      const revenue = order.totalPriceAfterDiscount || order.totalPrice || 0;
+      incomeByMonth[month] = (incomeByMonth[month] || 0) + revenue;
       salesByMonth[month] = (salesByMonth[month] || 0) + 1;
       const status = order.orderStatus || "Processing";
       statusCount[status] = (statusCount[status] || 0) + 1;
@@ -94,7 +96,8 @@ const Dashboard = () => {
       name: order.user ? `${order.user.firstname || ""} ${order.user.lastname || ""}` : "Deleted User",
       product: order.orderItems?.length,
       price: order.totalPrice,
-      dprice: order.totalPriceAfterDiscount,
+      dprice: order.totalPriceAfterDiscount || order.totalPrice,
+      discount: order.discountAmount || ((order.totalPrice || 0) - (order.totalPriceAfterDiscount || 0)),
       staus: order.orderStatus,
       date: order.createdAt,
     })));
@@ -112,8 +115,9 @@ const Dashboard = () => {
       ),
     },
     { title: "Items", dataIndex: "product", width: 80, align: "center" },
-    { title: "Amount", dataIndex: "price", render: (price) => <span className="fw-bold" style={{ color: "#1a1a1a" }}>₹{price?.toLocaleString()}</span> },
-    { title: "After Discount", dataIndex: "dprice", render: (dprice) => <span className="text-success fw-medium">₹{dprice?.toLocaleString()}</span> },
+    { title: "Subtotal", dataIndex: "price", render: (price) => <span className="fw-bold" style={{ color: "#1a1a1a" }}>₹{price?.toLocaleString()}</span> },
+    { title: "Discount", dataIndex: "discount", render: (discount) => discount > 0 ? <span className="text-success">-₹{discount?.toLocaleString()}</span> : <span className="text-muted">-</span> },
+    { title: "Final", dataIndex: "dprice", render: (dprice) => <span className="text-primary fw-bold">₹{dprice?.toLocaleString()}</span> },
     {
       title: "Status", dataIndex: "staus",
       render: (status) => {
@@ -135,10 +139,10 @@ const Dashboard = () => {
   return (
     <div className="dashboard-container" style={{ backgroundColor: "#f0f2f5", minHeight: "100vh", padding: "24px" }}>
       {/* Modern Gradient Header */}
-      <div className="dashboard-header animate__animated animate__fadeInDown" style={{ 
-        background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)", 
-        borderRadius: "20px", 
-        padding: "28px 32px", 
+      <div className="dashboard-header animate__animated animate__fadeInDown" style={{
+        background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+        borderRadius: "20px",
+        padding: "28px 32px",
         marginBottom: "24px",
         boxShadow: "0 8px 32px rgba(102, 126, 234, 0.35)",
         position: "relative",
@@ -152,23 +156,34 @@ const Dashboard = () => {
             <p className="mb-0" style={{ color: "rgba(255,255,255,0.85)", fontSize: "15px" }}>Welcome back! Here's your business overview</p>
           </div>
           <div className="d-flex gap-3 align-items-center flex-wrap">
-            <Select 
-              value={selectedMode} 
-              onChange={setSelectedMode} 
-              style={{ width: 160 }} 
+            <Select
+              value={selectedMode}
+              onChange={setSelectedMode}
+              style={{ width: 160 }}
               className="fw-medium dashboard-select"
               popupClassName="dashboard-select-popup"
             >
-              <Option value="ONLINE"><BsGraphUp style={{ marginRight: 8 }} />Online Orders</Option>
-              <Option value="OFFLINE"><BsCart4 style={{ marginRight: 8 }} />Offline Orders</Option>
+              <Option value="ONLINE">
+                <div className="d-flex align-items-center gap-2">
+                  <BsGraphUp />
+                  <span>Online Orders</span>
+                </div>
+              </Option>
+
+              <Option value="OFFLINE">
+                <div className="d-flex align-items-center gap-2">
+                  <BsCart4 />
+                  <span>Offline Orders</span>
+                </div>
+              </Option>
             </Select>
-            <DatePicker.RangePicker 
-              size="middle" 
-              className="dashboard-datepicker" 
-              placeholder={["Start Date", "End Date"]} 
-              value={dateRange} 
-              onChange={(dates) => setDateRange(dates)} 
-              allowClear 
+            <DatePicker.RangePicker
+              size="middle"
+              className="dashboard-datepicker"
+              placeholder={["Start Date", "End Date"]}
+              value={dateRange}
+              onChange={(dates) => setDateRange(dates)}
+              allowClear
               style={{ borderRadius: "12px", width: "280px" }}
             />
           </div>
@@ -178,17 +193,17 @@ const Dashboard = () => {
       {/* Stats Cards Row with Gradient Effects */}
       <Row gutter={[24, 24]} className="mb-4">
         <Col xs={24} sm={12} lg={6}>
-          <div className="stat-card stat-card-primary animate__animated animate__fadeInUp" style={{ 
-            borderRadius: "20px", 
-            border: "none", 
+          <div className="stat-card stat-card-primary animate__animated animate__fadeInUp" style={{
+            borderRadius: "20px",
+            border: "none",
             boxShadow: "0 8px 24px rgba(24, 144, 255, 0.15)",
             overflow: "hidden",
             transition: "all 0.4s cubic-bezier(0.4, 0, 0.2, 1)",
             animationDelay: "0.1s"
           }}>
-            <div style={{ 
-              background: "linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%)", 
-              padding: "24px", 
+            <div style={{
+              background: "linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%)",
+              padding: "24px",
               borderRadius: "20px 20px 0 0",
               position: "relative"
             }}>
@@ -198,15 +213,15 @@ const Dashboard = () => {
                   <p className="text-muted mb-2" style={{ fontSize: "14px", fontWeight: 500, color: "#64748b" }}>Total Revenue</p>
                   <h3 className="mb-0" style={{ fontWeight: 700, color: "#1d4ed8", fontSize: "28px" }}>₹{totalIncome.toLocaleString()}</h3>
                 </div>
-                <div style={{ 
-                  width: "56px", 
-                  height: "56px", 
-                  borderRadius: "16px", 
-                  background: "linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)", 
-                  display: "flex", 
-                  alignItems: "center", 
-                  justifyContent: "center", 
-                  color: "#ffffff", 
+                <div style={{
+                  width: "56px",
+                  height: "56px",
+                  borderRadius: "16px",
+                  background: "linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  color: "#ffffff",
                   fontSize: "26px",
                   boxShadow: "0 8px 20px rgba(59, 130, 246, 0.5)"
                 }}>
@@ -224,17 +239,17 @@ const Dashboard = () => {
           </div>
         </Col>
         <Col xs={24} sm={12} lg={6}>
-          <div className="stat-card stat-card-success animate__animated animate__fadeInUp" style={{ 
-            borderRadius: "20px", 
-            border: "none", 
+          <div className="stat-card stat-card-success animate__animated animate__fadeInUp" style={{
+            borderRadius: "20px",
+            border: "none",
             boxShadow: "0 8px 24px rgba(34, 197, 94, 0.15)",
             overflow: "hidden",
             transition: "all 0.4s cubic-bezier(0.4, 0, 0.2, 1)",
             animationDelay: "0.2s"
           }}>
-            <div style={{ 
-              background: "linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%)", 
-              padding: "24px", 
+            <div style={{
+              background: "linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%)",
+              padding: "24px",
               borderRadius: "20px 20px 0 0",
               position: "relative"
             }}>
@@ -244,15 +259,15 @@ const Dashboard = () => {
                   <p className="text-muted mb-2" style={{ fontSize: "14px", fontWeight: 500, color: "#64748b" }}>Total Orders</p>
                   <h3 className="mb-0" style={{ fontWeight: 700, color: "#15803d", fontSize: "28px" }}>{totalSales}</h3>
                 </div>
-                <div style={{ 
-                  width: "56px", 
-                  height: "56px", 
-                  borderRadius: "16px", 
-                  background: "linear-gradient(135deg, #22c55e 0%, #15803d 100%)", 
-                  display: "flex", 
-                  alignItems: "center", 
-                  justifyContent: "center", 
-                  color: "#ffffff", 
+                <div style={{
+                  width: "56px",
+                  height: "56px",
+                  borderRadius: "16px",
+                  background: "linear-gradient(135deg, #22c55e 0%, #15803d 100%)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  color: "#ffffff",
                   fontSize: "26px",
                   boxShadow: "0 8px 20px rgba(34, 197, 94, 0.5)"
                 }}>
@@ -270,17 +285,17 @@ const Dashboard = () => {
           </div>
         </Col>
         <Col xs={24} sm={12} lg={6}>
-          <div className="stat-card stat-card-warning animate__animated animate__fadeInUp" style={{ 
-            borderRadius: "20px", 
-            border: "none", 
+          <div className="stat-card stat-card-warning animate__animated animate__fadeInUp" style={{
+            borderRadius: "20px",
+            border: "none",
             boxShadow: "0 8px 24px rgba(249, 115, 22, 0.15)",
             overflow: "hidden",
             transition: "all 0.4s cubic-bezier(0.4, 0, 0.2, 1)",
             animationDelay: "0.3s"
           }}>
-            <div style={{ 
-              background: "linear-gradient(135deg, #ffedd5 0%, #fed7aa 100%)", 
-              padding: "24px", 
+            <div style={{
+              background: "linear-gradient(135deg, #ffedd5 0%, #fed7aa 100%)",
+              padding: "24px",
               borderRadius: "20px 20px 0 0",
               position: "relative"
             }}>
@@ -290,15 +305,15 @@ const Dashboard = () => {
                   <p className="text-muted mb-2" style={{ fontSize: "14px", fontWeight: 500, color: "#64748b" }}>Total Discount</p>
                   <h3 className="mb-0" style={{ fontWeight: 700, color: "#c2410c", fontSize: "28px" }}>₹{totalDiscount.toLocaleString()}</h3>
                 </div>
-                <div style={{ 
-                  width: "56px", 
-                  height: "56px", 
-                  borderRadius: "16px", 
-                  background: "linear-gradient(135deg, #f97316 0%, #c2410c 100%)", 
-                  display: "flex", 
-                  alignItems: "center", 
-                  justifyContent: "center", 
-                  color: "#ffffff", 
+                <div style={{
+                  width: "56px",
+                  height: "56px",
+                  borderRadius: "16px",
+                  background: "linear-gradient(135deg, #f97316 0%, #c2410c 100%)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  color: "#ffffff",
                   fontSize: "26px",
                   boxShadow: "0 8px 20px rgba(249, 115, 22, 0.5)"
                 }}>
@@ -316,17 +331,17 @@ const Dashboard = () => {
           </div>
         </Col>
         <Col xs={24} sm={12} lg={6}>
-          <div className="stat-card stat-card-purple animate__animated animate__fadeInUp" style={{ 
-            borderRadius: "20px", 
-            border: "none", 
+          <div className="stat-card stat-card-purple animate__animated animate__fadeInUp" style={{
+            borderRadius: "20px",
+            border: "none",
             boxShadow: "0 8px 24px rgba(168, 85, 247, 0.15)",
             overflow: "hidden",
             transition: "all 0.4s cubic-bezier(0.4, 0, 0.2, 1)",
             animationDelay: "0.4s"
           }}>
-            <div style={{ 
-              background: "linear-gradient(135deg, #f3e8ff 0%, #e9d5ff 100%)", 
-              padding: "24px", 
+            <div style={{
+              background: "linear-gradient(135deg, #f3e8ff 0%, #e9d5ff 100%)",
+              padding: "24px",
               borderRadius: "20px 20px 0 0",
               position: "relative"
             }}>
@@ -336,15 +351,15 @@ const Dashboard = () => {
                   <p className="text-muted mb-2" style={{ fontSize: "14px", fontWeight: 500, color: "#64748b" }}>Order Status</p>
                   <h3 className="mb-0" style={{ fontWeight: 700, color: "#7e22ce", fontSize: "28px" }}>{orderStatusData.length} Types</h3>
                 </div>
-                <div style={{ 
-                  width: "56px", 
-                  height: "56px", 
-                  borderRadius: "16px", 
-                  background: "linear-gradient(135deg, #a855f7 0%, #7e22ce 100%)", 
-                  display: "flex", 
-                  alignItems: "center", 
-                  justifyContent: "center", 
-                  color: "#ffffff", 
+                <div style={{
+                  width: "56px",
+                  height: "56px",
+                  borderRadius: "16px",
+                  background: "linear-gradient(135deg, #a855f7 0%, #7e22ce 100%)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  color: "#ffffff",
                   fontSize: "26px",
                   boxShadow: "0 8px 20px rgba(168, 85, 247, 0.5)"
                 }}>
@@ -366,10 +381,10 @@ const Dashboard = () => {
       {/* Charts Section */}
       <Row gutter={[24, 24]} className="mb-4">
         <Col xs={24} lg={14}>
-          <Card 
+          <Card
             className="animate__animated animate__fadeInLeft"
-            title={<span style={{ fontWeight: 600, fontSize: "16px" }}><BsBarChart style={{ marginRight: 10, color: "#3b82f6" }} />Revenue Overview</span>} 
-            style={{ borderRadius: "20px", border: "none", boxShadow: "0 8px 24px rgba(0,0,0,0.08)" }} 
+            title={<span style={{ fontWeight: 600, fontSize: "16px" }}><BsBarChart style={{ marginRight: 10, color: "#3b82f6" }} />Revenue Overview</span>}
+            style={{ borderRadius: "20px", border: "none", boxShadow: "0 8px 24px rgba(0,0,0,0.08)" }}
             bodyStyle={{ padding: "24px" }}
             headStyle={{ borderBottom: "1px solid #f0f0f0", padding: "16px 24px" }}
           >
@@ -377,10 +392,10 @@ const Dashboard = () => {
           </Card>
         </Col>
         <Col xs={24} lg={10}>
-          <Card 
+          <Card
             className="animate__animated animate__fadeInRight"
-            title={<span style={{ fontWeight: 600, fontSize: "16px" }}><BsPieChart style={{ marginRight: 10, color: "#a855f7" }} />Order Status</span>} 
-            style={{ borderRadius: "20px", border: "none", boxShadow: "0 8px 24px rgba(0,0,0,0.08)" }} 
+            title={<span style={{ fontWeight: 600, fontSize: "16px" }}><BsPieChart style={{ marginRight: 10, color: "#a855f7" }} />Order Status</span>}
+            style={{ borderRadius: "20px", border: "none", boxShadow: "0 8px 24px rgba(0,0,0,0.08)" }}
             bodyStyle={{ padding: "24px" }}
             headStyle={{ borderBottom: "1px solid #f0f0f0", padding: "16px 24px" }}
           >
@@ -392,10 +407,10 @@ const Dashboard = () => {
       {/* Sales and Recent Orders */}
       <Row gutter={[24, 24]}>
         <Col xs={24} lg={14}>
-          <Card 
+          <Card
             className="animate__animated animate__fadeInLeft"
-            title={<span style={{ fontWeight: 600, fontSize: "16px" }}><BsCart4 style={{ marginRight: 10, color: "#22c55e" }} />Sales Overview</span>} 
-            style={{ borderRadius: "20px", border: "none", boxShadow: "0 8px 24px rgba(0,0,0,0.08)" }} 
+            title={<span style={{ fontWeight: 600, fontSize: "16px" }}><BsCart4 style={{ marginRight: 10, color: "#22c55e" }} />Sales Overview</span>}
+            style={{ borderRadius: "20px", border: "none", boxShadow: "0 8px 24px rgba(0,0,0,0.08)" }}
             bodyStyle={{ padding: "24px" }}
             headStyle={{ borderBottom: "1px solid #f0f0f0", padding: "16px 24px" }}
           >
@@ -403,18 +418,18 @@ const Dashboard = () => {
           </Card>
         </Col>
         <Col xs={24} lg={10}>
-          <Card 
+          <Card
             className="animate__animated animate__fadeInRight"
-            title={<span style={{ fontWeight: 600, fontSize: "16px" }}><BsCheckCircle style={{ marginRight: 10, color: "#f97316" }} />Recent Orders</span>} 
-            style={{ borderRadius: "20px", border: "none", boxShadow: "0 8px 24px rgba(0,0,0,0.08)" }} 
+            title={<span style={{ fontWeight: 600, fontSize: "16px" }}><BsCheckCircle style={{ marginRight: 10, color: "#f97316" }} />Recent Orders</span>}
+            style={{ borderRadius: "20px", border: "none", boxShadow: "0 8px 24px rgba(0,0,0,0.08)" }}
             bodyStyle={{ padding: "0" }}
             headStyle={{ borderBottom: "1px solid #f0f0f0", padding: "16px 24px" }}
           >
-            <Table 
-              columns={columns} 
-              dataSource={orderData} 
-              pagination={{ pageSize: 5 }} 
-              size="small" 
+            <Table
+              columns={columns}
+              dataSource={orderData}
+              pagination={{ pageSize: 5 }}
+              size="small"
             />
           </Card>
         </Col>

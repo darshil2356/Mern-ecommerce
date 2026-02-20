@@ -132,6 +132,10 @@ paymentInfo: {
       type: Number,
       required: true,
     },
+    discountAmount: {
+      type: Number,
+      default: 0,
+    },
     orderStatus: {
       type: String,
       default: "Ordered",

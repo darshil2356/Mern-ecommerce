@@ -1,8 +1,21 @@
 import React, { useEffect } from "react";
-import { Table, Card, Row, Col, Tag, Button, Spin } from "antd";
+import { Table, Card, Row, Col, Tag, Button, Spin, Tooltip } from "antd";
 import { useDispatch, useSelector } from "react-redux";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useLocation, useNavigate, Link } from "react-router-dom";
+import { ArrowLeftOutlined, EyeOutlined, UserOutlined, ShopOutlined } from "@ant-design/icons";
 import { getCustomerDetails } from "../features/customers/customerSlice";
+
+const getStatusColor = (status) => {
+  const colors = {
+    "Ordered": "default",
+    "Processed": "blue",
+    "Shipped": "purple",
+    "Out for Delivery": "cyan",
+    "Delivered": "green",
+    "Cancelled": "red",
+  };
+  return colors[status] || "default";
+};
 
 const CustomerDetail = () => {
   const location = useLocation();
@@ -33,45 +46,58 @@ const CustomerDetail = () => {
       title: "SNo",
       dataIndex: "key",
       key: "key",
+      width: 60,
     },
     {
       title: "Order ID",
       dataIndex: "_id",
       key: "_id",
-      render: (id) => id?.slice(-8).toUpperCase(),
+      render: (id) => (
+        <Link to={`/admin/order/${id}`}>
+          <span style={{ fontFamily: "monospace", fontSize: 12, color: "#1890ff" }}>
+            {id?.slice(-8).toUpperCase()}
+          </span>
+        </Link>
+      ),
     },
     {
       title: "Date",
       dataIndex: "createdAt",
       key: "createdAt",
       render: (date) => new Date(date).toLocaleString(),
+      sorter: (a, b) => new Date(a.createdAt) - new Date(b.createdAt),
+      defaultSortOrder: 'descend',
     },
     {
       title: "Items",
       dataIndex: "orderItems",
       key: "items",
+      align: "center",
       render: (items) => items?.length || 0,
     },
     {
-      title: "Total",
+      title: "Subtotal",
       dataIndex: "totalPrice",
       key: "totalPrice",
+      align: "right",
       render: (price) => `₹${price?.toFixed(2) || "0.00"}`,
     },
     {
       title: "Discount",
       dataIndex: "totalPrice",
       key: "discount",
+      align: "right",
       render: (price, record) => {
-        const discount = (record.totalPrice || 0) - (record.totalPriceAfterDiscount || 0);
-        return discount > 0 ? `₹${discount.toFixed(2)}` : "-";
+        const discount = record.discountAmount || ((record.totalPrice || 0) - (record.totalPriceAfterDiscount || 0));
+        return discount > 0 ? <span style={{ color: "#52c41a" }}>₹{discount.toFixed(2)}</span> : "-";
       },
     },
     {
-      title: "Final Amount",
+      title: "Final",
       dataIndex: "totalPriceAfterDiscount",
       key: "totalPriceAfterDiscount",
-      render: (price) => `₹${price?.toFixed(2) || "0.00"}`,
+      align: "right",
+      render: (price) => <strong style={{ color: "#1890ff" }}>₹{price?.toFixed(2) || "0.00"}</strong>,
     },
     {
       title: "Mode",
@@ -88,14 +114,19 @@ const CustomerDetail = () => {
       dataIndex: "orderStatus",
       key: "orderStatus",
       render: (status) => {
-        let color = "default";
-        if (status === "Delivered") color = "green";
-        else if (status === "Processed") color = "blue";
-        else if (status === "Shipped") color = "purple";
-        else if (status === "Out for Delivery") color = "cyan";
-        
-        return <Tag color={color}>{status}</Tag>;
+        return <Tag color={getStatusColor(status)}>{status}</Tag>;
       },
+    },
+    {
+      title: "Action",
+      key: "action",
+      render: (_, record) => (
+        <Tooltip title="View Order Details">
+          <Link to={`/admin/order/${record._id}`}>
+            <Button size="small" icon={<EyeOutlined />} />
+          </Link>
+        </Tooltip>
+      ),
     },
   ];
 
@@ -115,84 +146,90 @@ const CustomerDetail = () => {
   return (
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-        <h3 className="mb-4 title">Customer Details</h3>
-        <Button onClick={() => navigate("/admin/customers")}>
-          Back to Customers
-        </Button>
+        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+          <Button icon={<ArrowLeftOutlined />} onClick={() => navigate("/admin/customers")}>
+            Back
+          </Button>
+          <h3 className="mb-0 title">Customer Details</h3>
+        </div>
       </div>
 
       {/* Customer Info Card */}
-      <Card title="Personal Information" style={{ marginBottom: 20 }}>
+      <Card title={<><UserOutlined /> Personal Information</>}>
         <Row gutter={16}>
-          <Col span={8}>
+          <Col xs={24} sm={12} md={8}>
             <p><strong>Name:</strong> {customer.firstname} {customer.lastname}</p>
           </Col>
-          <Col span={8}>
+          <Col xs={24} sm={12} md={8}>
             <p><strong>Email:</strong> {customer.email}</p>
           </Col>
-          <Col span={8}>
+          <Col xs={24} sm={12} md={8}>
             <p><strong>Mobile:</strong> {customer.mobile}</p>
           </Col>
-          <Col span={8}>
+          <Col xs={24} sm={12} md={8}>
             <p><strong>Address:</strong> {customer.address || "N/A"}</p>
           </Col>
-          <Col span={8}>
+          <Col xs={24} sm={12} md={8}>
             <p><strong>GSTIN:</strong> {customer.gstin || "N/A"}</p>
           </Col>
-          <Col span={8}>
+          <Col xs={24} sm={12} md={8}>
             <p><strong>Customer Since:</strong> {new Date(customer.createdAt).toLocaleDateString()}</p>
           </Col>
         </Row>
       </Card>
 
       {/* Statistics Cards */}
-      <Row gutter={16} style={{ marginBottom: 20 }}>
-        <Col span={6}>
+      <Row gutter={16} style={{ marginTop: 16 }}>
+        <Col xs={12} sm={6}>
           <Card>
             <div style={{ textAlign: "center" }}>
-              <p style={{ color: "#8c8c8c", margin: 0 }}>Total Orders</p>
+              <p style={{ color: "#8c8c8c", margin: 0, fontSize: 12 }}>Total Orders</p>
               <h2 style={{ margin: "10px 0", color: "#1890ff" }}>{statistics.totalOrders}</h2>
             </div>
           </Card>
         </Col>
-        <Col span={6}>
+        <Col xs={12} sm={6}>
           <Card>
             <div style={{ textAlign: "center" }}>
-              <p style={{ color: "#8c8c8c", margin: 0 }}>Total Purchase</p>
+              <p style={{ color: "#8c8c8c", margin: 0, fontSize: 12 }}>Total Purchase</p>
               <h2 style={{ margin: "10px 0", color: "#52c41a" }}>₹{statistics.totalPurchaseAmount?.toFixed(2)}</h2>
             </div>
           </Card>
         </Col>
-        <Col span={6}>
+        <Col xs={12} sm={6}>
           <Card>
             <div style={{ textAlign: "center" }}>
-              <p style={{ color: "#8c8c8c", margin: 0 }}>Total Savings Offered</p>
+              <p style={{ color: "#8c8c8c", margin: 0, fontSize: 12 }}>Total Savings</p>
               <h2 style={{ margin: "10px 0", color: "#faad14" }}>₹{statistics.totalSavings?.toFixed(2)}</h2>
             </div>
           </Card>
         </Col>
-        <Col span={6}>
+        <Col xs={12} sm={6}>
           <Card>
             <div style={{ textAlign: "center" }}>
-              <p style={{ color: "#8c8c8c", margin: 0 }}>Current Offer</p>
-              <h2 style={{ margin: "10px 0", color: "#f5222d" }}>{getOfferText()}</h2>
+              <p style={{ color: "#8c8c8c", margin: 0, fontSize: 12 }}>Current Offer</p>
+              <h2 style={{ margin: "10px 0", color: "#f5222d", fontSize: 18 }}>{getOfferText()}</h2>
             </div>
           </Card>
         </Col>
       </Row>
 
       {/* Order History */}
-      <Card title="Order History">
-        {statistics.lastOrderDate && (
-          <p style={{ marginBottom: 16, color: "#8c8c8c" }}>
-            <strong>Last Order Date:</strong> {new Date(statistics.lastOrderDate).toLocaleString()}
-          </p>
+      <Card 
+        title={<><ShopOutlined /> Order History</>} 
+        style={{ marginTop: 16 }}
+        extra={statistics.lastOrderDate && (
+          <span style={{ fontSize: 12, color: "#8c8c8c" }}>
+            Last Order: {new Date(statistics.lastOrderDate).toLocaleString()}
+          </span>
         )}
+      >
         <Table 
           columns={orderColumns} 
           dataSource={dataSource} 
           pagination={{ pageSize: 10 }}
           scroll={{ x: 1000 }}
+          size="small"
         />
       </Card>
     </div>

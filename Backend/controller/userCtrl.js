@@ -18,7 +18,7 @@ const { createPasswordResetToken } = require("../models/userModel");
 
 
 const createOfflineOrder = asyncHandler(async (req, res) => {
-  const { items, paymentMethod, customer } = req.body;
+  const { items, paymentMethod, customer, discount, total } = req.body;
   const adminId = req.user._id;
 
   if (!items || items.length === 0) {
@@ -73,11 +73,16 @@ const createOfflineOrder = asyncHandler(async (req, res) => {
     totalPrice += product.price * item.quantity;
   }
 
+  // Calculate discount amount
+  const discountAmount = discount || 0;
+  const totalPriceAfterDiscount = totalPrice - discountAmount;
+
   const order = await Order.create({
     user: customerId,
     orderItems,
     totalPrice,
-    totalPriceAfterDiscount: totalPrice,
+    totalPriceAfterDiscount,
+    discountAmount: discountAmount, // Store discount amount for reference
     paymentInfo: {
       razorpayOrderId: paymentMethod || "OFFLINE",
       razorpayPaymentId: "OFFLINE",
@@ -599,7 +604,10 @@ const getMyOrders = asyncHandler(async (req, res) => {
 const getAllOrders = asyncHandler(async (req, res) => {
   const { _id } = req.user;
   try {
-    const orders = await Order.find().populate("user");
+    const orders = await Order.find()
+      .populate("user")
+      .select("+discountAmount") // Include discountAmount field
+      .sort({ createdAt: -1 }); // Sort by newest first
     // .populate("orderItems.product")
     // .populate("orderItems.color");
     res.json({
@@ -614,9 +622,13 @@ const getsingleOrder = asyncHandler(async (req, res) => {
   const { id } = req.params;
   try {
     const orders = await Order.findOne({ _id: id })
-      .populate("user")
-      .populate("orderItems.product")
-      .populate("orderItems.color");
+      .select("+discountAmount") // Include discountAmount field
+      .populate({
+        path: "orderItems.product",
+        select: "title brand price images barcode"
+      })
+      .populate("orderItems.color")
+      .populate("user", "firstname lastname email mobile");
     res.json({
       orders,
     });
@@ -869,9 +881,12 @@ const getCustomerDetails = asyncHandler(async (req, res) => {
       throw new Error("Customer not found");
     }
 
-    // Get all orders for this customer
+    // Get all orders for this customer with product details
     const orders = await Order.find({ user: id })
-      .populate("orderItems.product")
+      .populate({
+        path: "orderItems.product",
+        select: "title brand price images barcode"
+      })
       .populate("orderItems.color")
       .sort({ createdAt: -1 });
 
@@ -906,12 +921,26 @@ const getCustomerDetails = asyncHandler(async (req, res) => {
       },
       orders: orders.map(order => ({
         _id: order._id,
-        orderItems: order.orderItems,
+        orderItems: order.orderItems.map(item => ({
+          product: item.product ? {
+            _id: item.product._id,
+            title: item.product.title,
+            brand: item.product.brand,
+            price: item.product.price,
+            images: item.product.images,
+            barcode: item.product.barcode
+          } : null,
+          quantity: item.quantity,
+          price: item.price,
+          color: item.color
+        })),
         totalPrice: order.totalPrice,
         totalPriceAfterDiscount: order.totalPriceAfterDiscount,
+        discountAmount: order.discountAmount || 0,
         orderStatus: order.orderStatus,
         mode: order.mode,
         paymentInfo: order.paymentInfo,
+        shippingInfo: order.shippingInfo,
         createdAt: order.createdAt,
       }))
     });

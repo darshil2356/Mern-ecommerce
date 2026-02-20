@@ -2,50 +2,62 @@ import React, { useEffect, useRef, useState, useMemo } from "react";
 import axios from "axios";
 import { base_url } from "../utils/baseUrl";
 import { config } from "../utils/axiosconfig";
+import { Modal, Input } from "antd";
+import { 
+  FaBarcode, 
+  FaRupeeSign, 
+  FaPrint, 
+  FaCheckCircle, 
+  FaUser, 
+  FaMapMarkerAlt, 
+  FaPhone,
+  FaShoppingCart,
+  FaTrash,
+  FaPlus,
+  FaMinus,
+  FaSearch,
+  FaCalendarAlt,
+  FaClock,
+  FaBuilding
+} from "react-icons/fa";
 
 const LiveBilling = () => {
-  // const inputRef = useRef(null);
-
   const [buffer, setBuffer] = useState("");
   const [cart, setCart] = useState({});
 
   const [cgstPercent, setCgstPercent] = useState(0);
-const [sgstPercent, setSgstPercent] = useState(0);
-const [discountPercent, setDiscountPercent] = useState(0);
+  const [sgstPercent, setSgstPercent] = useState(0);
+  const [discountPercent, setDiscountPercent] = useState(0);
 
-const [contactSearch, setContactSearch] = useState("");
-const [showContactDropdown, setShowContactDropdown] = useState(false);
+  const [contactSearch, setContactSearch] = useState("");
+  const [showContactDropdown, setShowContactDropdown] = useState(false);
 
-
-const clampNonNegative = (v) => {
-  if (v === "" || isNaN(v)) return 0;
-  return Math.max(0, Number(v));
-};
-
-
+  const clampNonNegative = (v) => {
+    if (v === "" || isNaN(v)) return 0;
+    return Math.max(0, Number(v));
+  };
 
   const [customer, setCustomer] = useState({
     name: "",
     address: "",
+    contact: ""
   });
 
-  const [taxPercent, setTaxPercent] = useState(0);
-  const [discount, setDiscount] = useState(0);
-
   const [customers, setCustomers] = useState([]);
-const [searchTerm, setSearchTerm] = useState("");
-const [showDropdown, setShowDropdown] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [showDropdown, setShowDropdown] = useState(false);
 
+  // GSTIN state
+  const [gstin, setGstin] = useState("");
+  const [gstinModalVisible, setGstinModalVisible] = useState(false);
+  const [gstinInput, setGstinInput] = useState("");
 
-  /* =========================
-     AUTO FOCUS SCANNER INPUT
-     ========================= */
+  // Store info
+  const [storeName] = useState("Cart Corner");
+  const [storeTagline] = useState("Your One-Stop Shopping Destination");
 
-
-
-
-
-
+  // Scanner input ref
+  const scannerRef = useRef(null);
 
   /* =========================
      FETCH PRODUCT
@@ -68,13 +80,29 @@ const [showDropdown, setShowDropdown] = useState(false);
     );
   }, [cart]);
 
-  const taxAmount = useMemo(() => {
-    return (grandTotal * taxPercent) / 100;
-  }, [grandTotal, taxPercent]);
+  const cgstAmount = useMemo(
+    () => (grandTotal * cgstPercent) / 100,
+    [grandTotal, cgstPercent]
+  );
 
-  const finalTotal = useMemo(() => {
-    return grandTotal + taxAmount - discount;
-  }, [grandTotal, taxAmount, discount]);
+  const sgstAmount = useMemo(
+    () => (grandTotal * sgstPercent) / 100,
+    [grandTotal, sgstPercent]
+  );
+
+  const discountAmount = useMemo(
+    () => (grandTotal * discountPercent) / 100,
+    [grandTotal, discountPercent]
+  );
+
+  const payableAmount = useMemo(
+    () => grandTotal + cgstAmount + sgstAmount - discountAmount,
+    [grandTotal, cgstAmount, sgstAmount, discountAmount]
+  );
+
+  const itemCount = useMemo(() => {
+    return Object.values(cart).reduce((sum, item) => sum + item.qty, 0);
+  }, [cart]);
 
   /* =========================
      BARCODE HANDLER
@@ -144,163 +172,163 @@ const [showDropdown, setShowDropdown] = useState(false);
       };
     });
   };
-  
-  useEffect(() => {
-  let scanBuffer = "";
-  let scanTimeout = null;
 
-  const isValidChar = (key) => {
-    // allow numbers, letters, dash
-    return /^[a-zA-Z0-9\-]$/.test(key);
+  const removeItem = (barcode) => {
+    setCart((prev) => {
+      const newCart = { ...prev };
+      delete newCart[barcode];
+      return newCart;
+    });
   };
 
-  const handleKeyDown = async (e) => {
-    const activeTag = document.activeElement.tagName;
+  /* =========================
+     GLOBAL SCANNER HANDLER
+     ========================= */
+  useEffect(() => {
+    let scanBuffer = "";
+    let scanTimeout = null;
 
-    // 🚫 Ignore typing inside inputs
-    if (activeTag === "INPUT" || activeTag === "TEXTAREA") return;
+    const isValidChar = (key) => {
+      return /^[a-zA-Z0-9\-]$/.test(key);
+    };
 
-    // 🚫 Ignore modifier keys
-    if (
-      e.key === "Shift" ||
-      e.key === "Alt" ||
-      e.key === "Control" ||
-      e.key === "Meta"
-    ) {
-      return;
-    }
+    const handleKeyDown = async (e) => {
+      const activeTag = document.activeElement.tagName;
 
-    // ✅ Scanner finishes with Enter
-    if (e.key === "Enter") {
-      if (!scanBuffer) return;
+      if (activeTag === "INPUT" || activeTag === "TEXTAREA") return;
 
-      const barcode = scanBuffer;
-      scanBuffer = "";
+      if (
+        e.key === "Shift" ||
+        e.key === "Alt" ||
+        e.key === "Control" ||
+        e.key === "Meta"
+      ) {
+        return;
+      }
 
-      try {
-        const product = await fetchProductByBarcode(barcode);
+      if (e.key === "Enter") {
+        if (!scanBuffer) return;
 
-        setCart((prev) => {
-          if (prev[barcode]) {
+        const barcode = scanBuffer;
+        scanBuffer = "";
+
+        try {
+          const product = await fetchProductByBarcode(barcode);
+
+          setCart((prev) => {
+            if (prev[barcode]) {
+              return {
+                ...prev,
+                [barcode]: {
+                  ...prev[barcode],
+                  qty: prev[barcode].qty + 1,
+                },
+              };
+            }
             return {
               ...prev,
               [barcode]: {
-                ...prev[barcode],
-                qty: prev[barcode].qty + 1,
+                name: product.title,
+                price: product.price,
+                qty: 1,
               },
             };
-          }
-          return {
-            ...prev,
-            [barcode]: {
-              name: product.title,
-              price: product.price,
-              qty: 1,
-            },
-          };
-        });
-      } catch {
-        alert(`Product not found for barcode: ${barcode}`);
+          });
+        } catch {
+          alert(`Product not found for barcode: ${barcode}`);
+        }
+
+        return;
       }
 
+      if (isValidChar(e.key)) {
+        scanBuffer += e.key;
+      }
+
+      clearTimeout(scanTimeout);
+      scanTimeout = setTimeout(() => {
+        scanBuffer = "";
+      }, 80);
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
+
+  // Fetch GSTIN on mount
+  useEffect(() => {
+    const fetchGstin = async () => {
+      try {
+        const res = await axios.get(`${base_url}user/gstin`, config);
+        setGstin(res.data.gstin || "");
+      } catch (err) {
+        console.error("Failed to fetch GSTIN:", err);
+      }
+    };
+    fetchGstin();
+  }, []);
+
+  // Open GSTIN modal
+  const openGstinModal = () => {
+    setGstinInput(gstin);
+    setGstinModalVisible(true);
+  };
+
+  // Save GSTIN
+  const saveGstin = async () => {
+    try {
+      const res = await axios.put(`${base_url}user/gstin`, { gstin: gstinInput }, config);
+      setGstin(res.data.gstin);
+      setGstinModalVisible(false);
+    } catch (err) {
+      console.error("Failed to save GSTIN:", err);
+      alert("Failed to save GSTIN. Please try again.");
+    }
+  };
+
+  // Search customers
+  useEffect(() => {
+    if (!searchTerm.trim()) {
+      setCustomers([]);
       return;
     }
 
-    // ✅ Accept only valid barcode characters
-    if (isValidChar(e.key)) {
-      scanBuffer += e.key;
+    const delay = setTimeout(async () => {
+      try {
+        const res = await axios.get(
+          `${base_url}user/search?query=${searchTerm}`,
+          config
+        );
+        setCustomers(res.data);
+      } catch (err) {
+        console.error(err);
+      }
+    }, 400);
+
+    return () => clearTimeout(delay);
+  }, [searchTerm]);
+
+  // Search by contact
+  useEffect(() => {
+    if (!contactSearch.trim()) {
+      setCustomers([]);
+      return;
     }
 
-    // 🕒 Reset buffer if delay occurs (human typing)
-    clearTimeout(scanTimeout);
-    scanTimeout = setTimeout(() => {
-      scanBuffer = "";
-    }, 80);
-  };
+    const delay = setTimeout(async () => {
+      try {
+        const res = await axios.get(
+          `${base_url}user/search?query=${contactSearch}`,
+          config
+        );
+        setCustomers(res.data);
+      } catch (err) {
+        console.error(err);
+      }
+    }, 400);
 
-  window.addEventListener("keydown", handleKeyDown);
-  return () => window.removeEventListener("keydown", handleKeyDown);
-}, []);
-
-
-// useEffect(() => {
-//   const fetchCustomers = async () => {
-//     try {
-//       const res = await axios.get(`${base_url}user/all-users`, config);
-//       setCustomers(res.data.filter(u => u.role !== "admin"));
-//     } catch (err) {
-//       console.error("Failed to fetch customers");
-//     }
-//   };
-
-//   fetchCustomers();
-// }, []);
-
-
-useEffect(() => {
-  if (!searchTerm.trim()) {
-    setCustomers([]);
-    return;
-  }
-
-  const delay = setTimeout(async () => {
-    try {
-      const res = await axios.get(
-        `${base_url}user/search?query=${searchTerm}`,
-        config
-      );
-      setCustomers(res.data);
-    } catch (err) {
-      console.error(err);
-    }
-  }, 400); // debounce 400ms
-
-  return () => clearTimeout(delay);
-}, [searchTerm]);
-
-
-
-// const filteredCustomers = useMemo(() => {
-//   if (!searchTerm) return [];
-//   return customers.filter((c) =>
-//     `${c.firstname} ${c.lastname}`
-//       .toLowerCase()
-//       .includes(searchTerm.toLowerCase())
-//   );
-// }, [searchTerm, customers]);
-
-// const filteredByContact = useMemo(() => {
-//   if (!contactSearch.trim()) return [];
-
-//   return customers.filter((c) =>
-//     String(c.mobile || "").includes(contactSearch.trim())
-//   );
-// }, [contactSearch, customers]);
-
-
-useEffect(() => {
-  if (!contactSearch.trim()) {
-    setCustomers([]);
-    return;
-  }
-
-  const delay = setTimeout(async () => {
-    try {
-      const res = await axios.get(
-        `${base_url}user/search?query=${contactSearch}`,
-        config
-      );
-      setCustomers(res.data);
-    } catch (err) {
-      console.error(err);
-    }
-  }, 400);
-
-  return () => clearTimeout(delay);
-}, [contactSearch]);
-
-
-
+    return () => clearTimeout(delay);
+  }, [contactSearch]);
 
   /* =========================
      FINALIZE SALE
@@ -313,26 +341,32 @@ useEffect(() => {
 
     if (!items.length) return;
 
-    await axios.post(
-      `${base_url}user/offline-order`,
-      {
-        customer,
-        items,
-        taxPercent,
-        discount,
-        total: finalTotal,
-        paymentMethod: "CASH",
-      },
-      config
-    );
+    try {
+      await axios.post(
+        `${base_url}user/offline-order`,
+        {
+          customer,
+          items,
+          taxPercent: cgstPercent + sgstPercent,
+          discount: discountAmount,
+          total: payableAmount,
+          paymentMethod: "CASH",
+        },
+        config
+      );
 
-    printBill();
-    alert("SALE COMPLETED");
+      printBill();
+      alert("SALE COMPLETED SUCCESSFULLY!");
 
-    setCart({});
-    setCustomer({ name: "", address: "" });
-    setTaxPercent(0);
-    setDiscount(0);
+      setCart({});
+      setCustomer({ name: "", address: "", contact: "" });
+      setCgstPercent(0);
+      setSgstPercent(0);
+      setDiscountPercent(0);
+    } catch (err) {
+      console.error("Failed to complete sale:", err);
+      alert("Failed to complete sale. Please try again.");
+    }
   };
 
   /* =========================
@@ -360,9 +394,10 @@ useEffect(() => {
           </style>
         </head>
         <body>
-          <h2 align="center">STORE BILL</h2>
-          <p>Customer: ${customer.name}</p>
-          <p>Address: ${customer.address}</p>
+          <h2 align="center">${storeName}</h2>
+          <p>Customer: ${customer.name || "Walk-in Customer"}</p>
+          <p>Address: ${customer.address || "-"}</p>
+          ${gstin ? `<p>GSTIN: ${gstin}</p>` : ''}
 
           <table>
             <tr><th>Item</th><th class="right">Qty</th><th class="right">₹</th></tr>
@@ -373,7 +408,7 @@ useEffect(() => {
               )
               .join("")}
             <tr class="total">
-              <td>Total</td><td></td><td class="right">₹ ${finalTotal}</td>
+              <td>Total</td><td></td><td class="right">₹ ${payableAmount.toFixed(2)}</td>
             </tr>
           </table>
         </body>
@@ -384,447 +419,486 @@ useEffect(() => {
     setTimeout(() => win.print(), 300);
   };
 
-
-
-
-const cgstAmount = useMemo(
-  () => (grandTotal * cgstPercent) / 100,
-  [grandTotal, cgstPercent]
-);
-
-const sgstAmount = useMemo(
-  () => (grandTotal * sgstPercent) / 100,
-  [grandTotal, sgstPercent]
-);
-
-const discountAmount = useMemo(
-  () => (grandTotal * discountPercent) / 100,
-  [grandTotal, discountPercent]
-);
-
-const payableAmount = useMemo(
-  () => grandTotal + cgstAmount + sgstAmount - discountAmount,
-  [grandTotal, cgstAmount, sgstAmount, discountAmount]
-);
-
-
   /* =========================
      UI
      ========================= */
   return (
-    <div className="p-6 min-w-[900px] bg-gray-50">
-  <h1 className="text-2xl font-bold mb-6 flex items-center gap-2">
-    🧾 Live Billing
-  </h1>
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-4 md:p-6">
+      {/* PREMIUM HEADER */}
+      <div className="bg-gradient-to-r from-indigo-900 via-indigo-800 to-indigo-900 rounded-2xl shadow-2xl p-6 mb-6 text-white">
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+          {/* Logo & Brand */}
+          <div className="flex items-center gap-4">
+            <div className="w-16 h-16 bg-white/10 backdrop-blur rounded-2xl flex items-center justify-center">
+              <FaShoppingCart className="text-3xl text-amber-400" />
+            </div>
+            <div>
+              <h1 className="text-2xl md:text-3xl font-bold tracking-tight">
+                {storeName}
+              </h1>
+              <p className="text-indigo-200 text-sm">{storeTagline}</p>
+            </div>
+          </div>
 
-
-      {/* CUSTOMER */}
-     {/* CUSTOMER DETAILS */}
-     
-
-
-<div className="bg-white rounded-xl shadow-sm border p-5 mb-6">
-  <div className="flex gap-8">
-
-    {/* LEFT – Customer (66%) */}
-    <div className="w-2/3 space-y-4">
-      <h2 className="font-semibold text-sm text-gray-600">
-        Customer Details
-      </h2>
-
-      {/* <div>
-        <label className="text-xs font-medium">Customer Name</label>
-        <input
-          className="w-[4/5] border-b border-gray-300 focus:border-black outline-none py-1"
-          value={customer.name}
-          onChange={(e) =>
-            setCustomer({ ...customer, name: e.target.value })
-          }
-        />
-      </div> */}
-
-      
-
-      {/* <div>
-        <label className="text-xs font-medium">Address</label>
-        <input
-          className="w-[4/5] border-b border-gray-300 focus:border-black outline-none py-1"
-          value={customer.address}
-          onChange={(e) =>
-            setCustomer({ ...customer, address: e.target.value })
-          }
-        />
-      </div>
-
-      <div>
-        <label className="text-xs font-medium">Contact</label>
-        <input
-          className="w-[4/5] border-b border-gray-300 focus:border-black outline-none py-1"
-        />
-      </div> */}
-
-      <div className="space-y-2">
-  {/* <div className="flex items-end gap-3">
-    <label className="w-24 text-xs font-medium">Name</label>
-    <input
-      className="flex-1 border-b border-gray-300 focus:border-black outline-none py-1"
-      value={customer.name}
-      onChange={(e) => setCustomer({ ...customer, name: e.target.value })}
-    />
-  </div> */}
-
-  <div className="flex items-end gap-3 relative">
-  <label className="w-24 text-xs font-medium">Name</label>
-
-  <input
-    className="flex-1 border-b border-gray-300 focus:border-black outline-none py-1"
-    value={searchTerm}
-    onChange={(e) => {
-      setSearchTerm(e.target.value);
-      setShowDropdown(true);
-    }}
-    onFocus={() => setShowDropdown(true)}
-  />
-
-  {showDropdown && customers.length > 0 && (
-    <div className="absolute top-8 left-24 w-[300px] bg-white border rounded shadow-md max-h-40 overflow-y-auto z-50">
-      {customers.map((cust) => (
-        <div
-          key={cust._id}
-          className="p-2 hover:bg-gray-100 cursor-pointer text-sm"
-          onClick={() => {
-            setCustomer({
-              name: cust.firstname + " " + cust.lastname,
-              address: cust.address || "",
-              contact: cust.mobile || "",
-            });
-            setSearchTerm(cust.firstname + " " + cust.lastname);
-            setShowDropdown(false);
-          }}
-        >
-          {cust.firstname} {cust.lastname}
-        </div>
-      ))}
-    </div>
-  )}
-</div>
-
-
-  <div className="flex items-end gap-3">
-    <label className="w-24 text-xs font-medium">Address</label>
-    <input
-      className="flex-1 border-b border-gray-300 focus:border-black outline-none py-1"
-      value={customer.address}
-      onChange={(e) => setCustomer({ ...customer, address: e.target.value })}
-    />
-  </div>
-
-  {/* <div className="flex items-end gap-3">
-    <label className="w-24 text-xs font-medium">Contact</label>
-    <input
-      className="flex-1 border-b border-gray-300 focus:border-black outline-none py-1"
-      value={customer.contact}
-      onChange={(e) => setCustomer({ ...customer, contact: e.target.value })}
-    />
-  </div> */}
-
-  <div className="flex items-end gap-3 relative">
-  <label className="w-24 text-xs font-medium">Contact</label>
-
-  <input
-    className="flex-1 border-b border-gray-300 focus:border-black outline-none py-1"
-    value={contactSearch}
-    onChange={(e) => {
-      setContactSearch(e.target.value);
-      setShowContactDropdown(true);
-    }}
-    onFocus={() => setShowContactDropdown(true)}
-  />
-
-  {showContactDropdown && customers.length > 0 && (
-    <div className="absolute top-8 left-24 w-[300px] bg-white border rounded shadow-md max-h-40 overflow-y-auto z-50">
-      {customers.map((cust) => (
-        <div
-          key={cust._id}
-          className="p-2 hover:bg-gray-100 cursor-pointer text-sm"
-          onClick={() => {
-            setCustomer({
-              name: cust.firstname + " " + cust.lastname,
-              address: cust.address || "",
-              contact: cust.mobile || "",
-            });
-            setContactSearch(cust.mobile);
-            setSearchTerm(cust.firstname + " " + cust.lastname);
-            setShowContactDropdown(false);
-          }}
-        >
-          <div>{cust.mobile}</div>
-          <div className="text-xs text-gray-500">
-            {cust.firstname} {cust.lastname}
+          {/* Date & Time */}
+          <div className="flex gap-6">
+            <div className="flex items-center gap-3 bg-white/10 backdrop-blur rounded-xl px-4 py-2">
+              <FaCalendarAlt className="text-amber-400" />
+              <div>
+                <p className="text-xs text-indigo-200">Date</p>
+                <p className="font-semibold">{new Date().toLocaleDateString('en-GB')}</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3 bg-white/10 backdrop-blur rounded-xl px-4 py-2">
+              <FaClock className="text-amber-400" />
+              <div>
+                <p className="text-xs text-indigo-200">Time</p>
+                <p className="font-semibold">{new Date().toLocaleTimeString()}</p>
+              </div>
+            </div>
           </div>
         </div>
-      ))}
-    </div>
-  )}
-</div>
-
-</div>
-
-    </div>
-
-    {/* RIGHT – Date / Time (34%) */}
-    <div className="w-1/3 text-right text-sm">
-      <div className="text-gray-500">Date</div>
-      <div className="font-medium">
-        {new Date().toLocaleDateString()}
       </div>
 
-      <div className="mt-3 text-gray-500">Time</div>
-      <div className="font-medium">
-        {new Date().toLocaleTimeString()}
-      </div>
-    </div>
-
-  </div>
-</div>
-
-
-
-      {/* SCANNER */}
-    
-
-      {/* TABLE */}
-      {/* ITEMS TABLE */}
-
-     <div className="bg-white rounded-xl shadow-sm border overflow-hidden mb-6">
-  <table className="w-full text-sm">
-    <thead className="bg-gray-100 text-gray-700">
-      <tr>
-        <th className="p-3 w-[5%]">#</th>
-        <th className="p-3 w-[25%]">Product</th>
-        <th className="p-3 w-[20%]">Barcode</th>
-        <th className="p-3 text-right w-[15%]">Price</th>
-        <th className="p-3 text-center w-[15%]">Qty</th>
-        <th className="p-3 text-right w-[20%]">Total</th>
-      </tr>
-    </thead>
-
-    <tbody>
-      {Object.entries(cart).map(([barcode, item], i) => (
-        <tr key={barcode} className="border-t">
-          <td className="p-3">{i + 1}</td>
-
-          <td className="p-3 font-medium">
-            {item.name}
-          </td>
-
-          <td className="p-3 text-xs text-gray-500">
-            {barcode}
-          </td>
-
-          <td className="p-3 text-right">
-            ₹ {item.price.toFixed(2)}
-          </td>
-
-          <td className="p-3 text-center">
-            <div className="inline-flex items-center gap-2">
-              <button
-                className="w-6 h-6 border rounded-full hover:bg-gray-100"
-                onClick={() => decreaseQty(barcode)}
-              >
-                −
-              </button>
-
-              <span className="min-w-[20px] text-center">
-                {item.qty}
-              </span>
-
-              <button
-                className="w-6 h-6 border rounded-full hover:bg-gray-100"
-                onClick={() => increaseQty(barcode)}
-              >
-                +
-              </button>
+      {/* MAIN CONTENT GRID */}
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+        {/* LEFT COLUMN - 2/3 */}
+        <div className="xl:col-span-2 space-y-6">
+          {/* CUSTOMER DETAILS CARD */}
+          <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
+            <div className="bg-gradient-to-r from-gray-50 to-white px-6 py-4 border-b border-gray-100">
+              <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2">
+                <FaUser className="text-indigo-600" />
+                Customer Details
+              </h2>
             </div>
-          </td>
+            
+            <div className="p-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Customer Name */}
+                <div className="relative">
+                  <label className="block text-xs font-medium text-gray-500 mb-1">
+                    Customer Name
+                  </label>
+                  <div className="relative">
+                    <FaUser className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                    <input
+                      className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none transition-all"
+                      value={searchTerm}
+                      placeholder="Search customer..."
+                      onChange={(e) => {
+                        setSearchTerm(e.target.value);
+                        setShowDropdown(true);
+                      }}
+                      onFocus={() => setShowDropdown(true)}
+                    />
+                  </div>
+                  {showDropdown && customers.length > 0 && (
+                    <div className="absolute top-full left-0 w-full bg-white border border-gray-200 rounded-xl shadow-xl max-h-48 overflow-y-auto z-50 mt-1">
+                      {customers.map((cust) => (
+                        <div
+                          key={cust._id}
+                          className="p-3 hover:bg-indigo-50 cursor-pointer border-b border-gray-100 last:border-0 transition-colors"
+                          onClick={() => {
+                            setCustomer({
+                              name: cust.firstname + " " + cust.lastname,
+                              address: cust.address || "",
+                              contact: cust.mobile || "",
+                            });
+                            setSearchTerm(cust.firstname + " " + cust.lastname);
+                            setShowDropdown(false);
+                          }}
+                        >
+                          <div className="font-medium text-gray-800">
+                            {cust.firstname} {cust.lastname}
+                          </div>
+                          <div className="text-xs text-gray-500">{cust.mobile}</div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
 
-          <td className="p-3 text-right font-semibold">
-            ₹ {(item.qty * item.price).toFixed(2)}
-          </td>
-        </tr>
-      ))}
+                {/* Contact */}
+                <div className="relative">
+                  <label className="block text-xs font-medium text-gray-500 mb-1">
+                    Contact Number
+                  </label>
+                  <div className="relative">
+                    <FaPhone className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                    <input
+                      className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none transition-all"
+                      value={contactSearch}
+                      placeholder="Search by phone..."
+                      onChange={(e) => {
+                        setContactSearch(e.target.value);
+                        setShowContactDropdown(true);
+                      }}
+                      onFocus={() => setShowContactDropdown(true)}
+                    />
+                  </div>
+                  {showContactDropdown && customers.length > 0 && (
+                    <div className="absolute top-full left-0 w-full bg-white border border-gray-200 rounded-xl shadow-xl max-h-48 overflow-y-auto z-50 mt-1">
+                      {customers.map((cust) => (
+                        <div
+                          key={cust._id}
+                          className="p-3 hover:bg-indigo-50 cursor-pointer border-b border-gray-100 last:border-0 transition-colors"
+                          onClick={() => {
+                            setCustomer({
+                              name: cust.firstname + " " + cust.lastname,
+                              address: cust.address || "",
+                              contact: cust.mobile || "",
+                            });
+                            setContactSearch(cust.mobile);
+                            setSearchTerm(cust.firstname + " " + cust.lastname);
+                            setShowContactDropdown(false);
+                          }}
+                        >
+                          <div className="font-medium text-gray-800">{cust.mobile}</div>
+                          <div className="text-xs text-gray-500">
+                            {cust.firstname} {cust.lastname}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
 
-      {!Object.keys(cart).length && (
-        <tr>
-          <td
-            colSpan={6}
-            className="p-6 text-center text-gray-400"
-          >
-            Scan items to start billing
-          </td>
-        </tr>
-      )}
-    </tbody>
-  </table>
-</div>
+                {/* Address */}
+                <div className="md:col-span-2">
+                  <label className="block text-xs font-medium text-gray-500 mb-1">
+                    Address
+                  </label>
+                  <div className="relative">
+                    <FaMapMarkerAlt className="absolute left-3 top-3 text-gray-400" />
+                    <input
+                      className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none transition-all"
+                      value={customer.address}
+                      placeholder="Enter address..."
+                      onChange={(e) => setCustomer({ ...customer, address: e.target.value })}
+                    />
+                  </div>
+                </div>
 
+                {/* GSTIN */}
+                <div className="md:col-span-2">
+                  <label className="block text-xs font-medium text-gray-500 mb-1">
+                    GSTIN (Tax Registration)
+                  </label>
+                  <div className="flex gap-3">
+                    <div className="flex-1">
+                      <div className="relative">
+                        <FaBuilding className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                        <input
+                          className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none transition-all"
+                          value={gstin}
+                          placeholder="GSTIN not set"
+                          readOnly
+                        />
+                      </div>
+                    </div>
+                    <button
+                      onClick={openGstinModal}
+                      className="px-6 py-3 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-colors font-medium"
+                    >
+                      {gstin ? "Edit GSTIN" : "Add GSTIN"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
 
-{/* <div className="border border-black">
-  <table className="w-full border-collapse text-sm">
-    <thead>
-      <tr>
-        <th className="border border-black p-2 text-left w-[5%]">#</th>
-        <th className="border border-black p-2 text-left w-[30%]">Product</th>
-        <th className="border border-black p-2 text-left w-[20%]">Barcode</th>
-        <th className="border border-black p-2 text-right w-[15%]">Price</th>
-        <th className="border border-black p-2 text-center w-[15%]">Qty</th>
-        <th className="border border-black p-2 text-right w-[15%]">Total</th>
-      </tr>
-    </thead>
+          {/* SCANNER INPUT */}
+          <div className="bg-gradient-to-r from-amber-500 to-orange-500 rounded-2xl shadow-lg p-6 text-white">
+            <div className="flex flex-col md:flex-row items-center gap-4">
+              <div className="flex-1 w-full">
+                <div className="relative">
+                  <FaBarcode className="absolute left-4 top-1/2 -translate-y-1/2 text-2xl text-white/70" />
+                  <input
+                    ref={scannerRef}
+                    className="w-full pl-14 pr-4 py-4 bg-white/20 backdrop-blur border-2 border-white/30 rounded-xl text-white placeholder-white/70 text-lg focus:bg-white/30 focus:border-white outline-none transition-all"
+                    value={buffer}
+                    onChange={(e) => setBuffer(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    placeholder="Scan barcode or type manually..."
+                    autoFocus
+                  />
+                </div>
+              </div>
+              <div className="text-center">
+                <p className="text-white/80 text-sm">Press Enter to add item</p>
+                <p className="text-white/60 text-xs mt-1">Leave empty & press Enter to complete sale</p>
+              </div>
+            </div>
+          </div>
 
-    <tbody>
-      {Object.entries(cart).map(([barcode, item], i) => (
-        <tr key={barcode}>
-          <td className="border border-black p-2">{i + 1}</td>
-          <td className="border border-black p-2">{item.name}</td>
-          <td className="border border-black p-2">{barcode}</td>
-          <td className="border border-black p-2 text-right">
-            ₹ {item.price.toFixed(2)}
-          </td>
-          <td className="border border-black p-2 text-center">
-            <button
-              className="px-2 border border-black rounded-full"
-              onClick={() => decreaseQty(barcode)}
-            >
-              -
-            </button>
-            <span className="mx-2">{item.qty}</span>
-            <button
-              className="px-2 border border-black rounded-full"
-              onClick={() => increaseQty(barcode)}
-            >
-              +
-            </button>
-          </td>
-          <td className="border border-black p-2 text-right">
-            ₹ {(item.qty * item.price).toFixed(2)}
-          </td>
-        </tr>
-      ))}
-    </tbody>
-  </table>
-</div> */}
+          {/* PRODUCTS TABLE */}
+          <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
+            <div className="bg-gradient-to-r from-gray-50 to-white px-6 py-4 border-b border-gray-100 flex justify-between items-center">
+              <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2">
+                <FaShoppingCart className="text-indigo-600" />
+                Cart Items
+              </h2>
+              <span className="bg-indigo-100 text-indigo-700 px-3 py-1 rounded-full text-sm font-medium">
+                {itemCount} {itemCount === 1 ? 'Item' : 'Items'}
+              </span>
+            </div>
 
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">#</th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Product</th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Barcode</th>
+                    <th className="px-6 py-4 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">Price</th>
+                    <th className="px-6 py-4 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">Quantity</th>
+                    <th className="px-6 py-4 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">Total</th>
+                    <th className="px-6 py-4 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {Object.entries(cart).map(([barcode, item], i) => (
+                    <tr key={barcode} className="hover:bg-indigo-50/50 transition-colors">
+                      <td className="px-6 py-4 text-gray-500">{i + 1}</td>
+                      <td className="px-6 py-4">
+                        <div className="font-semibold text-gray-800">{item.name}</div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className="px-2 py-1 bg-gray-100 text-gray-600 rounded text-xs font-mono">
+                          {barcode}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-right font-medium text-gray-700">
+                        ₹{item.price.toFixed(2)}
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center justify-center gap-2">
+                          <button
+                            className="w-8 h-8 border-2 border-gray-200 rounded-full hover:border-indigo-500 hover:text-indigo-600 flex items-center justify-center transition-all"
+                            onClick={() => decreaseQty(barcode)}
+                          >
+                            <FaMinus className="text-xs" />
+                          </button>
+                          <span className="w-12 text-center font-semibold text-gray-800">
+                            {item.qty}
+                          </span>
+                          <button
+                            className="w-8 h-8 border-2 border-gray-200 rounded-full hover:border-indigo-500 hover:text-indigo-600 flex items-center justify-center transition-all"
+                            onClick={() => increaseQty(barcode)}
+                          >
+                            <FaPlus className="text-xs" />
+                          </button>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 text-right font-bold text-indigo-600">
+                        ₹{(item.qty * item.price).toFixed(2)}
+                      </td>
+                      <td className="px-6 py-4 text-center">
+                        <button
+                          className="w-8 h-8 rounded-full bg-red-50 text-red-500 hover:bg-red-500 hover:text-white flex items-center justify-center transition-all"
+                          onClick={() => removeItem(barcode)}
+                        >
+                          <FaTrash className="text-xs" />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
 
+                  {!Object.keys(cart).length && (
+                    <tr>
+                      <td colSpan={7} className="px-6 py-16 text-center">
+                        <div className="flex flex-col items-center gap-3">
+                          <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center">
+                            <FaBarcode className="text-3xl text-gray-400" />
+                          </div>
+                          <p className="text-gray-500">Scan items to start billing</p>
+                          <p className="text-gray-400 text-sm">Use barcode scanner or type manually</p>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
 
+        {/* RIGHT COLUMN - 1/3 */}
+        <div className="space-y-6">
+          {/* BILL SUMMARY */}
+          <div className="bg-gradient-to-br from-indigo-900 via-indigo-800 to-indigo-900 rounded-2xl shadow-2xl text-white overflow-hidden">
+            <div className="bg-white/10 backdrop-blur px-6 py-4 border-b border-white/10">
+              <h2 className="text-xl font-bold flex items-center gap-2">
+                <FaRupeeSign className="text-amber-400" />
+                Bill Summary
+              </h2>
+            </div>
 
-      {/* TAX */}
-     {/* BILL SUMMARY */}
-{/* BILL SUMMARY – HORIZONTAL */}
-{/* BILL SUMMARY – HORIZONTAL */}
+            <div className="p-6 space-y-4">
+              {/* Subtotal */}
+              <div className="flex justify-between items-center py-2 border-b border-white/10">
+                <span className="text-indigo-200">Subtotal</span>
+                <span className="font-semibold text-lg">₹{grandTotal.toFixed(2)}</span>
+              </div>
 
+              {/* CGST */}
+              <div className="bg-white/5 rounded-xl p-4">
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-indigo-200">CGST</span>
+                  <span className="font-semibold">₹{cgstAmount.toFixed(2)}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    min={0}
+                    step={1}
+                    className="w-20 px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-center text-white placeholder-white/50"
+                    value={cgstPercent}
+                    onChange={(e) => setCgstPercent(clampNonNegative(e.target.value))}
+                  />
+                  <span className="text-indigo-200">%</span>
+                </div>
+              </div>
 
+              {/* SGST */}
+              <div className="bg-white/5 rounded-xl p-4">
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-indigo-200">SGST</span>
+                  <span className="font-semibold">₹{sgstAmount.toFixed(2)}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    min={0}
+                    step={1}
+                    className="w-20 px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-center text-white placeholder-white/50"
+                    value={sgstPercent}
+                    onChange={(e) => setSgstPercent(clampNonNegative(e.target.value))}
+                  />
+                  <span className="text-indigo-200">%</span>
+                </div>
+              </div>
 
+              {/* Discount */}
+              <div className="bg-white/5 rounded-xl p-4">
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-indigo-200">Discount</span>
+                  <span className="font-semibold text-green-400">-₹{discountAmount.toFixed(2)}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    min={0}
+                    step={1}
+                    className="w-20 px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-center text-white placeholder-white/50"
+                    value={discountPercent}
+                    onChange={(e) => setDiscountPercent(clampNonNegative(e.target.value))}
+                  />
+                  <span className="text-indigo-200">%</span>
+                </div>
+              </div>
 
-<div className="bg-white rounded-xl shadow-sm border p-4">
-  <table className="w-full text-sm text-center mb-4">
-    <thead className="text-gray-600">
-      <tr>
-        <th>Total</th>
-        <th>CGST %</th>
-        <th>CGST ₹</th>
-        <th>SGST %</th>
-        <th>SGST ₹</th>
-        <th>Disc %</th>
-        <th>Disc ₹</th>
-        <th>Payable</th>
-      </tr>
-    </thead>
+              {/* Divider */}
+              <div className="border-t border-white/20 pt-4">
+                {/* Grand Total */}
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-indigo-200">Grand Total</span>
+                  <span className="text-sm">₹{grandTotal.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-indigo-200">Tax</span>
+                  <span className="text-sm">+₹{(cgstAmount + sgstAmount).toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between items-center mb-4">
+                  <span className="text-indigo-200">Discount</span>
+                  <span className="text-sm text-green-400">-₹{discountAmount.toFixed(2)}</span>
+                </div>
+              </div>
 
-    <tbody>
-      <tr className="font-medium">
-        <td>₹ {grandTotal.toFixed(2)}</td>
+              {/* Payable Amount */}
+              <div className="bg-amber-500 rounded-xl p-4 text-center">
+                <p className="text-amber-100 text-sm mb-1">Payable Amount</p>
+                <p className="text-4xl font-bold text-white">₹{payableAmount.toFixed(2)}</p>
+              </div>
 
-        <td>
-          {/* <input
-            type="number"
-            className="w-16 text-center border rounded"
-            value={cgstPercent}
-            onChange={(e) => setCgstPercent(+e.target.value)}
-          /> */}
+              {/* Action Buttons */}
+              <div className="space-y-3 pt-2">
+                <button
+                  onClick={printBill}
+                  disabled={!Object.keys(cart).length}
+                  className="w-full py-4 bg-white/10 hover:bg-white/20 border border-white/20 rounded-xl font-semibold flex items-center justify-center gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <FaPrint />
+                  Print / Download Bill
+                </button>
+                <button
+                  onClick={finalizeSale}
+                  disabled={!Object.keys(cart).length}
+                  className="w-full py-4 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 rounded-xl font-bold flex items-center justify-center gap-2 transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <FaCheckCircle />
+                  Complete Sale
+                </button>
+              </div>
+            </div>
+          </div>
 
-          <input
-  type="number"
-  min={0}
-  step={1}
-  className="w-16 text-center border rounded"
-  value={cgstPercent}
-  onChange={(e) => setCgstPercent(clampNonNegative(e.target.value))}
-/>
+          {/* Quick Stats */}
+          <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
+            <h3 className="font-bold text-gray-800 mb-4">Quick Stats</h3>
+            <div className="space-y-3">
+              <div className="flex justify-between items-center p-3 bg-gray-50 rounded-xl">
+                <span className="text-gray-600">Total Items</span>
+                <span className="font-bold text-indigo-600">{itemCount}</span>
+              </div>
+              <div className="flex justify-between items-center p-3 bg-gray-50 rounded-xl">
+                <span className="text-gray-600">Unique Products</span>
+                <span className="font-bold text-indigo-600">{Object.keys(cart).length}</span>
+              </div>
+              <div className="flex justify-between items-center p-3 bg-gray-50 rounded-xl">
+                <span className="text-gray-600">Customer</span>
+                <span className="font-bold text-indigo-600">{customer.name || "Walk-in"}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
 
-        </td>
-
-        <td>₹ {cgstAmount.toFixed(2)}</td>
-
-        <td>
-         <input
-  type="number"
-  min={0}
-  step={1}
-  className="w-16 text-center border rounded"
-  value={sgstPercent}
-  onChange={(e) => setSgstPercent(clampNonNegative(e.target.value))}
-/>
-
-        </td>
-
-        <td>₹ {sgstAmount.toFixed(2)}</td>
-
-        <td>
-          <input
-  type="number"
-  min={0}
-  step={1}
-  className="w-16 text-center border rounded"
-  value={discountPercent}
-  onChange={(e) => setDiscountPercent(clampNonNegative(e.target.value))}
-/>
-
-        </td>
-
-        <td>₹ {discountAmount.toFixed(2)}</td>
-
-        <td className="text-lg font-bold">
-          ₹ {payableAmount.toFixed(2)}
-        </td>
-      </tr>
-    </tbody>
-  </table>
-
-  {/* ACTION BUTTONS */}
-  <div className="flex justify-end gap-3">
-    <button
-      onClick={printBill}
-      className="px-4 py-2 border rounded-lg text-sm hover:bg-gray-100"
-    >
-      🖨️ Print / Download Bill
-    </button>
-
-    <button
-      onClick={finalizeSale}
-      className="px-5 py-2 bg-black text-white rounded-lg text-sm hover:bg-gray-900"
-    >
-      ✅ Complete Sale
-    </button>
-  </div>
-</div>
-
-
-
-
-
+      {/* GSTIN Modal */}
+      <Modal
+        title={
+          <span className="flex items-center gap-2">
+            <FaBuilding className="text-indigo-600" />
+            {gstin ? "Edit GSTIN" : "Add GSTIN"}
+          </span>
+        }
+        open={gstinModalVisible}
+        onOk={saveGstin}
+        onCancel={() => setGstinModalVisible(false)}
+        okText="Save"
+        className="premium-modal"
+      >
+        <div className="py-4">
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            GSTIN Number
+          </label>
+          <Input
+            placeholder="Enter GSTIN (e.g., 22AAAAA0000A1Z5)"
+            value={gstinInput}
+            onChange={(e) => setGstinInput(e.target.value)}
+            onPressEnter={saveGstin}
+            className="py-3"
+          />
+          <p className="text-xs text-gray-500 mt-2">
+            Format: 15 characters (e.g., 22AAAAA0000A1Z5)
+          </p>
+        </div>
+      </Modal>
     </div>
   );
 };
 
 export default LiveBilling;
+

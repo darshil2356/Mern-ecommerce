@@ -753,6 +753,38 @@ const searchUsers = asyncHandler(async (req, res) => {
   res.json(users);
 });
 
+// Get GSTIN for logged in user
+const getGstin = asyncHandler(async (req, res) => {
+  const { _id } = req.user;
+  validateMongoDbId(_id);
+
+  try {
+    const user = await User.findById(_id).select("gstin");
+    res.json({ gstin: user.gstin || "" });
+  } catch (error) {
+    throw new Error(error);
+  }
+});
+
+// Update GSTIN for logged in user
+const updateGstin = asyncHandler(async (req, res) => {
+  const { _id } = req.user;
+  validateMongoDbId(_id);
+
+  try {
+    const { gstin } = req.body;
+    const updatedUser = await User.findByIdAndUpdate(
+      _id,
+      { gstin: gstin || "" },
+      { new: true }
+    ).select("gstin");
+    
+    res.json({ gstin: updatedUser.gstin });
+  } catch (error) {
+    throw new Error(error);
+  }
+});
+
 
 
 module.exports = {
@@ -789,5 +821,7 @@ module.exports = {
   getProductByBarcode,
   registerUser,
   searchUsers,
+  getGstin,
+  updateGstin,
 
 };

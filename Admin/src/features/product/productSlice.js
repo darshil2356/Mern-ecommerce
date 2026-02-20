@@ -119,7 +119,7 @@ export const productSlice = createSlice({
 // state.productVideos = action.payload.videos || [];
 
 
-state.productColors = action.payload.color?.[0]?._id || "";
+state.productColors = action.payload.color?._id || "";
 state.productSize = action.payload.size || [];
 state.productVideos = action.payload.videos || [];
 

@@ -18,8 +18,11 @@ import {
   FaSearch,
   FaCalendarAlt,
   FaClock,
-  FaBuilding
+  FaBuilding,
+  FaGift,
+  FaTag
 } from "react-icons/fa";
+import SpinWheel from "../components/SpinWheel";
 
 const LiveBilling = () => {
   const [buffer, setBuffer] = useState("");
@@ -51,6 +54,11 @@ const LiveBilling = () => {
   const [gstin, setGstin] = useState("");
   const [gstinModalVisible, setGstinModalVisible] = useState(false);
   const [gstinInput, setGstinInput] = useState("");
+
+  // Spin Wheel state
+  const [showSpinWheel, setShowSpinWheel] = useState(false);
+  const [customerOffer, setCustomerOffer] = useState({ hasOffer: false, offerDiscount: 0, offerType: "" });
+  const [appliedOfferAmount, setAppliedOfferAmount] = useState(0);
 
   // Store info
   const [storeName] = useState("Cart Corner");
@@ -91,8 +99,8 @@ const LiveBilling = () => {
   );
 
   const discountAmount = useMemo(
-    () => (grandTotal * discountPercent) / 100,
-    [grandTotal, discountPercent]
+    () => (grandTotal * discountPercent) / 100 + appliedOfferAmount,
+    [grandTotal, discountPercent, appliedOfferAmount]
   );
 
   const payableAmount = useMemo(
@@ -286,6 +294,98 @@ const LiveBilling = () => {
     }
   };
 
+  // Fetch customer offer when customer is selected
+  const fetchCustomerOffer = async (mobile) => {
+    if (!mobile) return;
+    
+    try {
+      const res = await axios.get(`${base_url}user/customer-offer?mobile=${mobile}`, config);
+      setCustomerOffer({
+        hasOffer: res.data.hasOffer,
+        offerDiscount: res.data.offerDiscount || 0,
+        offerType: res.data.offerType || ""
+      });
+      
+      // DON'T auto-apply - user must click "Apply Offer" button
+      setAppliedOfferAmount(0);
+    } catch (err) {
+      console.error("Failed to fetch customer offer:", err);
+      setCustomerOffer({ hasOffer: false, offerDiscount: 0, offerType: "" });
+      setAppliedOfferAmount(0);
+    }
+  };
+
+  // Apply offer to current bill
+  const applyOffer = () => {
+    if (!customerOffer.hasOffer || grandTotal === 0) return;
+    
+    let offerAmt = 0;
+    if (customerOffer.offerType === "percentage") {
+      offerAmt = (grandTotal * customerOffer.offerDiscount) / 100;
+    } else if (customerOffer.offerType === "flat") {
+      offerAmt = Math.min(customerOffer.offerDiscount, grandTotal); // Can't exceed total
+    }
+    setAppliedOfferAmount(offerAmt);
+    alert(`Offer applied: -₹${offerAmt.toFixed(2)}`);
+  };
+
+  // Remove applied offer
+  const removeOffer = () => {
+    setAppliedOfferAmount(0);
+  };
+
+  // Handle spin wheel result
+  const handleSpinComplete = async (offer) => {
+    if (!customer.contact) return;
+    
+    try {
+      // Save the offer for NEXT order (not current)
+      await axios.put(
+        `${base_url}user/customer-offer`,
+        {
+          mobile: customer.contact,
+          offerDiscount: offer.value,
+          offerType: offer.type
+        },
+        config
+      );
+      
+      // Update local state to show offer is now active for next order
+      setCustomerOffer({
+        hasOffer: offer.type !== "none",
+        offerDiscount: offer.value,
+        offerType: offer.type
+      });
+      
+      setShowSpinWheel(false);
+      
+      // Show success message
+      if (offer.type !== "none") {
+        alert(`Offer won: ${offer.type === "percentage" ? `${offer.value}% OFF` : `₹${offer.value} FLAT OFF`}\nThis offer will be applicable on your NEXT purchase!`);
+      } else {
+        alert("Better luck next time! No offer this time.");
+      }
+      
+      // Now finalize the sale WITHOUT the current offer (offer applies to next order)
+      finalizeSaleWithWhatsApp(offer);
+      
+    } catch (err) {
+      console.error("Failed to save customer offer:", err);
+    }
+  };
+
+  // Handle complete sale with spin wheel logic
+  const handleCompleteSale = () => {
+    // ALWAYS show spin wheel for every customer with mobile number
+    // The offer won will apply to NEXT order
+    if (customer.contact && Object.keys(cart).length > 0) {
+      setShowSpinWheel(true);
+    } else {
+      // For walk-in customers (no contact), proceed normally
+      finalizeSale();
+    }
+  };
+
   // Search customers
   useEffect(() => {
     if (!searchTerm.trim()) {
@@ -330,6 +430,16 @@ const LiveBilling = () => {
     return () => clearTimeout(delay);
   }, [contactSearch]);
 
+  // Fetch customer offer when customer contact changes
+  useEffect(() => {
+    if (customer.contact) {
+      fetchCustomerOffer(customer.contact);
+    } else {
+      setCustomerOffer({ hasOffer: false, offerDiscount: 0, offerType: "" });
+      setAppliedOfferAmount(0);
+    }
+  }, [customer.contact]);
+
   /* =========================
      FINALIZE SALE
      ========================= */
@@ -355,14 +465,183 @@ const LiveBilling = () => {
         config
       );
 
-      printBill();
-      alert("SALE COMPLETED SUCCESSFULLY!");
+      // If offer was applied, clear it from customer (used)
+      if (customer.contact && appliedOfferAmount > 0) {
+        try {
+          await axios.put(
+            `${base_url}user/customer-offer`,
+            {
+              mobile: customer.contact,
+              offerDiscount: 0,
+              offerType: ""
+            },
+            config
+          );
+        } catch (err) {
+          console.error("Failed to clear customer offer:", err);
+        }
+      }
+
+      // Send WhatsApp message if customer has contact
+      if (customer.contact) {
+        sendWhatsAppMessage();
+      } else {
+        printBill();
+        alert("SALE COMPLETED SUCCESSFULLY!");
+      }
 
       setCart({});
       setCustomer({ name: "", address: "", contact: "" });
       setCgstPercent(0);
       setSgstPercent(0);
       setDiscountPercent(0);
+      setAppliedOfferAmount(0);
+      setCustomerOffer({ hasOffer: false, offerDiscount: 0, offerType: "" });
+    } catch (err) {
+      console.error("Failed to complete sale:", err);
+      alert("Failed to complete sale. Please try again.");
+    }
+  };
+
+  /* =========================
+     SEND WHATSAPP MESSAGE
+     ========================= */
+  const sendWhatsAppMessage = (wonOffer = null) => {
+    // Generate WhatsApp message
+    let whatsAppMessage = `🧾 *Bill Receipt - ${storeName}*\n\n`;
+    whatsAppMessage += `Customer: ${customer.name || "Walk-in Customer"}\n`;
+    if (customer.contact) whatsAppMessage += `Mobile: ${customer.contact}\n`;
+    whatsAppMessage += `Date: ${new Date().toLocaleDateString('en-GB')}\n`;
+    whatsAppMessage += `Time: ${new Date().toLocaleTimeString()}\n\n`;
+    whatsAppMessage += `*Items:*\n`;
+    
+    Object.values(cart).forEach((item) => {
+      whatsAppMessage += `• ${item.name} x${item.qty} = ₹${(item.qty * item.price).toFixed(2)}\n`;
+    });
+    
+    whatsAppMessage += `\n─────────────\n`;
+    whatsAppMessage += `Subtotal: ₹${grandTotal.toFixed(2)}\n`;
+    if (cgstPercent > 0) whatsAppMessage += `CGST (${cgstPercent}%): ₹${cgstAmount.toFixed(2)}\n`;
+    if (sgstPercent > 0) whatsAppMessage += `SGST (${sgstPercent}%): ₹${sgstAmount.toFixed(2)}\n`;
+    if (discountPercent > 0) whatsAppMessage += `Additional Discount: -₹${((grandTotal * discountPercent) / 100).toFixed(2)}\n`;
+    if (appliedOfferAmount > 0) whatsAppMessage += `Customer Offer: -₹${appliedOfferAmount.toFixed(2)}\n`;
+    whatsAppMessage += `*Total: ₹${payableAmount.toFixed(2)}*\n`;
+    whatsAppMessage += `─────────────\n\n`;
+    
+    // Add offer message for NEXT purchase (if won)
+    if (wonOffer && wonOffer.type !== "none") {
+      const offerText = wonOffer.type === "percentage" 
+        ? `${wonOffer.value}% OFF` 
+        : `₹${wonOffer.value} FLAT OFF`;
+      whatsAppMessage += `🎁 *SPECIAL OFFER FOR NEXT PURCHASE!*\n`;
+      whatsAppMessage += `You won: *${offerText}*\n`;
+      whatsAppMessage += `Use this offer on your next visit!\n\n`;
+    } else if (customerOffer.hasOffer) {
+      // Show existing offer if customer has one
+      const offerText = customerOffer.offerType === "percentage" 
+        ? `${customerOffer.offerDiscount}% OFF` 
+        : `₹${customerOffer.offerDiscount} FLAT OFF`;
+      whatsAppMessage += `🎁 *YOUR OFFER*\n`;
+      whatsAppMessage += `Current offer: *${offerText}*\n`;
+      whatsAppMessage += `Offer applied: -₹${appliedOfferAmount.toFixed(2)}\n\n`;
+    }
+    
+    whatsAppMessage += `Thank you for shopping with us! 🙏\n`;
+    whatsAppMessage += `${storeTagline}`;
+
+    // Encode message for WhatsApp
+    const encodedMessage = encodeURIComponent(whatsAppMessage);
+    
+    // Open WhatsApp with pre-filled message
+    const phoneNumber = customer.contact ? customer.contact.replace(/[^0-9]/g, '') : '';
+    const whatsappUrl = phoneNumber 
+      ? `https://wa.me/91${phoneNumber}?text=${encodedMessage}`
+      : `https://wa.me/?text=${encodedMessage}`;
+    
+    window.open(whatsappUrl, '_blank');
+    printBill();
+    alert("SALE COMPLETED SUCCESSFULLY!\nBill sent to WhatsApp!");
+  };
+
+  /* =========================
+     FINALIZE SALE WITH WHATSAPP
+     ========================= */
+  const finalizeSaleWithWhatsApp = async (wonOffer = null) => {
+    const items = Object.entries(cart).map(([barcode, data]) => ({
+      barcode,
+      quantity: data.qty,
+    }));
+
+    if (!items.length) return;
+
+    try {
+      await axios.post(
+        `${base_url}user/offline-order`,
+        {
+          customer,
+          items,
+          taxPercent: cgstPercent + sgstPercent,
+          discount: discountAmount,
+          total: payableAmount,
+          paymentMethod: "CASH",
+        },
+        config
+      );
+
+      // Generate WhatsApp message
+      let whatsAppMessage = `🧾 *Bill Receipt - ${storeName}*\n\n`;
+      whatsAppMessage += `Customer: ${customer.name || "Walk-in Customer"}\n`;
+      if (customer.contact) whatsAppMessage += `Mobile: ${customer.contact}\n`;
+      whatsAppMessage += `Date: ${new Date().toLocaleDateString('en-GB')}\n`;
+      whatsAppMessage += `Time: ${new Date().toLocaleTimeString()}\n\n`;
+      whatsAppMessage += `*Items:*\n`;
+      
+      Object.values(cart).forEach((item) => {
+        whatsAppMessage += `• ${item.name} x${item.qty} = ₹${(item.qty * item.price).toFixed(2)}\n`;
+      });
+      
+      whatsAppMessage += `\n─────────────\n`;
+      whatsAppMessage += `Subtotal: ₹${grandTotal.toFixed(2)}\n`;
+      if (cgstPercent > 0) whatsAppMessage += `CGST (${cgstPercent}%): ₹${cgstAmount.toFixed(2)}\n`;
+      if (sgstPercent > 0) whatsAppMessage += `SGST (${sgstPercent}%): ₹${sgstAmount.toFixed(2)}\n`;
+      if (discountPercent > 0) whatsAppMessage += `Additional Discount: -₹${((grandTotal * discountPercent) / 100).toFixed(2)}\n`;
+      whatsAppMessage += `*Total: ₹${payableAmount.toFixed(2)}*\n`;
+      whatsAppMessage += `─────────────\n\n`;
+      
+      // Add offer message for NEXT purchase
+      if (wonOffer && wonOffer.type !== "none") {
+        const offerText = wonOffer.type === "percentage" 
+          ? `${wonOffer.value}% OFF` 
+          : `₹${wonOffer.value} FLAT OFF`;
+        whatsAppMessage += `🎁 *SPECIAL OFFER FOR NEXT PURCHASE!*\n`;
+        whatsAppMessage += `You won: *${offerText}*\n`;
+        whatsAppMessage += `Use this offer on your next visit!\n\n`;
+      }
+      
+      whatsAppMessage += `Thank you for shopping with us! 🙏\n`;
+      whatsAppMessage += `${storeTagline}`;
+
+      // Encode message for WhatsApp
+      const encodedMessage = encodeURIComponent(whatsAppMessage);
+      
+      // Open WhatsApp with pre-filled message
+      const phoneNumber = customer.contact ? customer.contact.replace(/[^0-9]/g, '') : '';
+      const whatsappUrl = phoneNumber 
+        ? `https://wa.me/91${phoneNumber}?text=${encodedMessage}`
+        : `https://wa.me/?text=${encodedMessage}`;
+      
+      window.open(whatsappUrl, '_blank');
+
+      printBill();
+      alert("SALE COMPLETED SUCCESSFULLY!\nBill sent to WhatsApp!");
+
+      setCart({});
+      setCustomer({ name: "", address: "", contact: "" });
+      setCgstPercent(0);
+      setSgstPercent(0);
+      setDiscountPercent(0);
+      setAppliedOfferAmount(0);
+      setCustomerOffer({ hasOffer: false, offerDiscount: 0, offerType: "" });
     } catch (err) {
       console.error("Failed to complete sale:", err);
       alert("Failed to complete sale. Please try again.");
@@ -834,7 +1113,7 @@ const LiveBilling = () => {
                   Print / Download Bill
                 </button>
                 <button
-                  onClick={finalizeSale}
+                  onClick={handleCompleteSale}
                   disabled={!Object.keys(cart).length}
                   className="w-full py-4 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 rounded-xl font-bold flex items-center justify-center gap-2 transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
                 >
@@ -861,6 +1140,66 @@ const LiveBilling = () => {
                 <span className="text-gray-600">Customer</span>
                 <span className="font-bold text-indigo-600">{customer.name || "Walk-in"}</span>
               </div>
+              
+              {/* Customer Offer Display */}
+              {customerOffer.hasOffer && !appliedOfferAmount && (
+                <div className="p-3 bg-gradient-to-r from-amber-50 to-orange-50 rounded-xl border border-amber-200">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <FaGift className="text-amber-500" />
+                      <span className="text-sm font-medium text-amber-700">Available Offer</span>
+                    </div>
+                  </div>
+                  <p className="text-lg font-bold text-amber-600">
+                    {customerOffer.offerType === "percentage" 
+                      ? `${customerOffer.offerDiscount}% OFF` 
+                      : `₹${customerOffer.offerDiscount} FLAT OFF`}
+                  </p>
+                  <button
+                    onClick={applyOffer}
+                    disabled={grandTotal === 0}
+                    className="w-full mt-2 py-2 bg-gradient-to-r from-amber-500 to-orange-500 text-white font-bold rounded-lg text-sm hover:from-amber-600 hover:to-orange-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Apply Offer
+                  </button>
+                </div>
+              )}
+
+              {/* Applied Offer Display */}
+              {appliedOfferAmount > 0 && (
+                <div className="p-3 bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl border border-green-200">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <FaGift className="text-green-500" />
+                      <span className="text-sm font-medium text-green-700">Applied Offer</span>
+                    </div>
+                  </div>
+                  <p className="text-lg font-bold text-green-600">
+                    {customerOffer.offerType === "percentage" 
+                      ? `${customerOffer.offerDiscount}% OFF` 
+                      : `₹${customerOffer.offerDiscount} FLAT OFF`}
+                  </p>
+                  <p className="text-xs text-green-600 mt-1">
+                    You save: -₹{appliedOfferAmount.toFixed(2)}
+                  </p>
+                  <button
+                    onClick={removeOffer}
+                    className="w-full mt-2 py-2 bg-gray-200 text-gray-700 font-bold rounded-lg text-sm hover:bg-gray-300 transition-all"
+                  >
+                    Remove Offer
+                  </button>
+                </div>
+              )}
+              
+              {/* No Offer Message for Registered Customers */}
+              {customer.contact && !customerOffer.hasOffer && (
+                <div className="p-3 bg-gray-50 rounded-xl border border-gray-200">
+                  <div className="flex items-center gap-2">
+                    <FaTag className="text-gray-400" />
+                    <span className="text-sm text-gray-500">Spin to win on first purchase!</span>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -896,6 +1235,14 @@ const LiveBilling = () => {
           </p>
         </div>
       </Modal>
+
+      {/* Spin Wheel Modal */}
+      <SpinWheel 
+        isOpen={showSpinWheel} 
+        onClose={() => setShowSpinWheel(false)}
+        onSpinComplete={handleSpinComplete}
+        purchaseAmount={grandTotal}
+      />
     </div>
   );
 };

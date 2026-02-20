@@ -50,6 +50,23 @@ var userSchema = new mongoose.Schema(
     refreshToken: {
       type: String,
     },
+    // Offer/Loyalty fields
+    offerDiscount: {
+      type: Number,
+      default: 0, // Discount percentage or flat amount
+    },
+    offerType: {
+      type: String,
+      enum: ["percentage", "flat", ""],
+      default: "", // "percentage" for %, "flat" for ₹, "" for no offer
+    },
+    totalOrders: {
+      type: Number,
+      default: 0,
+    },
+    lastOrderDate: {
+      type: Date,
+    },
     passwordChangedAt: Date,
     passwordResetToken: String,
     passwordResetExpires: Date,

@@ -748,9 +748,65 @@ const searchUsers = asyncHandler(async (req, res) => {
     ]
   })
     .limit(10)
-    .select("firstname lastname mobile address");
+    .select("firstname lastname mobile address offerDiscount offerType totalOrders lastOrderDate");
 
   res.json(users);
+});
+
+// Get customer offer details
+const getCustomerOffer = asyncHandler(async (req, res) => {
+  const { mobile } = req.query;
+
+  if (!mobile) {
+    res.status(400);
+    throw new Error("Mobile number is required");
+  }
+
+  const customer = await User.findOne({ mobile, role: "user" });
+
+  if (!customer) {
+    return res.json({
+      hasOffer: false,
+      offerDiscount: 0,
+      offerType: "",
+      totalOrders: 0
+    });
+  }
+
+  res.json({
+    hasOffer: customer.offerType !== "",
+    offerDiscount: customer.offerDiscount || 0,
+    offerType: customer.offerType || "",
+    totalOrders: customer.totalOrders || 0,
+    lastOrderDate: customer.lastOrderDate
+  });
+});
+
+// Update customer offer (for spin wheel)
+const updateCustomerOffer = asyncHandler(async (req, res) => {
+  const { mobile, offerDiscount, offerType } = req.body;
+
+  if (!mobile) {
+    res.status(400);
+    throw new Error("Mobile number is required");
+  }
+
+  const customer = await User.findOne({ mobile, role: "user" });
+
+  if (!customer) {
+    res.status(404);
+    throw new Error("Customer not found");
+  }
+
+  customer.offerDiscount = offerDiscount || 0;
+  customer.offerType = offerType || "";
+  await customer.save();
+
+  res.json({
+    success: true,
+    offerDiscount: customer.offerDiscount,
+    offerType: customer.offerType
+  });
 });
 
 // Get GSTIN for logged in user
@@ -823,5 +879,7 @@ module.exports = {
   searchUsers,
   getGstin,
   updateGstin,
+  getCustomerOffer,
+  updateCustomerOffer,
 
 };

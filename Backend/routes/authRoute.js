@@ -37,6 +37,8 @@ const {
   getsingleOrder,
   updateOrder,
   createOfflineOrder,
+  getCustomerOffer,
+  updateCustomerOffer,
 } = require("../controller/userCtrl");
 
 
@@ -52,6 +54,10 @@ router.post(
   isAdmin,
   createOfflineOrder
 );
+
+// Customer offer routes
+router.get("/customer-offer", authMiddleware, isAdmin, getCustomerOffer);
+router.put("/customer-offer", authMiddleware, isAdmin, updateCustomerOffer);
 // router.post("/register", createUser);
 router.post("/register", registerUser);
 

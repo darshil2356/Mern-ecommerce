@@ -4,9 +4,11 @@ const {
   createUser,
   searchUsers,
   getGstin,
-  updateGstin
+  updateGstin,
+  getCustomerOffer,
+  updateCustomerOffer
 } = require("../controller/userCtrl");
-const { authMiddleware } = require("../middlewares/authMiddleware");
+const { authMiddleware, isAdmin } = require("../middlewares/authMiddleware");
 
 
 
@@ -24,6 +26,10 @@ router.post("/create-customer", createUser);
 // GSTIN routes - protected by auth middleware
 router.get("/gstin", authMiddleware, getGstin);
 router.put("/gstin", authMiddleware, updateGstin);
+
+// Customer offer routes - protected by auth middleware
+router.get("/customer-offer", authMiddleware, isAdmin, getCustomerOffer);
+router.put("/customer-offer", authMiddleware, isAdmin, updateCustomerOffer);
 
 module.exports = router;
 

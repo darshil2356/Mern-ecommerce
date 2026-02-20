@@ -59,6 +59,24 @@ const getMonthlyOrders = async (data) => {
   return response.data;
 };
 
+const getDailySales = async (data) => {
+  const response = await axios.get(
+    `${base_url}user/getDailySales`,
+    data
+  );
+
+  return response.data;
+};
+
+const getDashboardStats = async (data) => {
+  const response = await axios.get(
+    `${base_url}user/getDashboardStats`,
+    data
+  );
+
+  return response.data;
+};
+
 const getYearlyStats = async (data) => {
   const response = await axios.get(
     `${base_url}user/getyearlyorders`,
@@ -74,6 +92,8 @@ const authService = {
   getOrders,
   getOrder,
   getMonthlyOrders,
+  getDailySales,
+  getDashboardStats,
   getYearlyStats,
   updateOrder,
 };

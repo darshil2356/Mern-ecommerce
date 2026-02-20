@@ -651,21 +651,13 @@ const updateOrder = asyncHandler(async (req, res) => {
   }
 });
 
+// Get monthly order income (fixed aggregation)
 const getMonthWiseOrderIncome = asyncHandler(async (req, res) => {
   let monthNames = [
-    "January",
-    "February",
-    "March",
-    "April",
-    "May",
-    "June",
-    "July",
-    "August",
-    "September",
-    "October",
-    "November",
-    "December",
+    "January", "February", "March", "April", "May", "June",
+    "July", "August", "September", "October", "November", "December"
   ];
+  
   let d = new Date();
   let endDate = "";
   d.setDate(1);
@@ -673,6 +665,7 @@ const getMonthWiseOrderIncome = asyncHandler(async (req, res) => {
     d.setMonth(d.getMonth() - 1);
     endDate = monthNames[d.getMonth()] + " " + d.getFullYear();
   }
+  
   const data = await Order.aggregate([
     {
       $match: {
@@ -685,14 +678,241 @@ const getMonthWiseOrderIncome = asyncHandler(async (req, res) => {
     {
       $group: {
         _id: {
-          month: "$month",
+          month: { $month: "$createdAt" },
+          year: { $year: "$createdAt" }
         },
         amount: { $sum: "$totalPriceAfterDiscount" },
         count: { $sum: 1 },
       },
     },
+    {
+      $sort: { "_id.year": 1, "_id.month": 1 }
+    }
   ]);
+  
+  // Format response with month names
+  const formattedData = data.map(item => ({
+    _id: item._id.month,
+    month: monthNames[item._id.month - 1] + " " + item._id.year,
+    amount: item.amount,
+    count: item.count
+  }));
+  
+  res.json(formattedData);
+});
+
+// Get daily sales for a date range
+const getDailySales = asyncHandler(async (req, res) => {
+  const { startDate, endDate, mode } = req.query;
+  
+  let matchCondition = {};
+  
+  // Parse dates
+  const start = startDate ? new Date(startDate) : new Date(new Date().setHours(0, 0, 0, 0));
+  const end = endDate ? new Date(endDate) : new Date();
+  end.setHours(23, 59, 59, 999);
+  
+  matchCondition.createdAt = { $gte: start, $lte: end };
+  
+  // Filter by mode if provided
+  if (mode && (mode === 'ONLINE' || mode === 'OFFLINE')) {
+    matchCondition.mode = mode;
+  }
+  
+  const data = await Order.aggregate([
+    {
+      $match: matchCondition,
+    },
+    {
+      $group: {
+        _id: {
+          $dateToString: { format: "%Y-%m-%d", date: "$createdAt" }
+        },
+        date: { $first: "$createdAt" },
+        amount: { $sum: "$totalPriceAfterDiscount" },
+        count: { $sum: 1 },
+        discount: { $sum: "$discountAmount" }
+      },
+    },
+    {
+      $sort: { _id: 1 }
+    }
+  ]);
+  
   res.json(data);
+});
+
+// Get dashboard stats with various filters
+const getDashboardStats = asyncHandler(async (req, res) => {
+  const { filter, mode } = req.query; // filter: 'today', '7days', 'month', 'year', 'custom'
+  const { startDate, endDate } = req.query;
+  
+  let start = new Date();
+  let end = new Date();
+  
+  switch (filter) {
+    case 'today':
+      start = new Date(new Date().setHours(0, 0, 0, 0));
+      end = new Date();
+      break;
+    case '7days':
+      start.setDate(start.getDate() - 7);
+      start = new Date(start.setHours(0, 0, 0, 0));
+      break;
+    case 'month':
+      start = new Date(start.getFullYear(), start.getMonth(), 1);
+      break;
+    case 'year':
+      start = new Date(start.getFullYear(), 0, 1);
+      break;
+    case 'custom':
+      if (startDate && endDate) {
+        start = new Date(startDate);
+        end = new Date(endDate);
+        end.setHours(23, 59, 59, 999);
+      }
+      break;
+    default:
+      start.setDate(start.getDate() - 30);
+      start = new Date(start.setHours(0, 0, 0, 0));
+  }
+  
+  let matchCondition = {
+    createdAt: { $gte: start, $lte: end }
+  };
+  
+  // Filter by mode if provided
+  if (mode && (mode === 'ONLINE' || mode === 'OFFLINE')) {
+    matchCondition.mode = mode;
+  }
+  
+  // Get basic stats
+  const stats = await Order.aggregate([
+    { $match: matchCondition },
+    {
+      $group: {
+        _id: null,
+        totalRevenue: { $sum: "$totalPriceAfterDiscount" },
+        totalOrders: { $sum: 1 },
+        totalDiscount: { $sum: "$discountAmount" },
+        totalSubtotal: { $sum: "$totalPrice" }
+      }
+    }
+  ]);
+  
+  // Get orders by status
+  const ordersByStatus = await Order.aggregate([
+    { $match: matchCondition },
+    {
+      $group: {
+        _id: "$orderStatus",
+        count: { $sum: 1 }
+      }
+    }
+  ]);
+  
+  // Get orders by mode (payment type)
+  const ordersByMode = await Order.aggregate([
+    { $match: matchCondition },
+    {
+      $group: {
+        _id: "$mode",
+        count: { $sum: 1 },
+        revenue: { $sum: "$totalPriceAfterDiscount" }
+      }
+    }
+  ]);
+  
+  // Get top selling products
+  const topProducts = await Order.aggregate([
+    { $match: matchCondition },
+    { $unwind: "$orderItems" },
+    {
+      $group: {
+        _id: "$orderItems.product",
+        totalQuantity: { $sum: "$orderItems.quantity" },
+        totalRevenue: { $sum: { $multiply: ["$orderItems.price", "$orderItems.quantity"] } }
+      }
+    },
+    { $sort: { totalQuantity: -1 } },
+    { $limit: 5 },
+    {
+      $lookup: {
+        from: "products",
+        localField: "_id",
+        foreignField: "_id",
+        as: "product"
+      }
+    },
+    { $unwind: "$product" },
+    {
+      $project: {
+        _id: "$product._id",
+        title: "$product.title",
+        totalQuantity: 1,
+        totalRevenue: 1
+      }
+    }
+  ]);
+  
+  // Get top customers
+  const topCustomers = await Order.aggregate([
+    { $match: matchCondition },
+    {
+      $group: {
+        _id: "$user",
+        totalOrders: { $sum: 1 },
+        totalSpent: { $sum: "$totalPriceAfterDiscount" }
+      }
+    },
+    { $sort: { totalSpent: -1 } },
+    { $limit: 5 },
+    {
+      $lookup: {
+        from: "users",
+        localField: "_id",
+        foreignField: "_id",
+        as: "customer"
+      }
+    },
+    { $unwind: "$customer" },
+    {
+      $project: {
+        _id: "$customer._id",
+        firstname: "$customer.firstname",
+        lastname: "$customer.lastname",
+        mobile: "$customer.mobile",
+        totalOrders: 1,
+        totalSpent: 1
+      }
+    }
+  ]);
+  
+  // Get hourly distribution (for today analysis)
+  let hourlyData = [];
+  if (filter === 'today' || filter === '7days') {
+    hourlyData = await Order.aggregate([
+      { $match: matchCondition },
+      {
+        $group: {
+          _id: { $hour: "$createdAt" },
+          count: { $sum: 1 },
+          revenue: { $sum: "$totalPriceAfterDiscount" }
+        }
+      },
+      { $sort: { _id: 1 } }
+    ]);
+  }
+  
+  res.json({
+    stats: stats[0] || { totalRevenue: 0, totalOrders: 0, totalDiscount: 0, totalSubtotal: 0 },
+    ordersByStatus,
+    ordersByMode,
+    topProducts,
+    topCustomers,
+    hourlyData,
+    dateRange: { start, end }
+  });
 });
 
 const getYearlyTotalOrder = asyncHandler(async (req, res) => {
@@ -974,6 +1194,8 @@ module.exports = {
   getMyOrders,
   emptyCart,
   getMonthWiseOrderIncome,
+  getDailySales,
+  getDashboardStats,
   getAllOrders,
   getsingleOrder,
   updateOrder,

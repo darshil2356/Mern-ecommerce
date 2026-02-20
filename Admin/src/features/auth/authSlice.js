@@ -67,6 +67,28 @@ export const getMonthlyData = createAsyncThunk(
   }
 );
 
+export const getDailySalesData = createAsyncThunk(
+  "orders/dailysales",
+  async (data, thunkAPI) => {
+    try {
+      return await authService.getDailySales(data);
+    } catch (error) {
+      return thunkAPI.rejectWithValue(error);
+    }
+  }
+);
+
+export const getDashboardStatsData = createAsyncThunk(
+  "orders/dashboardstats",
+  async (data, thunkAPI) => {
+    try {
+      return await authService.getDashboardStats(data);
+    } catch (error) {
+      return thunkAPI.rejectWithValue(error);
+    }
+  }
+);
+
 export const getYearlyData = createAsyncThunk(
   "orders/yearlydata",
   async (data, thunkAPI) => {
@@ -161,6 +183,38 @@ export const authSlice = createSlice({
         state.message = "success";
       })
       .addCase(getMonthlyData.rejected, (state, action) => {
+        state.isError = true;
+        state.isSuccess = false;
+        state.message = action.error;
+        state.isLoading = false;
+      })
+      .addCase(getDailySalesData.pending, (state) => {
+        state.isLoading = true;
+      })
+      .addCase(getDailySalesData.fulfilled, (state, action) => {
+        state.isError = false;
+        state.isLoading = false;
+        state.isSuccess = true;
+        state.dailySalesData = action.payload;
+        state.message = "success";
+      })
+      .addCase(getDailySalesData.rejected, (state, action) => {
+        state.isError = true;
+        state.isSuccess = false;
+        state.message = action.error;
+        state.isLoading = false;
+      })
+      .addCase(getDashboardStatsData.pending, (state) => {
+        state.isLoading = true;
+      })
+      .addCase(getDashboardStatsData.fulfilled, (state, action) => {
+        state.isError = false;
+        state.isLoading = false;
+        state.isSuccess = true;
+        state.dashboardStats = action.payload;
+        state.message = "success";
+      })
+      .addCase(getDashboardStatsData.rejected, (state, action) => {
         state.isError = true;
         state.isSuccess = false;
         state.message = action.error;

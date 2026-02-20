@@ -39,6 +39,8 @@ const {
   createOfflineOrder,
   getCustomerOffer,
   updateCustomerOffer,
+  getDailySales,
+  getDashboardStats,
 } = require("../controller/userCtrl");
 
 
@@ -80,7 +82,9 @@ router.get("/getallorders", authMiddleware, isAdmin, getAllOrders);
 router.get("/getaOrder/:id", authMiddleware, isAdmin, getsingleOrder);
 router.put("/updateOrder/:id", authMiddleware, isAdmin, updateOrder);
 
-router.get("/getMonthWiseOrderIncome", authMiddleware, getMonthWiseOrderIncome);
+router.get("/getMonthWiseOrderIncome", authMiddleware, isAdmin, getMonthWiseOrderIncome);
+router.get("/getDailySales", authMiddleware, isAdmin, getDailySales);
+router.get("/getDashboardStats", authMiddleware, isAdmin, getDashboardStats);
 router.get("/getyearlyorders", authMiddleware, getYearlyTotalOrder);
 
 router.get("/refresh", handleRefreshToken);

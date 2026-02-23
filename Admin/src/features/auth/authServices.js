@@ -87,6 +87,54 @@ const getYearlyStats = async (data) => {
   return response.data;
 };
 
+const getMonthlyReport = async (month, year) => {
+  const response = await axios.get(
+    `${base_url}reports/monthly?month=${month}&year=${year}`,
+    config
+  );
+  return response.data;
+};
+
+const getYearlyReport = async (year) => {
+  const response = await axios.get(
+    `${base_url}reports/yearly?year=${year}`,
+    config
+  );
+  return response.data;
+};
+
+const getDateRangeReport = async (startDate, endDate) => {
+  const response = await axios.get(
+    `${base_url}reports/date-range?startDate=${startDate}&endDate=${endDate}`,
+    config
+  );
+  return response.data;
+};
+
+const getGSTReport = async (month, year) => {
+  const response = await axios.get(
+    `${base_url}reports/gst?month=${month}&year=${year}`,
+    config
+  );
+  return response.data;
+};
+
+const getProductWiseReport = async (startDate, endDate) => {
+  const response = await axios.get(
+    `${base_url}reports/product-wise?startDate=${startDate}&endDate=${endDate}`,
+    config
+  );
+  return response.data;
+};
+
+const getCustomerWiseReport = async (startDate, endDate) => {
+  const response = await axios.get(
+    `${base_url}reports/customer-wise?startDate=${startDate}&endDate=${endDate}`,
+    config
+  );
+  return response.data;
+};
+
 const authService = {
   login,
   getOrders,
@@ -96,6 +144,12 @@ const authService = {
   getDashboardStats,
   getYearlyStats,
   updateOrder,
+  getMonthlyReport,
+  getYearlyReport,
+  getDateRangeReport,
+  getGSTReport,
+  getProductWiseReport,
+  getCustomerWiseReport,
 };
 
 export default authService;

@@ -17,7 +17,7 @@ import { Link } from "react-router-dom";
 import { Outlet } from "react-router-dom";
 import { ImBlog } from "react-icons/im";
 import { IoIosNotifications, IoMenuOutline } from "react-icons/io";
-import { FaClipboardList, FaBloggerB, FaChartLine, FaBox, FaUsers, FaTags } from "react-icons/fa";
+import { FaClipboardList, FaBloggerB, FaChartLine, FaBox, FaUsers, FaTags, FaFileAlt } from "react-icons/fa";
 import { SiBrandfolder } from "react-icons/si";
 import { BiCategoryAlt, BiCategory } from "react-icons/bi";
 import { Layout, Menu, theme } from "antd";
@@ -98,6 +98,11 @@ const MainLayout = () => {
       key: "orders",
       icon: <FaClipboardList className="fs-5" />,
       label: "Orders",
+    },
+    {
+      key: "reports",
+      icon: <FaFileAlt className="fs-5" />,
+      label: "Reports",
     },
     {
       key: "marketing",

@@ -100,6 +100,72 @@ export const getYearlyData = createAsyncThunk(
   }
 );
 
+export const getMonthlyReportData = createAsyncThunk(
+  "reports/monthly",
+  async ({ month, year }, thunkAPI) => {
+    try {
+      return await authService.getMonthlyReport(month, year);
+    } catch (error) {
+      return thunkAPI.rejectWithValue(error);
+    }
+  }
+);
+
+export const getYearlyReportData = createAsyncThunk(
+  "reports/yearly",
+  async (year, thunkAPI) => {
+    try {
+      return await authService.getYearlyReport(year);
+    } catch (error) {
+      return thunkAPI.rejectWithValue(error);
+    }
+  }
+);
+
+export const getDateRangeReportData = createAsyncThunk(
+  "reports/daterange",
+  async ({ startDate, endDate }, thunkAPI) => {
+    try {
+      return await authService.getDateRangeReport(startDate, endDate);
+    } catch (error) {
+      return thunkAPI.rejectWithValue(error);
+    }
+  }
+);
+
+export const getGSTReportData = createAsyncThunk(
+  "reports/gst",
+  async ({ month, year }, thunkAPI) => {
+    try {
+      return await authService.getGSTReport(month, year);
+    } catch (error) {
+      return thunkAPI.rejectWithValue(error);
+    }
+  }
+);
+
+export const getProductWiseReportData = createAsyncThunk(
+  "reports/productwise",
+  async ({ startDate, endDate }, thunkAPI) => {
+    try {
+      return await authService.getProductWiseReport(startDate, endDate);
+    } catch (error) {
+      return thunkAPI.rejectWithValue(error);
+    }
+  }
+);
+
+export const getCustomerWiseReportData = createAsyncThunk(
+  "reports/customerwise",
+  async ({ startDate, endDate }, thunkAPI) => {
+    try {
+      return await authService.getCustomerWiseReport(startDate, endDate);
+    } catch (error) {
+      return thunkAPI.rejectWithValue(error);
+    }
+  }
+);
+
 export const authSlice = createSlice({
   name: "auth",
   initialState: initialState,
@@ -230,7 +296,109 @@ export const authSlice = createSlice({
         state.yearlyData = action.payload;
         state.message = "success";
       })
-      .addCase(getYearlyData.rejected, (state, action) => {
+.addCase(getYearlyData.rejected, (state, action) => {
+        state.isError = true;
+        state.isSuccess = false;
+        state.message = action.error;
+        state.isLoading = false;
+      })
+      // Monthly Report
+      .addCase(getMonthlyReportData.pending, (state) => {
+        state.isLoading = true;
+      })
+      .addCase(getMonthlyReportData.fulfilled, (state, action) => {
+        state.isError = false;
+        state.isLoading = false;
+        state.isSuccess = true;
+        state.monthlyReport = action.payload;
+        state.message = "success";
+      })
+      .addCase(getMonthlyReportData.rejected, (state, action) => {
+        state.isError = true;
+        state.isSuccess = false;
+        state.message = action.error;
+        state.isLoading = false;
+      })
+      // Yearly Report
+      .addCase(getYearlyReportData.pending, (state) => {
+        state.isLoading = true;
+      })
+      .addCase(getYearlyReportData.fulfilled, (state, action) => {
+        state.isError = false;
+        state.isLoading = false;
+        state.isSuccess = true;
+        state.yearlyReport = action.payload;
+        state.message = "success";
+      })
+      .addCase(getYearlyReportData.rejected, (state, action) => {
+        state.isError = true;
+        state.isSuccess = false;
+        state.message = action.error;
+        state.isLoading = false;
+      })
+      // Date Range Report
+      .addCase(getDateRangeReportData.pending, (state) => {
+        state.isLoading = true;
+      })
+      .addCase(getDateRangeReportData.fulfilled, (state, action) => {
+        state.isError = false;
+        state.isLoading = false;
+        state.isSuccess = true;
+        state.dateRangeReport = action.payload;
+        state.message = "success";
+      })
+      .addCase(getDateRangeReportData.rejected, (state, action) => {
+        state.isError = true;
+        state.isSuccess = false;
+        state.message = action.error;
+        state.isLoading = false;
+      })
+      // GST Report
+      .addCase(getGSTReportData.pending, (state) => {
+        state.isLoading = true;
+      })
+      .addCase(getGSTReportData.fulfilled, (state, action) => {
+        state.isError = false;
+        state.isLoading = false;
+        state.isSuccess = true;
+        state.gstReport = action.payload;
+        state.message = "success";
+      })
+      .addCase(getGSTReportData.rejected, (state, action) => {
+        state.isError = true;
+        state.isSuccess = false;
+        state.message = action.error;
+        state.isLoading = false;
+      })
+      // Product Wise Report
+      .addCase(getProductWiseReportData.pending, (state) => {
+        state.isLoading = true;
+      })
+      .addCase(getProductWiseReportData.fulfilled, (state, action) => {
+        state.isError = false;
+        state.isLoading = false;
+        state.isSuccess = true;
+        state.productWiseReport = action.payload;
+        state.message = "success";
+      })
+      .addCase(getProductWiseReportData.rejected, (state, action) => {
+        state.isError = true;
+        state.isSuccess = false;
+        state.message = action.error;
+        state.isLoading = false;
+      })
+      // Customer Wise Report
+      .addCase(getCustomerWiseReportData.pending, (state) => {
+        state.isLoading = true;
+      })
+      .addCase(getCustomerWiseReportData.fulfilled, (state, action) => {
+        state.isError = false;
+        state.isLoading = false;
+        state.isSuccess = true;
+        state.customerWiseReport = action.payload;
+        state.message = "success";
+      })
+      .addCase(getCustomerWiseReportData.rejected, (state, action) => {
         state.isError = true;
         state.isSuccess = false;
         state.message = action.error;

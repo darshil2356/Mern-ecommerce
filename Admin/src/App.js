@@ -29,6 +29,8 @@ import { OpenRoutes } from "./routing/OpenRoutes";
 import { PrivateRoutes } from "./routing/PrivateRoutes";
 import LiveBilling from "./pages/LiveBilling";
 import Settings from "./pages/Settings";
+import Reports from "./pages/Reports";
+
 function App() {
   return (
     <Router>
@@ -41,8 +43,6 @@ function App() {
             </OpenRoutes>
           }
         />
-        {/* <Route path="/reset-password" element={<Resetpassword />} />
-        <Route path="/forgot-password" element={<Forgotpassword />} /> */}
         <Route
           path="/admin"
           element={
@@ -81,6 +81,7 @@ function App() {
           <Route path="product/:id" element={<Addproduct />} />
           <Route path="live-billing" element={<LiveBilling />} />
           <Route path="settings" element={<Settings />} />
+          <Route path="reports" element={<Reports />} />
         </Route>
       </Routes>
     </Router>
@@ -88,3 +89,4 @@ function App() {
 }
 
 export default App;
+

@@ -28,6 +28,7 @@
     "serve": "^14.2.5",
     "sweetalert2": "^11.26.20",
     "web-vitals": "^2.1.4",
+    "xlsx": "^0.18.5",
     "yup": "^1.2.0"
   },
   "scripts": {

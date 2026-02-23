@@ -3,6 +3,7 @@ import axios from "axios";
 import { base_url } from "../utils/baseUrl";
 import { config } from "../utils/axiosconfig";
 import { Modal, Input } from "antd";
+import Swal from "sweetalert2";
 import { 
   FaBarcode, 
   FaRupeeSign, 
@@ -151,7 +152,12 @@ const LiveBilling = () => {
         };
       });
     } catch {
-      alert(`Product not found for barcode: ${barcode}`);
+      Swal.fire({
+        icon: 'error',
+        title: 'Product Not Found',
+        text: `Product not found for barcode: ${barcode}`,
+        confirmButtonColor: '#1a1a1a'
+      });
     }
 
     setBuffer("");
@@ -245,7 +251,12 @@ const LiveBilling = () => {
             };
           });
         } catch {
-          alert(`Product not found for barcode: ${barcode}`);
+          Swal.fire({
+            icon: 'error',
+            title: 'Product Not Found',
+            text: `Product not found for barcode: ${barcode}`,
+            confirmButtonColor: '#1a1a1a'
+          });
         }
 
         return;
@@ -292,7 +303,12 @@ const LiveBilling = () => {
       setGstinModalVisible(false);
     } catch (err) {
       console.error("Failed to save GSTIN:", err);
-      alert("Failed to save GSTIN. Please try again.");
+      Swal.fire({
+        icon: 'error',
+        title: 'Save Failed',
+        text: 'Failed to save GSTIN. Please try again.',
+        confirmButtonColor: '#1a1a1a'
+      });
     }
   };
 
@@ -328,7 +344,14 @@ const LiveBilling = () => {
       offerAmt = Math.min(customerOffer.offerDiscount, grandTotal); // Can't exceed total
     }
     setAppliedOfferAmount(offerAmt);
-    alert(`Offer applied: -₹${offerAmt.toFixed(2)}`);
+    Swal.fire({
+      icon: 'success',
+      title: 'Offer Applied!',
+      text: `Offer applied: -₹${offerAmt.toFixed(2)}`,
+      confirmButtonColor: '#d4af37',
+      timer: 2000,
+      showConfirmButton: false
+    });
   };
 
   // Remove applied offer
@@ -364,9 +387,19 @@ const LiveBilling = () => {
       
       // Show success message
       if (offer.type !== "none") {
-        alert(`Offer won: ${offer.type === "percentage" ? `${offer.value}% OFF` : `₹${offer.value} FLAT OFF`}\nThis offer will be applicable on your NEXT purchase!`);
+        Swal.fire({
+          icon: 'success',
+          title: 'Congratulations!',
+          text: `Offer won: ${offer.type === "percentage" ? `${offer.value}% OFF` : `₹${offer.value} FLAT OFF`}. This offer will be applicable on your NEXT purchase!`,
+          confirmButtonColor: '#d4af37'
+        });
       } else {
-        alert("Better luck next time! No offer this time.");
+        Swal.fire({
+          icon: 'info',
+          title: 'No Offer',
+          text: 'Better luck next time! No offer this time.',
+          confirmButtonColor: '#1a1a1a'
+        });
       }
       
       // Now finalize the sale WITHOUT the current offer (offer applies to next order)
@@ -511,7 +544,14 @@ const LiveBilling = () => {
         sendWhatsAppMessage();
       } else {
         printBill();
-        alert("SALE COMPLETED SUCCESSFULLY!");
+        Swal.fire({
+          icon: 'success',
+          title: 'Sale Completed',
+          text: 'SALE COMPLETED SUCCESSFULLY!',
+          confirmButtonColor: '#d4af37',
+          timer: 1500,
+          showConfirmButton: false
+        });
       }
 
       setCart({});
@@ -523,7 +563,12 @@ const LiveBilling = () => {
       setCustomerOffer({ hasOffer: false, offerDiscount: 0, offerType: "" });
     } catch (err) {
       console.error("Failed to complete sale:", err);
-      alert("Failed to complete sale. Please try again.");
+      Swal.fire({
+        icon: 'error',
+        title: 'Transaction Failed',
+        text: 'Failed to complete sale. Please try again.',
+        confirmButtonColor: '#1a1a1a'
+      });
     }
   };
 
@@ -584,7 +629,12 @@ const LiveBilling = () => {
     
     window.open(whatsappUrl, '_blank');
     printBill();
-    alert("SALE COMPLETED SUCCESSFULLY!\nBill sent to WhatsApp!");
+    Swal.fire({
+      icon: 'success',
+      title: 'Sale Completed',
+      text: 'SALE COMPLETED SUCCESSFULLY! Bill sent to WhatsApp!',
+      confirmButtonColor: '#d4af37'
+    });
   };
 
   /* =========================
@@ -669,7 +719,12 @@ const LiveBilling = () => {
       window.open(whatsappUrl, '_blank');
 
       printBill();
-      alert("SALE COMPLETED SUCCESSFULLY!\nBill sent to WhatsApp!");
+      Swal.fire({
+        icon: 'success',
+        title: 'Sale Completed',
+        text: 'SALE COMPLETED SUCCESSFULLY! Bill sent to WhatsApp!',
+        confirmButtonColor: '#d4af37'
+      });
 
       setCart({});
       setCustomer({ name: "", address: "", contact: "" });
@@ -680,7 +735,12 @@ const LiveBilling = () => {
       setCustomerOffer({ hasOffer: false, offerDiscount: 0, offerType: "" });
     } catch (err) {
       console.error("Failed to complete sale:", err);
-      alert("Failed to complete sale. Please try again.");
+      Swal.fire({
+        icon: 'error',
+        title: 'Transaction Failed',
+        text: 'Failed to complete sale. Please try again.',
+        confirmButtonColor: '#1a1a1a'
+      });
     }
   };
 
@@ -689,7 +749,12 @@ const LiveBilling = () => {
      ========================= */
   const printBill = () => {
     if (!Object.keys(cart).length) {
-      alert("Cart is empty");
+      Swal.fire({
+        icon: 'warning',
+        title: 'Cart is Empty',
+        text: 'Please add items to the cart before printing.',
+        confirmButtonColor: '#d4af37',
+      });
       return;
     }
 
@@ -1326,4 +1391,3 @@ const LiveBilling = () => {
 };
 
 export default LiveBilling;
-

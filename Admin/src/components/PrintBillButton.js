@@ -1,6 +1,7 @@
 import React from "react";
 import { Button } from "antd";
 import { PrinterOutlined } from "@ant-design/icons";
+import Swal from "sweetalert2";
 
 const PrintBillButton = ({ 
   cart, 
@@ -23,7 +24,12 @@ const PrintBillButton = ({
 
   const printBill = () => {
     if (!Object.keys(cart).length) {
-      alert("Cart is empty");
+      Swal.fire({
+        icon: 'warning',
+        title: 'Cart is Empty',
+        text: 'Please add items to the cart before printing.',
+        confirmButtonColor: '#d4af37',
+      });
       return;
     }
 
@@ -233,4 +239,3 @@ const PrintBillButton = ({
 };
 
 export default PrintBillButton;
-

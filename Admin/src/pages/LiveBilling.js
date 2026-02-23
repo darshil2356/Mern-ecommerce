@@ -28,6 +28,7 @@ import PrintBillButton from "../components/PrintBillButton";
 const LiveBilling = () => {
   const [buffer, setBuffer] = useState("");
   const [cart, setCart] = useState({});
+  const [spinCompleted, setSpinCompleted] = useState(false);
 
   const [cgstPercent, setCgstPercent] = useState(0);
   const [sgstPercent, setSgstPercent] = useState(0);
@@ -337,19 +338,20 @@ const LiveBilling = () => {
 
   // Handle spin wheel result
   const handleSpinComplete = async (offer) => {
+    setSpinCompleted(true); // IMPORTANT
     if (!customer.contact) return;
     
     try {
       // Save the offer for NEXT order (not current)
-      await axios.put(
-        `${base_url}user/customer-offer`,
-        {
-          mobile: customer.contact,
-          offerDiscount: offer.value,
-          offerType: offer.type
-        },
-        config
-      );
+      // await axios.put(
+      //   `${base_url}user/customer-offer`,
+      //   {
+      //     mobile: customer.contact,
+      //     offerDiscount: offer.value,
+      //     offerType: offer.type
+      //   },
+      //   config
+      // );
       
       // Update local state to show offer is now active for next order
       setCustomerOffer({
@@ -369,6 +371,7 @@ const LiveBilling = () => {
       
       // Now finalize the sale WITHOUT the current offer (offer applies to next order)
       finalizeSaleWithWhatsApp(offer);
+      setSpinCompleted(false);
       
     } catch (err) {
       console.error("Failed to save customer offer:", err);
@@ -376,16 +379,36 @@ const LiveBilling = () => {
   };
 
   // Handle complete sale with spin wheel logic
+  // const handleCompleteSale = () => {
+  //   // ALWAYS show spin wheel for every customer with mobile number
+  //   // The offer won will apply to NEXT order
+  //   if (customer.contact && Object.keys(cart).length > 0) {
+  //     setShowSpinWheel(true);
+  //   } else {
+  //     // For walk-in customers (no contact), proceed normally
+  //     finalizeSale();
+  //   }
+  // };
+
+
   const handleCompleteSale = () => {
-    // ALWAYS show spin wheel for every customer with mobile number
-    // The offer won will apply to NEXT order
-    if (customer.contact && Object.keys(cart).length > 0) {
-      setShowSpinWheel(true);
-    } else {
-      // For walk-in customers (no contact), proceed normally
-      finalizeSale();
-    }
-  };
+  if (!Object.keys(cart).length) return;
+
+  // If already spun → just finalize
+  if (spinCompleted) {
+    finalizeSale();
+    setSpinCompleted(false);
+    return;
+  }
+
+  // First time spin
+  if (customer.contact) {
+    setShowSpinWheel(true);
+  } else {
+    finalizeSale();
+    setSpinCompleted(false);
+  }
+};
 
   // Search customers
   useEffect(() => {
@@ -589,6 +612,18 @@ const LiveBilling = () => {
         config
       );
 
+      if (wonOffer && customer.contact) {
+  await axios.put(
+    `${base_url}user/customer-offer`,
+    {
+      mobile: customer.contact,
+      offerDiscount: wonOffer.value,
+      offerType: wonOffer.type
+    },
+    config
+  );
+}
+
       // Generate WhatsApp message
       let whatsAppMessage = `🧾 *Bill Receipt - ${storeName}*\n\n`;
       whatsAppMessage += `Customer: ${customer.name || "Walk-in Customer"}\n`;
@@ -762,7 +797,7 @@ const LiveBilling = () => {
                   </label>
                   <div className="relative">
                     <FaUser className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                    <input
+                    {/* <input
                       className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none transition-all"
                       value={searchTerm}
                       placeholder="Search customer..."
@@ -771,7 +806,25 @@ const LiveBilling = () => {
                         setShowDropdown(true);
                       }}
                       onFocus={() => setShowDropdown(true)}
-                    />
+                    /> */}
+
+                    <input
+  className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none transition-all"
+  value={customer.name}
+  placeholder="Enter customer name..."
+  onChange={(e) => {
+    const value = e.target.value;
+
+    setCustomer(prev => ({
+      ...prev,
+      name: value
+    }));
+
+    setSearchTerm(value); // still allow searching
+    setShowDropdown(true);
+  }}
+  onFocus={() => setShowDropdown(true)}
+/>
                   </div>
                   {showDropdown && customers.length > 0 && (
                     <div className="absolute top-full left-0 w-full bg-white border border-gray-200 rounded-xl shadow-xl max-h-48 overflow-y-auto z-50 mt-1">
@@ -806,7 +859,7 @@ const LiveBilling = () => {
                   </label>
                   <div className="relative">
                     <FaPhone className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                    <input
+                    {/* <input
                       className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none transition-all"
                       value={contactSearch}
                       placeholder="Search by phone..."
@@ -815,7 +868,25 @@ const LiveBilling = () => {
                         setShowContactDropdown(true);
                       }}
                       onFocus={() => setShowContactDropdown(true)}
-                    />
+                    /> */}
+
+                    <input
+  className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl"
+  value={customer.contact}
+  placeholder="Search by phone..."
+  onChange={(e) => {
+    const value = e.target.value;
+
+    setCustomer(prev => ({
+      ...prev,
+      contact: value
+    }));
+
+    setContactSearch(value);
+    setShowContactDropdown(true);
+  }}
+  onFocus={() => setShowContactDropdown(true)}
+/>
                   </div>
                   {showContactDropdown && customers.length > 0 && (
                     <div className="absolute top-full left-0 w-full bg-white border border-gray-200 rounded-xl shadow-xl max-h-48 overflow-y-auto z-50 mt-1">

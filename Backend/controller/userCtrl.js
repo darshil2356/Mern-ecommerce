@@ -16,33 +16,41 @@ const { createPasswordResetToken } = require("../models/userModel");
 
 
 
-
 const createOfflineOrder = asyncHandler(async (req, res) => {
-  const { items, paymentMethod, customer, discount, total } = req.body;
+
+  
+  const { items, paymentMethod, customer, discount } = req.body;
   const adminId = req.user._id;
+
+
+   console.log("Incoming body:", req.body);
+  console.log("Incoming customer:", customer);
 
   if (!items || items.length === 0) {
     res.status(400);
     throw new Error("No items provided");
   }
 
-  // Find the actual customer by mobile if provided
-  let customerId = adminId; // Default to admin (for walk-in customers)
+  let customerId = adminId;
+  let actualCustomer = null;
+  let isNewCustomer = false;
+
+  // Step 1: Check if customer already exists
   if (customer && customer.contact) {
-    const actualCustomer = await User.findOne({ mobile: customer.contact, role: "user" });
+    actualCustomer = await User.findOne({
+      mobile: customer.contact,
+      role: "user",
+    });
+
     if (actualCustomer) {
       customerId = actualCustomer._id;
-      
-      // Update customer's total orders and last order date
-      actualCustomer.totalOrders = (actualCustomer.totalOrders || 0) + 1;
-      actualCustomer.lastOrderDate = new Date();
-      await actualCustomer.save();
     }
   }
 
   let orderItems = [];
   let totalPrice = 0;
 
+  // Step 2: Validate & deduct stock
   for (const item of items) {
     const product = await Product.findOne({ barcode: item.barcode });
 
@@ -53,12 +61,9 @@ const createOfflineOrder = asyncHandler(async (req, res) => {
 
     if (product.quantity < item.quantity) {
       res.status(400);
-      throw new Error(
-        `Insufficient stock for ${product.title}`
-      );
+      throw new Error(`Insufficient stock for ${product.title}`);
     }
 
-    // Deduct stock
     product.quantity -= item.quantity;
     product.sold += item.quantity;
     await product.save();
@@ -67,22 +72,22 @@ const createOfflineOrder = asyncHandler(async (req, res) => {
       product: product._id,
       quantity: item.quantity,
       price: product.price,
-      color: product.color?.[0] || null, // safe default
+      color: product.color?.[0] || null,
     });
 
     totalPrice += product.price * item.quantity;
   }
 
-  // Calculate discount amount
   const discountAmount = discount || 0;
   const totalPriceAfterDiscount = totalPrice - discountAmount;
 
+  // Step 3: Create order FIRST
   const order = await Order.create({
     user: customerId,
     orderItems,
     totalPrice,
     totalPriceAfterDiscount,
-    discountAmount: discountAmount, // Store discount amount for reference
+    discountAmount,
     paymentInfo: {
       razorpayOrderId: paymentMethod || "OFFLINE",
       razorpayPaymentId: "OFFLINE",
@@ -91,12 +96,71 @@ const createOfflineOrder = asyncHandler(async (req, res) => {
     mode: "OFFLINE",
   });
 
+  // Step 4: If customer does NOT exist → create AFTER order success
+  if (customer && customer.contact && !actualCustomer) {
+    // const nameParts = (customer.name || "Customer").split(" ");
+
+
+    const fullName = (customer.name || "").trim();
+// alert("Customer name is ",customer.name);
+let firstname = "Customer";
+let lastname = "NA"; // fallback to avoid validation error
+
+if (fullName.length > 0) {
+  const nameParts = fullName.split(" ");
+
+  firstname = nameParts[0];
+
+  if (nameParts.length > 1) {
+    lastname = nameParts.slice(1).join(" ");
+  }
+}
+
+// if (fullName.length > 0) {
+//   const nameParts = fullName.split(" ");
+
+//   firstname = nameParts[0];
+
+//   if (nameParts.length > 1) {
+//     lastname = nameParts.slice(1).join(" ");
+//   }
+// }
+    // const firstname = nameParts[0] || "Customer";
+    // const lastname = nameParts.slice(1).join(" ") || "";
+
+    const newCustomer = await User.create({
+      firstname,
+      lastname,
+      mobile: customer.contact,
+      // email: `${customer.contact}@temp.com`,
+      email: customer.email || undefined,
+      address: customer.address || "",
+      password: null,
+      role: "user",
+      totalOrders: 1,
+      lastOrderDate: new Date(),
+    });
+
+    order.user = newCustomer._id;
+    await order.save();
+
+    isNewCustomer = true;
+  }
+
+  // Step 5: If existing customer → update stats
+  if (actualCustomer) {
+    actualCustomer.totalOrders =
+      (actualCustomer.totalOrders || 0) + 1;
+    actualCustomer.lastOrderDate = new Date();
+    await actualCustomer.save();
+  }
+
   res.json({
     success: true,
     order,
+    newCustomer: isNewCustomer,
   });
 });
-
 
 const registerUser = asyncHandler(async (req, res) => {
   const { email, password } = req.body;
@@ -1126,6 +1190,7 @@ const getCustomerDetails = asyncHandler(async (req, res) => {
         firstname: customer.firstname,
         lastname: customer.lastname,
         email: customer.email,
+        // email: customer.email || undefined, // allow empty
         mobile: customer.mobile,
         address: customer.address,
         gstin: customer.gstin,

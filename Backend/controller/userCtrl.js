@@ -1042,6 +1042,35 @@ const getProductByBarcode = asyncHandler(async (req, res) => {
   });
 });
 
+// Check stock availability for a product by barcode
+const checkStock = asyncHandler(async (req, res) => {
+  const { barcode, quantity } = req.body;
+
+  if (!barcode) {
+    res.status(400);
+    throw new Error("Barcode is required");
+  }
+
+  const product = await Product.findOne({ barcode });
+
+  if (!product) {
+    res.status(404);
+    throw new Error("Product not found");
+  }
+
+  const requestedQty = parseInt(quantity) || 1;
+  const availableStock = product.quantity;
+
+  res.json({
+    barcode: product.barcode,
+    title: product.title,
+    availableStock: availableStock,
+    requestedQuantity: requestedQty,
+    isAvailable: availableStock >= requestedQty,
+    canAdd: availableStock > 0
+  });
+});
+
 const searchUsers = asyncHandler(async (req, res) => {
   const { query } = req.query;
 
@@ -1277,5 +1306,6 @@ module.exports = {
   getCustomerOffer,
   updateCustomerOffer,
   getCustomerDetails,
+  checkStock,
 
 };

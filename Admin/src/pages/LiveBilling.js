@@ -82,6 +82,22 @@ const LiveBilling = () => {
   };
 
   /* =========================
+     CHECK STOCK
+     ========================= */
+  const checkStock = async (barcode, quantity) => {
+    try {
+      const res = await axios.post(
+        `${base_url}user/check-stock`,
+        { barcode, quantity },
+        config
+      );
+      return res.data;
+    } catch (err) {
+      return null;
+    }
+  };
+
+  /* =========================
      TOTAL CALCULATIONS
      ========================= */
   const grandTotal = useMemo(() => {
@@ -131,6 +147,29 @@ const LiveBilling = () => {
     try {
       const product = await fetchProductByBarcode(barcode);
 
+      // Check stock before adding
+      const currentQtyInCart = cart[barcode] ? cart[barcode].qty : 0;
+      const requestedQty = currentQtyInCart + 1;
+      
+      const stockInfo = await checkStock(barcode, requestedQty);
+      
+      if (stockInfo && !stockInfo.isAvailable) {
+        // Show smaller and sleeker SweetAlert at top-right
+        Swal.fire({
+          icon: 'warning',
+          title: 'Cannot Add More',
+          text: `Only ${stockInfo.availableStock} in stock`,
+          confirmButtonColor: '#d4af37',
+          position: 'top-end',
+          timer: 3000,
+          showConfirmButton: false,
+          width: '280px',
+          padding: '8px'
+        });
+        setBuffer("");
+        return;
+      }
+
       setCart((prev) => {
         if (prev[barcode]) {
           return {
@@ -166,7 +205,29 @@ const LiveBilling = () => {
   /* =========================
      QTY CONTROLS
      ========================= */
-  const increaseQty = (barcode) => {
+  const increaseQty = async (barcode) => {
+    // Check stock before increasing
+    const currentQty = cart[barcode] ? cart[barcode].qty : 0;
+    const requestedQty = currentQty + 1;
+    
+    const stockInfo = await checkStock(barcode, requestedQty);
+    
+    if (stockInfo && !stockInfo.isAvailable) {
+      // Show smaller and sleeker SweetAlert at top-right
+      Swal.fire({
+        icon: 'warning',
+        title: 'Cannot Add More Product',
+        text: `Only ${stockInfo.availableStock} in stock`,
+        confirmButtonColor: '#d4af37',
+        position: 'top-end',
+        timer: 3000,
+        showConfirmButton: false,
+        width: '280px',
+        padding: '8px'
+      });
+      return;
+    }
+    
     setCart((prev) => ({
       ...prev,
       [barcode]: {
@@ -208,7 +269,7 @@ const LiveBilling = () => {
       return /^[a-zA-Z0-9\-]$/.test(key);
     };
 
-    const handleKeyDown = async (e) => {
+    const handleScanKeyDown = async (e) => {
       const activeTag = document.activeElement.tagName;
 
       if (activeTag === "INPUT" || activeTag === "TEXTAREA") return;
@@ -230,6 +291,28 @@ const LiveBilling = () => {
 
         try {
           const product = await fetchProductByBarcode(barcode);
+
+          // Check stock before adding
+          const currentQtyInCart = cart[barcode] ? cart[barcode].qty : 0;
+          const requestedQty = currentQtyInCart + 1;
+          
+          const stockInfo = await checkStock(barcode, requestedQty);
+          
+          if (stockInfo && !stockInfo.isAvailable) {
+            // Show smaller and sleeker SweetAlert at top-right
+           Swal.fire({
+  icon: 'warning',
+  title: '',
+  html: `<span class="text-sm font-medium">Only ${stockInfo.availableStock} in stock</span>`,
+  confirmButtonColor: '#d4af37',
+  position: 'top-end',
+  timer: 3000,
+  showConfirmButton: false,
+  width: '200px',
+  padding: '6px 10px'
+});
+            return;
+          }
 
           setCart((prev) => {
             if (prev[barcode]) {
@@ -272,9 +355,9 @@ const LiveBilling = () => {
       }, 80);
     };
 
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, []);
+    window.addEventListener("keydown", handleScanKeyDown);
+    return () => window.removeEventListener("keydown", handleScanKeyDown);
+  }, [cart]);
 
   // Fetch GSTIN on mount
   useEffect(() => {

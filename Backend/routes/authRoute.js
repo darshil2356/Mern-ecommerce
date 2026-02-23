@@ -41,6 +41,7 @@ const {
   updateCustomerOffer,
   getDailySales,
   getDashboardStats,
+  checkStock,
 } = require("../controller/userCtrl");
 
 
@@ -56,6 +57,9 @@ router.post(
   isAdmin,
   createOfflineOrder
 );
+
+// Stock check route
+router.post("/check-stock", authMiddleware, isAdmin, checkStock);
 
 // Customer offer routes
 router.get("/customer-offer", authMiddleware, isAdmin, getCustomerOffer);

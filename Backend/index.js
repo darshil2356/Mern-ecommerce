@@ -21,6 +21,7 @@ const cors = require("cors");
 const productRoute = require("./routes/productRoute");
 
 const customerRoute = require("./routes/customerRoute");
+const reportRouter = require("./routes/reportRoute");
 
 
      
@@ -46,6 +47,7 @@ app.use("/api/upload", uploadRouter);
 app.use("/api/product", productRoute);
 app.use("/public", express.static("public"));
 app.use("/api/customers", customerRoute);
+app.use("/api/reports", reportRouter);
 
    
 

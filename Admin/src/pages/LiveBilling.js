@@ -23,6 +23,7 @@ import {
   FaTag
 } from "react-icons/fa";
 import SpinWheel from "../components/SpinWheel";
+import PrintBillButton from "../components/PrintBillButton";
 
 const LiveBilling = () => {
   const [buffer, setBuffer] = useState("");
@@ -1104,14 +1105,20 @@ const LiveBilling = () => {
 
               {/* Action Buttons */}
               <div className="space-y-3 pt-2">
-                <button
-                  onClick={printBill}
-                  disabled={!Object.keys(cart).length}
-                  className="w-full py-4 bg-white/10 hover:bg-white/20 border border-white/20 rounded-xl font-semibold flex items-center justify-center gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <FaPrint />
-                  Print / Download Bill
-                </button>
+               <PrintBillButton
+  cart={cart}
+  customer={{
+    name: customer.name,
+    address: customer.address,
+    mobile: customer.contact
+  }}
+  payableAmount={payableAmount}
+  subtotal={grandTotal}
+  cgstAmount={cgstAmount}
+  sgstAmount={sgstAmount}
+  discountAmount={discountAmount}
+  gstin={gstin}
+/>
                 <button
                   onClick={handleCompleteSale}
                   disabled={!Object.keys(cart).length}

@@ -5,6 +5,8 @@ const {
   searchUsers,
   getGstin,
   updateGstin,
+  getSettings,
+  updateSettings,
   getCustomerOffer,
   updateCustomerOffer,
   getCustomerDetails
@@ -27,6 +29,10 @@ router.post("/create-customer", createUser);
 // GSTIN routes - protected by auth middleware
 router.get("/gstin", authMiddleware, getGstin);
 router.put("/gstin", authMiddleware, updateGstin);
+
+// Settings routes - protected by auth middleware
+router.get("/settings", authMiddleware, getSettings);
+router.put("/settings", authMiddleware, updateSettings);
 
 // Customer offer routes - protected by auth middleware
 router.get("/customer-offer", authMiddleware, isAdmin, getCustomerOffer);

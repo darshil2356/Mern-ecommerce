@@ -63,9 +63,10 @@ const LiveBilling = () => {
   const [customerOffer, setCustomerOffer] = useState({ hasOffer: false, offerDiscount: 0, offerType: "" });
   const [appliedOfferAmount, setAppliedOfferAmount] = useState(0);
 
-  // Store info
-  const [storeName] = useState("Cart Corner");
-  const [storeTagline] = useState("Your One-Stop Shopping Destination");
+  // Settings state - loaded from backend
+  const [showSpinner, setShowSpinner] = useState(true);
+  const [storeName, setStoreName] = useState("Cart Corner");
+  const [storeTagline, setStoreTagline] = useState("Your One-Stop Shopping Destination");
 
   // Scanner input ref
   const scannerRef = useRef(null);
@@ -372,6 +373,25 @@ const LiveBilling = () => {
     fetchGstin();
   }, []);
 
+  // Fetch settings on mount
+  useEffect(() => {
+    const fetchSettings = async () => {
+      try {
+        const res = await axios.get(`${base_url}user/settings`, config);
+        // Set fetched values to state
+        setCgstPercent(res.data.cgst || 0);
+        setSgstPercent(res.data.sgst || 0);
+        setShowSpinner(res.data.showSpinner === true);
+        setStoreName(res.data.storeName || "Cart Corner");
+        setStoreTagline(res.data.storeTagline || "Your One-Stop Shopping Destination");
+      } catch (err) {
+        console.error("Failed to fetch settings:", err);
+      }
+    };
+    fetchSettings();
+  }, []);
+ 
+
   // Open GSTIN modal
   const openGstinModal = () => {
     setGstinInput(gstin);
@@ -517,8 +537,8 @@ const LiveBilling = () => {
     return;
   }
 
-  // First time spin
-  if (customer.contact) {
+  // First time spin - only if showSpinner is enabled
+  if (customer.contact && showSpinner) {
     setShowSpinWheel(true);
   } else {
     finalizeSale();
@@ -888,40 +908,7 @@ const LiveBilling = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-4 md:p-6">
       {/* PREMIUM HEADER */}
-      <div className="bg-gradient-to-r from-indigo-900 via-indigo-800 to-indigo-900 rounded-2xl shadow-2xl p-6 mb-6 text-white">
-        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-          {/* Logo & Brand */}
-          <div className="flex items-center gap-4">
-            <div className="w-16 h-16 bg-white/10 backdrop-blur rounded-2xl flex items-center justify-center">
-              <FaShoppingCart className="text-3xl text-amber-400" />
-            </div>
-            <div>
-              <h1 className="text-2xl md:text-3xl font-bold tracking-tight">
-                {storeName}
-              </h1>
-              <p className="text-indigo-200 text-sm">{storeTagline}</p>
-            </div>
-          </div>
 
-          {/* Date & Time */}
-          <div className="flex gap-6">
-            <div className="flex items-center gap-3 bg-white/10 backdrop-blur rounded-xl px-4 py-2">
-              <FaCalendarAlt className="text-amber-400" />
-              <div>
-                <p className="text-xs text-indigo-200">Date</p>
-                <p className="font-semibold">{new Date().toLocaleDateString('en-GB')}</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-3 bg-white/10 backdrop-blur rounded-xl px-4 py-2">
-              <FaClock className="text-amber-400" />
-              <div>
-                <p className="text-xs text-indigo-200">Time</p>
-                <p className="font-semibold">{new Date().toLocaleTimeString()}</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
 
       {/* MAIN CONTENT GRID */}
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
@@ -1463,12 +1450,21 @@ const LiveBilling = () => {
       </Modal>
 
       {/* Spin Wheel Modal */}
-      <SpinWheel 
+      {/* <SpinWheel 
         isOpen={showSpinWheel} 
         onClose={() => setShowSpinWheel(false)}
         onSpinComplete={handleSpinComplete}
         purchaseAmount={grandTotal}
-      />
+      /> */}
+
+      {showSpinner && (
+  <SpinWheel 
+    isOpen={showSpinWheel} 
+    onClose={() => setShowSpinWheel(false)}
+    onSpinComplete={handleSpinComplete}
+    purchaseAmount={grandTotal}
+  />
+)}
     </div>
   );
 };

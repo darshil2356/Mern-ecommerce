@@ -28,6 +28,7 @@ import ViewOrder from "./pages/ViewOrder";
 import { OpenRoutes } from "./routing/OpenRoutes";
 import { PrivateRoutes } from "./routing/PrivateRoutes";
 import LiveBilling from "./pages/LiveBilling";
+import Settings from "./pages/Settings";
 function App() {
   return (
     <Router>
@@ -79,9 +80,7 @@ function App() {
           <Route path="product" element={<Addproduct />} />
           <Route path="product/:id" element={<Addproduct />} />
           <Route path="live-billing" element={<LiveBilling />} />
-          
-
-
+          <Route path="settings" element={<Settings />} />
         </Route>
       </Routes>
     </Router>

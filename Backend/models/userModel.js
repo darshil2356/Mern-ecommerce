@@ -47,6 +47,36 @@ var userSchema = new mongoose.Schema(
       type: String,
       default: "",
     },
+    // GST Tax settings
+    cgst: {
+      type: Number,
+      default: 0,
+    },
+    sgst: {
+      type: Number,
+      default: 0,
+    },
+    // Admin configuration settings
+    showSpinner: {
+      type: Boolean,
+      default: false, // Show spin wheel by default
+    },
+    storeName: {
+      type: String,
+      default: "Cart Corner",
+    },
+    storeTagline: {
+      type: String,
+      default: "Your One-Stop Shopping Destination",
+    },
+    storeAddress: {
+      type: String,
+      default: "",
+    },
+    storePhone: {
+      type: String,
+      default: "",
+    },
     wishlist: [{ type: mongoose.Schema.Types.ObjectId, ref: "Product" }],
     refreshToken: {
       type: String,

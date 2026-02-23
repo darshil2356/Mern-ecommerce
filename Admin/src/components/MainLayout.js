@@ -238,8 +238,8 @@ const MainLayout = () => {
                     <AiOutlineUser className="me-2" /> View Profile
                   </Link>
                 </li>
-                <li>
-                  <Link className="dropdown-item" to="/">
+<li>
+                  <Link className="dropdown-item" to="/admin/settings">
                     <AiOutlineSetting className="me-2" /> Settings
                   </Link>
                 </li>

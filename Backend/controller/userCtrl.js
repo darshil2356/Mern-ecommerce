@@ -1161,6 +1161,61 @@ const getGstin = asyncHandler(async (req, res) => {
   }
 });
 
+// Get all admin settings/configurations
+const getSettings = asyncHandler(async (req, res) => {
+  const { _id } = req.user;
+  validateMongoDbId(_id);
+
+  try {
+    const user = await User.findById(_id).select(
+      "gstin email showSpinner storeName storeTagline storeAddress storePhone cgst sgst"
+    );
+    res.json({
+      gstin: user.gstin || "",
+      email: user.email || "",
+      // showSpinner: user.showSpinner !== false,
+      showSpinner: user.showSpinner === true,
+      storeName: user.storeName || "Cart Corner",
+      storeTagline: user.storeTagline || "Your One-Stop Shopping Destination",
+      storeAddress: user.storeAddress || "",
+      storePhone: user.storePhone || "",
+      cgst: user.cgst || 0,
+      sgst: user.sgst || 0
+    });
+  } catch (error) {
+    throw new Error(error);
+  }
+});
+
+// Update admin settings/configurations
+const updateSettings = asyncHandler(async (req, res) => {
+  const { _id } = req.user;
+
+  console.log("Admin updating:", _id);
+  console.log("Incoming body:", req.body);
+
+  const { showSpinner, cgst, sgst } = req.body;
+
+  const updatedUser = await User.findByIdAndUpdate(
+    _id,
+    {
+      showSpinner: Boolean(showSpinner),
+      cgst: Number(cgst) || 0,
+      sgst: Number(sgst) || 0
+    },
+    { new: true }
+  );
+
+  console.log("Updated value in DB:", updatedUser.showSpinner, updatedUser.cgst, updatedUser.sgst);
+
+  res.json({
+    success: true,
+    showSpinner: updatedUser.showSpinner,
+    cgst: updatedUser.cgst,
+    sgst: updatedUser.sgst
+  });
+});
+
 // Update GSTIN for logged in user
 const updateGstin = asyncHandler(async (req, res) => {
   const { _id } = req.user;
@@ -1303,6 +1358,8 @@ module.exports = {
   searchUsers,
   getGstin,
   updateGstin,
+  getSettings,
+  updateSettings,
   getCustomerOffer,
   updateCustomerOffer,
   getCustomerDetails,

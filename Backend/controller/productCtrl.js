@@ -333,9 +333,18 @@ const addToWishlist = asyncHandler(async (req, res) => {
 
 const rating = asyncHandler(async (req, res) => {
   const { _id } = req.user;
-  const { star, prodId, comment } = req.body;
+  const { star, prodId, comment, images } = req.body;
   try {
     const product = await Product.findById(prodId);
+    
+    // Check if user has purchased this product (verified purchase)
+    const Order = require("../models/orderModel");
+    const hasPurchased = await Order.findOne({
+      user: _id,
+      "orderItems.product": prodId,
+      orderStatus: { $in: ["Delivered", "Shipped"] }
+    });
+    
     let alreadyRated = product.ratings.find(
       (userId) => userId.postedby.toString() === _id.toString()
     );
@@ -345,7 +354,11 @@ const rating = asyncHandler(async (req, res) => {
           ratings: { $elemMatch: alreadyRated },
         },
         {
-          $set: { "ratings.$.star": star, "ratings.$.comment": comment },
+          $set: { 
+            "ratings.$.star": star, 
+            "ratings.$.comment": comment,
+            "ratings.$.images": images || [],
+          },
         },
         {
           new: true,
@@ -360,6 +373,8 @@ const rating = asyncHandler(async (req, res) => {
               star: star,
               comment: comment,
               postedby: _id,
+              images: images || [],
+              isVerifiedPurchase: hasPurchased ? true : false,
             },
           },
         },
@@ -368,20 +383,137 @@ const rating = asyncHandler(async (req, res) => {
         }
       );
     }
+    
+    // Get all ratings and calculate statistics
     const getallratings = await Product.findById(prodId);
     let totalRating = getallratings.ratings.length;
     let ratingsum = getallratings.ratings
       .map((item) => item.star)
       .reduce((prev, curr) => prev + curr, 0);
     let actualRating = Math.round(ratingsum / totalRating);
+    
+    // Calculate rating statistics
+    const ratingStats = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+    getallratings.ratings.forEach((item) => {
+      if (ratingStats[item.star] !== undefined) {
+        ratingStats[item.star]++;
+      }
+    });
+    
     let finalproduct = await Product.findByIdAndUpdate(
       prodId,
       {
         totalrating: actualRating,
+        ratingStats: ratingStats,
       },
       { new: true }
     );
     res.json(finalproduct);
+  } catch (error) {
+    throw new Error(error);
+  }
+});
+
+// New: Get all reviews for admin
+const getAllReviews = asyncHandler(async (req, res) => {
+  try {
+    const products = await Product.find({}, "title ratings totalrating ratingStats")
+      .populate("ratings.postedby", "firstname lastname email");
+    
+    // Flatten all reviews with product info
+    let allReviews = [];
+    products.forEach(product => {
+      if (product.ratings && product.ratings.length > 0) {
+        product.ratings.forEach(rating => {
+          allReviews.push({
+            _id: rating._id,
+            star: rating.star,
+            comment: rating.comment,
+            images: rating.images,
+            isVerifiedPurchase: rating.isVerifiedPurchase,
+            helpful: rating.helpful,
+            createdAt: rating.createdAt,
+            product: {
+              _id: product._id,
+              title: product.title,
+              totalrating: product.totalrating,
+            },
+            user: rating.postedby,
+          });
+        });
+      }
+    });
+    
+    // Sort by date (newest first)
+    allReviews.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    
+    res.json(allReviews);
+  } catch (error) {
+    throw new Error(error);
+  }
+});
+
+// New: Mark review as helpful
+const markReviewHelpful = asyncHandler(async (req, res) => {
+  const { prodId, reviewId } = req.body;
+  try {
+    const product = await Product.findById(prodId);
+    const review = product.ratings.id(reviewId);
+    
+    if (review) {
+      review.helpful = (review.helpful || 0) + 1;
+      await product.save();
+      res.json({ success: true, helpful: review.helpful });
+    } else {
+      res.status(404).json({ message: "Review not found" });
+    }
+  } catch (error) {
+    throw new Error(error);
+  }
+});
+
+// New: Delete a review (admin or user)
+const deleteReview = asyncHandler(async (req, res) => {
+  const { prodId, reviewId } = req.params;
+  const { _id: userId } = req.user;
+  const { isAdmin } = req.body;
+  
+  try {
+    const product = await Product.findById(prodId);
+    const review = product.ratings.id(reviewId);
+    
+    if (!review) {
+      return res.status(404).json({ message: "Review not found" });
+    }
+    
+    // Allow deletion if user owns the review or is admin
+    if (review.postedby.toString() !== userId.toString() && !isAdmin) {
+      return res.status(403).json({ message: "Not authorized to delete this review" });
+    }
+    
+    // Remove the review
+    product.ratings.pull({ _id: reviewId });
+    
+    // Recalculate ratings
+    let totalRating = product.ratings.length;
+    let ratingsum = product.ratings
+      .map((item) => item.star)
+      .reduce((prev, curr) => prev + curr, 0);
+    let actualRating = totalRating > 0 ? Math.round(ratingsum / totalRating) : 0;
+    
+    // Recalculate stats
+    const ratingStats = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+    product.ratings.forEach((item) => {
+      if (ratingStats[item.star] !== undefined) {
+        ratingStats[item.star]++;
+      }
+    });
+    
+    product.totalrating = actualRating;
+    product.ratingStats = ratingStats;
+    await product.save();
+    
+    res.json({ success: true, message: "Review deleted successfully" });
   } catch (error) {
     throw new Error(error);
   }
@@ -395,5 +527,8 @@ module.exports = {
   deleteProduct,
   addToWishlist,
   rating,
+  getAllReviews,
+  markReviewHelpful,
+  deleteReview,
 };
 

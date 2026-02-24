@@ -8,6 +8,7 @@ import {
   AiOutlineLogout,
   AiOutlineSetting,
   AiOutlineFileText,
+  AiFillStar,
 } from "react-icons/ai";
 
 import { RiCouponLine } from "react-icons/ri";
@@ -113,6 +114,11 @@ const MainLayout = () => {
       key: "reports",
       icon: <FaFileAlt className="fs-5" />,
       label: "Reports",
+    },
+    {
+      key: "reviews",
+      icon: <AiFillStar className="fs-5" />,
+      label: "Reviews",
     },
     {
       key: "marketing",

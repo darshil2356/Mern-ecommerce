@@ -117,11 +117,27 @@ sizeStock: [
         star: Number,
         comment: String,
         postedby: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+        // NEW: Enhanced review fields
+        images: [{
+          public_id: String,
+          url: String,
+        }],
+        isVerifiedPurchase: { type: Boolean, default: false },
+        helpful: { type: Number, default: 0 },
+        createdAt: { type: Date, default: Date.now },
       },
     ],
     totalrating: {
       type: Number,
       default: 0,
+    },
+    // Review statistics
+    ratingStats: {
+      5: { type: Number, default: 0 },
+      4: { type: Number, default: 0 },
+      3: { type: Number, default: 0 },
+      2: { type: Number, default: 0 },
+      1: { type: Number, default: 0 },
     },
   },
   { timestamps: true },

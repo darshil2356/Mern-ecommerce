@@ -1,10 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import ReactStars from "react-rating-stars-component";
 import BreadCrumb from "../components/BreadCrumb";
 import Meta from "../components/Meta";
 import ProductCard from "../components/ProductCard";
 import Color from "../components/Color";
-import { AiOutlineHeart, AiFillHeart, AiOutlinePlayCircle, AiOutlineZoomIn, AiOutlineShoppingCart } from "react-icons/ai";
+import { AiOutlineHeart, AiFillHeart, AiOutlinePlayCircle, AiOutlineZoomIn, AiOutlineShoppingCart, AiOutlineUpload, AiFillCheckCircle, AiOutlineLike } from "react-icons/ai";
 import { useLocation, useNavigate } from "react-router-dom";
 import Container from "../components/Container";
 import { useDispatch, useSelector } from "react-redux";
@@ -13,8 +13,6 @@ import { toast } from "react-toastify";
 import { addProdToCart, getUserCart } from "../features/user/userSlice";
 import { addToWishlist } from "../features/products/productSlilce";
 import { motion, AnimatePresence } from "framer-motion";
-
-// Bundle imports
 import axios from "axios";
 import { base_url } from "../utils/axiosConfig";
 
@@ -26,10 +24,15 @@ const SingleProduct = () => {
   const [isZoomed, setIsZoomed] = useState(false);
   const [productBundles, setProductBundles] = useState([]);
   const [loadingBundles, setLoadingBundles] = useState(false);
+  // Review state
+  const [reviewImages, setReviewImages] = useState([]);
+  const [uploadingImages, setUploadingImages] = useState(false);
+  const [sortBy, setSortBy] = useState("newest");
   const location = useLocation();
   const navigate = useNavigate();
   const getProductId = location.pathname.split("/")[2];
   const dispatch = useDispatch();
+  const fileInputRef = useRef(null);
   
   const productState = useSelector((state) => state?.product?.singleproduct);
   const productsState = useSelector((state) => state?.product?.product);
@@ -128,6 +131,61 @@ const SingleProduct = () => {
   const [star, setStar] = useState(null);
   const [comment, setComment] = useState(null);
 
+  // Handle image upload for reviews
+  const handleReviewImageUpload = async (e) => {
+    const files = Array.from(e.target.files);
+    if (files.length === 0) return;
+    
+    setUploadingImages(true);
+    try {
+      const uploadedImages = [];
+      for (const file of files) {
+        const formData = new FormData();
+        formData.append("image", file);
+        
+        const response = await axios.post(`${base_url}upload`, formData, {
+          headers: {
+            "Content-Type": "multipart/form-data",
+          },
+        });
+        
+        if (response.data) {
+          uploadedImages.push({
+            public_id: response.data._id,
+            url: response.data.url,
+          });
+        }
+      }
+      setReviewImages([...reviewImages, ...uploadedImages]);
+      toast.success("Image(s) uploaded successfully!");
+    } catch (error) {
+      toast.error("Failed to upload images");
+    } finally {
+      setUploadingImages(false);
+    }
+  };
+
+  // Remove image from review
+  const removeReviewImage = (index) => {
+    const newImages = [...reviewImages];
+    newImages.splice(index, 1);
+    setReviewImages(newImages);
+  };
+
+  // Mark review as helpful
+  const handleMarkHelpful = async (reviewId, productId) => {
+    try {
+      await axios.put(`${base_url}product/reviews/helpful`, {
+        reviewId,
+        prodId: productId,
+      });
+      toast.success("Marked as helpful!");
+      dispatch(getAProduct(getProductId));
+    } catch (error) {
+      toast.error("Failed to mark as helpful");
+    }
+  };
+
   const addRatingToProduct = () => {
     if (star === null) {
       toast.error("Please add star rating");
@@ -137,11 +195,15 @@ const SingleProduct = () => {
       return false;
     } else {
       dispatch(
-        addRating({ star: star, comment: comment, prodId: getProductId })
+        addRating({ star: star, comment: comment, prodId: getProductId, images: reviewImages })
       );
       setTimeout(() => {
         dispatch(getAProduct(getProductId));
       }, 100);
+      // Reset review form
+      setStar(null);
+      setComment(null);
+      setReviewImages([]);
       toast.success("Review submitted!");
     }
     return false;
@@ -865,9 +927,9 @@ const SingleProduct = () => {
               boxShadow: '0 4px 20px rgba(0,0,0,0.06)',
               marginBottom: '30px'
             }}>
-              {/* Rating Summary */}
-              <div className="d-flex align-items-center gap-4 mb-4 pb-4" style={{ borderBottom: '1px solid #eee' }}>
-                <div className="text-center">
+              {/* Rating Summary with Stats */}
+              <div className="d-flex align-items-start gap-4 mb-4 pb-4" style={{ borderBottom: '1px solid #eee' }}>
+                <div className="text-center" style={{ minWidth: '120px' }}>
                   <span style={{ fontSize: '48px', fontWeight: 700, color: '#d4af37' }}>
                     {Number(productState?.totalrating || 0).toFixed(1)}
                   </span>
@@ -884,11 +946,54 @@ const SingleProduct = () => {
                     {productState?.ratings?.length || 0} Reviews
                   </span>
                 </div>
+                
+                {/* Rating Stats Bars */}
+                <div style={{ flex: 1 }}>
+                  {[5, 4, 3, 2, 1].map(star => {
+                    const count = productState?.ratingStats?.[star] || 0;
+                    const total = productState?.ratings?.length || 1;
+                    const percentage = (count / total) * 100;
+                    return (
+                      <div key={star} className="d-flex align-items-center gap-2 mb-2">
+                        <span style={{ fontSize: '13px', width: '50px' }}>{star} star</span>
+                        <div style={{ flex: 1, height: '8px', background: '#eee', borderRadius: '4px', overflow: 'hidden' }}>
+                          <div style={{ 
+                            width: `${percentage}%`, 
+                            height: '100%', 
+                            background: star === 5 ? '#22c55e' : star === 4 ? '#84cc16' : star === 3 ? '#eab308' : star === 2 ? '#f97316' : '#ef4444',
+                            borderRadius: '4px'
+                          }} />
+                        </div>
+                        <span style={{ fontSize: '12px', color: '#999', width: '30px' }}>{count}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+              
+              {/* Sort Reviews */}
+              <div className="d-flex justify-content-between align-items-center mb-4">
+                <h4 className="mb-0">Write a Review</h4>
+                <select 
+                  value={sortBy} 
+                  onChange={(e) => setSortBy(e.target.value)}
+                  style={{ 
+                    padding: '8px 16px', 
+                    borderRadius: '8px', 
+                    border: '2px solid #eee',
+                    fontSize: '14px'
+                  }}
+                >
+                  <option value="newest">Newest First</option>
+                  <option value="oldest">Oldest First</option>
+                  <option value="highest">Highest Rated</option>
+                  <option value="lowest">Lowest Rated</option>
+                  <option value="helpful">Most Helpful</option>
+                </select>
               </div>
               
               {/* Write Review */}
               <div className="py-4">
-                <h4 className="mb-4">Write a Review</h4>
                 <div className="mb-4">
                   <ReactStars
                     count={5}
@@ -906,6 +1011,7 @@ const SingleProduct = () => {
                     rows="4"
                     placeholder="Share your experience with this product..."
                     onChange={(e) => setComment(e.target.value)}
+                    value={comment || ''}
                     style={{ 
                       borderRadius: '12px', 
                       padding: '15px',
@@ -914,6 +1020,87 @@ const SingleProduct = () => {
                     }}
                   ></textarea>
                 </div>
+                
+                {/* Image Upload */}
+                <div className="mb-4">
+                  <p style={{ fontSize: '14px', color: '#666', marginBottom: '10px' }}>
+                    Add Photos (optional)
+                  </p>
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    multiple
+                    accept="image/*"
+                    onChange={handleReviewImageUpload}
+                    style={{ display: 'none' }}
+                  />
+                  <div className="d-flex gap-2 flex-wrap">
+                    {reviewImages.map((img, index) => (
+                      <div key={index} style={{ position: 'relative' }}>
+                        <img 
+                          src={img.url} 
+                          alt={`Review ${index + 1}`}
+                          style={{ 
+                            width: '80px', 
+                            height: '80px', 
+                            objectFit: 'cover',
+                            borderRadius: '8px',
+                            border: '2px solid #eee'
+                          }} 
+                        />
+                        <button
+                          onClick={() => removeReviewImage(index)}
+                          style={{
+                            position: 'absolute',
+                            top: '-8px',
+                            right: '-8px',
+                            background: '#ef4444',
+                            color: '#fff',
+                            border: 'none',
+                            borderRadius: '50%',
+                            width: '20px',
+                            height: '20px',
+                            fontSize: '12px',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center'
+                          }}
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ))}
+                    <button
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={uploadingImages}
+                      style={{
+                        width: '80px',
+                        height: '80px',
+                        border: '2px dashed #ddd',
+                        borderRadius: '8px',
+                        background: '#f9f9f9',
+                        cursor: uploadingImages ? 'not-allowed' : 'pointer',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: '#999',
+                        fontSize: '12px'
+                      }}
+                    >
+                      {uploadingImages ? (
+                        <div className="spinner-border spinner-border-sm" />
+                      ) : (
+                        <>
+                          <AiOutlineUpload style={{ fontSize: '24px' }} />
+                          Upload
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+                
                 <motion.button
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
@@ -934,51 +1121,133 @@ const SingleProduct = () => {
               
               {/* Reviews List */}
               <div className="reviews mt-4 pt-4" style={{ borderTop: '1px solid #eee' }}>
-                {productState?.ratings?.length > 0 ? (
-                  productState.ratings.map((item, index) => (
-                    <div 
-                      key={index} 
-                      className="review pb-4 mb-4" 
-                      style={{ 
-                        borderBottom: index < productState.ratings.length - 1 ? '1px solid #eee' : 'none'
-                      }}
-                    >
-                      <div className="d-flex gap-3 align-items-center mb-3">
-                        <div style={{
-                          width: '48px',
-                          height: '48px',
-                          borderRadius: '50%',
-                          background: 'linear-gradient(135deg, #d4af37 0%, #b8962e 100%)',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          color: '#fff',
-                          fontWeight: 700,
-                          fontSize: '18px'
-                        }}>
-                          {(item.postedby?.name || "U").charAt(0).toUpperCase()}
+                {(() => {
+                  // Sort reviews
+                  let sortedReviews = [...(productState?.ratings || [])];
+                  switch (sortBy) {
+                    case 'newest':
+                      sortedReviews.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+                      break;
+                    case 'oldest':
+                      sortedReviews.sort((a, b) => new Date(a.createdAt || 0) - new Date(b.createdAt || 0));
+                      break;
+                    case 'highest':
+                      sortedReviews.sort((a, b) => (b.star || 0) - (a.star || 0));
+                      break;
+                    case 'lowest':
+                      sortedReviews.sort((a, b) => (a.star || 0) - (b.star || 0));
+                      break;
+                    case 'helpful':
+                      sortedReviews.sort((a, b) => (b.helpful || 0) - (a.helpful || 0));
+                      break;
+                    default:
+                      break;
+                  }
+                  return sortedReviews.length > 0 ? (
+                    sortedReviews.map((item, index) => (
+                      <div 
+                        key={index} 
+                        className="review pb-4 mb-4" 
+                        style={{ 
+                          borderBottom: index < sortedReviews.length - 1 ? '1px solid #eee' : 'none'
+                        }}
+                      >
+                        <div className="d-flex gap-3 align-items-center mb-3">
+                          <div style={{
+                            width: '48px',
+                            height: '48px',
+                            borderRadius: '50%',
+                            background: 'linear-gradient(135deg, #d4af37 0%, #b8962e 100%)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            color: '#fff',
+                            fontWeight: 700,
+                            fontSize: '18px'
+                          }}>
+                            {(item.postedby?.firstname || "U").charAt(0).toUpperCase()}
+                          </div>
+                          <div>
+                            <div className="d-flex align-items-center gap-2">
+                              <ReactStars
+                                count={5}
+                                size={16}
+                                value={item?.star || 0}
+                                edit={false}
+                                activeColor="#ffd700"
+                              />
+                              {item?.isVerifiedPurchase && (
+                                <span style={{ 
+                                  display: 'flex', 
+                                  alignItems: 'center', 
+                                  gap: '4px',
+                                  background: '#dcfce7', 
+                                  color: '#166534',
+                                  padding: '2px 8px',
+                                  borderRadius: '12px',
+                                  fontSize: '11px',
+                                  fontWeight: 500
+                                }}>
+                                  <AiFillCheckCircle style={{ fontSize: '12px' }} />
+                                  Verified Purchase
+                                </span>
+                              )}
+                            </div>
+                            <span style={{ color: '#999', fontSize: '12px' }}>
+                              {item.postedby?.firstname || "Unknown"} {item.postedby?.lastname || ""} • {new Date(item.createdAt || Date.now()).toLocaleDateString()}
+                            </span>
+                          </div>
                         </div>
-                        <div>
-                          <ReactStars
-                            count={5}
-                            size={16}
-                            value={item?.star || 0}
-                            edit={false}
-                            activeColor="#ffd700"
-                          />
-                          <span style={{ color: '#999', fontSize: '12px' }}>
-                            {new Date(item.createdAt || Date.now()).toLocaleDateString()}
-                          </span>
-                        </div>
+                        <p style={{ color: '#555', lineHeight: 1.7 }}>{item?.comment}</p>
+                        
+                        {/* Review Images */}
+                        {item?.images && item.images.length > 0 && (
+                          <div className="d-flex gap-2 mb-3 flex-wrap">
+                            {item.images.map((img, idx) => (
+                              <img 
+                                key={idx}
+                                src={img.url} 
+                                alt={`Review image ${idx + 1}`}
+                                style={{ 
+                                  width: '100px', 
+                                  height: '100px', 
+                                  objectFit: 'cover',
+                                  borderRadius: '8px',
+                                  cursor: 'pointer'
+                                }}
+                                onClick={() => window.open(img.url, '_blank')}
+                              />
+                            ))}
+                          </div>
+                        )}
+                        
+                        {/* Helpful Button */}
+                        <button
+                          onClick={() => handleMarkHelpful(item._id, productState._id)}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            background: 'transparent',
+                            border: '1px solid #eee',
+                            borderRadius: '20px',
+                            padding: '6px 14px',
+                            cursor: 'pointer',
+                            color: '#666',
+                            fontSize: '13px'
+                          }}
+                        >
+                          <AiOutlineLike />
+                          Helpful ({item?.helpful || 0})
+                        </button>
                       </div>
-                      <p style={{ color: '#555', lineHeight: 1.7 }}>{item?.comment}</p>
+                    ))
+                  ) : (
+                    <div className="text-center py-5">
+                      <p style={{ color: '#999', fontSize: '16px' }}>No reviews yet. Be the first to review this product!</p>
                     </div>
-                  ))
-                ) : (
-                  <div className="text-center py-5">
-                    <p style={{ color: '#999', fontSize: '16px' }}>No reviews yet. Be the first to review this product!</p>
-                  </div>
-                )}
+                  );
+                })()}
               </div>
             </div>
           </div>

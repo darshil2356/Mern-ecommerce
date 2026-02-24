@@ -22,6 +22,7 @@ const productRoute = require("./routes/productRoute");
 
 const customerRoute = require("./routes/customerRoute");
 const reportRouter = require("./routes/reportRoute");
+const bundleRouter = require("./routes/bundleRoute");
 
 
      
@@ -48,6 +49,7 @@ app.use("/api/product", productRoute);
 app.use("/public", express.static("public"));
 app.use("/api/customers", customerRoute);
 app.use("/api/reports", reportRouter);
+app.use("/api/bundles", bundleRouter);
 
    
 

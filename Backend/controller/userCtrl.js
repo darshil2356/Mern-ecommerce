@@ -767,14 +767,46 @@ const getMonthWiseOrderIncome = asyncHandler(async (req, res) => {
 
 // Get daily sales for a date range
 const getDailySales = asyncHandler(async (req, res) => {
-  const { startDate, endDate, mode } = req.query;
+  const { startDate, endDate, mode, filter } = req.query;
   
   let matchCondition = {};
   
-  // Parse dates
-  const start = startDate ? new Date(startDate) : new Date(new Date().setHours(0, 0, 0, 0));
-  const end = endDate ? new Date(endDate) : new Date();
-  end.setHours(23, 59, 59, 999);
+  let start, end;
+  
+  // Calculate date range based on filter or explicit dates
+  if (startDate && endDate) {
+    // Use explicit dates
+    start = new Date(startDate);
+    end = new Date(endDate);
+    end.setHours(23, 59, 59, 999);
+  } else if (filter) {
+    // Calculate based on filter
+    start = new Date();
+    end = new Date();
+    
+    switch (filter) {
+      case 'today':
+        start = new Date(new Date().setHours(0, 0, 0, 0));
+        break;
+      case '7days':
+        start.setDate(start.getDate() - 7);
+        start = new Date(start.setHours(0, 0, 0, 0));
+        break;
+      case 'month':
+        start = new Date(start.getFullYear(), start.getMonth(), 1);
+        break;
+      case 'year':
+        start = new Date(start.getFullYear(), 0, 1);
+        break;
+      default:
+        start.setDate(start.getDate() - 30);
+        start = new Date(start.setHours(0, 0, 0, 0));
+    }
+  } else {
+    // Default: today
+    start = new Date(new Date().setHours(0, 0, 0, 0));
+    end = new Date();
+  }
   
   matchCondition.createdAt = { $gte: start, $lte: end };
   

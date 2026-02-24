@@ -30,6 +30,8 @@ import { PrivateRoutes } from "./routing/PrivateRoutes";
 import LiveBilling from "./pages/LiveBilling";
 import Settings from "./pages/Settings";
 import Reports from "./pages/Reports";
+import AddBundle from "./pages/AddBundle";
+import Bundlelist from "./pages/Bundlelist";
 
 function App() {
   return (
@@ -80,8 +82,11 @@ function App() {
           <Route path="product" element={<Addproduct />} />
           <Route path="product/:id" element={<Addproduct />} />
           <Route path="live-billing" element={<LiveBilling />} />
-          <Route path="settings" element={<Settings />} />
+<Route path="settings" element={<Settings />} />
           <Route path="reports" element={<Reports />} />
+          <Route path="add-bundle" element={<AddBundle />} />
+          <Route path="bundle/:id" element={<AddBundle />} />
+          <Route path="list-bundle" element={<Bundlelist />} />
         </Route>
       </Routes>
     </Router>

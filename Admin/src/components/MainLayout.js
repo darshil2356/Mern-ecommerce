@@ -17,7 +17,7 @@ import { Link } from "react-router-dom";
 import { Outlet } from "react-router-dom";
 import { ImBlog } from "react-icons/im";
 import { IoIosNotifications, IoMenuOutline } from "react-icons/io";
-import { FaClipboardList, FaBloggerB, FaChartLine, FaBox, FaUsers, FaTags, FaFileAlt } from "react-icons/fa";
+import { FaClipboardList, FaBloggerB, FaChartLine, FaBox, FaUsers, FaTags, FaFileAlt, FaCube } from "react-icons/fa";
 import { SiBrandfolder } from "react-icons/si";
 import { BiCategoryAlt, BiCategory } from "react-icons/bi";
 import { Layout, Menu, theme } from "antd";
@@ -37,7 +37,7 @@ const MainLayout = () => {
       icon: <AiOutlineDashboard className="fs-5" />,
       label: "Dashboard",
     },
-    {
+{
       key: "customers",
       icon: <FaUsers className="fs-5" />,
       label: "Customers",
@@ -56,6 +56,16 @@ const MainLayout = () => {
           key: "list-product",
           icon: <AiOutlineShoppingCart className="fs-5" />,
           label: "Product List",
+        },
+        {
+          key: "add-bundle",
+          icon: <FaCube className="fs-5" />,
+          label: "Add Bundle",
+        },
+        {
+          key: "list-bundle",
+          icon: <FaCube className="fs-5" />,
+          label: "Bundle List",
         },
         {
           key: "brand",

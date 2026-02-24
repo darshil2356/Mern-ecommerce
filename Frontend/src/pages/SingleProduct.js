@@ -4,7 +4,7 @@ import BreadCrumb from "../components/BreadCrumb";
 import Meta from "../components/Meta";
 import ProductCard from "../components/ProductCard";
 import Color from "../components/Color";
-import { AiOutlineHeart, AiFillHeart, AiOutlinePlayCircle, AiOutlineZoomIn } from "react-icons/ai";
+import { AiOutlineHeart, AiFillHeart, AiOutlinePlayCircle, AiOutlineZoomIn, AiOutlineShoppingCart } from "react-icons/ai";
 import { useLocation, useNavigate } from "react-router-dom";
 import Container from "../components/Container";
 import { useDispatch, useSelector } from "react-redux";
@@ -14,12 +14,18 @@ import { addProdToCart, getUserCart } from "../features/user/userSlice";
 import { addToWishlist } from "../features/products/productSlilce";
 import { motion, AnimatePresence } from "framer-motion";
 
+// Bundle imports
+import axios from "axios";
+import { base_url } from "../utils/axiosConfig";
+
 const SingleProduct = () => {
   const [color, setColor] = useState(null);
   const [quantity, setQuantity] = useState(1);
   const [alreadyAdded, setAlreadyAdded] = useState(false);
   const [activeMediaIndex, setActiveMediaIndex] = useState(0);
   const [isZoomed, setIsZoomed] = useState(false);
+  const [productBundles, setProductBundles] = useState([]);
+  const [loadingBundles, setLoadingBundles] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
   const getProductId = location.pathname.split("/")[2];
@@ -47,6 +53,27 @@ const SingleProduct = () => {
       dispatch(getAllProducts());
     }
   }, [dispatch, getProductId]);
+
+  // Fetch bundles for this product
+  useEffect(() => {
+    const fetchBundles = async () => {
+      if (getProductId) {
+        setLoadingBundles(true);
+        try {
+          const response = await axios.get(`${base_url}bundles/product/${getProductId}`);
+          if (response.data) {
+            setProductBundles(response.data);
+          }
+        } catch (error) {
+          console.log("No bundles found for this product");
+        } finally {
+          setLoadingBundles(false);
+        }
+      }
+    };
+
+    fetchBundles();
+  }, [getProductId]);
 
   useEffect(() => {
     if (cartState && getProductId) {
@@ -134,6 +161,12 @@ const SingleProduct = () => {
 
   // Get active media
   const activeMedia = media[activeMediaIndex];
+
+  // Handle add bundle to cart
+  const handleAddBundleToCart = (bundle) => {
+    toast.success(`${bundle.title} added to cart!`);
+    // Here you would dispatch to add the bundle items to cart
+  };
 
   if (!productState) {
     return (
@@ -618,6 +651,171 @@ const SingleProduct = () => {
           </div>
         </div>
       </Container>
+
+      {/* Bundle Section - Frequently Bought Together */}
+      {(productBundles && productBundles.length > 0) && (
+        <Container className="py-5">
+          <div className="row">
+            <div className="col-12">
+              <h3 style={{ 
+                fontFamily: "'Playfair Display', serif", 
+                fontSize: '28px', 
+                marginBottom: '25px',
+                paddingBottom: '15px',
+                borderBottom: '2px solid #d4af37',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '12px'
+              }}>
+                <span style={{ 
+                  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                  color: '#fff',
+                  padding: '8px 16px',
+                  borderRadius: '8px',
+                  fontSize: '14px'
+                }}>
+                  <AiOutlineShoppingCart style={{ marginRight: '8px' }} />
+                  BUNDLE DEAL
+                </span>
+                Frequently Bought Together
+              </h3>
+              
+              <div className="row g-4">
+                {productBundles.map((bundle, index) => (
+                  <div className="col-12 col-md-6 col-lg-4" key={index}>
+                    <motion.div
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: index * 0.1 }}
+                      whileHover={{ y: -8 }}
+                      style={{
+                        background: '#fff',
+                        borderRadius: '16px',
+                        overflow: 'hidden',
+                        boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
+                        border: '2px solid #667eea'
+                      }}
+                    >
+                      {/* Bundle Header */}
+                      <div style={{
+                        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                        padding: '15px 20px',
+                        color: '#fff'
+                      }}>
+                        <h4 style={{ margin: 0, fontSize: '16px', fontWeight: 600 }}>
+                          {bundle.title}
+                        </h4>
+                        <p style={{ margin: '5px 0 0 0', fontSize: '12px', opacity: 0.9 }}>
+                          {bundle.products?.length} products included
+                        </p>
+                      </div>
+
+                      {/* Bundle Products */}
+                      <div style={{ padding: '15px' }}>
+                        {bundle.products && bundle.products.map((item, idx) => (
+                          <div key={idx} className="d-flex align-items-center gap-2 mb-2">
+                            <div style={{
+                              width: '40px',
+                              height: '40px',
+                              borderRadius: '8px',
+                              overflow: 'hidden',
+                              flexShrink: 0
+                            }}>
+                              {item.product?.images?.[0]?.url ? (
+                                <img 
+                                  src={item.product.images[0].url} 
+                                  alt={item.product.title}
+                                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                />
+                              ) : (
+                                <div style={{ 
+                                  width: '100%', 
+                                  height: '100%', 
+                                  background: '#f5f5f5',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center'
+                                }}>
+                                  <span style={{ fontSize: '10px', color: '#999' }}>No Img</span>
+                                </div>
+                              )}
+                            </div>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <p style={{ 
+                                margin: 0, 
+                                fontSize: '12px', 
+                                fontWeight: 500,
+                                whiteSpace: 'nowrap',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis'
+                              }}>
+                                {item.product?.title}
+                              </p>
+                              <p style={{ margin: 0, fontSize: '11px', color: '#666' }}>
+                                Qty: {item.quantity} × ₹{item.price?.toLocaleString()}
+                              </p>
+                            </div>
+                          </div>
+                        ))}
+
+                        <div style={{ 
+                          padding: '12px', 
+                          background: '#f9f9f9', 
+                          borderRadius: '8px',
+                          marginTop: '10px'
+                        }}>
+                          <div className="d-flex justify-content-between align-items-center mb-2">
+                            <span style={{ fontSize: '12px', color: '#666' }}>Original:</span>
+                            <span style={{ fontSize: '12px', color: '#999', textDecoration: 'line-through' }}>
+                              ₹{bundle.originalPrice?.toLocaleString()}
+                            </span>
+                          </div>
+                          <div className="d-flex justify-content-between align-items-center mb-2">
+                            <span style={{ fontSize: '14px', fontWeight: 600 }}>Bundle Price:</span>
+                            <span style={{ fontSize: '18px', fontWeight: 700, color: '#667eea' }}>
+                              ₹{bundle.bundlePrice?.toLocaleString()}
+                            </span>
+                          </div>
+                          <div className="d-flex justify-content-between align-items-center">
+                            <span style={{ fontSize: '12px', color: '#22c55e', fontWeight: 500 }}>
+                              You Save:
+                            </span>
+                            <span style={{ fontSize: '14px', fontWeight: 600, color: '#22c55e' }}>
+                              ₹{(bundle.originalPrice - bundle.bundlePrice)?.toLocaleString()} ({bundle.discountPercent}% OFF)
+                            </span>
+                          </div>
+                        </div>
+
+                        <button
+                          onClick={() => handleAddBundleToCart(bundle)}
+                          style={{
+                            width: '100%',
+                            marginTop: '12px',
+                            padding: '12px',
+                            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                            color: '#fff',
+                            border: 'none',
+                            borderRadius: '8px',
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '8px'
+                          }}
+                        >
+                          <AiOutlineShoppingCart />
+                          Add Bundle to Cart
+                        </button>
+                      </div>
+                    </motion.div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </Container>
+      )}
 
       {/* Description Section */}
       <Container className="py-5">

@@ -73,6 +73,31 @@ export const getCustomerDetails = createAsyncThunk(
   }
 );
 
+// UPDATE customer
+export const updateCustomer = createAsyncThunk(
+  "customer/updateCustomer",
+  async ({ id, customerData }) => {
+    const response = await axios.put(
+      `${base_url}user/update-customer/${id}`,
+      customerData,
+      config
+    );
+    return response.data;
+  }
+);
+
+// DELETE customer
+export const deleteCustomer = createAsyncThunk(
+  "customer/deleteCustomer",
+  async (id) => {
+    const response = await axios.delete(
+      `${base_url}user/delete-customer/${id}`,
+      config
+    );
+    return response.data;
+  }
+);
+
 const customerSlice = createSlice({
   name: "customer",
   initialState: {
@@ -88,6 +113,15 @@ const customerSlice = createSlice({
       })
       .addCase(createCustomer.fulfilled, (state, action) => {
         state.customers.push(action.payload);
+      })
+      .addCase(updateCustomer.fulfilled, (state, action) => {
+        const index = state.customers.findIndex(c => c._id === action.payload._id);
+        if (index !== -1) {
+          state.customers[index] = action.payload;
+        }
+      })
+      .addCase(deleteCustomer.fulfilled, (state, action) => {
+        state.customers = state.customers.filter(c => c._id !== action.payload._id);
       })
       .addCase(getCustomerDetails.pending, (state) => {
         state.loading = true;

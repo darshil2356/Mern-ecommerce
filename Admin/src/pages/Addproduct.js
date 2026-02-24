@@ -10,15 +10,14 @@ import { useDispatch, useSelector } from "react-redux";
 import { getBrands } from "../features/brand/brandSlice";
 import { getCategories } from "../features/pcategory/pcategorySlice";
 import { getColors } from "../features/color/colorSlice";
-import { Select, Modal } from "antd";
+import { Select, Modal, Card, Input, Button } from "antd";
 import Dropzone from "react-dropzone";
 import { clearUploads } from "../features/upload/uploadSlice";
 import JsBarcode from "jsbarcode";
-import { FaEye, FaDownload } from "react-icons/fa";
-import { MdPrint } from "react-icons/md";
+import { FaEye, FaDownload, FaPlus, FaTrash, FaImage, FaVideo } from "react-icons/fa";
+import { MdPrint, MdInventory, MdCategory, MdColorLens, MdAttachMoney } from "react-icons/md";
 import BarcodeModal from "../components/BarcodeModal";
 
-// import { delImg, uploadImg } from "../features/upload/uploadSlice";
 import {
   uploadImg,
   uploadVideo,
@@ -32,6 +31,7 @@ import {
   resetState,
   updateAProduct,
 } from "../features/product/productSlice";
+
 let schema = yup.object().shape({
   title: yup.string().required("Title is Required"),
   description: yup.string().required("Description is Required"),
@@ -40,14 +40,6 @@ let schema = yup.object().shape({
   category: yup.string().required("Category is Required"),
   tags: yup.string().required("Tag is Required"),
   color: yup.string().required("Color is Required"),
-
-  //   size: yup
-  // .array()
-  // .min(1, "Pick at least one size")
-  // .required("Size is Required"),
-
-  // quantity: yup.number().required("Quantity is Required"),
-  // videos: yup.array().optional(),
   inventory: yup.object({
     offline: yup.boolean().oneOf([true]),
     online: yup.boolean(),
@@ -69,18 +61,15 @@ const Addproduct = () => {
   const [barcodeModalOpen, setBarcodeModalOpen] = useState(false);
   const [selectedBarcode, setSelectedBarcode] = useState("");
   const [selectedBarcodeTitle, setSelectedBarcodeTitle] = useState("");
-  const barcodeSvgRef = useRef(null);
 
   // Helper function to generate unique barcode client-side
   const generateClientBarcode = (title, size) => {
-    // Generate a unique ID using timestamp + random
     const timestamp = Date.now().toString(36).toUpperCase();
     const random = Math.random().toString(36).substring(2, 6).toUpperCase();
     const prefix = title ? title.substring(0, 3).toUpperCase() : 'PRD';
     return `PRD-${prefix}-${size}-${timestamp}${random}`;
   };
 
-  console.log(color);
   useEffect(() => {
     dispatch(getBrands());
     dispatch(getCategories());
@@ -105,17 +94,17 @@ const Addproduct = () => {
     productCategory,
     productTag,
     productColors,
-     productSize,   // 👈 ADD THIS
+    productSize,
     productQuantity,
     productImages,
-     productVideos,
+    productVideos,
   } = newProduct;
 
   const videoState = useSelector((state) => state?.upload?.videos);
 
   useEffect(() => {
     if (getProductId !== undefined) {
-      dispatch(resetState()); // ✅ ADD THIS LINE
+      dispatch(resetState());
       dispatch(getAProduct(getProductId));
     } else {
       dispatch(resetState());
@@ -126,19 +115,18 @@ const Addproduct = () => {
   colorState.forEach((i) => {
     coloropt.push({
       label: (
-        <div className="col-3">
-          <ul
-            className="colors ps-0"
+        <div className="d-flex align-items-center gap-2">
+          <div
             style={{
               width: "20px",
               height: "20px",
-              marginBottom: "10px",
               backgroundColor: i.title,
-              borderRadius: "50%", // Added inline style for rounded shape
-              listStyle: "none", // Hide bullet points
-              border: "2px solid transparent",
+              borderRadius: "50%",
+              border: "2px solid #fff",
+              boxShadow: "0 2px 4px rgba(0,0,0,0.2)",
             }}
-          ></ul>
+          />
+          <span>{i.title}</span>
         </div>
       ),
       value: i._id,
@@ -153,8 +141,6 @@ const Addproduct = () => {
     });
   });
 
-
-
   const img = [];
   imgState?.forEach((i) => {
     img.push({
@@ -163,7 +149,7 @@ const Addproduct = () => {
     });
   });
 
-const formik = useFormik({
+  const formik = useFormik({
     enableReinitialize: true,
     initialValues: {
       title: productName || "",
@@ -173,53 +159,27 @@ const formik = useFormik({
       category: productCategory || "",
       tags: productTag || "",
       color: productColors?._id || productColors || undefined,
-      // size: productSize || [],
-
-      // quantity: productQuantity || "",
-
-
-
-sizeStock: newProduct?.sizeStock?.map(s => ({
-    size: s.size,
-    quantity: s.quantity,
-    // Preserve existing barcode, or generate new one if not present
-    barcode: s.barcode || (newProduct?.title ? generateClientBarcode(newProduct.title, s.size) : '')
-})) || [],
-
-
+      sizeStock: newProduct?.sizeStock?.map(s => ({
+        size: s.size,
+        quantity: s.quantity,
+        barcode: s.barcode || (newProduct?.title ? generateClientBarcode(newProduct.title, s.size) : '')
+      })) || [],
       inventory: {
         offline: true,
         online: newProduct?.inventory?.online ?? false,
       },
-
       images: productImages || "",
-      // videos: [], // ✅ REQUIRED
       videos: productVideos || [],
     },
     validationSchema: schema,
-    // onSubmit: (values) => {
-    //   console.log(values);
-    //   if (getProductId !== undefined) {
-    //     const data = { id: getProductId, productData: values };
-    //     dispatch(updateAProduct(data));
-    //   } else {
-    //     dispatch(createProducts(values));
-    //     formik.resetForm();
-    //     setColor(null);
-    //     setTimeout(() => {
-    //       dispatch(resetState());
-    //     }, 3000);
-    //   }
-    // },
-
     onSubmit: async (values) => {
-       const totalQuantity = values.sizeStock.reduce(
-    (sum, item) => sum + Number(item.quantity || 0),
-    0
-  );
+      const totalQuantity = values.sizeStock.reduce(
+        (sum, item) => sum + Number(item.quantity || 0),
+        0
+      );
       const payload = {
         ...values,
-        quantity: totalQuantity,   // 🔥 REQUIRED FOR MONGOOSE
+        quantity: totalQuantity,
         inventory: {
           offline: true,
           ...(values.inventory.online ? { online: true } : {}),
@@ -231,21 +191,17 @@ sizeStock: newProduct?.sizeStock?.map(s => ({
           await dispatch(
             updateAProduct({ id: getProductId, productData: payload }),
           ).unwrap();
-
           toast.success("Product Updated Successfully!");
           navigate("/admin/list-product");
         } else {
           await dispatch(createProducts(payload)).unwrap();
           toast.success("Product Added Successfully!");
-
-          // ✅ HARD RESET (THIS FIXES YOUR ISSUE)
           formik.resetForm();
           dispatch(resetState());
           dispatch(delImg());
           dispatch(delVideo());
-          dispatch(clearUploads()); // ← ADD THIS ONLY
-
-          navigate("/admin/list-product"); // ✅ ADD THIS LINE
+          dispatch(clearUploads());
+          navigate("/admin/list-product");
         }
       } catch (err) {
         toast.error("Something went wrong");
@@ -258,58 +214,27 @@ sizeStock: newProduct?.sizeStock?.map(s => ({
     formik.setFieldValue("color", e);
   };
 
-  // useEffect(() => {
-  //   if (getProductId && imgState.length === 0 && productImages) {
-  //     // 1. If Editing and no NEW images uploaded yet, show existing ones
-  //     formik.setFieldValue("images", productImages);
-  //   } else {
-  //     // 2. If new images are uploaded (imgState has data), use those
-  //     formik.setFieldValue("images", imgState);
-  //   }
-
-  //   // Same logic for videos
-  //   if (getProductId && videoState.length === 0 && newProduct?.videos) {
-  //     formik.setFieldValue("videos", newProduct.videos);
-  //   } else {
-  //     formik.setFieldValue("videos", videoState);
-  //   }
-  // }, [imgState, videoState, productImages]); // Add productImages to dependency
-
-
-
-
-
   useEffect(() => {
-  // IMAGES
-  if (getProductId) {
-    if (imgState.length > 0) {
+    if (getProductId) {
+      if (imgState.length > 0) {
+        formik.setFieldValue("images", imgState);
+      } else if (productImages) {
+        formik.setFieldValue("images", productImages);
+      }
+    } else {
       formik.setFieldValue("images", imgState);
-    } else if (productImages) {
-      formik.setFieldValue("images", productImages);
     }
-  } else {
-    formik.setFieldValue("images", imgState);
-  }
 
-  // VIDEOS
-  if (getProductId) {
-    if (videoState.length > 0) {
+    if (getProductId) {
+      if (videoState.length > 0) {
+        formik.setFieldValue("videos", videoState);
+      } else if (productVideos) {
+        formik.setFieldValue("videos", productVideos);
+      }
+    } else {
       formik.setFieldValue("videos", videoState);
-    } else if (productVideos) {
-      formik.setFieldValue("videos", productVideos);
     }
-  } else {
-    formik.setFieldValue("videos", videoState);
-  }
-}, [imgState, videoState, productImages, productVideos, getProductId]);
-
-
-
-
-  // useEffect(() => {
-  //   formik.setFieldValue("images", imgState);
-  //   formik.setFieldValue("videos", videoState);
-  // }, [imgState, videoState]);
+  }, [imgState, videoState, productImages, productVideos, getProductId]);
 
   useEffect(() => {
     if (getProductId && newProduct.inventory) {
@@ -323,7 +248,6 @@ sizeStock: newProduct?.sizeStock?.map(s => ({
   useEffect(() => {
     if (formik.values.title) {
       const random = Math.random().toString(36).substring(2, 8).toUpperCase();
-
       setPreviewBarcode(`PRD-${random}`);
     } else {
       setPreviewBarcode("");
@@ -331,427 +255,724 @@ sizeStock: newProduct?.sizeStock?.map(s => ({
   }, [formik.values.title]);
 
   return (
-    <div>
-      <h3 className="mb-4 title">
-        {getProductId !== undefined ? "Edit" : "Add"} Product
-      </h3>
-      <div>
-        <form
-          onSubmit={formik.handleSubmit}
-          className="d-flex gap-3 flex-column"
-        >
-          <CustomInput
-            type="text"
-            label="Enter Product Title"
-            name="title"
-            onChng={formik.handleChange("title")}
-            onBlr={formik.handleBlur("title")}
-            val={formik.values.title}
-          />
-          <div className="error">
-            {formik.touched.title && formik.errors.title}
+    <div className="add-product-page" style={{ backgroundColor: "#f5f5f5", minHeight: "100vh", padding: "24px" }}>
+      {/* Header Section */}
+      <Card
+        style={{
+          borderRadius: "12px",
+          border: "none",
+          boxShadow: "0 1px 3px rgba(0,0,0,0.08)",
+          marginBottom: "24px",
+        }}
+        bodyStyle={{ padding: "20px 24px" }}
+      >
+        <div className="d-flex justify-content-between align-items-center flex-wrap gap-3">
+          <div>
+            <h2 className="mb-1" style={{ fontWeight: 600, color: "#1a1a1a", fontSize: "24px" }}>
+              {getProductId !== undefined ? "Edit" : "Add"} Product
+            </h2>
+            <p className="text-muted mb-0" style={{ fontSize: "14px" }}>
+              {getProductId !== undefined ? "Update product details and inventory" : "Add a new product to your inventory"}
+            </p>
           </div>
-          <div className="">
-            <ReactQuill
-              theme="snow"
-              name="description"
-              onChange={formik.handleChange("description")}
-              value={formik.values.description}
-            />
+          <div className="d-flex gap-3">
+            <Button
+              onClick={() => navigate("/admin/list-product")}
+              style={{
+                height: "40px",
+                borderRadius: "8px",
+                fontWeight: 500,
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="primary"
+              onClick={formik.handleSubmit}
+              loading={isLoading}
+              style={{
+                height: "40px",
+                borderRadius: "8px",
+                backgroundColor: "#1890ff",
+                border: "none",
+                fontWeight: 500,
+              }}
+            >
+              {getProductId !== undefined ? "Update" : "Add"} Product
+            </Button>
           </div>
-          <div className="error">
-            {formik.touched.description && formik.errors.description}
-          </div>
-          <CustomInput
-            type="number"
-            label="Enter Product Price"
-            name="price"
-            onChng={formik.handleChange("price")}
-            onBlr={formik.handleBlur("price")}
-            val={formik.values.price}
-          />
-          <div className="error">
-            {formik.touched.price && formik.errors.price}
-          </div>
-          <select
-            name="brand"
-            onChange={formik.handleChange("brand")}
-            onBlur={formik.handleBlur("brand")}
-            value={formik.values.brand}
-            className="form-control py-3 mb-3"
-            id=""
+        </div>
+      </Card>
+
+      {/* Main Form Grid */}
+      <div className="row g-4">
+        {/* Left Column - Main Product Info */}
+        <div className="col-lg-8">
+          {/* Basic Info Card */}
+          <Card
+            style={{
+              borderRadius: "12px",
+              border: "none",
+              boxShadow: "0 1px 3px rgba(0,0,0,0.08)",
+              marginBottom: "24px",
+            }}
+            bodyStyle={{ padding: "24px" }}
           >
-            <option value="">Select Brand</option>
-            {brandState.map((i, j) => {
-              return (
-                <option key={j} value={i.title}>
-                  {i.title}
-                </option>
-              );
-            })}
-          </select>
-          <div className="error">
-            {formik.touched.brand && formik.errors.brand}
-          </div>
-          <select
-            name="category"
-            onChange={formik.handleChange("category")}
-            onBlur={formik.handleBlur("category")}
-            value={formik.values.category}
-            className="form-control py-3 mb-3"
-            id=""
-          >
-            <option value="">Select Category</option>
-            {catState.map((i, j) => {
-              return (
-                <option key={j} value={i.title}>
-                  {i.title}
-                </option>
-              );
-            })}
-          </select>
-          <div className="error">
-            {formik.touched.category && formik.errors.category}
-          </div>
-          <select
-            name="tags"
-            onChange={formik.handleChange("tags")}
-            onBlur={formik.handleBlur("tags")}
-            value={formik.values.tags}
-            className="form-control py-3 mb-3"
-            id=""
-          >
-            <option value="" disabled>
-              Select Category
-            </option>
-            <option value="featured">Featured</option>
-            <option value="popular">Popular</option>
-            <option value="special">Special</option>
-          </select>
-          <div className="error">
-            {formik.touched.tags && formik.errors.tags}
-          </div>
-
-          <Select
-  allowClear
-  className="w-100"
-  placeholder="Select color"
-  value={formik.values.color}
-  onChange={(value) => formik.setFieldValue("color", value)}
-  options={coloropt}
-/>
-
-
-
-
-          <div className="error">
-            {formik.touched.color && formik.errors.color}
-          </div>
-         
-
-          {/* SIZE SELECTOR */}
-
-
-<Select
-  mode="multiple"
-  allowClear
-  className="w-100 mt-3"
-  placeholder="Select sizes"
-  value={formik.values.sizeStock.map(s => s.size)}
-  onChange={(selectedSizes) => {
-    const existing = formik.values.sizeStock;
-
-    const updated = selectedSizes.map(size => {
-      const found = existing.find(s => s.size === size);
-      if (found) return found;
-      // Generate barcode immediately when size is selected
-      return { 
-        size, 
-        quantity: 0,
-        barcode: generateClientBarcode(formik.values.title || '', size)
-      };
-    });
-
-    formik.setFieldValue("sizeStock", updated);
-  }}
-  options={[
-    { label: "XS", value: "XS" },
-    { label: "S", value: "S" },
-    { label: "M", value: "M" },
-    { label: "L", value: "L" },
-    { label: "XL", value: "XL" },
-    { label: "2XL", value: "2XL" },
-    { label: "3XL", value: "3XL" },
-  ]}
-/>
-
-
-{formik.values.sizeStock.length > 0 && (
-  <div className="mt-4">
-    <table className="table table-bordered">
-      <thead>
-        <tr>
-          <th>Sr No</th>
-          <th>Size</th>
-          <th>Quantity</th>
-          <th>Barcode</th>
-          <th>Actions</th>
-        </tr>
-      </thead>
-      <tbody>
-        {formik.values.sizeStock.map((item, index) => {
-          return (
-            <tr key={item.size}>
-              <td>{index + 1}</td>
-              <td>{item.size}</td>
-              <td>
-                <input
-                  type="number"
-                  className="form-control"
-                  value={item.quantity}
-                  min={0}
-                  onChange={(e) => {
-                    const updated = [...formik.values.sizeStock];
-                    updated[index].quantity = Number(e.target.value);
-                    formik.setFieldValue("sizeStock", updated);
+            <div className="d-flex align-items-center gap-2 mb-4">
+              <MdInventory style={{ fontSize: "20px", color: "#1890ff" }} />
+              <h4 className="mb-0" style={{ fontWeight: 600 }}>Basic Information</h4>
+            </div>
+            
+            <form onSubmit={formik.handleSubmit}>
+              <div className="mb-4">
+                <label className="fw-medium mb-2 d-block" style={{ color: "#1a1a1a" }}>
+                  Product Title <span className="text-danger">*</span>
+                </label>
+                <Input
+                  size="large"
+                  placeholder="Enter product title"
+                  name="title"
+                  value={formik.values.title}
+                  onChange={formik.handleChange("title")}
+                  onBlur={formik.handleBlur("title")}
+                  style={{
+                    borderRadius: "8px",
+                    border: formik.touched.title && formik.errors.title ? "1px solid #ff4d4f" : "1px solid #d9d9d9",
                   }}
                 />
-              </td>
-              <td style={{ fontSize: "12px" }} className="font-monospace">
-                <span className="text-success fw-bold">{item.barcode || '-'}</span>
-              </td>
-              <td>
-                <div className="d-flex gap-1">
-                  <button
-                    type="button"
-                    className="btn btn-sm btn-outline-primary d-flex align-items-center justify-content-center"
-                    style={{ width: "32px", height: "32px" }}
-                    onClick={() => {
-                      if (item.barcode) {
-                        setSelectedBarcode(item.barcode);
-                        setSelectedBarcodeTitle(`${formik.values.title} - Size ${item.size}`);
-                        setBarcodeModalOpen(true);
-                      }
-                    }}
-                    title="View Barcode"
-                    disabled={!item.barcode}
-                  >
-                    <FaEye size={14} />
-                  </button>
-                  <button
-                    type="button"
-                    className="btn btn-sm btn-outline-success d-flex align-items-center justify-content-center"
-                    style={{ width: "32px", height: "32px" }}
-                    onClick={() => {
-                      if (item.barcode) {
-                        const canvas = document.createElement("canvas");
-                        JsBarcode(canvas, item.barcode, {
-                          format: "CODE128",
-                          width: 2,
-                          height: 80,
-                          displayValue: true,
-                        });
-                        const link = document.createElement("a");
-                        link.href = canvas.toDataURL("image/png");
-                        link.download = `${item.barcode}.png`;
-                        link.click();
-                      }
-                    }}
-                    title="Download Barcode"
-                    disabled={!item.barcode}
-                  >
-                    <FaDownload size={14} />
-                  </button>
-                  <button
-                    type="button"
-                    className="btn btn-sm btn-outline-dark d-flex align-items-center justify-content-center"
-                    style={{ width: "32px", height: "32px" }}
-                    onClick={() => {
-                      if (item.barcode) {
-                        const printWindow = window.open("", "", "width=600,height=400");
-                        printWindow.document.write(
-                          '<html>' +
-                          '<head><title>' + formik.values.title + ' - ' + item.size + '</title></head>' +
-                          '<body style="text-align:center;">' +
-                          '<h4>' + formik.values.title + ' - ' + item.size + '</h4>' +
-                          '<svg id="barcode"></svg>' +
-                          '<script src="https://cdn.jsdelivr.net/npm/jsbarcode/dist/JsBarcode.all.min.js"><\/script>' +
-                          '<script>' +
-                          'JsBarcode("#barcode", "' + item.barcode + '", { format: "CODE128", width: 2, height: 80, displayValue: true });' +
-                          'window.print();' +
-                          '<\/script>' +
-                          '</body>' +
-                          '</html>'
-                        );
-                        printWindow.document.close();
-                      }
-                    }}
-                    title="Print Barcode"
-                    disabled={!item.barcode}
-                  >
-                    <MdPrint size={16} />
-                  </button>
+                {formik.touched.title && formik.errors.title && (
+                  <span className="text-danger" style={{ fontSize: "12px" }}>{formik.errors.title}</span>
+                )}
+              </div>
+
+              <div className="mb-4">
+                <label className="fw-medium mb-2 d-block" style={{ color: "#1a1a1a" }}>
+                  Description <span className="text-danger">*</span>
+                </label>
+                <div style={{ 
+                  borderRadius: "8px", 
+                  border: formik.touched.description && formik.errors.description ? "1px solid #ff4d4f" : "1px solid #d9d9d9",
+                  overflow: "hidden"
+                }}>
+                  <ReactQuill
+                    theme="snow"
+                    name="description"
+                    onChange={(value) => formik.setFieldValue("description", value)}
+                    value={formik.values.description}
+                    style={{ height: "150px", marginBottom: "50px" }}
+                  />
                 </div>
-              </td>
-            </tr>
-          );
-        })}
-      </tbody>
-    </table>
-  </div>
-)}
+                {formik.touched.description && formik.errors.description && (
+                  <span className="text-danger" style={{ fontSize: "12px" }}>{formik.errors.description}</span>
+                )}
+              </div>
 
+              <div className="mb-4">
+                <label className="fw-medium mb-2 d-block" style={{ color: "#1a1a1a" }}>
+                  Price <span className="text-danger">*</span>
+                </label>
+                <Input
+                  size="large"
+                  type="number"
+                  prefix={<MdAttachMoney style={{ color: "#8c8c8c" }} />}
+                  placeholder="Enter product price"
+                  name="price"
+                  value={formik.values.price}
+                  onChange={formik.handleChange("price")}
+                  onBlur={formik.handleBlur("price")}
+                  style={{
+                    borderRadius: "8px",
+                    border: formik.touched.price && formik.errors.price ? "1px solid #ff4d4f" : "1px solid #d9d9d9",
+                  }}
+                />
+                {formik.touched.price && formik.errors.price && (
+                  <span className="text-danger" style={{ fontSize: "12px" }}>{formik.errors.price}</span>
+                )}
+              </div>
+            </form>
+          </Card>
 
-<div className="error">
-  {formik.touched.size && formik.errors.size}
-</div>
-
-          <div className="error">
-            {formik.touched.quantity && formik.errors.quantity}
-          </div>
-          <div className="mb-3">
-            <label className="fw-bold mb-2 d-block">
-              Inventory Availability
-            </label>
-
-            {/* OFFLINE – always enabled */}
-            <div className="form-check mb-1">
-              <input
-                className="form-check-input"
-                type="checkbox"
-                checked={true}
-                disabled
-              />
-              <label className="form-check-label">Offline</label>
+          {/* Category & Brand Card */}
+          <Card
+            style={{
+              borderRadius: "12px",
+              border: "none",
+              boxShadow: "0 1px 3px rgba(0,0,0,0.08)",
+              marginBottom: "24px",
+            }}
+            bodyStyle={{ padding: "24px" }}
+          >
+            <div className="d-flex align-items-center gap-2 mb-4">
+              <MdCategory style={{ fontSize: "20px", color: "#722ed1" }} />
+              <h4 className="mb-0" style={{ fontWeight: 600 }}>Category & Brand</h4>
             </div>
 
-            {/* ONLINE – optional */}
-            <div className="form-check">
-              <input
-                className="form-check-input"
-                type="checkbox"
-                name="inventory.online"
-                checked={formik.values.inventory.online}
-                onChange={(e) =>
-                  formik.setFieldValue("inventory.online", e.target.checked)
-                }
-              />
-              <label className="form-check-label">Online Store</label>
-            </div>
-          </div>
+            <div className="row g-3">
+              <div className="col-md-6">
+                <label className="fw-medium mb-2 d-block" style={{ color: "#1a1a1a" }}>
+                  Brand <span className="text-danger">*</span>
+                </label>
+                <Select
+                  showSearch
+                  size="large"
+                  placeholder="Select Brand"
+                  optionFilterProp="children"
+                  style={{ width: "100%" }}
+                  value={formik.values.brand || undefined}
+                  onChange={(value) => formik.setFieldValue("brand", value)}
+                  onBlur={formik.handleBlur("brand")}
+                  filterOption={(input, option) =>
+                    (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
+                  }
+                  options={brandState.map((i) => ({
+                    label: i.title,
+                    value: i.title,
+                  }))}
+                />
+                {formik.touched.brand && formik.errors.brand && (
+                  <span className="text-danger" style={{ fontSize: "12px" }}>{formik.errors.brand}</span>
+                )}
+              </div>
 
-          <div className="bg-white border-1 p-5 text-center">
-            {/* <Dropzone
-              onDrop={(acceptedFiles) => dispatch(uploadImg(acceptedFiles))}
-            > */}
+              <div className="col-md-6">
+                <label className="fw-medium mb-2 d-block" style={{ color: "#1a1a1a" }}>
+                  Category <span className="text-danger">*</span>
+                </label>
+                <Select
+                  showSearch
+                  size="large"
+                  placeholder="Select Category"
+                  optionFilterProp="children"
+                  style={{ width: "100%" }}
+                  value={formik.values.category || undefined}
+                  onChange={(value) => formik.setFieldValue("category", value)}
+                  onBlur={formik.handleBlur("category")}
+                  filterOption={(input, option) =>
+                    (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
+                  }
+                  options={catState.map((i) => ({
+                    label: i.title,
+                    value: i.title,
+                  }))}
+                />
+                {formik.touched.category && formik.errors.category && (
+                  <span className="text-danger" style={{ fontSize: "12px" }}>{formik.errors.category}</span>
+                )}
+              </div>
+
+              <div className="col-md-6">
+                <label className="fw-medium mb-2 d-block" style={{ color: "#1a1a1a" }}>
+                  Tags <span className="text-danger">*</span>
+                </label>
+                <Select
+                  size="large"
+                  placeholder="Select Tag"
+                  style={{ width: "100%" }}
+                  value={formik.values.tags || undefined}
+                  onChange={(value) => formik.setFieldValue("tags", value)}
+                  onBlur={formik.handleBlur("tags")}
+                  options={[
+                    { label: "Featured", value: "featured" },
+                    { label: "Popular", value: "popular" },
+                    { label: "Special", value: "special" },
+                  ]}
+                />
+                {formik.touched.tags && formik.errors.tags && (
+                  <span className="text-danger" style={{ fontSize: "12px" }}>{formik.errors.tags}</span>
+                )}
+              </div>
+
+              <div className="col-md-6">
+                <label className="fw-medium mb-2 d-block" style={{ color: "#1a1a1a" }}>
+                  Color <span className="text-danger">*</span>
+                </label>
+                <Select
+                  showSearch
+                  size="large"
+                  placeholder="Select Color"
+                  style={{ width: "100%" }}
+                  value={formik.values.color || undefined}
+                  onChange={(value) => formik.setFieldValue("color", value)}
+                  options={coloropt}
+                />
+                {formik.touched.color && formik.errors.color && (
+                  <span className="text-danger" style={{ fontSize: "12px" }}>{formik.errors.color}</span>
+                )}
+              </div>
+            </div>
+          </Card>
+
+          {/* Size & Stock Card */}
+          <Card
+            style={{
+              borderRadius: "12px",
+              border: "none",
+              boxShadow: "0 1px 3px rgba(0,0,0,0.08)",
+              marginBottom: "24px",
+            }}
+            bodyStyle={{ padding: "24px" }}
+          >
+            <div className="d-flex align-items-center gap-2 mb-4">
+              <MdInventory style={{ fontSize: "20px", color: "#52c41a" }} />
+              <h4 className="mb-0" style={{ fontWeight: 600 }}>Size & Stock Management</h4>
+            </div>
+
+            <div className="mb-4">
+              <label className="fw-medium mb-2 d-block" style={{ color: "#1a1a1a" }}>
+                Select Sizes
+              </label>
+              <Select
+                mode="multiple"
+                allowClear
+                size="large"
+                placeholder="Select sizes"
+                style={{ width: "100%" }}
+                value={formik.values.sizeStock.map(s => s.size)}
+                onChange={(selectedSizes) => {
+                  const existing = formik.values.sizeStock;
+                  const updated = selectedSizes.map(size => {
+                    const found = existing.find(s => s.size === size);
+                    if (found) return found;
+                    return { 
+                      size, 
+                      quantity: 0,
+                      barcode: generateClientBarcode(formik.values.title || '', size)
+                    };
+                  });
+                  formik.setFieldValue("sizeStock", updated);
+                }}
+                options={[
+                  { label: "XS", value: "XS" },
+                  { label: "S", value: "S" },
+                  { label: "M", value: "M" },
+                  { label: "L", value: "L" },
+                  { label: "XL", value: "XL" },
+                  { label: "2XL", value: "2XL" },
+                  { label: "3XL", value: "3XL" },
+                ]}
+              />
+            </div>
+
+            {formik.values.sizeStock.length > 0 && (
+              <div className="table-responsive">
+                <table className="table" style={{ 
+                  borderRadius: "8px", 
+                  overflow: "hidden",
+                  border: "1px solid #f0f0f0"
+                }}>
+                  <thead style={{ backgroundColor: "#fafafa" }}>
+                    <tr>
+                      <th style={{ fontWeight: 600, color: "#1a1a1a", padding: "12px 16px" }}>#</th>
+                      <th style={{ fontWeight: 600, color: "#1a1a1a", padding: "12px 16px" }}>Size</th>
+                      <th style={{ fontWeight: 600, color: "#1a1a1a", padding: "12px 16px" }}>Quantity</th>
+                      <th style={{ fontWeight: 600, color: "#1a1a1a", padding: "12px 16px" }}>Barcode</th>
+                      <th style={{ fontWeight: 600, color: "#1a1a1a", padding: "12px 16px", width: "150px" }}>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {formik.values.sizeStock.map((item, index) => (
+                      <tr key={item.size} style={{ borderTop: "1px solid #f0f0f0" }}>
+                        <td style={{ padding: "12px 16px", color: "#8c8c8c" }}>{index + 1}</td>
+                        <td style={{ padding: "12px 16px", fontWeight: 500 }}>{item.size}</td>
+                        <td style={{ padding: "12px 16px" }}>
+                          <Input
+                            type="number"
+                            size="small"
+                            value={item.quantity}
+                            min={0}
+                            onChange={(e) => {
+                              const updated = [...formik.values.sizeStock];
+                              updated[index].quantity = Number(e.target.value);
+                              formik.setFieldValue("sizeStock", updated);
+                            }}
+                            style={{ width: "100px", borderRadius: "6px" }}
+                          />
+                        </td>
+                        <td style={{ padding: "12px 16px" }}>
+                          <span style={{ 
+                            fontSize: "12px", 
+                            fontFamily: "monospace",
+                            color: item.barcode ? "#52c41a" : "#8c8c8c",
+                            fontWeight: 500
+                          }}>
+                            {item.barcode || '-'}
+                          </span>
+                        </td>
+                        <td style={{ padding: "12px 16px" }}>
+                          <div className="d-flex gap-1">
+                            <Button
+                              type="text"
+                              size="small"
+                              icon={<FaEye />}
+                              onClick={() => {
+                                if (item.barcode) {
+                                  setSelectedBarcode(item.barcode);
+                                  setSelectedBarcodeTitle(`${formik.values.title} - Size ${item.size}`);
+                                  setBarcodeModalOpen(true);
+                                }
+                              }}
+                              disabled={!item.barcode}
+                              style={{ 
+                                color: item.barcode ? "#1890ff" : "#d9d9d9",
+                                backgroundColor: item.barcode ? "#e6f7ff" : "transparent"
+                              }}
+                              title="View Barcode"
+                            />
+                            <Button
+                              type="text"
+                              size="small"
+                              icon={<FaDownload />}
+                              onClick={() => {
+                                if (item.barcode) {
+                                  const canvas = document.createElement("canvas");
+                                  JsBarcode(canvas, item.barcode, {
+                                    format: "CODE128",
+                                    width: 2,
+                                    height: 80,
+                                    displayValue: true,
+                                  });
+                                  const link = document.createElement("a");
+                                  link.href = canvas.toDataURL("image/png");
+                                  link.download = `${item.barcode}.png`;
+                                  link.click();
+                                }
+                              }}
+                              disabled={!item.barcode}
+                              style={{ 
+                                color: item.barcode ? "#52c41a" : "#d9d9d9",
+                                backgroundColor: item.barcode ? "#f6ffed" : "transparent"
+                              }}
+                              title="Download Barcode"
+                            />
+                            <Button
+                              type="text"
+                              size="small"
+                              icon={<MdPrint />}
+                              onClick={() => {
+                                if (item.barcode) {
+                                  const printWindow = window.open("", "", "width=600,height=400");
+                                  printWindow.document.write(
+                                    '<html>' +
+                                    '<head><title>' + formik.values.title + ' - ' + item.size + '</title></head>' +
+                                    '<body style="text-align:center;">' +
+                                    '<h4>' + formik.values.title + ' - ' + item.size + '</h4>' +
+                                    '<svg id="barcode"></svg>' +
+                                    '<script src="https://cdn.jsdelivr.net/npm/jsbarcode/dist/JsBarcode.all.min.js"><\/script>' +
+                                    '<script>' +
+                                    'JsBarcode("#barcode", "' + item.barcode + '", { format: "CODE128", width: 2, height: 80, displayValue: true });' +
+                                    'window.print();' +
+                                    '<\/script>' +
+                                    '</body>' +
+                                    '</html>'
+                                  );
+                                  printWindow.document.close();
+                                }
+                              }}
+                              disabled={!item.barcode}
+                              style={{ 
+                                color: item.barcode ? "#1a1a1a" : "#d9d9d9",
+                                backgroundColor: item.barcode ? "#f5f5f5" : "transparent"
+                              }}
+                              title="Print Barcode"
+                            />
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </Card>
+
+          {/* Inventory Settings Card */}
+          <Card
+            style={{
+              borderRadius: "12px",
+              border: "none",
+              boxShadow: "0 1px 3px rgba(0,0,0,0.08)",
+              marginBottom: "24px",
+            }}
+            bodyStyle={{ padding: "24px" }}
+          >
+            <div className="d-flex align-items-center gap-2 mb-4">
+              <MdInventory style={{ fontSize: "20px", color: "#fa8c16" }} />
+              <h4 className="mb-0" style={{ fontWeight: 600 }}>Inventory Settings</h4>
+            </div>
+
+            <div className="d-flex gap-4">
+              <div className="form-check">
+                <input
+                  className="form-check-input"
+                  type="checkbox"
+                  checked={true}
+                  disabled
+                  style={{ width: "18px", height: "18px", cursor: "not-allowed" }}
+                />
+                <label className="form-check-label ms-2 fw-medium">
+                  Offline Store
+                </label>
+              </div>
+
+              <div className="form-check">
+                <input
+                  className="form-check-input"
+                  type="checkbox"
+                  name="inventory.online"
+                  checked={formik.values.inventory.online}
+                  onChange={(e) =>
+                    formik.setFieldValue("inventory.online", e.target.checked)
+                  }
+                  style={{ width: "18px", height: "18px" }}
+                />
+                <label className="form-check-label ms-2 fw-medium">
+                  Online Store
+                </label>
+              </div>
+            </div>
+          </Card>
+        </div>
+
+        {/* Right Column - Media Upload */}
+        <div className="col-lg-4">
+          {/* Image Upload Card */}
+          <Card
+            style={{
+              borderRadius: "12px",
+              border: "none",
+              boxShadow: "0 1px 3px rgba(0,0,0,0.08)",
+              marginBottom: "24px",
+            }}
+            bodyStyle={{ padding: "24px" }}
+          >
+            <div className="d-flex align-items-center gap-2 mb-4">
+              <FaImage style={{ fontSize: "18px", color: "#1890ff" }} />
+              <h5 className="mb-0" style={{ fontWeight: 600 }}>Product Images</h5>
+            </div>
+
             <Dropzone
               accept={{ "image/*": [] }}
               onDrop={(files) => dispatch(uploadImg(files))}
             >
               {({ getRootProps, getInputProps }) => (
-                <section>
-                  <div {...getRootProps()}>
-                    <input {...getInputProps()} />
-                    <p>
-                      Drag 'n' drop some files here, or click to select files
-                    </p>
-                  </div>
-                </section>
+                <div
+                  {...getRootProps()}
+                  style={{
+                    border: "2px dashed #d9d9d9",
+                    borderRadius: "12px",
+                    padding: "32px",
+                    textAlign: "center",
+                    cursor: "pointer",
+                    backgroundColor: "#fafafa",
+                    transition: "all 0.3s",
+                  }}
+                  className="dropzone-hover"
+                >
+                  <input {...getInputProps()} />
+                  <FaImage style={{ fontSize: "32px", color: "#8c8c8c", marginBottom: "12px" }} />
+                  <p style={{ color: "#8c8c8c", margin: 0 }}>
+                    Drag & drop images here, or click to select
+                  </p>
+                  <p style={{ color: "#bfbfbf", fontSize: "12px", marginTop: "8px" }}>
+                    Support: JPG, PNG, GIF
+                  </p>
+                </div>
               )}
             </Dropzone>
-          </div>
-          <div className="showimages d-flex flex-wrap gap-3">
-            {/* {imgState?.map((i, j) => { */}
-            {formik.values.images &&
-              formik.values.images.map((i, j) => {
-                return (
-                  <div className=" position-relative" key={j}>
-                    <button
-                      type="button"
-                      // onClick={() => dispatch(delImg(i.public_id))}
-                      onClick={async () => {
-  await dispatch(delImg(i.public_id));
 
-  const updatedImages = formik.values.images.filter(
-    (img) => img.public_id !== i.public_id
-  );
+            {/* Image Preview */}
+            {formik.values.images && formik.values.images.length > 0 && (
+              <div className="mt-4">
+                <div className="d-flex flex-wrap gap-2">
+                  {formik.values.images.map((i, j) => (
+                    <div 
+                      key={j} 
+                      className="position-relative"
+                      style={{
+                        width: "100px",
+                        height: "100px",
+                        borderRadius: "8px",
+                        overflow: "hidden",
+                        border: "1px solid #f0f0f0"
+                      }}
+                    >
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          await dispatch(delImg(i.public_id));
+                          const updatedImages = formik.values.images.filter(
+                            (img) => img.public_id !== i.public_id
+                          );
+                          formik.setFieldValue("images", updatedImages);
+                          if (getProductId) {
+                            await dispatch(
+                              updateAProduct({
+                                id: getProductId,
+                                productData: {
+                                  ...formik.values,
+                                  images: updatedImages,
+                                },
+                              })
+                            );
+                          }
+                        }}
+                        style={{
+                          position: "absolute",
+                          top: "4px",
+                          right: "4px",
+                          width: "24px",
+                          height: "24px",
+                          borderRadius: "50%",
+                          backgroundColor: "rgba(0,0,0,0.5)",
+                          color: "#fff",
+                          border: "none",
+                          cursor: "pointer",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          zIndex: 1,
+                        }}
+                      >
+                        <FaTrash size={10} />
+                      </button>
+                      <img 
+                        src={i.url} 
+                        alt="" 
+                        style={{ 
+                          width: "100%", 
+                          height: "100%", 
+                          objectFit: "cover" 
+                        }} 
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </Card>
 
-  formik.setFieldValue("images", updatedImages);
-
-  if (getProductId) {
-    await dispatch(
-      updateAProduct({
-        id: getProductId,
-        productData: {
-          ...formik.values,
-          images: updatedImages,
-        },
-      })
-    );
-  }
-}}
-                      className="btn-close position-absolute"
-                      style={{ top: "10px", right: "10px" }}
-                    ></button>
-                    <img src={i.url} alt="" width={200} height={200} />
-                  </div>
-                );
-              })}
-          </div>
-          {/* VIDEO UPLOAD SECTION */}
-          <div className="bg-white border-1 p-5 text-center mt-4">
-            <h5 className="mb-3">Upload Product Videos (Reels)</h5>
+          {/* Video Upload Card */}
+          <Card
+            style={{
+              borderRadius: "12px",
+              border: "none",
+              boxShadow: "0 1px 3px rgba(0,0,0,0.08)",
+            }}
+            bodyStyle={{ padding: "24px" }}
+          >
+            <div className="d-flex align-items-center gap-2 mb-4">
+              <FaVideo style={{ fontSize: "18px", color: "#722ed1" }} />
+              <h5 className="mb-0" style={{ fontWeight: 600 }}>Product Videos</h5>
+            </div>
 
             <Dropzone
               accept={{ "video/mp4": [".mp4"] }}
               onDrop={(files) => dispatch(uploadVideo(files))}
             >
               {({ getRootProps, getInputProps }) => (
-                <section>
-                  <div {...getRootProps()} style={{ cursor: "pointer" }}>
-                    <input {...getInputProps()} />
-                    <p>
-                      Drag & drop videos here, or click to select (MP4 only)
-                    </p>
-                  </div>
-                </section>
+                <div
+                  {...getRootProps()}
+                  style={{
+                    border: "2px dashed #d9d9d9",
+                    borderRadius: "12px",
+                    padding: "32px",
+                    textAlign: "center",
+                    cursor: "pointer",
+                    backgroundColor: "#fafafa",
+                    transition: "all 0.3s",
+                  }}
+                  className="dropzone-hover"
+                >
+                  <input {...getInputProps()} />
+                  <FaVideo style={{ fontSize: "32px", color: "#8c8c8c", marginBottom: "12px" }} />
+                  <p style={{ color: "#8c8c8c", margin: 0 }}>
+                    Drag & drop videos here, or click to select
+                  </p>
+                  <p style={{ color: "#bfbfbf", fontSize: "12px", marginTop: "8px" }}>
+                    Support: MP4 format only
+                  </p>
+                </div>
               )}
             </Dropzone>
-          </div>
 
-          {/* VIDEO PREVIEW */}
-          <div className="d-flex flex-wrap gap-3 mt-4">
-            {/* {videoState?.map((v, i) => ( */}
-            {formik.values.videos?.map((v, i) => (
-
-              <div className="position-relative" key={i}>
-                <button
-                  type="button"
-                  onClick={() => dispatch(delVideo(v.public_id))}
-                  className="btn-close position-absolute"
-                  style={{ top: "10px", right: "10px", zIndex: 2 }}
-                ></button>
-
-                <video
-                  src={v.url}
-                  width={200}
-                  height={300}
-                  muted
-                  controls
-                  style={{ objectFit: "cover" }}
-                />
+            {/* Video Preview */}
+            {formik.values.videos && formik.values.videos.length > 0 && (
+              <div className="mt-4">
+                <div className="d-flex flex-wrap gap-2">
+                  {formik.values.videos.map((v, i) => (
+                    <div 
+                      key={i} 
+                      className="position-relative"
+                      style={{
+                        width: "120px",
+                        height: "160px",
+                        borderRadius: "8px",
+                        overflow: "hidden",
+                        border: "1px solid #f0f0f0"
+                      }}
+                    >
+                      <button
+                        type="button"
+                        onClick={() => dispatch(delVideo(v.public_id))}
+                        style={{
+                          position: "absolute",
+                          top: "4px",
+                          right: "4px",
+                          width: "24px",
+                          height: "24px",
+                          borderRadius: "50%",
+                          backgroundColor: "rgba(0,0,0,0.5)",
+                          color: "#fff",
+                          border: "none",
+                          cursor: "pointer",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          zIndex: 1,
+                        }}
+                      >
+                        <FaTrash size={10} />
+                      </button>
+                      <video
+                        src={v.url}
+                        muted
+                        controls
+                        style={{ 
+                          width: "100%", 
+                          height: "100%", 
+                          objectFit: "cover" 
+                        }}
+                      />
+                    </div>
+                  ))}
+                </div>
               </div>
-            ))}
+            )}
+          </Card>
+
+          {/* Submit Button (Mobile) */}
+          <div className="d-lg-none mt-4">
+            <Button
+              type="primary"
+              block
+              size="large"
+              onClick={formik.handleSubmit}
+              loading={isLoading}
+              style={{
+                height: "50px",
+                borderRadius: "8px",
+                backgroundColor: "#1890ff",
+                border: "none",
+                fontWeight: 600,
+                fontSize: "16px",
+              }}
+            >
+              {getProductId !== undefined ? "Update" : "Add"} Product
+            </Button>
           </div>
-          <button
-            className="btn btn-success border-0 rounded-3 my-5"
-            type="submit"
-          >
-            {getProductId !== undefined ? "Edit" : "Add"} Product
-          </button>
-        </form>
+        </div>
       </div>
-      
+
       {/* Barcode Preview Modal */}
       <BarcodeModal
         open={barcodeModalOpen}
@@ -759,8 +980,28 @@ sizeStock: newProduct?.sizeStock?.map(s => ({
         barcode={selectedBarcode}
         title={selectedBarcodeTitle}
       />
+
+      <style>{`
+        .dropzone-hover:hover {
+          border-color: #1890ff !important;
+          background-color: #e6f7ff !important;
+        }
+        .ant-card-head {
+          border-bottom: 1px solid #f0f0f0;
+        }
+        .ant-select-selector {
+          border-radius: 8px !important;
+        }
+        .ql-toolbar {
+          border-radius: 8px 8px 0 0;
+        }
+        .ql-container {
+          border-radius: 0 0 8px 8px;
+        }
+      `}</style>
     </div>
   );
 };
 
 export default Addproduct;
+

@@ -60,20 +60,24 @@ const getMonthlyOrders = async (data) => {
 };
 
 const getDailySales = async (data) => {
-  const response = await axios.get(
-    `${base_url}user/getDailySales`,
-    data
-  );
-
+  // Build URL with query params if data contains params
+  let url = `${base_url}user/getDailySales`;
+  if (data && data.params) {
+    url += `?${data.params}`;
+  }
+  
+  const response = await axios.get(url, data?.config || config);
   return response.data;
 };
 
 const getDashboardStats = async (data) => {
-  const response = await axios.get(
-    `${base_url}user/getDashboardStats`,
-    data
-  );
-
+  // Build URL with query params if data contains params
+  let url = `${base_url}user/getDashboardStats`;
+  if (data && data.params) {
+    url += `?${data.params}`;
+  }
+  
+  const response = await axios.get(url, data?.config || config);
   return response.data;
 };
 

@@ -66,6 +66,9 @@ const Dashboard = () => {
     const params = buildQueryParams();
     dispatch(getDashboardStatsData({ params, config: config3 }));
     
+    // Also fetch daily sales with filter params
+    dispatch(getDailySalesData({ params, config: config3 }));
+    
     // Also fetch monthly/yearly data for charts
     dispatch(getMonthlyData(config3));
     dispatch(getYearlyData(config3));

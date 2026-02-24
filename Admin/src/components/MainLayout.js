@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { MenuFoldOutlined, MenuUnfoldOutlined } from "@ant-design/icons";
 import {
   AiOutlineDashboard,
@@ -15,7 +15,7 @@ import { RiCouponLine } from "react-icons/ri";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { Link } from "react-router-dom";
-import { Outlet } from "react-router-dom";
+import { Outlet, useLocation } from "react-router-dom";
 import { ImBlog } from "react-icons/im";
 import { IoIosNotifications, IoMenuOutline } from "react-icons/io";
 import { FaClipboardList, FaBloggerB, FaChartLine, FaBox, FaUsers, FaTags, FaFileAlt, FaCube } from "react-icons/fa";
@@ -27,10 +27,33 @@ const { Header, Sider, Content } = Layout;
 
 const MainLayout = () => {
   const [collapsed, setCollapsed] = useState(false);
+  const [selectedKeys, setSelectedKeys] = useState([""]);
   const {
     token: { colorBgContainer },
   } = theme.useToken();
   const navigate = useNavigate();
+  const location = useLocation();
+
+  // Update selected keys when URL changes
+  useEffect(() => {
+    const path = location.pathname;
+    // Extract the key from path (e.g., "/admin/product" -> "product")
+    // Handle cases like /admin/product/:id -> "product"
+    let key = path.split("/").pop();
+    
+    // If the last part is an ID (contains alphanumeric mix), try to get the second last part
+    if (key && /^[0-9a-fA-F]+$/.test(key)) {
+      const parts = path.split("/").filter(Boolean);
+      key = parts[parts.length - 2] || "";
+    }
+    
+    // Handle index route (/admin) - should show dashboard as selected
+    if (path === "/admin" || path === "/admin/") {
+      key = "";
+    }
+    
+    setSelectedKeys([key]);
+  }, [location.pathname]);
 
   const menuItems = [
     {
@@ -202,7 +225,7 @@ const MainLayout = () => {
         <Menu
           theme="dark"
           mode="inline"
-          defaultSelectedKeys={[""]}
+          selectedKeys={selectedKeys}
           onClick={({ key }) => {
             if (key === "signout") {
               localStorage.clear();
@@ -236,9 +259,9 @@ const MainLayout = () => {
                 <IoIosNotifications className="fs-5" />
                 <span className="notification-badge">3</span>
               </button>
-              <button className="action-btn">
-                <AiOutlineSetting className="fs-5" />
-              </button>
+              <Link to="/admin/settings" className="action-btn">
+    <AiOutlineSetting className="fs-5" />
+  </Link>
             </div>
             <div className="user-profile dropdown">
               <div className="user-avatar">
@@ -255,19 +278,19 @@ const MainLayout = () => {
               </div>
               <div className="dropdown-menu profile-dropdown" aria-labelledby="dropdownMenuLink">
                 <li>
-                  <Link className="dropdown-item" to="/">
-                    <AiOutlineUser className="me-2" /> View Profile
+                  <Link className="dropdown-item d-flex align-items-center" to="/">
+                    <AiOutlineUser className="fs-6 me-2" /> View Profile
                   </Link>
                 </li>
-<li>
-                  <Link className="dropdown-item" to="/admin/settings">
-                    <AiOutlineSetting className="me-2" /> Settings
+                <li>
+                  <Link className="dropdown-item d-flex align-items-center" to="/admin/settings">
+                    <AiOutlineSetting className="fs-6 me-2" /> Settings
                   </Link>
                 </li>
                 <li><hr className="dropdown-divider" /></li>
                 <li>
-                  <Link className="dropdown-item text-danger" to="/">
-                    <AiOutlineLogout className="me-2" /> Signout
+                  <Link className="dropdown-item d-flex align-items-center text-danger" to="/">
+                    <AiOutlineLogout className="fs-6 me-2" /> Signout
                   </Link>
                 </li>
               </div>
@@ -556,7 +579,7 @@ const MainLayout = () => {
         
         .profile-dropdown .dropdown-item {
           border-radius: 8px !important;
-          padding: 10px 16px !important;
+          padding: 6px 16px !important;
           margin: 2px 0 !important;
           transition: all 0.2s ease;
         }

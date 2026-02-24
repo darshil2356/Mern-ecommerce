@@ -324,7 +324,7 @@ const Productlist = () => {
               }}
               allowClear
             />
-            <Link to="/admin/add-product">
+            <Link to="/admin/product">
               <Button
                 type="primary"
                 style={{

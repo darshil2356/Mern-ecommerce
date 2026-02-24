@@ -515,18 +515,6 @@ const LiveBilling = () => {
   };
 
   // Handle complete sale with spin wheel logic
-  // const handleCompleteSale = () => {
-  //   // ALWAYS show spin wheel for every customer with mobile number
-  //   // The offer won will apply to NEXT order
-  //   if (customer.contact && Object.keys(cart).length > 0) {
-  //     setShowSpinWheel(true);
-  //   } else {
-  //     // For walk-in customers (no contact), proceed normally
-  //     finalizeSale();
-  //   }
-  // };
-
-
   const handleCompleteSale = () => {
   if (!Object.keys(cart).length) return;
 
@@ -601,6 +589,71 @@ const LiveBilling = () => {
   }, [customer.contact]);
 
   /* =========================
+     GENERATE WHATSAPP MESSAGE
+     ========================= */
+  const generateWhatsAppMessage = (activeCart, activeCustomer, activeOffer, activeAppliedAmount, activeWonOffer) => {
+    // Generate WhatsApp message
+    let whatsAppMessage = `🧾 *Bill Receipt - ${storeName}*\n\n`;
+    whatsAppMessage += `Customer: ${activeCustomer.name || "Walk-in Customer"}\n`;
+    if (activeCustomer.contact) whatsAppMessage += `Mobile: ${activeCustomer.contact}\n`;
+    whatsAppMessage += `Date: ${new Date().toLocaleDateString('en-GB')}\n`;
+    whatsAppMessage += `Time: ${new Date().toLocaleTimeString()}\n\n`;
+    whatsAppMessage += `*Items:*\n`;
+    
+    Object.values(activeCart).forEach((item) => {
+      whatsAppMessage += `• ${item.name} x${item.qty} = ₹${(item.qty * item.price).toFixed(2)}\n`;
+    });
+    
+    whatsAppMessage += `\n─────────────\n`;
+    whatsAppMessage += `Subtotal: ₹${grandTotal.toFixed(2)}\n`;
+    if (cgstPercent > 0) whatsAppMessage += `CGST (${cgstPercent}%): ₹${cgstAmount.toFixed(2)}\n`;
+    if (sgstPercent > 0) whatsAppMessage += `SGST (${sgstPercent}%): ₹${sgstAmount.toFixed(2)}\n`;
+    if (discountPercent > 0) whatsAppMessage += `Additional Discount: -₹${((grandTotal * discountPercent) / 100).toFixed(2)}\n`;
+    if (activeAppliedAmount > 0) whatsAppMessage += `Customer Offer: -₹${activeAppliedAmount.toFixed(2)}\n`;
+    whatsAppMessage += `*Total: ₹${payableAmount.toFixed(2)}*\n`;
+    whatsAppMessage += `─────────────\n\n`;
+    
+    // Add offer message for NEXT purchase (if won)
+    if (activeWonOffer && activeWonOffer.type !== "none") {
+      const offerText = activeWonOffer.type === "percentage" 
+        ? `${activeWonOffer.value}% OFF` 
+        : `₹${activeWonOffer.value} FLAT OFF`;
+      whatsAppMessage += `🎁 *SPECIAL OFFER FOR NEXT PURCHASE!*\n`;
+      whatsAppMessage += `You won: *${offerText}*\n`;
+      whatsAppMessage += `Use this offer on your next visit!\n\n`;
+    } else if (activeOffer && activeOffer.hasOffer && activeAppliedAmount > 0) {
+      // Show existing offer if customer has one and it's applied
+      const offerText = activeOffer.offerType === "percentage" 
+        ? `${activeOffer.offerDiscount}% OFF` 
+        : `₹${activeOffer.offerDiscount} FLAT OFF`;
+      whatsAppMessage += `🎁 *YOUR OFFER*\n`;
+      whatsAppMessage += `Current offer: *${offerText}*\n`;
+      whatsAppMessage += `Offer applied: -₹${activeAppliedAmount.toFixed(2)}\n\n`;
+    }
+    
+    whatsAppMessage += `Thank you for shopping with us! 🙏\n`;
+    whatsAppMessage += `${storeTagline}`;
+
+    return whatsAppMessage;
+  };
+
+  /* =========================
+     OPEN WHATSAPP
+     ========================= */
+  const openWhatsApp = (whatsAppMessage, activeCustomer) => {
+    // Encode message for WhatsApp
+    const encodedMessage = encodeURIComponent(whatsAppMessage);
+    
+    // Open WhatsApp with pre-filled message
+    const phoneNumber = activeCustomer.contact ? activeCustomer.contact.replace(/[^0-9]/g, '') : '';
+    const whatsappUrl = phoneNumber 
+      ? `https://wa.me/91${phoneNumber}?text=${encodedMessage}`
+      : `https://wa.me/?text=${encodedMessage}`;
+    
+    window.open(whatsappUrl, '_blank');
+  };
+
+  /* =========================
      FINALIZE SALE
      ========================= */
   const finalizeSale = async () => {
@@ -610,6 +663,13 @@ const LiveBilling = () => {
     }));
 
     if (!items.length) return;
+
+    // Store cart and customer data BEFORE making API call
+    // because we need this data for WhatsApp message after sale is complete
+    const cartData = { ...cart };
+    const customerData = { ...customer };
+    const offerData = { ...customerOffer };
+    const appliedAmount = appliedOfferAmount;
 
     try {
       await axios.post(
@@ -643,8 +703,17 @@ const LiveBilling = () => {
       }
 
       // Send WhatsApp message if customer has contact
-      if (customer.contact) {
-        sendWhatsAppMessage();
+      // Use the stored customerData to ensure we have the correct data
+      if (customerData.contact) {
+        const message = generateWhatsAppMessage(cartData, customerData, offerData, appliedAmount, null);
+        openWhatsApp(message, customerData);
+        printBill();
+        Swal.fire({
+          icon: 'success',
+          title: 'Sale Completed',
+          text: 'SALE COMPLETED SUCCESSFULLY! Bill sent to WhatsApp!',
+          confirmButtonColor: '#d4af37'
+        });
       } else {
         printBill();
         Swal.fire({
@@ -676,72 +745,7 @@ const LiveBilling = () => {
   };
 
   /* =========================
-     SEND WHATSAPP MESSAGE
-     ========================= */
-  const sendWhatsAppMessage = (wonOffer = null) => {
-    // Generate WhatsApp message
-    let whatsAppMessage = `🧾 *Bill Receipt - ${storeName}*\n\n`;
-    whatsAppMessage += `Customer: ${customer.name || "Walk-in Customer"}\n`;
-    if (customer.contact) whatsAppMessage += `Mobile: ${customer.contact}\n`;
-    whatsAppMessage += `Date: ${new Date().toLocaleDateString('en-GB')}\n`;
-    whatsAppMessage += `Time: ${new Date().toLocaleTimeString()}\n\n`;
-    whatsAppMessage += `*Items:*\n`;
-    
-    Object.values(cart).forEach((item) => {
-      whatsAppMessage += `• ${item.name} x${item.qty} = ₹${(item.qty * item.price).toFixed(2)}\n`;
-    });
-    
-    whatsAppMessage += `\n─────────────\n`;
-    whatsAppMessage += `Subtotal: ₹${grandTotal.toFixed(2)}\n`;
-    if (cgstPercent > 0) whatsAppMessage += `CGST (${cgstPercent}%): ₹${cgstAmount.toFixed(2)}\n`;
-    if (sgstPercent > 0) whatsAppMessage += `SGST (${sgstPercent}%): ₹${sgstAmount.toFixed(2)}\n`;
-    if (discountPercent > 0) whatsAppMessage += `Additional Discount: -₹${((grandTotal * discountPercent) / 100).toFixed(2)}\n`;
-    if (appliedOfferAmount > 0) whatsAppMessage += `Customer Offer: -₹${appliedOfferAmount.toFixed(2)}\n`;
-    whatsAppMessage += `*Total: ₹${payableAmount.toFixed(2)}*\n`;
-    whatsAppMessage += `─────────────\n\n`;
-    
-    // Add offer message for NEXT purchase (if won)
-    if (wonOffer && wonOffer.type !== "none") {
-      const offerText = wonOffer.type === "percentage" 
-        ? `${wonOffer.value}% OFF` 
-        : `₹${wonOffer.value} FLAT OFF`;
-      whatsAppMessage += `🎁 *SPECIAL OFFER FOR NEXT PURCHASE!*\n`;
-      whatsAppMessage += `You won: *${offerText}*\n`;
-      whatsAppMessage += `Use this offer on your next visit!\n\n`;
-    } else if (customerOffer.hasOffer) {
-      // Show existing offer if customer has one
-      const offerText = customerOffer.offerType === "percentage" 
-        ? `${customerOffer.offerDiscount}% OFF` 
-        : `₹${customerOffer.offerDiscount} FLAT OFF`;
-      whatsAppMessage += `🎁 *YOUR OFFER*\n`;
-      whatsAppMessage += `Current offer: *${offerText}*\n`;
-      whatsAppMessage += `Offer applied: -₹${appliedOfferAmount.toFixed(2)}\n\n`;
-    }
-    
-    whatsAppMessage += `Thank you for shopping with us! 🙏\n`;
-    whatsAppMessage += `${storeTagline}`;
-
-    // Encode message for WhatsApp
-    const encodedMessage = encodeURIComponent(whatsAppMessage);
-    
-    // Open WhatsApp with pre-filled message
-    const phoneNumber = customer.contact ? customer.contact.replace(/[^0-9]/g, '') : '';
-    const whatsappUrl = phoneNumber 
-      ? `https://wa.me/91${phoneNumber}?text=${encodedMessage}`
-      : `https://wa.me/?text=${encodedMessage}`;
-    
-    window.open(whatsappUrl, '_blank');
-    printBill();
-    Swal.fire({
-      icon: 'success',
-      title: 'Sale Completed',
-      text: 'SALE COMPLETED SUCCESSFULLY! Bill sent to WhatsApp!',
-      confirmButtonColor: '#d4af37'
-    });
-  };
-
-  /* =========================
-     FINALIZE SALE WITH WHATSAPP
+     FINALIZE SALE WITH WHATSAPP (Spin Wheel)
      ========================= */
   const finalizeSaleWithWhatsApp = async (wonOffer = null) => {
     const items = Object.entries(cart).map(([barcode, data]) => ({
@@ -750,6 +754,12 @@ const LiveBilling = () => {
     }));
 
     if (!items.length) return;
+
+    // Store data for WhatsApp message
+    const cartData = { ...cart };
+    const customerData = { ...customer };
+    const offerData = { ...customerOffer };
+    const appliedAmount = appliedOfferAmount;
 
     try {
       await axios.post(
@@ -765,61 +775,22 @@ const LiveBilling = () => {
         config
       );
 
+      // Save the won offer for next purchase
       if (wonOffer && customer.contact) {
-  await axios.put(
-    `${base_url}user/customer-offer`,
-    {
-      mobile: customer.contact,
-      offerDiscount: wonOffer.value,
-      offerType: wonOffer.type
-    },
-    config
-  );
-}
-
-      // Generate WhatsApp message
-      let whatsAppMessage = `🧾 *Bill Receipt - ${storeName}*\n\n`;
-      whatsAppMessage += `Customer: ${customer.name || "Walk-in Customer"}\n`;
-      if (customer.contact) whatsAppMessage += `Mobile: ${customer.contact}\n`;
-      whatsAppMessage += `Date: ${new Date().toLocaleDateString('en-GB')}\n`;
-      whatsAppMessage += `Time: ${new Date().toLocaleTimeString()}\n\n`;
-      whatsAppMessage += `*Items:*\n`;
-      
-      Object.values(cart).forEach((item) => {
-        whatsAppMessage += `• ${item.name} x${item.qty} = ₹${(item.qty * item.price).toFixed(2)}\n`;
-      });
-      
-      whatsAppMessage += `\n─────────────\n`;
-      whatsAppMessage += `Subtotal: ₹${grandTotal.toFixed(2)}\n`;
-      if (cgstPercent > 0) whatsAppMessage += `CGST (${cgstPercent}%): ₹${cgstAmount.toFixed(2)}\n`;
-      if (sgstPercent > 0) whatsAppMessage += `SGST (${sgstPercent}%): ₹${sgstAmount.toFixed(2)}\n`;
-      if (discountPercent > 0) whatsAppMessage += `Additional Discount: -₹${((grandTotal * discountPercent) / 100).toFixed(2)}\n`;
-      whatsAppMessage += `*Total: ₹${payableAmount.toFixed(2)}*\n`;
-      whatsAppMessage += `─────────────\n\n`;
-      
-      // Add offer message for NEXT purchase
-      if (wonOffer && wonOffer.type !== "none") {
-        const offerText = wonOffer.type === "percentage" 
-          ? `${wonOffer.value}% OFF` 
-          : `₹${wonOffer.value} FLAT OFF`;
-        whatsAppMessage += `🎁 *SPECIAL OFFER FOR NEXT PURCHASE!*\n`;
-        whatsAppMessage += `You won: *${offerText}*\n`;
-        whatsAppMessage += `Use this offer on your next visit!\n\n`;
+        await axios.put(
+          `${base_url}user/customer-offer`,
+          {
+            mobile: customer.contact,
+            offerDiscount: wonOffer.value,
+            offerType: wonOffer.type
+          },
+          config
+        );
       }
-      
-      whatsAppMessage += `Thank you for shopping with us! 🙏\n`;
-      whatsAppMessage += `${storeTagline}`;
 
-      // Encode message for WhatsApp
-      const encodedMessage = encodeURIComponent(whatsAppMessage);
-      
-      // Open WhatsApp with pre-filled message
-      const phoneNumber = customer.contact ? customer.contact.replace(/[^0-9]/g, '') : '';
-      const whatsappUrl = phoneNumber 
-        ? `https://wa.me/91${phoneNumber}?text=${encodedMessage}`
-        : `https://wa.me/?text=${encodedMessage}`;
-      
-      window.open(whatsappUrl, '_blank');
+      // Generate and send WhatsApp message
+      const message = generateWhatsAppMessage(cartData, customerData, offerData, appliedAmount, wonOffer);
+      openWhatsApp(message, customerData);
 
       printBill();
       Swal.fire({
@@ -848,10 +819,19 @@ const LiveBilling = () => {
   };
 
   /* =========================
-     PRINT BILL
+     PRINT BILL - Premium Design (same as PrintBillButton)
      ========================= */
-  const printBill = () => {
-    if (!Object.keys(cart).length) {
+  const printBill = (cartData = cart, customerData = customer, payableAmt = payableAmount, gstinData = gstin, cgstAmt = cgstAmount, sgstAmt = sgstAmount, discountAmt = discountAmount, subtotalAmt = grandTotal) => {
+    const activeCart = cartData;
+    const activeCustomer = customerData;
+    const activePayable = payableAmt;
+    const activeGstin = gstinData;
+    const activeCgst = cgstAmt;
+    const activeSgst = sgstAmt;
+    const activeDiscount = discountAmt;
+    const activeSubtotal = subtotalAmt;
+
+    if (!Object.keys(activeCart).length) {
       Swal.fire({
         icon: 'warning',
         title: 'Cart is Empty',
@@ -861,45 +841,198 @@ const LiveBilling = () => {
       return;
     }
 
+    // Generate invoice number
+    const invoiceNum = () => {
+      const date = new Date();
+      const random = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
+      return `INV-${date.getFullYear()}${(date.getMonth()+1).toString().padStart(2, '0')}${date.getDate().toString().padStart(2, '0')}-${random}`;
+    };
+
     const win = window.open("", "_blank");
     if (!win) return;
 
+    const now = new Date();
+    const dateStr = now.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+    const timeStr = now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+
+    // Helper function to convert number to words
+    const numberToWords = (num) => {
+      const a = ['','One ','Two ','Three ','Four ','Five ','Six ','Seven ','Eight ','Nine ','Ten ','Eleven ','Twelve ','Thirteen ','Fourteen ','Fifteen ','Sixteen ','Seventeen ','Eighteen ','Nineteen '];
+      const b = ['', '', 'Twenty','Thirty','Forty','Fifty','Sixty','Seventy','Eighty','Ninety'];
+
+      const numToWords = (n) => {
+        if ((n = n.toString()).length > 9) return 'overflow';
+        let n_zero = ('000000000' + n).substr(-9);
+        let n1 = n_zero.substr(0, 2), n2 = n_zero.substr(2, 2), n3 = n_zero.substr(4, 2), n4 = n_zero.substr(6, 2), n5 = n_zero.substr(8, 2);
+        let res = '';
+        res += (n1 != 0) ? (a[Number(n1)] || b[n1[0]] + ' ' + a[n1[1]]) + 'Crore ' : '';
+        res += (n2 != 0) ? (a[Number(n2)] || b[n2[0]] + ' ' + a[n2[1]]) + 'Lakh ' : '';
+        res += (n3 != 0) ? (a[Number(n3)] || b[n3[0]] + ' ' + a[n3[1]]) + 'Thousand ' : '';
+        res += (n4 != 0) ? (a[Number(n4)] || b[n4[0]] + ' ' + a[n4[1]]) + 'Hundred ' : '';
+        res += (n5 != 0) ? ((res != '') ? 'and ' : '') + (a[Number(n5)] || b[n5[0]] + ' ' + a[n5[1]]) : '';
+        return res;
+      };
+
+      if (num <= 0) return 'Zero';
+      return numToWords(Math.floor(num));
+    };
+
     win.document.write(`
+      <!DOCTYPE html>
       <html>
         <head>
-          <title>Invoice</title>
+          <title>Invoice - ${invoiceNum()}</title>
+          <script src="https://cdn.tailwindcss.com"></script>
+          <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
           <style>
-            body { font-family: monospace; padding: 20px; }
-            table { width: 100%; border-collapse: collapse; }
-            td, th { padding: 6px 0; }
-            .right { text-align: right; }
-            .total { border-top: 1px dashed #000; font-weight: bold; }
+            * { font-family: 'Inter', 'Segoe UI', sans-serif; }
+            @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
           </style>
         </head>
-        <body>
-          <h2 align="center">${storeName}</h2>
-          <p>Customer: ${customer.name || "Walk-in Customer"}</p>
-          <p>Address: ${customer.address || "-"}</p>
-          ${gstin ? `<p>GSTIN: ${gstin}</p>` : ''}
+        <body class="bg-gray-50 p-4">
+          <div class="max-w-3xl mx-auto bg-white rounded-xl shadow-lg overflow-hidden">
+            
+            <!-- Premium Header -->
+            <div class="bg-gradient-to-r from-blue-900 via-blue-800 to-blue-700 text-white p-6">
+              <div class="flex justify-between items-start">
+                <div>
+                  <div class="flex items-center gap-3 mb-2">
+                    <div class="w-12 h-12 bg-white/20 rounded-lg flex items-center justify-center">
+                      <svg xmlns="http://www.w3.org/2000/svg" class="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                      </svg>
+                    </div>
+                    <div>
+                      <h1 class="text-2xl font-bold tracking-tight">${storeName}</h1>
+                      <p class="text-blue-200 text-xs">${storeTagline}</p>
+                    </div>
+                  </div>
+                </div>
+                <div class="text-right">
+                  <div class="bg-white/20 px-4 py-2 rounded-lg inline-block">
+                    <span class="text-xs text-blue-200 block">INVOICE</span>
+                    <span class="text-xl font-bold">${invoiceNum()}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
 
-          <table>
-            <tr><th>Item</th><th class="right">Qty</th><th class="right">₹</th></tr>
-            ${Object.values(cart)
-              .map(
-                (i) =>
-                  `<tr><td>${i.name}</td><td class="right">${i.qty}</td><td class="right">${i.qty * i.price}</td></tr>`
-              )
-              .join("")}
-            <tr class="total">
-              <td>Total</td><td></td><td class="right">₹ ${payableAmount.toFixed(2)}</td>
-            </tr>
-          </table>
+            <!-- Invoice Meta Info -->
+            <div class="bg-gray-50 px-6 py-4 flex justify-between items-center border-b">
+              <div>
+                <p class="text-xs text-gray-500 uppercase tracking-wide">Bill To</p>
+                <p class="font-semibold text-gray-800">${activeCustomer.name || "Walk-in Customer"}</p>
+                <p class="text-sm text-gray-600">${activeCustomer.address || "N/A"}</p>
+                ${activeCustomer.contact ? `<p class="text-sm text-gray-600">📞 ${activeCustomer.contact}</p>` : ''}
+                ${activeGstin ? `<p class="text-sm text-gray-600 font-medium">GSTIN: ${activeGstin}</p>` : ''}
+              </div>
+              <div class="text-right">
+                <p class="text-sm text-gray-600"><span class="text-gray-500">Date:</span> ${dateStr}</p>
+                <p class="text-sm text-gray-600"><span class="text-gray-500">Time:</span> ${timeStr}</p>
+                <p class="text-sm text-gray-600"><span class="text-gray-500">Payment:</span> <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">CASH</span></p>
+              </div>
+            </div>
+
+            <!-- Items Table -->
+            <div class="p-6">
+              <table class="w-full text-sm">
+                <thead>
+                  <tr class="text-left">
+                    <th class="py-3 px-2 bg-blue-50 text-blue-800 font-semibold rounded-l-lg">#</th>
+                    <th class="py-3 px-2 bg-blue-50 text-blue-800 font-semibold">Item Description</th>
+                    <th class="py-3 px-2 bg-blue-50 text-blue-800 font-semibold text-center">Qty</th>
+                    <th class="py-3 px-2 bg-blue-50 text-blue-800 font-semibold text-right">Rate</th>
+                    <th class="py-3 px-2 bg-blue-50 text-blue-800 font-semibold text-right rounded-r-lg">Amount</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${Object.values(activeCart)
+                    .map(
+                      (item, index) => `
+                    <tr class="border-b border-gray-100 hover:bg-gray-50">
+                      <td class="py-3 px-2 text-gray-500">${index + 1}</td>
+                      <td class="py-3 px-2 font-medium text-gray-800">${item.name}</td>
+                      <td class="py-3 px-2 text-center text-gray-600">${item.qty}</td>
+                      <td class="py-3 px-2 text-right text-gray-600">₹${item.price.toFixed(2)}</td>
+                      <td class="py-3 px-2 text-right font-medium text-gray-800">₹${(item.qty * item.price).toFixed(2)}</td>
+                    </tr>
+                  `
+                    )
+                    .join("")}
+                </tbody>
+              </table>
+
+              <!-- Summary Section -->
+              <div class="mt-6 flex justify-end">
+                <div class="w-72">
+                  <div class="bg-gray-50 rounded-lg p-4 space-y-2">
+                    <div class="flex justify-between text-sm">
+                      <span class="text-gray-600">Subtotal</span>
+                      <span class="font-medium">₹${activeSubtotal.toFixed(2)}</span>
+                    </div>
+                    ${activeCgst > 0 ? `
+                    <div class="flex justify-between text-sm">
+                      <span class="text-gray-600">CGST</span>
+                      <span class="text-green-600">+₹${activeCgst.toFixed(2)}</span>
+                    </div>
+                    ` : ''}
+                    ${activeSgst > 0 ? `
+                    <div class="flex justify-between text-sm">
+                      <span class="text-gray-600">SGST</span>
+                      <span class="text-green-600">+₹${activeSgst.toFixed(2)}</span>
+                    </div>
+                    ` : ''}
+                    ${activeDiscount > 0 ? `
+                    <div class="flex justify-between text-sm">
+                      <span class="text-gray-600">Discount</span>
+                      <span class="text-red-600">-₹${activeDiscount.toFixed(2)}</span>
+                    </div>
+                    ` : ''}
+                    <div class="border-t border-gray-200 pt-2 mt-2">
+                      <div class="flex justify-between items-center">
+                        <span class="text-lg font-bold text-gray-800">Total Payable</span>
+                        <span class="text-2xl font-bold text-blue-600">₹${activePayable.toFixed(2)}</span>
+                      </div>
+                    </div>
+                    <div class="text-center pt-2">
+                      <span class="text-xs text-gray-400">Amount in Words</span>
+                      <p class="text-sm font-medium text-gray-700">${numberToWords(activePayable)} Rupees Only</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Footer -->
+            <div class="bg-gray-900 text-white p-6">
+              <div class="flex justify-between items-start">
+                <div class="text-sm">
+                  <p class="font-semibold mb-1">Terms & Conditions</p>
+                  <p class="text-gray-400 text-xs">• Goods once sold cannot be returned<br>• Warranty as per manufacturer policy<br>• Please retain this invoice for future reference</p>
+                </div>
+                <div class="text-center">
+                  <div class="w-32 h-16 border-b border-gray-600 mb-2"></div>
+                  <p class="text-xs text-gray-400">Authorized Signature</p>
+                </div>
+              </div>
+              <div class="border-t border-gray-700 mt-4 pt-4 text-center">
+                <p class="text-blue-400 font-semibold text-sm">Thank You for Shopping with Us! 🙏</p>
+                <p class="text-gray-500 text-xs mt-1">Visit Again | Quality Guaranteed | Best Prices</p>
+              </div>
+            </div>
+
+            <!-- Footer Bar -->
+            <div class="bg-blue-600 text-white text-center py-2">
+              <p class="text-xs">${storeName} | Powered by Premium Store Billing System</p>
+            </div>
+
+          </div>
         </body>
       </html>
     `);
 
     win.document.close();
-    setTimeout(() => win.print(), 300);
+    setTimeout(() => win.print(), 500);
   };
 
   /* =========================
@@ -932,34 +1065,24 @@ const LiveBilling = () => {
                   </label>
                   <div className="relative">
                     <FaUser className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                    {/* <input
+
+                    <input
                       className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none transition-all"
-                      value={searchTerm}
-                      placeholder="Search customer..."
+                      value={customer.name}
+                      placeholder="Enter customer name..."
                       onChange={(e) => {
-                        setSearchTerm(e.target.value);
+                        const value = e.target.value;
+
+                        setCustomer(prev => ({
+                          ...prev,
+                          name: value
+                        }));
+
+                        setSearchTerm(value); // still allow searching
                         setShowDropdown(true);
                       }}
                       onFocus={() => setShowDropdown(true)}
-                    /> */}
-
-                    <input
-  className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none transition-all"
-  value={customer.name}
-  placeholder="Enter customer name..."
-  onChange={(e) => {
-    const value = e.target.value;
-
-    setCustomer(prev => ({
-      ...prev,
-      name: value
-    }));
-
-    setSearchTerm(value); // still allow searching
-    setShowDropdown(true);
-  }}
-  onFocus={() => setShowDropdown(true)}
-/>
+                    />
                   </div>
                   {showDropdown && customers.length > 0 && (
                     <div className="absolute top-full left-0 w-full bg-white border border-gray-200 rounded-xl shadow-xl max-h-48 overflow-y-auto z-50 mt-1">
@@ -994,34 +1117,24 @@ const LiveBilling = () => {
                   </label>
                   <div className="relative">
                     <FaPhone className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                    {/* <input
-                      className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none transition-all"
-                      value={contactSearch}
+
+                    <input
+                      className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl"
+                      value={customer.contact}
                       placeholder="Search by phone..."
                       onChange={(e) => {
-                        setContactSearch(e.target.value);
+                        const value = e.target.value;
+
+                        setCustomer(prev => ({
+                          ...prev,
+                          contact: value
+                        }));
+
+                        setContactSearch(value);
                         setShowContactDropdown(true);
                       }}
                       onFocus={() => setShowContactDropdown(true)}
-                    /> */}
-
-                    <input
-  className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl"
-  value={customer.contact}
-  placeholder="Search by phone..."
-  onChange={(e) => {
-    const value = e.target.value;
-
-    setCustomer(prev => ({
-      ...prev,
-      contact: value
-    }));
-
-    setContactSearch(value);
-    setShowContactDropdown(true);
-  }}
-  onFocus={() => setShowContactDropdown(true)}
-/>
+                    />
                   </div>
                   {showContactDropdown && customers.length > 0 && (
                     <div className="absolute top-full left-0 w-full bg-white border border-gray-200 rounded-xl shadow-xl max-h-48 overflow-y-auto z-50 mt-1">
@@ -1066,31 +1179,7 @@ const LiveBilling = () => {
                   </div>
                 </div>
 
-                {/* GSTIN */}
-                <div className="md:col-span-2">
-                  <label className="block text-xs font-medium text-gray-500 mb-1">
-                    GSTIN (Tax Registration)
-                  </label>
-                  <div className="flex gap-3">
-                    <div className="flex-1">
-                      <div className="relative">
-                        <FaBuilding className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                        <input
-                          className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none transition-all"
-                          value={gstin}
-                          placeholder="GSTIN not set"
-                          readOnly
-                        />
-                      </div>
-                    </div>
-                    <button
-                      onClick={openGstinModal}
-                      className="px-6 py-3 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-colors font-medium"
-                    >
-                      {gstin ? "Edit GSTIN" : "Add GSTIN"}
-                    </button>
-                  </div>
-                </div>
+                
               </div>
             </div>
           </div>
@@ -1312,19 +1401,19 @@ const LiveBilling = () => {
               {/* Action Buttons */}
               <div className="space-y-3 pt-2">
                <PrintBillButton
-  cart={cart}
-  customer={{
-    name: customer.name,
-    address: customer.address,
-    mobile: customer.contact
-  }}
-  payableAmount={payableAmount}
-  subtotal={grandTotal}
-  cgstAmount={cgstAmount}
-  sgstAmount={sgstAmount}
-  discountAmount={discountAmount}
-  gstin={gstin}
-/>
+                  cart={cart}
+                  customer={{
+                    name: customer.name,
+                    address: customer.address,
+                    mobile: customer.contact
+                  }}
+                  payableAmount={payableAmount}
+                  subtotal={grandTotal}
+                  cgstAmount={cgstAmount}
+                  sgstAmount={sgstAmount}
+                  discountAmount={discountAmount}
+                  gstin={gstin}
+                />
                 <button
                   onClick={handleCompleteSale}
                   disabled={!Object.keys(cart).length}
@@ -1450,23 +1539,17 @@ const LiveBilling = () => {
       </Modal>
 
       {/* Spin Wheel Modal */}
-      {/* <SpinWheel 
-        isOpen={showSpinWheel} 
-        onClose={() => setShowSpinWheel(false)}
-        onSpinComplete={handleSpinComplete}
-        purchaseAmount={grandTotal}
-      /> */}
-
       {showSpinner && (
-  <SpinWheel 
-    isOpen={showSpinWheel} 
-    onClose={() => setShowSpinWheel(false)}
-    onSpinComplete={handleSpinComplete}
-    purchaseAmount={grandTotal}
-  />
-)}
+        <SpinWheel 
+          isOpen={showSpinWheel} 
+          onClose={() => setShowSpinWheel(false)}
+          onSpinComplete={handleSpinComplete}
+          purchaseAmount={grandTotal}
+        />
+      )}
     </div>
   );
 };
 
 export default LiveBilling;
+

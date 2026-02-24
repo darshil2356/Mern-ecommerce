@@ -200,19 +200,63 @@ if (fullName.length > 0) {
 });
 
 const registerUser = asyncHandler(async (req, res) => {
-  const { email, password } = req.body;
+  const { email, password, referralCode } = req.body;
 
   const existingUser = await User.findOne({ email });
 
+  // Generate a unique referral code function
+  const generateCode = () => {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    let code = '';
+    for (let i = 0; i < 8; i++) {
+      code += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return code;
+  };
+
+  let newReferralCode = generateCode();
+  
+  // Ensure the code is unique
+  let existingCodeUser = await User.findOne({ referralCode: newReferralCode });
+  while (existingCodeUser) {
+    newReferralCode = generateCode();
+    existingCodeUser = await User.findOne({ referralCode: newReferralCode });
+  }
+
   // Case 1: New online user
   if (!existingUser) {
-    const newUser = await User.create(req.body);
+    let referredByUser = null;
+    
+    // If referral code provided, find the referrer
+    if (referralCode) {
+      referredByUser = await User.findOne({ referralCode });
+      if (!referredByUser) {
+        // Invalid referral code, just continue without it
+        console.log("Invalid referral code provided");
+      }
+    }
+
+    const newUserData = {
+      ...req.body,
+      referralCode: newReferralCode, // Always generate a referral code for new users
+    };
+    
+    // Add referredBy if valid referral code provided
+    if (referredByUser) {
+      newUserData.referredBy = referredByUser._id;
+    }
+
+    const newUser = await User.create(newUserData);
     return res.json(newUser);
   }
 
   // Case 2: Offline user activating account
   if (existingUser && !existingUser.password) {
     existingUser.password = password;
+    // Generate referral code if doesn't exist
+    if (!existingUser.referralCode) {
+      existingUser.referralCode = newReferralCode;
+    }
     await existingUser.save();
 
     return res.json({
@@ -276,39 +320,83 @@ const createUser = asyncHandler(async (req, res) => {
 
 // Login a user
 const loginUserCtrl = asyncHandler(async (req, res) => {
-  const { email, password } = req.body;
-  // check if user exists or not
-  const findUser = await User.findOne({ email });
-  // if (findUser && (await findUser.isPasswordMatched(password))) {
-  if (!findUser || !findUser.password) {
-  throw new Error("Invalid Credentials");
-}
-
-if (await findUser.isPasswordMatched(password)) {
-
-    const refreshToken = await generateRefreshToken(findUser?._id);
-    const updateuser = await User.findByIdAndUpdate(
-      findUser.id,
-      {
-        refreshToken: refreshToken,
-      },
-      { new: true }
-    );
-    res.cookie("refreshToken", refreshToken, {
-      httpOnly: true,
-      maxAge: 72 * 60 * 60 * 1000,
-    });
-    res.json({
-      _id: findUser?._id,
-      firstname: findUser?.firstname,
-      lastname: findUser?.lastname,
-      email: findUser?.email,
-      mobile: findUser?.mobile,
-      token: generateToken(findUser?._id),
-    });
-  } else {
+  const { email, password, mobile } = req.body;
+  
+  // Find user by email OR mobile
+  let findUser = null;
+  
+  if (email) {
+    findUser = await User.findOne({ email });
+  } else if (mobile) {
+    findUser = await User.findOne({ mobile });
+  }
+  
+  // Check if user exists
+  if (!findUser) {
+    res.status(401);
     throw new Error("Invalid Credentials");
   }
+  
+  // Check if password exists
+  if (!findUser.password) {
+    res.status(401);
+    throw new Error("No password set. Please activate your account first.");
+  }
+  
+  // Verify password
+  const isPasswordValid = await findUser.isPasswordMatched(password);
+  
+  if (!isPasswordValid) {
+    res.status(401);
+    throw new Error("Invalid Credentials");
+  }
+
+  // Generate refresh token
+  const refreshToken = await generateRefreshToken(findUser._id);
+  await User.findByIdAndUpdate(
+    findUser.id,
+    { refreshToken: refreshToken },
+    { new: true }
+  );
+
+  // Generate referral code if user doesn't have one
+  if (!findUser.referralCode) {
+    const generateCode = () => {
+      const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+      let code = '';
+      for (let i = 0; i < 8; i++) {
+        code += chars.charAt(Math.floor(Math.random() * chars.length));
+      }
+      return code;
+    };
+
+    let referralCode = generateCode();
+    
+    // Ensure the code is unique
+    let existingUser = await User.findOne({ referralCode });
+    while (existingUser) {
+      referralCode = generateCode();
+      existingUser = await User.findOne({ referralCode });
+    }
+
+    findUser.referralCode = referralCode;
+    await findUser.save();
+  }
+
+  res.cookie("refreshToken", refreshToken, {
+    httpOnly: true,
+    maxAge: 72 * 60 * 60 * 1000,
+  });
+  
+  res.json({
+    _id: findUser._id,
+    firstname: findUser.firstname,
+    lastname: findUser.lastname,
+    email: findUser.email,
+    mobile: findUser.mobile,
+    referralCode: findUser.referralCode || "",
+    token: generateToken(findUser._id),
+  });
 });
 
 // admin login
@@ -678,6 +766,12 @@ const createOrder = asyncHandler(async (req, res) => {
       paymentInfo,
       user: _id,
     });
+
+    // Award coins for referral if the user was referred
+    if (totalPriceAfterDiscount > 0) {
+      await awardCoinsOnOrder(_id, totalPriceAfterDiscount);
+    }
+
     res.json({
       order,
       success: true,
@@ -1392,7 +1486,6 @@ const getCustomerDetails = asyncHandler(async (req, res) => {
         firstname: customer.firstname,
         lastname: customer.lastname,
         email: customer.email,
-        // email: customer.email || undefined, // allow empty
         mobile: customer.mobile,
         address: customer.address,
         gstin: customer.gstin,
@@ -1436,7 +1529,291 @@ const getCustomerDetails = asyncHandler(async (req, res) => {
   }
 });
 
+// Generate or get referral code for the current user
+const generateReferralCode = asyncHandler(async (req, res) => {
+  const { _id } = req.user;
+  validateMongoDbId(_id);
 
+  try {
+    let user = await User.findById(_id);
+    
+    // If user already has a referral code, return it
+    if (user.referralCode) {
+      return res.json({
+        referralCode: user.referralCode,
+        referralCount: user.referralCount,
+        referralEarnings: user.referralEarnings,
+      });
+    }
+
+    // Generate a unique referral code
+    const generateCode = () => {
+      const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+      let code = '';
+      for (let i = 0; i < 8; i++) {
+        code += chars.charAt(Math.floor(Math.random() * chars.length));
+      }
+      return code;
+    };
+
+    let referralCode = generateCode();
+    
+    // Ensure the code is unique
+    let existingUser = await User.findOne({ referralCode });
+    while (existingUser) {
+      referralCode = generateCode();
+      existingUser = await User.findOne({ referralCode });
+    }
+
+    user.referralCode = referralCode;
+    await user.save();
+
+    res.json({
+      referralCode: user.referralCode,
+      referralCount: user.referralCount,
+      referralEarnings: user.referralEarnings,
+    });
+  } catch (error) {
+    throw new Error(error);
+  }
+});
+
+// Get list of users referred by the current user with detailed status
+const getMyReferrals = asyncHandler(async (req, res) => {
+  const { _id } = req.user;
+  validateMongoDbId(_id);
+
+  console.log("getMyReferrals called for user:", _id);
+
+  try {
+    // Get all users referred by this user
+    const referrals = await User.find({ referredBy: _id })
+      .select("firstname lastname mobile createdAt coins")
+      .sort({ createdAt: -1 });
+
+    console.log("Found referrals:", referrals.length, referrals);
+
+    // For each referral, check if they have orders
+    const detailedReferrals = await Promise.all(
+      referrals.map(async (ref) => {
+        // Check if user has any orders
+        const orderCount = await Order.countDocuments({ user: ref._id });
+        
+        return {
+          _id: ref._id,
+          firstname: ref.firstname,
+          lastname: ref.lastname,
+          mobile: ref.mobile,
+          createdAt: ref.createdAt,
+          coins: ref.coins || 0,
+          // Status: not_signed_in (not applicable for referred users), signed_in, ordered
+          status: orderCount > 0 ? "ordered" : "signed_in"
+        };
+      })
+    );
+
+    // Calculate counts
+    const signedInCount = detailedReferrals.filter(r => r.status === "signed_in").length;
+    const orderedCount = detailedReferrals.filter(r => r.status === "ordered").length;
+    const totalCoins = detailedReferrals.reduce((sum, r) => sum + (r.coins || 0), 0);
+
+    let user = await User.findById(_id);
+
+    // Ensure user has a referral code
+    if (!user.referralCode) {
+      const generateCode = () => {
+        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+        let code = '';
+        for (let i = 0; i < 8; i++) {
+          code += chars.charAt(Math.floor(Math.random() * chars.length));
+        }
+        return code;
+      };
+
+      let referralCode = generateCode();
+      let existingUser = await User.findOne({ referralCode });
+      while (existingUser) {
+        referralCode = generateCode();
+        existingUser = await User.findOne({ referralCode });
+      }
+      user.referralCode = referralCode;
+      await user.save();
+    }
+    
+    console.log("Sending response:", {
+      referralCode: user.referralCode,
+      referralCount: user.referralCount || 0,
+      coins: user.coins || 0,
+      signedInCount,
+      orderedCount,
+      referrals: detailedReferrals,
+    });
+
+    res.json({
+      referralCode: user.referralCode,
+      referralCount: user.referralCount || 0,
+      coins: user.coins || 0,
+      signedInCount,
+      orderedCount,
+      referrals: detailedReferrals,
+    });
+  } catch (error) {
+    throw new Error(error);
+  }
+});
+
+// Apply a referral code
+const applyReferral = asyncHandler(async (req, res) => {
+  const { _id } = req.user;
+  const { referralCode } = req.body;
+  validateMongoDbId(_id);
+
+  if (!referralCode) {
+    res.status(400);
+    throw new Error("Referral code is required");
+  }
+
+  try {
+    // Find the user who owns this referral code
+    const referrer = await User.findOne({ referralCode });
+
+    if (!referrer) {
+      res.status(404);
+      throw new Error("Invalid referral code");
+    }
+
+    // Check if the referrer is the same as the current user
+    if (referrer._id.toString() === _id.toString()) {
+      res.status(400);
+      throw new Error("You cannot use your own referral code");
+    }
+
+    // Check if current user already used a referral
+    const currentUser = await User.findById(_id);
+    if (currentUser.referredBy) {
+      res.status(400);
+      throw new Error("You have already used a referral code");
+    }
+
+    // Apply the referral
+    currentUser.referredBy = referrer._id;
+    await currentUser.save();
+
+    res.json({
+      success: true,
+      message: "Referral code applied successfully!",
+      referredBy: {
+        firstname: referrer.firstname,
+        lastname: referrer.lastname,
+      },
+    });
+  } catch (error) {
+    throw new Error(error);
+  }
+});
+
+// Award coins to referrer when referred user places an order
+const awardCoinsOnOrder = asyncHandler(async (referredUserId, orderAmount) => {
+  const referredUser = await User.findById(referredUserId);
+  
+  if (!referredUser || !referredUser.referredBy) {
+    return;
+  }
+
+  // Calculate coins based on order amount (e.g., 1 coin per ₹10)
+  const coinsToAward = Math.floor(orderAmount / 10);
+
+  if (coinsToAward > 0) {
+    // Award coins to referrer
+    const referrer = await User.findById(referredUser.referredBy);
+    if (referrer) {
+      referrer.coins = (referrer.coins || 0) + coinsToAward;
+      referrer.referralCount = (referrer.referralCount || 0) + 1;
+      await referrer.save();
+    }
+
+    // Update coins for referred user as well
+    referredUser.coins = (referredUser.coins || 0) + coinsToAward;
+    await referredUser.save();
+  }
+});
+
+
+
+// Get all users' referral details (for admin)
+const getAllReferrals = asyncHandler(async (req, res) => {
+  try {
+    // Get all users with referral-related fields populated
+    const users = await User.find({ role: "user" })
+      .select("firstname lastname mobile email createdAt referralCode referredBy referralCount coins referralEarnings")
+      .populate("referredBy", "firstname lastname mobile referralCode")
+      .sort({ createdAt: -1 });
+
+    // Get count of users referred by each user
+    const referralCounts = {};
+    users.forEach(user => {
+      if (user.referredBy) {
+        const referrerId = user.referredBy._id.toString();
+        referralCounts[referrerId] = (referralCounts[referrerId] || 0) + 1;
+      }
+    });
+
+    // Calculate statistics
+    const totalUsers = users.length;
+    const usersWithReferralCode = users.filter(u => u.referralCode).length;
+    const usersReferred = users.filter(u => u.referredBy).length;
+    const totalCoins = users.reduce((sum, u) => sum + (u.coins || 0), 0);
+    const totalEarnings = users.reduce((sum, u) => sum + (u.referralEarnings || 0), 0);
+
+    // Transform data for response
+    const referralData = users.map(user => {
+      const referredUsers = users.filter(u => 
+        u.referredBy && u.referredBy._id.toString() === user._id.toString()
+      );
+
+      return {
+        _id: user._id,
+        firstname: user.firstname,
+        lastname: user.lastname,
+        mobile: user.mobile,
+        email: user.email,
+        createdAt: user.createdAt,
+        referralCode: user.referralCode || "N/A",
+        referredBy: user.referredBy ? {
+          _id: user.referredBy._id,
+          firstname: user.referredBy.firstname,
+          lastname: user.referredBy.lastname,
+          mobile: user.referredBy.mobile,
+          referralCode: user.referredBy.referralCode
+        } : null,
+        referralCount: user.referralCount || 0,
+        referredUsersCount: referredUsers.length,
+        coins: user.coins || 0,
+        referralEarnings: user.referralEarnings || 0,
+        referredUsers: referredUsers.map(ref => ({
+          _id: ref._id,
+          firstname: ref.firstname,
+          lastname: ref.lastname,
+          mobile: ref.mobile,
+          createdAt: ref.createdAt
+        }))
+      };
+    });
+
+    res.json({
+      statistics: {
+        totalUsers,
+        usersWithReferralCode,
+        usersReferred,
+        totalCoins,
+        totalEarnings
+      },
+      referrals: referralData
+    });
+  } catch (error) {
+    throw new Error(error);
+  }
+});
 
 module.exports = {
   createUser,
@@ -1482,5 +1859,9 @@ module.exports = {
   updateCustomerOffer,
   getCustomerDetails,
   checkStock,
-
+  generateReferralCode,
+  getMyReferrals,
+  applyReferral,
+  awardCoinsOnOrder,
+  getAllReferrals,
 };

@@ -18,7 +18,7 @@ import { Link } from "react-router-dom";
 import { Outlet, useLocation } from "react-router-dom";
 import { ImBlog } from "react-icons/im";
 import { IoIosNotifications, IoMenuOutline } from "react-icons/io";
-import { FaClipboardList, FaBloggerB, FaChartLine, FaBox, FaUsers, FaTags, FaFileAlt, FaCube } from "react-icons/fa";
+import { FaClipboardList, FaBloggerB, FaChartLine, FaBox, FaUsers, FaTags, FaFileAlt, FaCube, FaLink } from "react-icons/fa";
 import { SiBrandfolder } from "react-icons/si";
 import { BiCategoryAlt, BiCategory } from "react-icons/bi";
 import { Layout, Menu, theme } from "antd";
@@ -65,6 +65,11 @@ const MainLayout = () => {
       key: "customers",
       icon: <FaUsers className="fs-5" />,
       label: "Customers",
+    },
+    {
+      key: "referral-details",
+      icon: <FaLink className="fs-5" />,
+      label: "Referral Details",
     },
     {
       key: "Catalog",

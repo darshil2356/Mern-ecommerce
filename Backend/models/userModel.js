@@ -98,6 +98,28 @@ var userSchema = new mongoose.Schema(
     lastOrderDate: {
       type: Date,
     },
+    // Referral fields
+    referralCode: {
+      type: String,
+      unique: true,
+      sparse: true,
+    },
+    referredBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+    },
+    referralCount: {
+      type: Number,
+      default: 0,
+    },
+    coins: {
+      type: Number,
+      default: 0,
+    },
+    referralEarnings: {
+      type: Number,
+      default: 0,
+    },
     passwordChangedAt: Date,
     passwordResetToken: String,
     passwordResetExpires: Date,

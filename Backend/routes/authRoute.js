@@ -42,6 +42,10 @@ const {
   getDailySales,
   getDashboardStats,
   checkStock,
+  generateReferralCode,
+  getMyReferrals,
+  applyReferral,
+  getAllReferrals,
 } = require("../controller/userCtrl");
 
 
@@ -60,6 +64,9 @@ router.post(
 
 // Stock check route
 router.post("/check-stock", authMiddleware, isAdmin, checkStock);
+
+
+router.get("/my-referrals", authMiddleware, getMyReferrals);
 
 // Customer offer routes
 router.get("/customer-offer", authMiddleware, isAdmin, getCustomerOffer);
@@ -118,5 +125,13 @@ router.put("/save-address", authMiddleware, saveAddress);
 router.put("/block-user/:id", authMiddleware, isAdmin, blockUser);
 router.put("/unblock-user/:id", authMiddleware, isAdmin, unblockUser);
 router.get("/:id", authMiddleware, isAdmin, getaUser);
+
+// Referral routes
+router.get("/referral-code", authMiddleware, generateReferralCode);
+
+router.post("/apply-referral", authMiddleware, applyReferral);
+
+// Admin: Get all referrals
+router.get("/all-referrals", authMiddleware, isAdmin, getAllReferrals);
 
 module.exports = router;

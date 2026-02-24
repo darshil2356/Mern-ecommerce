@@ -33,6 +33,7 @@ import Reports from "./pages/Reports";
 import AddBundle from "./pages/AddBundle";
 import Bundlelist from "./pages/Bundlelist";
 import Reviews from "./pages/Reviews";
+import ReferralDetails from "./pages/ReferralDetails";
 
 function App() {
   return (
@@ -85,7 +86,8 @@ function App() {
           <Route path="live-billing" element={<LiveBilling />} />
 <Route path="settings" element={<Settings />} />
           <Route path="reports" element={<Reports />} />
-          <Route path="reviews" element={<Reviews />} />
+<Route path="reviews" element={<Reviews />} />
+          <Route path="referral-details" element={<ReferralDetails />} />
           <Route path="add-bundle" element={<AddBundle />} />
           <Route path="bundle/:id" element={<AddBundle />} />
           <Route path="list-bundle" element={<Bundlelist />} />

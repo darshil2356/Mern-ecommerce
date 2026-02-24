@@ -145,6 +145,39 @@ export const resetPassword = createAsyncThunk(
   }
 );
 
+export const getReferralCode = createAsyncThunk(
+  "user/referral/getCode",
+  async (thunkAPI) => {
+    try {
+      return await authService.getReferralCode();
+    } catch (error) {
+      return thunkAPI.rejectWithValue(error);
+    }
+  }
+);
+
+export const getMyReferrals = createAsyncThunk(
+  "user/referral/getMyReferrals",
+  async (thunkAPI) => {
+    try {
+      return await authService.getMyReferrals();
+    } catch (error) {
+      return thunkAPI.rejectWithValue(error);
+    }
+  }
+);
+
+export const applyReferralCode = createAsyncThunk(
+  "user/referral/apply",
+  async (referralCode, thunkAPI) => {
+    try {
+      return await authService.applyReferralCode(referralCode);
+    } catch (error) {
+      return thunkAPI.rejectWithValue(error);
+    }
+  }
+);
+
 export const resetState = createAction("Reset_all");
 
 const getCustomerfromLocalStorage = localStorage.getItem("customer")
@@ -157,6 +190,14 @@ const initialState = {
   isSuccess: false,
   isLoading: false,
   message: "",
+  // Referral state
+  referralCode: "",
+  referralCount: 0,
+  coins: 0,
+  signedInCount: 0,
+  orderedCount: 0,
+  referrals: [],
+  appliedReferral: null,
 };
 
 export const authSlice = createSlice({
@@ -194,8 +235,23 @@ export const authSlice = createSlice({
         state.isError = false;
         state.isSuccess = true;
         state.user = action.payload;
+        state.referralCode = action.payload.referralCode || "";
         if (state.isSuccess === true) {
           localStorage.setItem("token", action.payload.token);
+
+          // Update localStorage with referral code
+          let currentUserData = JSON.parse(localStorage.getItem("customer") || "{}");
+          let newUserData = {
+            ...currentUserData,
+            _id: action.payload._id,
+            token: action.payload.token,
+            firstname: action.payload.firstname,
+            lastname: action.payload.lastname,
+            email: action.payload.email,
+            mobile: action.payload.mobile,
+            referralCode: action.payload.referralCode || "",
+          };
+          localStorage.setItem("customer", JSON.stringify(newUserData));
 
           toast.info("User Logged In Successfully");
         }
@@ -425,6 +481,65 @@ export const authSlice = createSlice({
         state.isError = true;
         state.isSuccess = false;
         state.message = action.error;
+      })
+      // Referral reducers
+      .addCase(getReferralCode.pending, (state) => {
+        state.isLoading = true;
+      })
+      .addCase(getReferralCode.fulfilled, (state, action) => {
+        state.isLoading = false;
+        state.isError = false;
+        state.isSuccess = true;
+        state.referralCode = action.payload.referralCode;
+        state.referralCount = action.payload.referralCount;
+        state.coins = action.payload.coins || 0;
+      })
+      .addCase(getReferralCode.rejected, (state, action) => {
+        state.isLoading = false;
+        state.isError = true;
+        state.isSuccess = false;
+        state.message = action.error;
+      })
+      .addCase(getMyReferrals.pending, (state) => {
+        state.isLoading = true;
+      })
+      .addCase(getMyReferrals.fulfilled, (state, action) => {
+        state.isLoading = false;
+        state.isError = false;
+        state.isSuccess = true;
+        state.referralCode = action.payload.referralCode;
+        state.referralCount = action.payload.referralCount;
+        state.coins = action.payload.coins;
+        state.signedInCount = action.payload.signedInCount;
+        state.orderedCount = action.payload.orderedCount;
+        state.referrals = action.payload.referrals;
+      })
+      .addCase(getMyReferrals.rejected, (state, action) => {
+        state.isLoading = false;
+        state.isError = true;
+        state.isSuccess = false;
+        state.message = action.error;
+      })
+      .addCase(applyReferralCode.pending, (state) => {
+        state.isLoading = true;
+      })
+      .addCase(applyReferralCode.fulfilled, (state, action) => {
+        state.isLoading = false;
+        state.isError = false;
+        state.isSuccess = true;
+        state.appliedReferral = action.payload;
+        if (state.isSuccess) {
+          toast.success("Referral code applied successfully!");
+        }
+      })
+      .addCase(applyReferralCode.rejected, (state, action) => {
+        state.isLoading = false;
+        state.isError = true;
+        state.isSuccess = false;
+        state.message = action.error;
+        if (state.isError) {
+          toast.error(action.payload?.response?.data?.message || "Something Went Wrong!");
+        }
       })
       .addCase(resetState, () => initialState);
   },

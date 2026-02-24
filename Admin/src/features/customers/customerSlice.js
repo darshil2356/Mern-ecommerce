@@ -98,11 +98,22 @@ export const deleteCustomer = createAsyncThunk(
   }
 );
 
+// GET all referrals (for admin)
+export const getAllReferrals = createAsyncThunk(
+  "customer/getAllReferrals",
+  async () => {
+    const response = await axios.get(`${base_url}user/all-referrals`, config);
+    return response.data;
+  }
+);
+
 const customerSlice = createSlice({
   name: "customer",
   initialState: {
     customers: [],
     customerDetails: null,
+    referrals: null,
+    referralStats: null,
     loading: false,
   },
   reducers: {},
@@ -131,6 +142,17 @@ const customerSlice = createSlice({
         state.customerDetails = action.payload;
       })
       .addCase(getCustomerDetails.rejected, (state) => {
+        state.loading = false;
+      })
+      .addCase(getAllReferrals.pending, (state) => {
+        state.loading = true;
+      })
+      .addCase(getAllReferrals.fulfilled, (state, action) => {
+        state.loading = false;
+        state.referrals = action.payload.referrals;
+        state.referralStats = action.payload.statistics;
+      })
+      .addCase(getAllReferrals.rejected, (state) => {
         state.loading = false;
       });
   },

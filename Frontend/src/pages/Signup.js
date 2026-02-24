@@ -1,7 +1,7 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import BreadCrumb from "../components/BreadCrumb";
 import Meta from "../components/Meta";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import Container from "../components/Container";
 import CustomInput from "../components/CustomInput";
 import { useFormik } from "formik";
@@ -24,6 +24,17 @@ const Signup = () => {
   const authState = useSelector((state) => state.auth);
   const dispatch = useDispatch();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const [referralCode, setReferralCode] = useState("");
+
+  useEffect(() => {
+    // Get referral code from URL query params
+    const refCode = searchParams.get("ref");
+    if (refCode) {
+      setReferralCode(refCode);
+    }
+  }, [searchParams]);
+
   const formik = useFormik({
     initialValues: {
       firstname: "",
@@ -31,6 +42,7 @@ const Signup = () => {
       email: "",
       mobile: "",
       password: "",
+      referralCode: referralCode,
     },
     validationSchema: signUpSchema,
     onSubmit: (values) => {
@@ -38,11 +50,12 @@ const Signup = () => {
     },
   });
 
-  // useEffect(() => {
-  //   if (authState.createdUser !== null && authState.isError === false) {
-  //     navigate("/login");
-  //   }
-  // }, [authState]);
+  // Update referralCode in formik when it changes from URL
+  useEffect(() => {
+    if (referralCode && !formik.values.referralCode) {
+      formik.setFieldValue("referralCode", referralCode);
+    }
+  }, [referralCode]);
 
   return (
     <>
@@ -113,6 +126,24 @@ const Signup = () => {
                 <div className="error">
                   {formik.touched.password && formik.errors.password}
                 </div>
+                
+                {/* Referral Code Input */}
+                <div className="referral-input">
+                  <CustomInput
+                    type="text"
+                    name="referralCode"
+                    placeholder="Do you have a referral code? (Optional)"
+                    value={formik.values.referralCode}
+                    onChange={formik.handleChange("referralCode")}
+                    onBlur={formik.handleBlur("referralCode")}
+                  />
+                  {referralCode && (
+                    <small className="text-success mt-1 d-block">
+                      Referral code detected: {referralCode}
+                    </small>
+                  )}
+                </div>
+
                 <div>
                   <div className="mt-3 d-flex justify-content-center gap-15 align-items-center">
                     <button className="button border-0">Sign Up</button>
@@ -128,3 +159,4 @@ const Signup = () => {
 };
 
 export default Signup;
+

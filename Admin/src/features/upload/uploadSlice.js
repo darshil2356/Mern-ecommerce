@@ -75,18 +75,22 @@ const uploadSlice = createSlice({
         state.images.push(...action.payload);
 
       })
-      .addCase(delImg.fulfilled, (state) => {
-        state.images = [];
-      })
+      .addCase(delImg.fulfilled, (state, action) => {
+  state.images = state.images.filter(
+    (img) => img.public_id !== action.meta.arg
+  );
+})
 
       /* videos */
       .addCase(uploadVideo.fulfilled, (state, action) => {
         state.videos.push(...action.payload);
 
       })
-      .addCase(delVideo.fulfilled, (state) => {
-        state.videos = [];
-      });
+      .addCase(delVideo.fulfilled, (state, action) => {
+  state.videos = state.videos.filter(
+    (vid) => vid.public_id !== action.meta.arg
+  );
+})
   },
 });
 

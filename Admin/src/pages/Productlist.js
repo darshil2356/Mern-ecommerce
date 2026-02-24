@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Table, Input, Button, Space, Tag, Tooltip, Avatar, Card } from "antd";
+import { Table, Input, Button, Space, Tag, Tooltip, Avatar, Card, Modal } from "antd";
 import { BiEdit } from "react-icons/bi";
 import { AiFillDelete, AiOutlineSearch, AiOutlineEye, AiOutlineDownload } from "react-icons/ai";
 import { useDispatch, useSelector } from "react-redux";
@@ -8,6 +8,7 @@ import { Link } from "react-router-dom";
 import { delImg } from "../features/upload/uploadSlice";
 import CustomModal from "../components/CustomModal";
 import BarcodeModal from "../components/BarcodeModal";
+import SizeBarcodesList from "../components/SizeBarcodesList";
 import JsBarcode from "jsbarcode";
 import { MdInventory, MdOutlineInventory2 } from "react-icons/md";
 
@@ -18,6 +19,10 @@ const Productlist = () => {
   const [selectedBarcode, setSelectedBarcode] = useState("");
   const [selectedTitle, setSelectedTitle] = useState("");
   const [searchText, setSearchText] = useState("");
+  
+  // State for size-wise barcodes modal
+  const [sizeBarcodesModalOpen, setSizeBarcodesModalOpen] = useState(false);
+  const [productSizeBarcodes, setProductSizeBarcodes] = useState([]);
 
   const showModal = (e) => {
     setOpen(true);
@@ -36,6 +41,28 @@ const Productlist = () => {
     link.href = canvas.toDataURL("image/png");
     link.download = `${barcode}.png`;
     link.click();
+  };
+
+  // Show all barcodes for a product (size-wise only)
+  const showSizeBarcodes = (record) => {
+    const barcodes = [];
+    
+    // Only add size-wise barcodes (no main barcode)
+    if (record.sizeStock && record.sizeStock.length > 0) {
+      record.sizeStock.forEach(item => {
+        if (item.barcode) {
+          barcodes.push({
+            size: item.size,
+            barcode: item.barcode,
+            quantity: item.quantity
+          });
+        }
+      });
+    }
+    
+    setProductSizeBarcodes(barcodes);
+    setSelectedTitle(record.title);
+    setSizeBarcodesModalOpen(true);
   };
 
   const hideModal = () => {
@@ -135,38 +162,31 @@ const Productlist = () => {
       ),
     },
     {
-      title: "Barcode",
+      title: "Barcodes",
       dataIndex: "barcode",
       key: "barcode",
-      render: (barcode, record) =>
-        barcode ? (
-          <div className="d-flex gap-1">
-            <Tooltip title="View Barcode">
-              <Button
-                type="text"
-                size="small"
-                icon={<AiOutlineEye />}
-                onClick={() => {
-                  setSelectedBarcode(barcode);
-                  setSelectedTitle(record.title);
-                  setBarcodeModalOpen(true);
-                }}
-                style={{ color: "#1890ff" }}
-              />
-            </Tooltip>
-            <Tooltip title="Download Barcode">
-              <Button
-                type="text"
-                size="small"
-                icon={<AiOutlineDownload />}
-                onClick={() => downloadBarcode(barcode)}
-                style={{ color: "#52c41a" }}
-              />
-            </Tooltip>
-          </div>
-        ) : (
-          <span className="text-muted">-</span>
-        ),
+      render: (barcode, record) => {
+        const sizeBarcodes = record.sizeStock ? record.sizeStock.filter(s => s.barcode) : [];
+        const barcodeCount = sizeBarcodes.length;
+        
+        if (barcodeCount > 0) {
+          return (
+            <div className="d-flex gap-1">
+              <Tooltip title="View All Barcodes">
+                <Button
+                  type="primary"
+                  size="small"
+                  onClick={() => showSizeBarcodes(record)}
+                  style={{ backgroundColor: "#722ed1", borderColor: "#722ed1" }}
+                >
+                  {barcodeCount} {barcodeCount === 1 ? 'Size' : 'Sizes'}
+                </Button>
+              </Tooltip>
+            </div>
+          );
+        }
+        return <span className="text-muted">-</span>;
+      },
     },
     {
       title: "Stock",
@@ -259,6 +279,7 @@ const Productlist = () => {
       title: filteredProducts[i].title,
       brand: filteredProducts[i].brand,
       barcode: filteredProducts[i].barcode,
+      sizeStock: filteredProducts[i].sizeStock || [],
       category: filteredProducts[i].category,
       color: filteredProducts[i].color || null,
       images: filteredProducts[i].images,
@@ -508,6 +529,17 @@ const Productlist = () => {
         barcode={selectedBarcode}
         title={selectedTitle}
       />
+
+      {/* Size-wise Barcodes Modal */}
+      <Modal
+        title={<span style={{ color: '#722ed1' }}>📦 All Barcodes - {selectedTitle}</span>}
+        open={sizeBarcodesModalOpen}
+        onCancel={() => setSizeBarcodesModalOpen(false)}
+        footer={null}
+        width={600}
+      >
+        <SizeBarcodesList barcodes={productSizeBarcodes} onDownload={downloadBarcode} />
+      </Modal>
 
       <style>{`
         .ant-table-thead > tr > th {

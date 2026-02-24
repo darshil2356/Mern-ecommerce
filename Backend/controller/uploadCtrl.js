@@ -130,14 +130,14 @@ const uploadVideos = asyncHandler(async (req, res) => {
 /* DELETE IMAGE */
 const deleteImage = asyncHandler(async (req, res) => {
   const { id } = req.params;
-  await cloudinaryDeleteImg(id);
+  await cloudinaryDeleteImg(id, "image");
   res.json({ message: "Image Deleted" });
 });
 
 /* DELETE VIDEO */
 const deleteVideo = asyncHandler(async (req, res) => {
   const { id } = req.params;
-  await cloudinaryDeleteImg(id);
+  await cloudinaryDeleteImg(id, "video");
   res.json({ message: "Video Deleted" });
 });
 

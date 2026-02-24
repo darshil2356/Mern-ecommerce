@@ -42,9 +42,25 @@ const uploadVideo = async (data) => {
   return response.data;
 };
 
+// const deleteImg = async (id) => {
+//   const response = await axios.delete(
+//     `${base_url}upload/delete-img/${id}`,
+//     config
+//   );
+//   return response.data;
+// };
+
 const deleteImg = async (id) => {
   const response = await axios.delete(
-    `${base_url}upload/delete-img/${id}`,
+    `${base_url}upload/${id}`,
+    config
+  );
+  return response.data;
+};
+
+const deleteVideo = async (id) => {
+  const response = await axios.delete(
+    `${base_url}upload/video/${id}`,
     config
   );
   return response.data;
@@ -54,4 +70,5 @@ export default {
   uploadImg,
   uploadVideo, // ✅ ADD
   deleteImg,
+   deleteVideo,
 };

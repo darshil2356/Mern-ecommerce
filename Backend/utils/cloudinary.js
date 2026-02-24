@@ -55,15 +55,15 @@ cloudinary.config({
   api_secret: process.env.SECRET_KEY,
 });
 
-const cloudinaryUploadImg = async (filePath) => {
+const cloudinaryUploadImg = async (filePath, resourceType = "auto") => {
   return await cloudinary.uploader.upload(filePath, {
-    resource_type: "auto", // ✅ THIS is what you wanted
+    resource_type: resourceType,
   });
 };
 
-const cloudinaryDeleteImg = async (publicId) => {
+const cloudinaryDeleteImg = async (publicId, resourceType = "auto") => {
   return await cloudinary.uploader.destroy(publicId, {
-    resource_type: "auto",
+    resource_type: resourceType,
   });
 };
 

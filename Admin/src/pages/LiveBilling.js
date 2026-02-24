@@ -188,6 +188,8 @@ const LiveBilling = () => {
             name: product.title,
             price: product.price,
             qty: 1,
+            size: product.size || null, // Store size info
+            isSizeSpecific: product.isSizeSpecific || false,
           },
         };
       });
@@ -331,6 +333,8 @@ const LiveBilling = () => {
                 name: product.title,
                 price: product.price,
                 qty: 1,
+                size: product.size || null,
+                isSizeSpecific: product.isSizeSpecific || false,
               },
             };
           });
@@ -1239,6 +1243,11 @@ const LiveBilling = () => {
                       <td className="px-6 py-4 text-gray-500">{i + 1}</td>
                       <td className="px-6 py-4">
                         <div className="font-semibold text-gray-800">{item.name}</div>
+                        {item.size && (
+                          <div className="text-xs text-indigo-600 font-medium mt-1">
+                            Size: {item.size}
+                          </div>
+                        )}
                       </td>
                       <td className="px-6 py-4">
                         <span className="px-2 py-1 bg-gray-100 text-gray-600 rounded text-xs font-mono">

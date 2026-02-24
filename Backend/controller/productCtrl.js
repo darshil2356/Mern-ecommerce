@@ -4,6 +4,38 @@ const User = require("../models/userModel");
 const asyncHandler = require("express-async-handler");
 const slugify = require("slugify");
 const validateMongoDbId = require("../utils/validateMongodbId");
+const { v4: uuidv4 } = require("uuid");
+
+// Helper function to generate unique barcode
+const generateUniqueBarcode = async (prefix = "PRD") => {
+  let barcode;
+  let exists = true;
+  let counter = 0;
+  
+  while (exists) {
+    // Generate UUID-like unique ID (first 8 characters)
+    const uniqueId = uuidv4().replace(/-/g, "").substring(0, 8).toUpperCase();
+    barcode = `${prefix}-${uniqueId}`;
+    
+    // Check if this barcode exists anywhere (main barcode or in any sizeStock)
+    exists = await Product.findOne({
+      $or: [
+        { barcode: barcode },
+        { "sizeStock.barcode": barcode }
+      ]
+    });
+    
+    counter++;
+    // Safety check to prevent infinite loop
+    if (counter > 100) {
+      // Fallback with random suffix
+      barcode = `${prefix}-${uniqueId}-${Math.floor(Math.random() * 1000)}`;
+      break;
+    }
+  }
+  
+  return barcode;
+};
 
 // const createProduct = asyncHandler(async (req, res) => {
 //   try {
@@ -58,23 +90,14 @@ const createProduct = asyncHandler(async (req, res) => {
 
     const product = await Product.create(req.body);
 
-    const shortId = product._id.toString().slice(-6).toUpperCase();
-    product.barcode = `PRD-${shortId}`;
+    // Generate unique main barcode using UUID
+    product.barcode = await generateUniqueBarcode("PRD");
     
     // Generate unique barcodes for each size in sizeStock
     if (product.sizeStock && product.sizeStock.length > 0) {
       for (let i = 0; i < product.sizeStock.length; i++) {
-        let sizeBarcode = `PRD-${shortId}-${product.sizeStock[i].size}`;
-        
-        // Ensure barcode is unique by checking database
-        let counter = 1;
-        let originalBarcode = sizeBarcode;
-        while (await Product.findOne({ "sizeStock.barcode": sizeBarcode })) {
-          sizeBarcode = `${originalBarcode}-${counter}`;
-          counter++;
-        }
-        
-        product.sizeStock[i].barcode = sizeBarcode;
+        // Generate unique barcode for each size using UUID
+        product.sizeStock[i].barcode = await generateUniqueBarcode("PRD");
       }
     }
     
@@ -141,13 +164,39 @@ const updateProduct = asyncHandler(async (req, res) => {
 
   const existingProduct = await Product.findById(id);
   
-  // If sizeStock is being updated, regenerate barcodes for each size
+  // If sizeStock is being updated, regenerate unique barcodes for each new size
   if (sizeStock && sizeStock.length > 0) {
-    const shortId = existingProduct._id.toString().slice(-6).toUpperCase();
-    const updatedSizeStock = sizeStock.map(item => ({
-      ...item,
-      barcode: item.barcode || `PRD-${shortId}-${item.size}`
-    }));
+    const updatedSizeStock = [];
+    
+    for (const item of sizeStock) {
+      // Only generate new barcode if it doesn't exist
+      let newBarcode = item.barcode;
+      
+      if (!newBarcode) {
+        // Generate new unique barcode for this size
+        newBarcode = await generateUniqueBarcode("PRD");
+      } else {
+        // Check if barcode already exists elsewhere
+        const existing = await Product.findOne({
+          $or: [
+            { barcode: newBarcode },
+            { "sizeStock.barcode": newBarcode }
+          ],
+          _id: { $ne: id } // Exclude current product
+        });
+        
+        if (existing) {
+          // Generate new unique barcode
+          newBarcode = await generateUniqueBarcode("PRD");
+        }
+      }
+      
+      updatedSizeStock.push({
+        ...item,
+        barcode: newBarcode
+      });
+    }
+    
     safeBody.sizeStock = updatedSizeStock;
   }
 

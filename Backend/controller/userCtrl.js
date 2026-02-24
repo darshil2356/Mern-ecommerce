@@ -52,19 +52,54 @@ const createOfflineOrder = asyncHandler(async (req, res) => {
 
   // Step 2: Validate & deduct stock
   for (const item of items) {
-    const product = await Product.findOne({ barcode: item.barcode });
+    // First try to find by main barcode
+    let product = await Product.findOne({ barcode: item.barcode });
+
+    // If not found, search in sizeStock array
+    if (!product) {
+      product = await Product.findOne({ "sizeStock.barcode": item.barcode });
+    }
 
     if (!product) {
       res.status(404);
       throw new Error(`Product not found for barcode ${item.barcode}`);
     }
 
-    if (product.quantity < item.quantity) {
-      res.status(400);
-      throw new Error(`Insufficient stock for ${product.title}`);
+    // Check if barcode is from sizeStock
+    let sizeInfo = null;
+    let sizeIndex = -1;
+    
+    if (product.sizeStock && product.sizeStock.length > 0) {
+      const sizeEntryIndex = product.sizeStock.findIndex(s => s.barcode === item.barcode);
+      if (sizeEntryIndex !== -1) {
+        sizeInfo = product.sizeStock[sizeEntryIndex];
+        sizeIndex = sizeEntryIndex;
+      }
     }
 
-    product.quantity -= item.quantity;
+    let availableStock = 0;
+    
+    // Determine available stock based on whether it's size-specific
+    if (sizeInfo) {
+      availableStock = sizeInfo.quantity;
+    } else {
+      availableStock = product.quantity;
+    }
+
+    if (availableStock < item.quantity) {
+      res.status(400);
+      throw new Error(`Insufficient stock for ${product.title}${sizeInfo ? ` (Size: ${sizeInfo.size})` : ''}`);
+    }
+
+    // Deduct stock
+    if (sizeInfo && sizeIndex !== -1) {
+      // Deduct from sizeStock
+      product.sizeStock[sizeIndex].quantity -= item.quantity;
+    } else {
+      // Deduct from main quantity
+      product.quantity -= item.quantity;
+    }
+    
     product.sold += item.quantity;
     await product.save();
 
@@ -73,6 +108,8 @@ const createOfflineOrder = asyncHandler(async (req, res) => {
       quantity: item.quantity,
       price: product.price,
       color: product.color?.[0] || null,
+      size: sizeInfo ? sizeInfo.size : null, // Store size info in order
+      barcode: item.barcode // Store barcode for reference
     });
 
     totalPrice += product.price * item.quantity;
@@ -1058,19 +1095,41 @@ const getYearlyTotalOrder = asyncHandler(async (req, res) => {
 const getProductByBarcode = asyncHandler(async (req, res) => {
   const { barcode } = req.params;
 
-  const product = await Product.findOne({ barcode });
+  // First try to find by main barcode
+  let product = await Product.findOne({ barcode });
+
+  // If not found, search in sizeStock array
+  if (!product) {
+    product = await Product.findOne({ "sizeStock.barcode": barcode });
+  }
 
   if (!product) {
     res.status(404);
     throw new Error("Product not found");
   }
 
+  // Check if barcode is from sizeStock
+  let sizeInfo = null;
+  if (product.sizeStock && product.sizeStock.length > 0) {
+    const sizeEntry = product.sizeStock.find(s => s.barcode === barcode);
+    if (sizeEntry) {
+      sizeInfo = {
+        size: sizeEntry.size,
+        quantity: sizeEntry.quantity,
+        barcode: sizeEntry.barcode
+      };
+    }
+  }
+
   res.json({
     _id: product._id,
     title: product.title,
     price: product.price,
-    quantity: product.quantity,
-    barcode: product.barcode,
+    // If size-specific, return size quantity; otherwise return main quantity
+    quantity: sizeInfo ? sizeInfo.quantity : product.quantity,
+    barcode: barcode,
+    size: sizeInfo ? sizeInfo.size : null,
+    isSizeSpecific: sizeInfo !== null
   });
 });
 
@@ -1083,23 +1142,50 @@ const checkStock = asyncHandler(async (req, res) => {
     throw new Error("Barcode is required");
   }
 
-  const product = await Product.findOne({ barcode });
+  // First try to find by main barcode
+  let product = await Product.findOne({ barcode: barcode });
+
+  // If not found, search in sizeStock array
+  if (!product) {
+    product = await Product.findOne({ "sizeStock.barcode": barcode });
+  }
 
   if (!product) {
     res.status(404);
     throw new Error("Product not found");
   }
 
+  // Check if barcode is from sizeStock
+  let availableStock = 0;
+  let sizeInfo = null;
+  
+  if (product.sizeStock && product.sizeStock.length > 0) {
+    const sizeEntry = product.sizeStock.find(s => s.barcode === barcode);
+    if (sizeEntry) {
+      availableStock = sizeEntry.quantity;
+      sizeInfo = {
+        size: sizeEntry.size,
+        quantity: sizeEntry.quantity
+      };
+    }
+  }
+
+  // If not found in sizeStock, use main quantity
+  if (availableStock === 0 && !sizeInfo) {
+    availableStock = product.quantity;
+  }
+
   const requestedQty = parseInt(quantity) || 1;
-  const availableStock = product.quantity;
 
   res.json({
-    barcode: product.barcode,
+    barcode: barcode,
     title: product.title,
     availableStock: availableStock,
     requestedQuantity: requestedQty,
     isAvailable: availableStock >= requestedQty,
-    canAdd: availableStock > 0
+    canAdd: availableStock > 0,
+    size: sizeInfo ? sizeInfo.size : null,
+    isSizeSpecific: sizeInfo !== null
   });
 });
 

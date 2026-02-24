@@ -71,6 +71,15 @@ const Addproduct = () => {
   const [selectedBarcodeTitle, setSelectedBarcodeTitle] = useState("");
   const barcodeSvgRef = useRef(null);
 
+  // Helper function to generate unique barcode client-side
+  const generateClientBarcode = (title, size) => {
+    // Generate a unique ID using timestamp + random
+    const timestamp = Date.now().toString(36).toUpperCase();
+    const random = Math.random().toString(36).substring(2, 6).toUpperCase();
+    const prefix = title ? title.substring(0, 3).toUpperCase() : 'PRD';
+    return `PRD-${prefix}-${size}-${timestamp}${random}`;
+  };
+
   console.log(color);
   useEffect(() => {
     dispatch(getBrands());
@@ -154,7 +163,7 @@ const Addproduct = () => {
     });
   });
 
-  const formik = useFormik({
+const formik = useFormik({
     enableReinitialize: true,
     initialValues: {
       title: productName || "",
@@ -170,7 +179,12 @@ const Addproduct = () => {
 
 
 
-sizeStock: newProduct?.sizeStock || [],
+sizeStock: newProduct?.sizeStock?.map(s => ({
+    size: s.size,
+    quantity: s.quantity,
+    // Preserve existing barcode, or generate new one if not present
+    barcode: s.barcode || (newProduct?.title ? generateClientBarcode(newProduct.title, s.size) : '')
+})) || [],
 
 
       inventory: {
@@ -445,12 +459,17 @@ sizeStock: newProduct?.sizeStock || [],
   placeholder="Select sizes"
   value={formik.values.sizeStock.map(s => s.size)}
   onChange={(selectedSizes) => {
-
     const existing = formik.values.sizeStock;
 
     const updated = selectedSizes.map(size => {
       const found = existing.find(s => s.size === size);
-      return found ? found : { size, quantity: "" };
+      if (found) return found;
+      // Generate barcode immediately when size is selected
+      return { 
+        size, 
+        quantity: 0,
+        barcode: generateClientBarcode(formik.values.title || '', size)
+      };
     });
 
     formik.setFieldValue("sizeStock", updated);
@@ -481,11 +500,6 @@ sizeStock: newProduct?.sizeStock || [],
       </thead>
       <tbody>
         {formik.values.sizeStock.map((item, index) => {
-          // Generate preview barcode
-          const previewBarcode = formik.values.title 
-            ? `PRD-${formik.values.title.substring(0, 3).toUpperCase()}-${item.size}`
-            : '';
-            
           return (
             <tr key={item.size}>
               <td>{index + 1}</td>
@@ -503,7 +517,9 @@ sizeStock: newProduct?.sizeStock || [],
                   }}
                 />
               </td>
-              <td style={{ fontSize: "12px" }}>{previewBarcode || "-"}</td>
+              <td style={{ fontSize: "12px" }} className="font-monospace">
+                <span className="text-success fw-bold">{item.barcode || '-'}</span>
+              </td>
               <td>
                 <div className="d-flex gap-1">
                   <button
@@ -511,13 +527,14 @@ sizeStock: newProduct?.sizeStock || [],
                     className="btn btn-sm btn-outline-primary d-flex align-items-center justify-content-center"
                     style={{ width: "32px", height: "32px" }}
                     onClick={() => {
-                      if (previewBarcode) {
-                        setSelectedBarcode(previewBarcode);
+                      if (item.barcode) {
+                        setSelectedBarcode(item.barcode);
                         setSelectedBarcodeTitle(`${formik.values.title} - Size ${item.size}`);
                         setBarcodeModalOpen(true);
                       }
                     }}
                     title="View Barcode"
+                    disabled={!item.barcode}
                   >
                     <FaEye size={14} />
                   </button>
@@ -526,9 +543,9 @@ sizeStock: newProduct?.sizeStock || [],
                     className="btn btn-sm btn-outline-success d-flex align-items-center justify-content-center"
                     style={{ width: "32px", height: "32px" }}
                     onClick={() => {
-                      if (previewBarcode) {
+                      if (item.barcode) {
                         const canvas = document.createElement("canvas");
-                        JsBarcode(canvas, previewBarcode, {
+                        JsBarcode(canvas, item.barcode, {
                           format: "CODE128",
                           width: 2,
                           height: 80,
@@ -536,11 +553,12 @@ sizeStock: newProduct?.sizeStock || [],
                         });
                         const link = document.createElement("a");
                         link.href = canvas.toDataURL("image/png");
-                        link.download = `${previewBarcode}.png`;
+                        link.download = `${item.barcode}.png`;
                         link.click();
                       }
                     }}
                     title="Download Barcode"
+                    disabled={!item.barcode}
                   >
                     <FaDownload size={14} />
                   </button>
@@ -549,26 +567,27 @@ sizeStock: newProduct?.sizeStock || [],
                     className="btn btn-sm btn-outline-dark d-flex align-items-center justify-content-center"
                     style={{ width: "32px", height: "32px" }}
                     onClick={() => {
-                      if (previewBarcode) {
+                      if (item.barcode) {
                         const printWindow = window.open("", "", "width=600,height=400");
-                        printWindow.document.write(`
-                          <html>
-                            <head><title>${formik.values.title} - ${item.size}</title></head>
-                            <body style="text-align:center;">
-                              <h4>${formik.values.title} - ${item.size}</h4>
-                              <svg id="barcode"></svg>
-                              <script src="https://cdn.jsdelivr.net/npm/jsbarcode/dist/JsBarcode.all.min.js"><\/script>
-                              <script>
-                                JsBarcode("#barcode", "${previewBarcode}", { format: "CODE128", width: 2, height: 80, displayValue: true });
-                                window.print();
-                              <\/script>
-                            </body>
-                          </html>
-                        `);
+                        printWindow.document.write(
+                          '<html>' +
+                          '<head><title>' + formik.values.title + ' - ' + item.size + '</title></head>' +
+                          '<body style="text-align:center;">' +
+                          '<h4>' + formik.values.title + ' - ' + item.size + '</h4>' +
+                          '<svg id="barcode"></svg>' +
+                          '<script src="https://cdn.jsdelivr.net/npm/jsbarcode/dist/JsBarcode.all.min.js"><\/script>' +
+                          '<script>' +
+                          'JsBarcode("#barcode", "' + item.barcode + '", { format: "CODE128", width: 2, height: 80, displayValue: true });' +
+                          'window.print();' +
+                          '<\/script>' +
+                          '</body>' +
+                          '</html>'
+                        );
                         printWindow.document.close();
                       }
                     }}
                     title="Print Barcode"
+                    disabled={!item.barcode}
                   >
                     <MdPrint size={16} />
                   </button>
@@ -649,7 +668,28 @@ sizeStock: newProduct?.sizeStock || [],
                   <div className=" position-relative" key={j}>
                     <button
                       type="button"
-                      onClick={() => dispatch(delImg(i.public_id))}
+                      // onClick={() => dispatch(delImg(i.public_id))}
+                      onClick={async () => {
+  await dispatch(delImg(i.public_id));
+
+  const updatedImages = formik.values.images.filter(
+    (img) => img.public_id !== i.public_id
+  );
+
+  formik.setFieldValue("images", updatedImages);
+
+  if (getProductId) {
+    await dispatch(
+      updateAProduct({
+        id: getProductId,
+        productData: {
+          ...formik.values,
+          images: updatedImages,
+        },
+      })
+    );
+  }
+}}
                       className="btn-close position-absolute"
                       style={{ top: "10px", right: "10px" }}
                     ></button>

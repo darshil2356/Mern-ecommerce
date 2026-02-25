@@ -1,16 +1,24 @@
 import React, { useEffect, useState } from "react";
-import { Table, Card, Row, Col, Tag, Button, Spin, Input, Avatar, Tooltip, Collapse } from "antd";
+import { Table, Card, Row, Col, Tag, Button, Spin, Input, Avatar, Tooltip, Collapse, Select, DatePicker, message } from "antd";
 import { useDispatch, useSelector } from "react-redux";
 import { getAllReferrals } from "../features/customers/customerSlice";
-import { FaSearch, FaUsers, FaCoins, FaMoneyBillWave, FaCode, FaUserPlus, FaChevronDown, FaChevronUp, FaLink } from "react-icons/fa";
-import { MdOutlineReferrals } from "react-icons/md";
+import { 
+  FaSearch, FaUsers, FaCoins, FaMoneyBillWave, FaCode, FaUserPlus, 
+  FaChevronDown, FaChevronUp, FaLink, FaDownload, FaChartLine, FaTrophy,
+  FaCalendarAlt, FaPercentage, FaRupeeSign
+} from "react-icons/fa";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from "recharts";
 
-const { Panel } = Collapse;
+const { RangePicker } = DatePicker;
+
+const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d'];
 
 const ReferralDetails = () => {
   const dispatch = useDispatch();
   const [searchText, setSearchText] = useState("");
   const [expandedRows, setExpandedRows] = useState({});
+  const [dateRange, setDateRange] = useState(null);
+  const [topReferrersLimit, setTopReferrersLimit] = useState(10);
   
   const { referrals, referralStats, loading } = useSelector((state) => state.customer);
 
@@ -22,13 +30,86 @@ const ReferralDetails = () => {
     dispatch(getAllReferrals());
   };
 
+  // Filter by date range
+  const filterByDate = (data) => {
+    if (!dateRange || !dateRange[0] || !dateRange[1]) return data;
+    
+    const startDate = new Date(dateRange[0]);
+    const endDate = new Date(dateRange[1]);
+    endDate.setHours(23, 59, 59, 999);
+    
+    return data.filter(item => {
+      const createdAt = new Date(item.createdAt);
+      return createdAt >= startDate && createdAt <= endDate;
+    });
+  };
+
   // Filter referrals based on search
-  const filteredReferrals = referrals?.filter((ref) =>
+  const filteredReferrals = filterByDate(referrals?.filter((ref) =>
     ref.firstname?.toLowerCase().includes(searchText.toLowerCase()) ||
     ref.lastname?.toLowerCase().includes(searchText.toLowerCase()) ||
     ref.mobile?.includes(searchText) ||
     ref.referralCode?.toLowerCase().includes(searchText.toLowerCase())
-  ) || [];
+  ) || []);
+
+  // Get top referrers
+  const getTopReferrers = () => {
+    const referrerCounts = {};
+    referrals?.forEach(ref => {
+      if (ref.referredBy) {
+        const referrerId = ref.referredBy._id || ref.referredBy;
+        const key = typeof ref.referredBy === 'object' 
+          ? `${ref.referredBy.firstname} ${ref.referredBy.lastname}`
+          : 'Unknown';
+        if (!referrerCounts[key]) {
+          referrerCounts[key] = {
+            name: key,
+            count: 0,
+            mobile: ref.referredBy.mobile || '',
+            code: ref.referredBy.referralCode || ''
+          };
+        }
+        referrerCounts[key].count++;
+      }
+    });
+    
+    return Object.values(referrerCounts)
+      .sort((a, b) => b.count - a.count)
+      .slice(0, topReferrersLimit);
+  };
+
+  // Get referrals by month for chart
+  const getMonthlyReferrals = () => {
+    const monthlyData = {};
+    referrals?.forEach(ref => {
+      if (ref.createdAt) {
+        const date = new Date(ref.createdAt);
+        const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+        if (!monthlyData[monthKey]) {
+          monthlyData[monthKey] = { month: monthKey, referrals: 0, coins: 0 };
+        }
+        monthlyData[monthKey].referrals++;
+        monthlyData[monthKey].coins += ref.coins || 0;
+      }
+    });
+    return Object.values(monthlyData).sort((a, b) => a.month.localeCompare(b.month));
+  };
+
+  // Get referral source distribution
+  const getReferralSourceData = () => {
+    const sources = { direct: 0, referred: 0 };
+    referrals?.forEach(ref => {
+      if (ref.referredBy) {
+        sources.referred++;
+      } else {
+        sources.direct++;
+      }
+    });
+    return [
+      { name: 'Direct Signups', value: sources.direct },
+      { name: 'Referred Signups', value: sources.referred }
+    ];
+  };
 
   // Toggle expanded row
   const toggleExpand = (recordId) => {
@@ -40,6 +121,34 @@ const ReferralDetails = () => {
 
   const copyToClipboard = (text) => {
     navigator.clipboard.writeText(text);
+    message.success('Copied to clipboard!');
+  };
+
+  const exportToCSV = () => {
+    const data = filteredReferrals.map((item, index) => ({
+      'S.No': index + 1,
+      'Name': `${item.firstname} ${item.lastname}`,
+      'Mobile': item.mobile,
+      'Email': item.email || '',
+      'Referral Code': item.referralCode || '',
+      'Referred By': item.referredBy ? `${item.referredBy.firstname} ${item.referredBy.lastname}` : 'Direct',
+      'Referrals Made': item.referredUsersCount || 0,
+      'Coins Earned': item.coins || 0,
+      'Joined Date': new Date(item.createdAt).toLocaleDateString('en-IN')
+    }));
+
+    const csv = [
+      Object.keys(data[0] || {}).join(','),
+      ...data.map(row => Object.values(row).join(','))
+    ].join('\n');
+
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `referrals_export_${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
+    message.success('Export successful!');
   };
 
   const columns = [
@@ -220,6 +329,10 @@ const ReferralDetails = () => {
     );
   }
 
+  const monthlyData = getMonthlyReferrals();
+  const sourceData = getReferralSourceData();
+  const topReferrers = getTopReferrers();
+
   return (
     <div className="min-h-screen bg-gray-50 p-6">
       {/* Header Section */}
@@ -228,18 +341,22 @@ const ReferralDetails = () => {
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
             <div className="flex items-center gap-3">
               <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white">
-                <MdOutlineReferrals size={24} />
+                {/* <FaPercentage size={24} /> */}
               </div>
               <div>
                 <h2 className="text-2xl font-semibold text-gray-800 mb-1">
-                  Referral Details
+                  Referral Dashboard
                 </h2>
                 <p className="text-gray-500 text-sm mb-0">
-                  View all customer referrals and earnings
+                  Comprehensive referral analytics and management
                 </p>
               </div>
             </div>
             <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
+              <RangePicker 
+                onChange={(dates) => setDateRange(dates)}
+                className="h-10"
+              />
               <div className="relative">
                 <input
                   type="text"
@@ -256,6 +373,14 @@ const ReferralDetails = () => {
                 className="h-10 px-4 bg-blue-600 hover:bg-blue-700"
               >
                 Refresh
+              </Button>
+              <Button 
+                type="default" 
+                onClick={exportToCSV}
+                icon={<FaDownload />}
+                className="h-10 px-4"
+              >
+                Export
               </Button>
             </div>
           </div>
@@ -315,11 +440,129 @@ const ReferralDetails = () => {
               <h3 className="text-2xl font-semibold text-green-600">₹{referralStats?.totalEarnings || 0}</h3>
             </div>
             <div className="w-12 h-12 rounded-xl bg-green-50 flex items-center justify-center text-green-600">
-              <FaMoneyBillWave size={20} />
+              <FaRupeeSign size={20} />
             </div>
           </div>
         </div>
       </div>
+
+      {/* Charts Row */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+        {/* Monthly Referrals Chart */}
+        <Card 
+          title={
+            <div className="flex items-center gap-2">
+              <FaChartLine className="text-blue-600" />
+              <span>Monthly Referral Trends</span>
+            </div>
+          }
+          className="shadow-sm"
+        >
+          <ResponsiveContainer width="100%" height={300}>
+            <LineChart data={monthlyData}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="month" />
+              <YAxis />
+              <RechartsTooltip />
+              <Legend />
+              <Line type="monotone" dataKey="referrals" stroke="#8884d8" name="Referrals" strokeWidth={2} />
+              <Line type="monotone" dataKey="coins" stroke="#ffc107" name="Coins" strokeWidth={2} />
+            </LineChart>
+          </ResponsiveContainer>
+        </Card>
+
+        {/* Referral Source Pie Chart */}
+        <Card 
+          title={
+            <div className="flex items-center gap-2">
+              <FaPercentage className="text-green-600" />
+              <span>Referral Source Distribution</span>
+            </div>
+          }
+          className="shadow-sm"
+        >
+          <ResponsiveContainer width="100%" height={300}>
+            <PieChart>
+              <Pie
+                data={sourceData}
+                cx="50%"
+                cy="50%"
+                labelLine={false}
+                label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                outerRadius={80}
+                fill="#8884d8"
+                dataKey="value"
+              >
+                {sourceData.map((entry, index) => (
+                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                ))}
+              </Pie>
+              <RechartsTooltip />
+            </PieChart>
+          </ResponsiveContainer>
+        </Card>
+      </div>
+
+      {/* Top Referrers */}
+      <Card 
+        title={
+          <div className="flex items-center gap-2">
+            <FaTrophy className="text-yellow-600" />
+            <span>Top Referrers</span>
+          </div>
+        }
+        className="shadow-sm mb-6"
+      >
+        <div className="flex items-center gap-4 mb-4">
+          <span>Show top</span>
+          <Select 
+            value={topReferrersLimit} 
+            onChange={setTopReferrersLimit}
+            style={{ width: 80 }}
+            options={[
+              { value: 5, label: '5' },
+              { value: 10, label: '10' },
+              { value: 20, label: '20' },
+              { value: 50, label: '50' },
+            ]}
+          />
+          <span>referrers</span>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {topReferrers.map((referrer, index) => (
+            <div 
+              key={index}
+              className={`p-4 rounded-lg border-2 ${
+                index === 0 ? 'border-yellow-400 bg-yellow-50' :
+                index === 1 ? 'border-gray-300 bg-gray-50' :
+                index === 2 ? 'border-orange-300 bg-orange-50' :
+                'border-gray-100 bg-white'
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold ${
+                    index === 0 ? 'bg-yellow-400 text-white' :
+                    index === 1 ? 'bg-gray-400 text-white' :
+                    index === 2 ? 'bg-orange-400 text-white' :
+                    'bg-gray-200 text-gray-600'
+                  }`}>
+                    {index + 1}
+                  </div>
+                  <div>
+                    <div className="font-semibold text-gray-900">{referrer.name}</div>
+                    <div className="text-xs text-gray-500">{referrer.mobile}</div>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className="text-lg font-bold text-green-600">{referrer.count}</div>
+                  <div className="text-xs text-gray-500">referrals</div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </Card>
 
       {/* Referrals Table */}
       <div className="bg-white rounded-xl shadow-sm overflow-hidden">

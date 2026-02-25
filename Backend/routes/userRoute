@@ -46,4 +46,3 @@ router.get("/customer/:id", authMiddleware, isAdmin, getCustomerDetails);
 router.get("/all-referrals", authMiddleware, isAdmin, getAllReferrals);
 
 module.exports = router;
-

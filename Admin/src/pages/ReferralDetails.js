@@ -1,13 +1,13 @@
 import React, { useEffect, useState } from "react";
-import { Table, Card, Row, Col, Tag, Button, Spin, Input, Avatar, Tooltip, Collapse, Select, DatePicker, message } from "antd";
+import { Table, Card, Tag, Button, Spin, Avatar, Tooltip, Select, DatePicker, message } from "antd";
 import { useDispatch, useSelector } from "react-redux";
 import { getAllReferrals } from "../features/customers/customerSlice";
 import { 
-  FaSearch, FaUsers, FaCoins, FaMoneyBillWave, FaCode, FaUserPlus, 
+  FaSearch, FaUsers, FaCoins, FaCode, FaUserPlus, 
   FaChevronDown, FaChevronUp, FaLink, FaDownload, FaChartLine, FaTrophy,
-  FaCalendarAlt, FaPercentage, FaRupeeSign
+  FaPercentage, FaRupeeSign
 } from "react-icons/fa";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from "recharts";
+import { XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from "recharts";
 
 const { RangePicker } = DatePicker;
 
@@ -57,7 +57,6 @@ const ReferralDetails = () => {
     const referrerCounts = {};
     referrals?.forEach(ref => {
       if (ref.referredBy) {
-        const referrerId = ref.referredBy._id || ref.referredBy;
         const key = typeof ref.referredBy === 'object' 
           ? `${ref.referredBy.firstname} ${ref.referredBy.lastname}`
           : 'Unknown';

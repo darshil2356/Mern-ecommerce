@@ -175,6 +175,18 @@ const CustomerDetail = () => {
           <Col xs={24} sm={12} md={8}>
             <p><strong>Customer Since:</strong> {new Date(customer.createdAt).toLocaleDateString()}</p>
           </Col>
+          <Col xs={24} sm={12} md={8}>
+            <p><strong>Referral Code:</strong> {customer.referralCode || "N/A"}</p>
+          </Col>
+          <Col xs={24} sm={12} md={8}>
+            <p><strong>Referred By:</strong> {customer.referredBy ? `${customer.referredBy.firstname} ${customer.referredBy.lastname}` : "Direct"}</p>
+          </Col>
+          <Col xs={24} sm={12} md={8}>
+            <p><strong>Referral Count:</strong> {customer.referralCount || 0}</p>
+          </Col>
+          <Col xs={24} sm={12} md={8}>
+            <p><strong>Coins:</strong> {customer.coins || 0}</p>
+          </Col>
         </Row>
       </Card>
 

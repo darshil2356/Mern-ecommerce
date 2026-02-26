@@ -46,8 +46,14 @@ const LiveBilling = () => {
   const [customer, setCustomer] = useState({
     name: "",
     address: "",
-    contact: ""
+    contact: "",
+    referralContact: ""  // New field for referral contact number
   });
+
+  // Referral validation state
+  const [referrerName, setReferrerName] = useState("");
+  const [referrerError, setReferrerError] = useState("");
+  const [referrerCode, setReferrerCode] = useState("");
 
   const [customers, setCustomers] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
@@ -440,6 +446,47 @@ const LiveBilling = () => {
     }
   };
 
+  // Validate referral contact and get referrer name
+  const validateReferralContact = async (mobile) => {
+    if (!mobile || mobile.length < 10) {
+      setReferrerName("");
+      setReferrerError("");
+      setReferrerCode("");
+      return;
+    }
+
+    try {
+      const res = await axios.get(`${base_url}user/customer-by-mobile?mobile=${mobile}`, config);
+      if (res.data.found) {
+        setReferrerName(res.data.customer.name);
+        setReferrerCode(res.data.customer.referralCode || "N/A");
+        setReferrerError("");
+      } else {
+        setReferrerName("");
+        setReferrerCode("");
+        setReferrerError("Incorrect referral number");
+      }
+    } catch (err) {
+      console.error("Failed to validate referral:", err);
+      setReferrerName("");
+      setReferrerCode("");
+      setReferrerError("Incorrect referral number");
+    }
+  };
+
+  // Clear referral when customer contact changes (to prevent self-referral)
+  useEffect(() => {
+    if (customer.contact && customer.referralContact) {
+      // If referral contact is same as customer contact, clear it
+      if (customer.contact === customer.referralContact) {
+        setCustomer(prev => ({ ...prev, referralContact: "" }));
+        setReferrerName("");
+        setReferrerError("");
+        setReferrerCode("");
+      }
+    }
+  }, [customer.contact]);
+
   // Apply offer to current bill
   const applyOffer = () => {
     if (!customerOffer.hasOffer || grandTotal === 0) return;
@@ -685,6 +732,7 @@ const LiveBilling = () => {
           discount: discountAmount,
           total: payableAmount,
           paymentMethod: "CASH",
+          referralContact: customer.referralContact || null
         },
         config
       );
@@ -731,7 +779,10 @@ const LiveBilling = () => {
       }
 
       setCart({});
-      setCustomer({ name: "", address: "", contact: "" });
+      setCustomer({ name: "", address: "", contact: "", referralContact: "" });
+      setReferrerName("");
+      setReferrerError("");
+      setReferrerCode("");
       setCgstPercent(0);
       setSgstPercent(0);
       setDiscountPercent(0);
@@ -775,6 +826,7 @@ const LiveBilling = () => {
           discount: discountAmount,
           total: payableAmount,
           paymentMethod: "CASH",
+          referralContact: customer.referralContact || null
         },
         config
       );
@@ -805,7 +857,10 @@ const LiveBilling = () => {
       });
 
       setCart({});
-      setCustomer({ name: "", address: "", contact: "" });
+      setCustomer({ name: "", address: "", contact: "", referralContact: "" });
+      setReferrerName("");
+      setReferrerError("");
+      setReferrerCode("");
       setCgstPercent(0);
       setSgstPercent(0);
       setDiscountPercent(0);
@@ -1180,6 +1235,80 @@ const LiveBilling = () => {
                       placeholder="Enter address..."
                       onChange={(e) => setCustomer({ ...customer, address: e.target.value })}
                     />
+                  </div>
+                </div>
+
+                {/* Referral Contact Number - Two Columns */}
+                <div className="md:col-span-2">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* Left: Referral Contact Input */}
+                    <div>
+                      <label className="block text-xs font-medium text-gray-500 mb-1">
+                        Referral Contact Number (Optional)
+                      </label>
+                      <div className="relative">
+                        <FaPhone className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                        <input
+                          className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none transition-all"
+                          value={customer.referralContact || ""}
+                          placeholder="Enter referrer's contact number..."
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            setCustomer({ ...customer, referralContact: value });
+                            // Clear previous timeout
+                            if (window.referralTimeout) {
+                              clearTimeout(window.referralTimeout);
+                            }
+                            // Validate after user stops typing (debounced - 500ms)
+                            if (value.length >= 10) {
+                              window.referralTimeout = setTimeout(() => {
+                                validateReferralContact(value);
+                              }, 500);
+                            } else {
+                              setReferrerName("");
+                              setReferrerError("");
+                              setReferrerCode("");
+                            }
+                          }}
+                        />
+                      </div>
+                      {/* Error Message */}
+                      {referrerError && (
+                        <p className="text-xs text-red-500 mt-1 font-medium">
+                          {referrerError}
+                        </p>
+                      )}
+                      <p className="text-xs text-gray-400 mt-1">
+                        If someone referred this customer, enter their mobile number
+                      </p>
+                    </div>
+
+                    {/* Right: Referrer Info (Non-editable) */}
+                    <div>
+                      <label className="block text-xs font-medium text-gray-500 mb-1">
+                        Referrer Details
+                      </label>
+                      {referrerName ? (
+                        <div className="p-3 bg-green-50 border border-green-200 rounded-xl">
+                          <div className="flex items-center gap-2 mb-1">
+                            <FaUser className="text-green-600" />
+                            <span className="text-sm font-medium text-green-700">
+                              {referrerName}
+                            </span>
+                          </div>
+                          {referrerCode && (
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs text-green-600">Referral Code:</span>
+                              <span className="text-sm font-bold text-green-700">{referrerCode}</span>
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="p-3 bg-gray-50 border border-gray-200 rounded-xl">
+                          <p className="text-sm text-gray-400">Enter referrer's contact number</p>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
 

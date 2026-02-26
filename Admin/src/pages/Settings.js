@@ -9,7 +9,8 @@ import {
   FaMagic,
   FaSave,
   FaQuoteRight,
-  FaPercentage
+  FaPercentage,
+  FaUsers
 } from "react-icons/fa";
 import axios from "axios";
 import { base_url } from "../utils/baseUrl";
@@ -22,6 +23,12 @@ const Settings = () => {
 
   // Manual state for spinner (no Form binding issues)
   const [spinnerEnabled, setSpinnerEnabled] = useState(false);
+  
+  // Manual state for referral offer toggle
+  const [referralOfferEnabled, setReferralOfferEnabled] = useState(false);
+  
+  // Manual state for referral coin percentage
+  const [referralCoinPercent, setReferralCoinPercent] = useState(10);
 
   useEffect(() => {
     fetchSettings();
@@ -46,6 +53,12 @@ const Settings = () => {
 
       // Set spinner separately
       setSpinnerEnabled(res.data.showSpinner === true);
+      
+      // Set referral offer toggle separately
+      setReferralOfferEnabled(res.data.showReferralOffer === true);
+      
+      // Set referral coin percentage
+      setReferralCoinPercent(res.data.referralCoinPercent || 10);
     } catch (error) {
       message.error("Failed to load settings");
     } finally {
@@ -60,7 +73,9 @@ const Settings = () => {
       // Force boolean
       const payload = {
         ...values,
-        showSpinner: spinnerEnabled
+        showSpinner: spinnerEnabled,
+        showReferralOffer: referralOfferEnabled,
+        referralCoinPercent: referralOfferEnabled ? referralCoinPercent : 0
       };
 
       // Update settings
@@ -210,7 +225,8 @@ const Settings = () => {
             </span>
           }
         >
-          <div className="flex items-center gap-4">
+          {/* Spin Wheel Toggle */}
+          <div className="flex items-center gap-4 mb-4">
             <Switch
               checked={spinnerEnabled}
               onChange={(checked) => setSpinnerEnabled(checked)}
@@ -221,6 +237,45 @@ const Settings = () => {
               Show spin wheel offer after purchase
             </span>
           </div>
+          
+          {/* Referral Offer Toggle */}
+          <div className="flex items-center gap-4">
+            <Switch
+              checked={referralOfferEnabled}
+              onChange={(checked) => setReferralOfferEnabled(checked)}
+              checkedChildren="Enabled"
+              unCheckedChildren="Disabled"
+            />
+            <span className="text-gray-500 text-sm">
+              Show referral offer while live billing
+            </span>
+          </div>
+          
+          {/* Referral Coin Percentage - Only show when toggle is enabled */}
+          {referralOfferEnabled && (
+            <div className="mt-4 pl-4 border-l-2 border-indigo-200">
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-2">
+                  <FaPercentage className="text-gray-400" />
+                  <span className="text-gray-500 text-sm">
+                    Coins to referrer (% of order amount):
+                  </span>
+                </div>
+                <input
+                  type="number"
+                  min={0}
+                  max={100}
+                  className="w-20 px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-center"
+                  value={referralCoinPercent}
+                  onChange={(e) => setReferralCoinPercent(Math.min(100, Math.max(0, Number(e.target.value))))}
+                />
+                <span className="text-gray-500 text-sm">%</span>
+              </div>
+              <p className="text-xs text-gray-400 mt-2">
+                This determines what percentage of the order value will be given as coins to the referrer
+              </p>
+            </div>
+          )}
         </Card>
 
         <div className="flex justify-end gap-4">

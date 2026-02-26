@@ -71,6 +71,8 @@ const LiveBilling = () => {
 
   // Settings state - loaded from backend
   const [showSpinner, setShowSpinner] = useState(true);
+  const [showReferralOffer, setShowReferralOffer] = useState(false);
+  const [referralCoinPercent, setReferralCoinPercent] = useState(10);
   const [storeName, setStoreName] = useState("Cart Corner");
   const [storeTagline, setStoreTagline] = useState("Your One-Stop Shopping Destination");
 
@@ -392,6 +394,8 @@ const LiveBilling = () => {
         setCgstPercent(res.data.cgst || 0);
         setSgstPercent(res.data.sgst || 0);
         setShowSpinner(res.data.showSpinner === true);
+        setShowReferralOffer(res.data.showReferralOffer === true);
+        setReferralCoinPercent(res.data.referralCoinPercent || 10);
         setStoreName(res.data.storeName || "Cart Corner");
         setStoreTagline(res.data.storeTagline || "Your One-Stop Shopping Destination");
       } catch (err) {
@@ -1252,7 +1256,8 @@ const validateReferralContact = async (mobile) => {
                   </div>
                 </div>
 
-                {/* Referral Contact Number - Two Columns */}
+                {/* Referral Contact Number - Only show if enabled in settings */}
+                {showReferralOffer && (
                 <div className="md:col-span-2">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {/* Left: Referral Contact Input */}
@@ -1325,6 +1330,7 @@ const validateReferralContact = async (mobile) => {
                     </div>
                   </div>
                 </div>
+                )}
 
                 
               </div>

@@ -61,6 +61,14 @@ var userSchema = new mongoose.Schema(
       type: Boolean,
       default: false, // Show spin wheel by default
     },
+    showReferralOffer: {
+      type: Boolean,
+      default: false, // Show referral offer in live billing by default
+    },
+    referralCoinPercent: {
+      type: Number,
+      default: 10, // Default 10% coins to referrer on referral purchase
+    },
     storeName: {
       type: String,
       default: "Cart Corner",

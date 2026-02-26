@@ -1380,13 +1380,15 @@ const getSettings = asyncHandler(async (req, res) => {
 
   try {
     const user = await User.findById(_id).select(
-      "gstin email showSpinner storeName storeTagline storeAddress storePhone cgst sgst"
+      "gstin email showSpinner showReferralOffer referralCoinPercent storeName storeTagline storeAddress storePhone cgst sgst"
     );
     res.json({
       gstin: user.gstin || "",
       email: user.email || "",
       // showSpinner: user.showSpinner !== false,
       showSpinner: user.showSpinner === true,
+      showReferralOffer: user.showReferralOffer === true,
+      referralCoinPercent: user.referralCoinPercent || 10,
       storeName: user.storeName || "Cart Corner",
       storeTagline: user.storeTagline || "Your One-Stop Shopping Destination",
       storeAddress: user.storeAddress || "",
@@ -1406,23 +1408,27 @@ const updateSettings = asyncHandler(async (req, res) => {
   console.log("Admin updating:", _id);
   console.log("Incoming body:", req.body);
 
-  const { showSpinner, cgst, sgst } = req.body;
+  const { showSpinner, showReferralOffer, referralCoinPercent, cgst, sgst } = req.body;
 
   const updatedUser = await User.findByIdAndUpdate(
     _id,
     {
       showSpinner: Boolean(showSpinner),
+      showReferralOffer: Boolean(showReferralOffer),
+      referralCoinPercent: Number(referralCoinPercent) || 10,
       cgst: Number(cgst) || 0,
       sgst: Number(sgst) || 0
     },
     { new: true }
   );
 
-  console.log("Updated value in DB:", updatedUser.showSpinner, updatedUser.cgst, updatedUser.sgst);
+  console.log("Updated value in DB:", updatedUser.showSpinner, updatedUser.showReferralOffer, updatedUser.referralCoinPercent, updatedUser.cgst, updatedUser.sgst);
 
   res.json({
     success: true,
     showSpinner: updatedUser.showSpinner,
+    showReferralOffer: updatedUser.showReferralOffer,
+    referralCoinPercent: updatedUser.referralCoinPercent,
     cgst: updatedUser.cgst,
     sgst: updatedUser.sgst
   });
@@ -1713,15 +1719,17 @@ const applyReferral = asyncHandler(async (req, res) => {
 });
 
 // Award coins to referrer when referred user places an order
-const awardCoinsOnOrder = asyncHandler(async (referredUserId, orderAmount) => {
+// coinPercent: percentage of order amount to convert to coins (default: 10)
+const awardCoinsOnOrder = asyncHandler(async (referredUserId, orderAmount, coinPercent = 10) => {
   const referredUser = await User.findById(referredUserId);
   
   if (!referredUser || !referredUser.referredBy) {
     return;
   }
 
-  // Calculate coins based on order amount (e.g., 1 coin per ₹10)
-  const coinsToAward = Math.floor(orderAmount / 10);
+  // Calculate coins based on order amount and percentage
+  // e.g., 10% of ₹100 = ₹10 = 10 coins (assuming 1 coin per ₹1)
+  const coinsToAward = Math.floor((orderAmount * coinPercent) / 100);
 
   if (coinsToAward > 0) {
     // Award coins to referrer

@@ -1299,7 +1299,7 @@ const searchUsers = asyncHandler(async (req, res) => {
     ]
   })
     .limit(10)
-    .select("firstname lastname mobile address offerDiscount offerType totalOrders lastOrderDate");
+    .select("firstname lastname mobile address referralCode offerDiscount offerType totalOrders lastOrderDate");
 
   res.json(users);
 });

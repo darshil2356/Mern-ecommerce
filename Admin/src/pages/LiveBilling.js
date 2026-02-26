@@ -447,32 +447,46 @@ const LiveBilling = () => {
   };
 
   // Validate referral contact and get referrer name
-  const validateReferralContact = async (mobile) => {
-    if (!mobile || mobile.length < 10) {
-      setReferrerName("");
-      setReferrerError("");
-      setReferrerCode("");
-      return;
-    }
+const validateReferralContact = async (mobile) => {
+  if (!mobile || mobile.length < 10) {
+    setReferrerName("");
+    setReferrerError("");
+    setReferrerCode("");
+    return;
+  }
 
-    try {
-      const res = await axios.get(`${base_url}user/customer-by-mobile?mobile=${mobile}`, config);
-      if (res.data.found) {
-        setReferrerName(res.data.customer.name);
-        setReferrerCode(res.data.customer.referralCode || "N/A");
+  try {
+    const res = await axios.get(
+      `${base_url}user/search?query=${mobile}`,
+      config
+    );
+
+    if (res.data && res.data.length > 0) {
+      const foundUser = res.data.find(
+        (u) => u.mobile === mobile
+      );
+
+      if (foundUser) {
+        setReferrerName(foundUser.firstname + " " + foundUser.lastname);
+        setReferrerCode(foundUser.referralCode || "N/A");
         setReferrerError("");
       } else {
         setReferrerName("");
         setReferrerCode("");
         setReferrerError("Incorrect referral number");
       }
-    } catch (err) {
-      console.error("Failed to validate referral:", err);
+    } else {
       setReferrerName("");
       setReferrerCode("");
       setReferrerError("Incorrect referral number");
     }
-  };
+  } catch (err) {
+    console.error("Referral validation failed:", err);
+    setReferrerName("");
+    setReferrerCode("");
+    setReferrerError("Incorrect referral number");
+  }
+};
 
   // Clear referral when customer contact changes (to prevent self-referral)
   useEffect(() => {

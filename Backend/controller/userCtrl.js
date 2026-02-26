@@ -34,6 +34,9 @@ const createOfflineOrder = asyncHandler(async (req, res) => {
   let customerId = adminId;
   let actualCustomer = null;
   let isNewCustomer = false;
+  
+  // Extract referralContact from customer object
+  const referralContact = customer?.referralContact || null;
 
   // Step 1: Check if customer already exists
   if (customer && customer.contact) {
@@ -46,6 +49,26 @@ const createOfflineOrder = asyncHandler(async (req, res) => {
       customerId = actualCustomer._id;
     }
   }
+  
+  // =====================================================
+  // REFERRAL PROCESSING SECTION
+  // =====================================================
+  let referrer = null;
+  let referralApplied = false;
+  
+  // If referralContact is provided, try to find the referrer
+  if (referralContact && referralContact.length >= 10) {
+    // Find user by mobile number (referrer)
+    referrer = await User.findOne({ 
+      mobile: referralContact, 
+      role: "user" 
+    });
+    
+    if (referrer) {
+      console.log("Referrer found:", referrer.firstname, referrer.lastname, referrer.referralCode);
+    }
+  }
+  // =====================================================
 
   let orderItems = [];
   let totalPrice = 0;
@@ -153,30 +176,31 @@ if (fullName.length > 0) {
   }
 }
 
-// if (fullName.length > 0) {
-//   const nameParts = fullName.split(" ");
+// Build customer data object
+const customerData = {
+  firstname,
+  lastname,
+  mobile: customer.contact,
+  // email: `${customer.contact}@temp.com`,
+  email: customer.email || undefined,
+  address: customer.address || "",
+  password: null,
+  role: "user",
+  totalOrders: 1,
+  lastOrderDate: new Date(),
+};
 
-//   firstname = nameParts[0];
+// =====================================================
+// LINK REFERRAL FOR NEW CUSTOMER
+// =====================================================
+if (referrer) {
+  customerData.referredBy = referrer._id;
+  referralApplied = true;
+  console.log("New customer will be linked to referrer:", referrer._id);
+}
+// =====================================================
 
-//   if (nameParts.length > 1) {
-//     lastname = nameParts.slice(1).join(" ");
-//   }
-// }
-    // const firstname = nameParts[0] || "Customer";
-    // const lastname = nameParts.slice(1).join(" ") || "";
-
-    const newCustomer = await User.create({
-      firstname,
-      lastname,
-      mobile: customer.contact,
-      // email: `${customer.contact}@temp.com`,
-      email: customer.email || undefined,
-      address: customer.address || "",
-      password: null,
-      role: "user",
-      totalOrders: 1,
-      lastOrderDate: new Date(),
-    });
+    const newCustomer = await User.create(customerData);
 
     order.user = newCustomer._id;
     await order.save();
@@ -189,13 +213,67 @@ if (fullName.length > 0) {
     actualCustomer.totalOrders =
       (actualCustomer.totalOrders || 0) + 1;
     actualCustomer.lastOrderDate = new Date();
+    
+    // =====================================================
+    // LINK REFERRAL FOR EXISTING CUSTOMER (if not already referred)
+    // =====================================================
+    if (referrer && !actualCustomer.referredBy) {
+      actualCustomer.referredBy = referrer._id;
+      referralApplied = true;
+      console.log("Existing customer linked to referrer:", referrer._id);
+    }
+    // =====================================================
+    
     await actualCustomer.save();
   }
+
+  // =====================================================
+  // AWARD COINS TO REFERRER (if referral was applied)
+  // =====================================================
+  if (referralApplied && referrer && totalPriceAfterDiscount > 0) {
+    try {
+      // Get the admin settings for referralCoinPercent
+      const adminUser = await User.findById(adminId);
+      const coinPercent = adminUser?.referralCoinPercent || 10;
+      
+      // Calculate coins to award
+      const coinsToAward = Math.floor((totalPriceAfterDiscount * coinPercent) / 100);
+      
+      if (coinsToAward > 0) {
+        // Award coins to referrer
+        referrer.coins = (referrer.coins || 0) + coinsToAward;
+        referrer.referralCount = (referrer.referralCount || 0) + 1;
+        await referrer.save();
+        
+        console.log(`Awarded ${coinsToAward} coins to referrer ${referrer._id}`);
+        
+        // Also award coins to the referred customer (the one who made the purchase)
+        // Get the customer who made the purchase
+        let purchaseCustomer = null;
+        if (isNewCustomer) {
+          purchaseCustomer = newCustomer;
+        } else if (actualCustomer) {
+          purchaseCustomer = actualCustomer;
+        }
+        
+        if (purchaseCustomer) {
+          purchaseCustomer.coins = (purchaseCustomer.coins || 0) + coinsToAward;
+          await purchaseCustomer.save();
+          console.log(`Awarded ${coinsToAward} coins to referred customer ${purchaseCustomer._id}`);
+        }
+      }
+    } catch (err) {
+      console.error("Error awarding coins to referrer:", err);
+    }
+  }
+  // =====================================================
 
   res.json({
     success: true,
     order,
     newCustomer: isNewCustomer,
+    referralApplied: referralApplied,
+    referrerName: referralApplied ? `${referrer?.firstname} ${referrer?.lastname}` : null,
   });
 });
 

@@ -19,7 +19,7 @@ const { createPasswordResetToken } = require("../models/userModel");
 const createOfflineOrder = asyncHandler(async (req, res) => {
 
   
-  const { items, paymentMethod, customer, discount } = req.body;
+  const { items, paymentMethod, customer, discount, coinsUsed, coinAmount } = req.body;
   const adminId = req.user._id;
 
 
@@ -139,7 +139,8 @@ const createOfflineOrder = asyncHandler(async (req, res) => {
   }
 
   const discountAmount = discount || 0;
-  const totalPriceAfterDiscount = totalPrice - discountAmount;
+  const coinDiscountAmount = coinAmount || 0;
+  const totalPriceAfterDiscount = totalPrice - discountAmount - coinDiscountAmount;
 
   // Step 3: Create order FIRST
   const order = await Order.create({
@@ -148,6 +149,8 @@ const createOfflineOrder = asyncHandler(async (req, res) => {
     totalPrice,
     totalPriceAfterDiscount,
     discountAmount,
+    coinsUsed: coinsUsed || 0,
+    coinAmount: coinAmount || 0,
     paymentInfo: {
       razorpayOrderId: paymentMethod || "OFFLINE",
       razorpayPaymentId: "OFFLINE",
@@ -214,6 +217,20 @@ if (referrer) {
       (actualCustomer.totalOrders || 0) + 1;
     actualCustomer.lastOrderDate = new Date();
     
+    // =====================================================
+    // DEDUCT COINS IF USED FOR PAYMENT
+    // =====================================================
+    if (coinsUsed && coinsUsed > 0 && actualCustomer) {
+      const currentCoins = actualCustomer.coins || 0;
+      const coinsToDeduct = Math.min(coinsUsed, currentCoins); // Can't deduct more than available
+      
+      if (coinsToDeduct > 0) {
+        actualCustomer.coins = currentCoins - coinsToDeduct;
+        console.log(`Deducted ${coinsToDeduct} coins from customer ${actualCustomer._id}`);
+      }
+    }
+    // =====================================================
+
     // =====================================================
     // LINK REFERRAL FOR EXISTING CUSTOMER (if not already referred)
     // =====================================================
@@ -1368,18 +1385,27 @@ const searchUsers = asyncHandler(async (req, res) => {
     return res.json([]);
   }
 
+  const cleanQuery = query.replace(/\D/g, ''); // Remove non-digits for mobile search
+
   const users = await User.find({
     role: "user",
     $or: [
       { firstname: { $regex: query, $options: "i" } },
       { lastname: { $regex: query, $options: "i" } },
-      { mobile: { $regex: query } }
+      { mobile: { $regex: cleanQuery } }, // Clean mobile search
+      { mobile: { $regex: query } } // Original mobile search
     ]
   })
     .limit(10)
-    .select("firstname lastname mobile address referralCode offerDiscount offerType totalOrders lastOrderDate");
+    .select("firstname lastname mobile  address coins referralCode offerDiscount offerType totalOrders lastOrderDate ");
 
-  res.json(users);
+  // Ensure coins field is always present (default to 0 if undefined)
+  const usersWithCoins = users.map(user => ({
+    ...user.toObject(),
+    coins: user.coins || 0
+  }));
+
+  res.json(usersWithCoins);
 });
 
 // Get customer offer details

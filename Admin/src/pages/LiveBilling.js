@@ -21,7 +21,8 @@ import {
   FaClock,
   FaBuilding,
   FaGift,
-  FaTag
+  FaTag,
+  FaCoins
 } from "react-icons/fa";
 import SpinWheel from "../components/SpinWheel";
 import PrintBillButton from "../components/PrintBillButton";
@@ -75,6 +76,11 @@ const LiveBilling = () => {
   const [referralCoinPercent, setReferralCoinPercent] = useState(10);
   const [storeName, setStoreName] = useState("Cart Corner");
   const [storeTagline, setStoreTagline] = useState("Your One-Stop Shopping Destination");
+
+  // Coins state
+  const [customerCoins, setCustomerCoins] = useState(0);
+  const [useCoins, setUseCoins] = useState(false);
+  const [coinAmount, setCoinAmount] = useState(0);
 
   // Scanner input ref
   const scannerRef = useRef(null);
@@ -131,9 +137,19 @@ const LiveBilling = () => {
     [grandTotal, discountPercent, appliedOfferAmount]
   );
 
+  const coinDiscountAmount = useMemo(() => {
+    if (!useCoins || coinAmount <= 0) return 0;
+    // Calculate amount before coins: subtotal + taxes - discount
+    const amountBeforeCoins = grandTotal + cgstAmount + sgstAmount - discountAmount;
+    // Can't use more coins than available or more than the amount before coins
+    const maxCoins = Math.min(customerCoins, Math.floor(amountBeforeCoins));
+    const actualCoins = Math.min(coinAmount, maxCoins);
+    return actualCoins;
+  }, [useCoins, coinAmount, customerCoins, grandTotal, cgstAmount, sgstAmount, discountAmount]);
+
   const payableAmount = useMemo(
-    () => grandTotal + cgstAmount + sgstAmount - discountAmount,
-    [grandTotal, cgstAmount, sgstAmount, discountAmount]
+    () => grandTotal + cgstAmount + sgstAmount - discountAmount - coinDiscountAmount,
+    [grandTotal, cgstAmount, sgstAmount, discountAmount, coinDiscountAmount]
   );
 
   const itemCount = useMemo(() => {
@@ -450,6 +466,58 @@ const LiveBilling = () => {
     }
   };
 
+  // Fetch customer coins when customer is selected
+  const fetchCustomerCoins = async (mobile) => {
+  if (!mobile) {
+    setCustomerCoins(0);
+    return;
+  }
+
+  try {
+    const res = await axios.get(
+      `${base_url}user/search?query=${mobile}`,
+      config
+    );
+
+    if (res.data && res.data.length > 0)
+      {
+      const coins = res.data[0].coins;
+      console.log("RESUT Data ===",res.data);
+      console.log("RESUT Data ===",res.data);
+      console.log("RESUT Data 0 ===",res.data[0]);
+
+      console.log("Fetched coins for customer:", coins); // Debug log
+
+      setCustomerCoins(coins || 0);
+    }
+  } catch (err) {
+    console.error("Failed to fetch customer coins:", err);
+  }
+};
+
+  // Handle use coins toggle
+  const handleUseCoinsChange = (checked) => {
+    setUseCoins(checked);
+    if (!checked) {
+      setCoinAmount(0);
+    } else {
+      // Calculate amount before coins: subtotal + taxes - discount
+      const amountBeforeCoins = grandTotal + cgstAmount + sgstAmount - discountAmount;
+      // Default to using all available coins (up to the amount before coins)
+      const maxCoins = Math.min(customerCoins, Math.floor(amountBeforeCoins));
+      setCoinAmount(maxCoins);
+    }
+  };
+
+  // Handle coin amount change
+  const handleCoinAmountChange = (value) => {
+    const val = parseInt(value) || 0;
+    // Calculate amount before coins: subtotal + taxes - discount
+    const amountBeforeCoins = grandTotal + cgstAmount + sgstAmount - discountAmount;
+    const maxCoins = Math.min(customerCoins, Math.floor(amountBeforeCoins));
+    setCoinAmount(Math.min(val, maxCoins));
+  };
+
   // Validate referral contact and get referrer name
 const validateReferralContact = async (mobile) => {
   if (!mobile || mobile.length < 10) {
@@ -651,9 +719,13 @@ const validateReferralContact = async (mobile) => {
   useEffect(() => {
     if (customer.contact) {
       fetchCustomerOffer(customer.contact);
+      fetchCustomerCoins(customer.contact);
     } else {
       setCustomerOffer({ hasOffer: false, offerDiscount: 0, offerType: "" });
       setAppliedOfferAmount(0);
+      // setCustomerCoins(0);
+      setUseCoins(false);
+      setCoinAmount(0);
     }
   }, [customer.contact]);
 
@@ -750,7 +822,9 @@ const validateReferralContact = async (mobile) => {
           discount: discountAmount,
           total: payableAmount,
           paymentMethod: "CASH",
-          referralContact: customer.referralContact || null
+          referralContact: customer.referralContact || null,
+          coinsUsed: useCoins ? coinAmount : 0,
+          coinAmount: useCoins ? coinDiscountAmount : 0
         },
         config
       );
@@ -806,6 +880,8 @@ const validateReferralContact = async (mobile) => {
       setDiscountPercent(0);
       setAppliedOfferAmount(0);
       setCustomerOffer({ hasOffer: false, offerDiscount: 0, offerType: "" });
+      setUseCoins(false);
+      setCoinAmount(0);
     } catch (err) {
       console.error("Failed to complete sale:", err);
       Swal.fire({
@@ -844,7 +920,9 @@ const validateReferralContact = async (mobile) => {
           discount: discountAmount,
           total: payableAmount,
           paymentMethod: "CASH",
-          referralContact: customer.referralContact || null
+          referralContact: customer.referralContact || null,
+          coinsUsed: useCoins ? coinAmount : 0,
+          coinAmount: useCoins ? coinDiscountAmount : 0
         },
         config
       );
@@ -884,6 +962,8 @@ const validateReferralContact = async (mobile) => {
       setDiscountPercent(0);
       setAppliedOfferAmount(0);
       setCustomerOffer({ hasOffer: false, offerDiscount: 0, offerType: "" });
+      setUseCoins(false);
+      setCoinAmount(0);
     } catch (err) {
       console.error("Failed to complete sale:", err);
       Swal.fire({
@@ -1173,6 +1253,7 @@ const validateReferralContact = async (mobile) => {
                               address: cust.address || "",
                               contact: cust.mobile || "",
                             });
+                            setCustomerCoins(cust.coins || 0);
                             setSearchTerm(cust.firstname + " " + cust.lastname);
                             setShowDropdown(false);
                           }}
@@ -1225,6 +1306,7 @@ const validateReferralContact = async (mobile) => {
                               address: cust.address || "",
                               contact: cust.mobile || "",
                             });
+                            setCustomerCoins(cust.coins || 0);
                             setContactSearch(cust.mobile);
                             setSearchTerm(cust.firstname + " " + cust.lastname);
                             setShowContactDropdown(false);
@@ -1476,43 +1558,7 @@ const validateReferralContact = async (mobile) => {
                 <span className="font-semibold text-lg">₹{grandTotal.toFixed(2)}</span>
               </div>
 
-              {/* CGST */}
-              <div className="bg-white/5 rounded-xl p-4">
-                <div className="flex justify-between items-center mb-2">
-                  <span className="text-indigo-200">CGST</span>
-                  <span className="font-semibold">₹{cgstAmount.toFixed(2)}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="number"
-                    min={0}
-                    step={1}
-                    className="w-20 px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-center text-white placeholder-white/50"
-                    value={cgstPercent}
-                    onChange={(e) => setCgstPercent(clampNonNegative(e.target.value))}
-                  />
-                  <span className="text-indigo-200">%</span>
-                </div>
-              </div>
-
-              {/* SGST */}
-              <div className="bg-white/5 rounded-xl p-4">
-                <div className="flex justify-between items-center mb-2">
-                  <span className="text-indigo-200">SGST</span>
-                  <span className="font-semibold">₹{sgstAmount.toFixed(2)}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="number"
-                    min={0}
-                    step={1}
-                    className="w-20 px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-center text-white placeholder-white/50"
-                    value={sgstPercent}
-                    onChange={(e) => setSgstPercent(clampNonNegative(e.target.value))}
-                  />
-                  <span className="text-indigo-200">%</span>
-                </div>
-              </div>
+             
 
               {/* Discount */}
               <div className="bg-white/5 rounded-xl p-4">
@@ -1533,6 +1579,65 @@ const validateReferralContact = async (mobile) => {
                 </div>
               </div>
 
+              {/* Coins Payment Option - Show when customer is selected */}
+              {customer.contact && (
+                <div className="bg-white/5 rounded-xl p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <FaCoins className="text-amber-400" />
+                      <span className="text-indigo-200">Use Coins</span>
+                    </div>
+                    <span className="text-sm text-amber-400">
+                      (Available: {customerCoins} coins)
+                    </span>
+                  </div>
+                  
+                  {customerCoins > 0 ? (
+                    <>
+                      <div className="flex items-center gap-2 mb-3">
+                        <input
+                          type="checkbox"
+                          checked={useCoins}
+                          onChange={(e) => handleUseCoinsChange(e.target.checked)}
+                          className="w-4 h-4 accent-amber-500"
+                        />
+                        <span className="text-indigo-200 text-sm">
+                          Apply coins to get discount
+                        </span>
+                      </div>
+                      
+                      {useCoins && (
+                        <div className="mt-3">
+                          <div className="flex items-center gap-2">
+                            <span className="text-indigo-200 text-sm">Coins to use:</span>
+                          <input
+                            type="number"
+                            min={0}
+                            max={customerCoins}
+                            className="w-24 px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-center text-white placeholder-white/50"
+                            value={coinAmount}
+                            onChange={(e) => handleCoinAmountChange(e.target.value)}
+                          />
+                          </div>
+                          {coinDiscountAmount > 0 && (
+                            <div className="flex justify-between items-center mt-2 pt-2 border-t border-white/10">
+                              <span className="text-indigo-200">Coin Discount</span>
+                              <span className="font-semibold text-green-400">-₹{coinDiscountAmount.toFixed(2)}</span>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <div className="text-center py-2">
+                      <span className="text-indigo-300 text-sm">
+                        No coins available. Earn coins on your next purchase!
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* Divider */}
               <div className="border-t border-white/20 pt-4">
                 {/* Grand Total */}
@@ -1544,10 +1649,16 @@ const validateReferralContact = async (mobile) => {
                   <span className="text-indigo-200">Tax</span>
                   <span className="text-sm">+₹{(cgstAmount + sgstAmount).toFixed(2)}</span>
                 </div>
-                <div className="flex justify-between items-center mb-4">
+                <div className="flex justify-between items-center mb-2">
                   <span className="text-indigo-200">Discount</span>
                   <span className="text-sm text-green-400">-₹{discountAmount.toFixed(2)}</span>
                 </div>
+                {coinDiscountAmount > 0 && (
+                  <div className="flex justify-between items-center mb-4">
+                    <span className="text-indigo-200">Coins Applied</span>
+                    <span className="text-sm text-green-400">-₹{coinDiscountAmount.toFixed(2)} ({coinAmount} coins)</span>
+                  </div>
+                )}
               </div>
 
               {/* Payable Amount */}

@@ -178,6 +178,7 @@ export const applyReferralCode = createAsyncThunk(
   }
 );
 
+export const logout = createAction("auth/logout");
 export const resetState = createAction("Reset_all");
 
 const getCustomerfromLocalStorage = localStorage.getItem("customer")
@@ -540,6 +541,20 @@ export const authSlice = createSlice({
         if (state.isError) {
           toast.error(action.payload?.response?.data?.message || "Something Went Wrong!");
         }
+      })
+      .addCase(logout, (state) => {
+        state.user = null;
+        state.isError = false;
+        state.isSuccess = false;
+        state.isLoading = false;
+        state.message = "";
+        state.referralCode = "";
+        state.referralCount = 0;
+        state.coins = 0;
+        state.signedInCount = 0;
+        state.orderedCount = 0;
+        state.referrals = [];
+        state.appliedReferral = null;
       })
       .addCase(resetState, () => initialState);
   },

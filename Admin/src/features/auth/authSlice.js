@@ -1,4 +1,4 @@
-import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
+import { createSlice, createAsyncThunk, createAction } from "@reduxjs/toolkit";
 import authService from "./authServices";
 import { toast } from "react-toastify";
 
@@ -165,6 +165,8 @@ export const getCustomerWiseReportData = createAsyncThunk(
     }
   }
 );
+
+export const logout = createAction("auth/logout");
 
 export const authSlice = createSlice({
   name: "auth",
@@ -403,6 +405,14 @@ export const authSlice = createSlice({
         state.isSuccess = false;
         state.message = action.error;
         state.isLoading = false;
+      })
+      .addCase(logout, (state) => {
+        state.user = null;
+        state.orders = [];
+        state.isError = false;
+        state.isLoading = false;
+        state.isSuccess = false;
+        state.message = "";
       });
   },
 });

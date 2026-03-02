@@ -28,14 +28,15 @@ const Header = () => {
     }
   }, []);
 
-  const getTokenFromLocalStorage = localStorage.getItem("customer")
+  const customerFromLocalStorage = localStorage.getItem("customer")
     ? JSON.parse(localStorage.getItem("customer"))
     : null;
+  const customerToken = customerFromLocalStorage?.token;
 
   const config2 = {
     headers: {
       Authorization: `Bearer ${
-        getTokenFromLocalStorage !== null ? getTokenFromLocalStorage.token : ""
+        customerToken || ""
       }`,
       Accept: "application/json",
     },
@@ -47,10 +48,10 @@ const Header = () => {
 
   // Fetch user's coins when logged in
   useEffect(() => {
-    if (getTokenFromLocalStorage !== null) {
+    if (customerToken) {
       dispatch(getMyReferrals());
     }
-  }, [dispatch, getTokenFromLocalStorage]);
+  }, [dispatch, customerToken]);
 
   const [productOpt, setProductOpt] = useState([]);
   
@@ -397,4 +398,3 @@ const Header = () => {
 };
 
 export default Header;
-

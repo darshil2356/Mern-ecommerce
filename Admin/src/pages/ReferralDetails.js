@@ -276,8 +276,8 @@ const ReferralDetails = () => {
     },
   ];
 
-  const data1 = filteredReferrals?.map((item, index) => ({
-    key: index + 1,
+  const data1 = filteredReferrals?.map((item) => ({
+    key: item._id,
     _id: item._id,
     firstname: item.firstname,
     lastname: item.lastname,
@@ -568,6 +568,7 @@ const ReferralDetails = () => {
         <Table
           columns={columns}
           dataSource={data1}
+          rowKey="_id"
           pagination={{
             pageSize: 10,
             showSizeChanger: true,
@@ -584,6 +585,7 @@ const ReferralDetails = () => {
                   <Table
                     columns={referredUsersColumns}
                     dataSource={record.referredUsers}
+                    rowKey={(user, index) => user._id || `${user.mobile || "user"}-${index}`}
                     pagination={false}
                     size="small"
                   />
@@ -636,4 +638,3 @@ const ReferralDetails = () => {
 };
 
 export default ReferralDetails;
-

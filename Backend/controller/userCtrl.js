@@ -33,6 +33,8 @@ const createOfflineOrder = asyncHandler(async (req, res) => {
 
   let customerId = adminId;
   let actualCustomer = null;
+  let purchaseCustomer = null;
+  let newCustomer = null;
   let isNewCustomer = false;
   
   // Extract referralContact from customer object
@@ -47,6 +49,7 @@ const createOfflineOrder = asyncHandler(async (req, res) => {
 
     if (actualCustomer) {
       customerId = actualCustomer._id;
+      purchaseCustomer = actualCustomer;
     }
   }
   
@@ -67,6 +70,15 @@ const createOfflineOrder = asyncHandler(async (req, res) => {
     if (referrer) {
       console.log("Referrer found:", referrer.firstname, referrer.lastname, referrer.referralCode);
     }
+  }
+
+  // Prevent self-referral in offline billing.
+  if (
+    referrer &&
+    actualCustomer &&
+    referrer._id.toString() === actualCustomer._id.toString()
+  ) {
+    referrer = null;
   }
   // =====================================================
 
@@ -203,10 +215,11 @@ if (referrer) {
 }
 // =====================================================
 
-    const newCustomer = await User.create(customerData);
+    newCustomer = await User.create(customerData);
 
     order.user = newCustomer._id;
     await order.save();
+    purchaseCustomer = newCustomer;
 
     isNewCustomer = true;
   }
@@ -244,46 +257,21 @@ if (referrer) {
     await actualCustomer.save();
   }
 
-  // =====================================================
-  // AWARD COINS TO REFERRER (if referral was applied)
-  // =====================================================
-  if (referralApplied && referrer && totalPriceAfterDiscount > 0) {
+  // Increment referral count only when a first-time referral link is created.
+  if (referralApplied && referrer) {
     try {
-      // Get the admin settings for referralCoinPercent
-      const adminUser = await User.findById(adminId);
-      const coinPercent = adminUser?.referralCoinPercent || 10;
-      
-      // Calculate coins to award
-      const coinsToAward = Math.floor((totalPriceAfterDiscount * coinPercent) / 100);
-      
-      if (coinsToAward > 0) {
-        // Award coins to referrer
-        referrer.coins = (referrer.coins || 0) + coinsToAward;
-        referrer.referralCount = (referrer.referralCount || 0) + 1;
-        await referrer.save();
-        
-        console.log(`Awarded ${coinsToAward} coins to referrer ${referrer._id}`);
-        
-        // Also award coins to the referred customer (the one who made the purchase)
-        // Get the customer who made the purchase
-        let purchaseCustomer = null;
-        if (isNewCustomer) {
-          purchaseCustomer = newCustomer;
-        } else if (actualCustomer) {
-          purchaseCustomer = actualCustomer;
-        }
-        
-        if (purchaseCustomer) {
-          purchaseCustomer.coins = (purchaseCustomer.coins || 0) + coinsToAward;
-          await purchaseCustomer.save();
-          console.log(`Awarded ${coinsToAward} coins to referred customer ${purchaseCustomer._id}`);
-        }
-      }
+      referrer.referralCount = (referrer.referralCount || 0) + 1;
+      await referrer.save();
     } catch (err) {
-      console.error("Error awarding coins to referrer:", err);
+      console.error("Error incrementing referral count:", err);
     }
   }
-  // =====================================================
+
+  // Award lifetime referral coins on every order once customer is linked.
+  if (totalPriceAfterDiscount > 0) {
+    const purchasingUserId = purchaseCustomer?._id || order.user;
+    await awardCoinsOnOrder(purchasingUserId, totalPriceAfterDiscount, 10);
+  }
 
   res.json({
     success: true,
@@ -342,6 +330,10 @@ const registerUser = asyncHandler(async (req, res) => {
     }
 
     const newUser = await User.create(newUserData);
+    if (referredByUser) {
+      referredByUser.referralCount = (referredByUser.referralCount || 0) + 1;
+      await referredByUser.save();
+    }
     return res.json(newUser);
   }
 
@@ -891,7 +883,7 @@ const createOrder = asyncHandler(async (req, res) => {
 
     // Award coins for referral if the user was referred
     if (totalPriceAfterDiscount > 0) {
-      await awardCoinsOnOrder(_id, totalPriceAfterDiscount);
+      await awardCoinsOnOrder(_id, totalPriceAfterDiscount, 10);
     }
 
     res.json({
@@ -1835,6 +1827,8 @@ const applyReferral = asyncHandler(async (req, res) => {
     // Apply the referral
     currentUser.referredBy = referrer._id;
     await currentUser.save();
+    referrer.referralCount = (referrer.referralCount || 0) + 1;
+    await referrer.save();
 
     res.json({
       success: true,
@@ -1849,9 +1843,13 @@ const applyReferral = asyncHandler(async (req, res) => {
   }
 });
 
-// Award coins to referrer when referred user places an order
-// coinPercent: percentage of order amount to convert to coins (default: 10)
-const awardCoinsOnOrder = asyncHandler(async (referredUserId, orderAmount, coinPercent = 10) => {
+// Award coins to referrer for lifetime purchases of a referred user.
+// coinPercent defaults to 10% (1 coin == 1 INR).
+const awardCoinsOnOrder = async (referredUserId, orderAmount, coinPercent = 10) => {
+  if (!referredUserId || !orderAmount || orderAmount <= 0) {
+    return;
+  }
+
   const referredUser = await User.findById(referredUserId);
   
   if (!referredUser || !referredUser.referredBy) {
@@ -1867,15 +1865,11 @@ const awardCoinsOnOrder = asyncHandler(async (referredUserId, orderAmount, coinP
     const referrer = await User.findById(referredUser.referredBy);
     if (referrer) {
       referrer.coins = (referrer.coins || 0) + coinsToAward;
-      referrer.referralCount = (referrer.referralCount || 0) + 1;
+      referrer.referralEarnings = (referrer.referralEarnings || 0) + coinsToAward;
       await referrer.save();
     }
-
-    // Update coins for referred user as well
-    referredUser.coins = (referredUser.coins || 0) + coinsToAward;
-    await referredUser.save();
   }
-});
+};
 
 
 

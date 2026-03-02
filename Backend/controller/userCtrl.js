@@ -490,6 +490,7 @@ const loginUserCtrl = asyncHandler(async (req, res) => {
     email: findUser.email,
     mobile: findUser.mobile,
     referralCode: findUser.referralCode || "",
+    coins: findUser.coins || 0,
     token: generateToken(findUser._id),
   });
 });

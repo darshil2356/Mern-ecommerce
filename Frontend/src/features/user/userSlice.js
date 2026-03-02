@@ -194,7 +194,7 @@ const initialState = {
   // Referral state
   referralCode: "",
   referralCount: 0,
-  coins: 0,
+  coins: getCustomerfromLocalStorage?.coins || 0,
   signedInCount: 0,
   orderedCount: 0,
   referrals: [],
@@ -237,6 +237,7 @@ export const authSlice = createSlice({
         state.isSuccess = true;
         state.user = action.payload;
         state.referralCode = action.payload.referralCode || "";
+        state.coins = action.payload.coins || 0;
         if (state.isSuccess === true) {
           localStorage.setItem("token", action.payload.token);
 
@@ -251,6 +252,7 @@ export const authSlice = createSlice({
             email: action.payload.email,
             mobile: action.payload.mobile,
             referralCode: action.payload.referralCode || "",
+            coins: action.payload.coins || 0,
           };
           localStorage.setItem("customer", JSON.stringify(newUserData));
 

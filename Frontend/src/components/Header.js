@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { NavLink, Link, useNavigate } from "react-router-dom";
-import { BsSearch, BsPlay } from "react-icons/bs";
+import { BsSearch, BsPlay, BsCoin } from "react-icons/bs";
 import compare from "../images/compare.svg";
 import wishlist from "../images/wishlist.svg";
 import user from "../images/user.svg";
@@ -10,12 +10,13 @@ import { useDispatch, useSelector } from "react-redux";
 import { Typeahead } from "react-bootstrap-typeahead";
 import "react-bootstrap-typeahead/css/Typeahead.css";
 import { getAProduct, getAllProducts } from "../features/products/productSlilce";
-import { getUserCart } from "../features/user/userSlice";
+import { getUserCart, getMyReferrals } from "../features/user/userSlice";
 
 const Header = () => {
   const dispatch = useDispatch();
   const cartState = useSelector((state) => state?.auth?.cartProducts);
   const authState = useSelector((state) => state?.auth);
+  const coinsState = useSelector((state) => state?.auth?.coins);
   const [total, setTotal] = useState(0);
   const productState = useSelector((state) => state?.product?.product);
   const navigate = useNavigate();
@@ -43,6 +44,13 @@ const Header = () => {
   useEffect(() => {
     dispatch(getUserCart(config2));
   }, [dispatch]);
+
+  // Fetch user's coins when logged in
+  useEffect(() => {
+    if (getTokenFromLocalStorage !== null) {
+      dispatch(getMyReferrals());
+    }
+  }, [dispatch, getTokenFromLocalStorage]);
 
   const [productOpt, setProductOpt] = useState([]);
   
@@ -189,6 +197,25 @@ const Header = () => {
                   </div>
                   <span className="d-none d-lg-inline" style={{ fontSize: '13px' }}>Wishlist</span>
                 </Link>
+                
+                {/* Coins */}
+                {authState?.user !== null && (
+                  <Link 
+                    to="/my-profile" 
+                    className="d-flex align-items-center gap-2 text-decoration-none"
+                    style={{ 
+                      color: '#d4af37',
+                      background: 'rgba(212, 175, 55, 0.1)',
+                      padding: '8px 12px',
+                      borderRadius: '20px'
+                    }}
+                  >
+                    <BsCoin style={{ fontSize: '20px' }} />
+                    <span style={{ fontSize: '13px', fontWeight: 600 }}>
+                      {coinsState ? coinsState.toLocaleString() : 0}
+                    </span>
+                  </Link>
+                )}
                 
                 {/* User */}
                 <Link 

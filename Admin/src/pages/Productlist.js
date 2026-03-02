@@ -188,32 +188,69 @@ const Productlist = () => {
         return <span className="text-muted">-</span>;
       },
     },
+    // {
+    //   title: "Stock",
+    //   dataIndex: "quantity",
+    //   key: "quantity",
+    //   sorter: (a, b) => a.quantity - b.quantity,
+    //   render: (quantity) => {
+    //     const status = getStockStatus(quantity);
+    //     return (
+    //       <div
+    //         style={{
+    //           backgroundColor: status.bg,
+    //           padding: "4px 12px",
+    //           borderRadius: "20px",
+    //           display: "inline-block",
+    //         }}
+    //       >
+    //         <span style={{ color: status.color, fontWeight: 500, fontSize: "13px" }}>
+    //           {status.text}
+    //         </span>
+    //         <span className="text-muted ms-1" style={{ fontSize: "12px" }}>
+    //           ({quantity})
+    //         </span>
+    //       </div>
+    //     );
+    //   },
+    // },
+
     {
-      title: "Stock",
-      dataIndex: "quantity",
-      key: "quantity",
-      sorter: (a, b) => a.quantity - b.quantity,
-      render: (quantity) => {
-        const status = getStockStatus(quantity);
-        return (
-          <div
-            style={{
-              backgroundColor: status.bg,
-              padding: "4px 12px",
-              borderRadius: "20px",
-              display: "inline-block",
-            }}
-          >
-            <span style={{ color: status.color, fontWeight: 500, fontSize: "13px" }}>
-              {status.text}
-            </span>
-            <span className="text-muted ms-1" style={{ fontSize: "12px" }}>
-              ({quantity})
-            </span>
-          </div>
-        );
-      },
-    },
+  title: "Stock",
+  key: "quantity",
+  sorter: (a, b) => {
+    const totalA = a.sizeStock?.reduce((sum, item) => sum + item.quantity, 0) || 0;
+    const totalB = b.sizeStock?.reduce((sum, item) => sum + item.quantity, 0) || 0;
+    return totalA - totalB;
+  },
+  render: (_, record) => {
+    const total =
+      record.sizeStock?.reduce(
+        (sum, item) => sum + item.quantity,
+        0
+      ) || 0;
+
+    const status = getStockStatus(total);
+
+    return (
+      <div
+        style={{
+          backgroundColor: status.bg,
+          padding: "4px 12px",
+          borderRadius: "20px",
+          display: "inline-block",
+        }}
+      >
+        <span style={{ color: status.color, fontWeight: 500, fontSize: "13px" }}>
+          {status.text}
+        </span>
+        <span className="text-muted ms-1" style={{ fontSize: "12px" }}>
+          ({total})
+        </span>
+      </div>
+    );
+  },
+},
     {
       title: "Price",
       dataIndex: "price",
@@ -408,7 +445,11 @@ const Productlist = () => {
               <div>
                 <p className="text-muted mb-1" style={{ fontSize: "13px" }}>Total Value</p>
                 <h3 className="mb-0" style={{ fontWeight: 600 }}>
-                  ₹{productState?.reduce((sum, p) => sum + (p.price * p.quantity), 0).toLocaleString() || 0}
+                  ₹{productState?.reduce((sum, p) => sum + (productState?.reduce((sum, p) => {
+  const totalQty =
+    p.sizeStock?.reduce((s, item) => s + item.quantity, 0) || 0;
+  return sum + p.price * totalQty;
+}, 0)), 0).toLocaleString() || 0}
                 </h3>
               </div>
               <div style={{

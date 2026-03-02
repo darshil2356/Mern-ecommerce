@@ -57,7 +57,11 @@ export const addRating = createAsyncThunk(
 export const productSlice = createSlice({
   name: "product",
   initialState: productState,
-  reducers: {},
+  reducers: {
+    resetSingleProduct: (state) => {
+      state.singleproduct = null;
+    },
+  },
   extraReducers: (builder) => {
     builder
       .addCase(getAllProducts.pending, (state) => {
@@ -130,3 +134,4 @@ export const productSlice = createSlice({
 });
 
 export default productSlice.reducer;
+export const { resetSingleProduct } = productSlice.actions;

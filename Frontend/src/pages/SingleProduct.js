@@ -8,7 +8,7 @@ import { AiOutlineHeart, AiFillHeart, AiOutlinePlayCircle, AiOutlineZoomIn, AiOu
 import { useLocation, useNavigate } from "react-router-dom";
 import Container from "../components/Container";
 import { useDispatch, useSelector } from "react-redux";
-import { addRating, getAProduct, getAllProducts } from "../features/products/productSlilce";
+import { addRating, getAProduct, getAllProducts, resetSingleProduct } from "../features/products/productSlilce";
 import { toast } from "react-toastify";
 import { addProdToCart, getUserCart } from "../features/user/userSlice";
 import { addToWishlist } from "../features/products/productSlilce";
@@ -50,6 +50,7 @@ const SingleProduct = () => {
   }, [wishlistState, productState?._id]);
 
   useEffect(() => {
+    dispatch(resetSingleProduct());
     if (getProductId) {
       dispatch(getAProduct(getProductId));
       dispatch(getUserCart());

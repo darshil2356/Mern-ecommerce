@@ -278,6 +278,13 @@ const getaProduct = asyncHandler(async (req, res) => {
   validateMongoDbId(id);
   try {
     const findProduct = await Product.findById(id).populate("color");
+    
+    // Calculate total quantity from sizeStock if it exists
+    if (findProduct.sizeStock && findProduct.sizeStock.length > 0) {
+      const totalQuantity = findProduct.sizeStock.reduce((sum, item) => sum + (item.quantity || 0), 0);
+      findProduct.quantity = totalQuantity;
+    }
+    
     res.json(findProduct);
   } catch (error) {
     throw new Error(error);

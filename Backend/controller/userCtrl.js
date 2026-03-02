@@ -853,6 +853,32 @@ const createOrder = asyncHandler(async (req, res) => {
   } = req.body;
   const { _id } = req.user;
   try {
+    // Decrease stock for each ordered item
+    for (const item of orderItems) {
+      const product = await Product.findById(item.product);
+      
+      if (product) {
+        // If product has sizeStock, decrease from the first available size
+        if (product.sizeStock && product.sizeStock.length > 0) {
+          let remainingQty = item.quantity;
+          
+          for (let i = 0; i < product.sizeStock.length && remainingQty > 0; i++) {
+            if (product.sizeStock[i].quantity > 0) {
+              const deductQty = Math.min(product.sizeStock[i].quantity, remainingQty);
+              product.sizeStock[i].quantity -= deductQty;
+              remainingQty -= deductQty;
+            }
+          }
+        } else {
+          // Decrease from main quantity
+          product.quantity = Math.max(0, product.quantity - item.quantity);
+        }
+        
+        product.sold = (product.sold || 0) + item.quantity;
+        await product.save();
+      }
+    }
+
     const order = await Order.create({
       shippingInfo,
       orderItems,

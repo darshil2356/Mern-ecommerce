@@ -32,7 +32,7 @@ const addToCart = async (cartData) => {
 };
 
 const getCart = async (data) => {
-  const response = await axios.get(`${base_url}user/cart`, data);
+  const response = await axios.get(`${base_url}user/cart`, getConfig());
   if (response.data) {
     return response.data;
   }
@@ -116,7 +116,7 @@ const resetPass = async (data) => {
 };
 
 const emptyCart = async (data) => {
-  const response = await axios.delete(`${base_url}user/empty-cart`, data);
+  const response = await axios.delete(`${base_url}user/empty-cart`, getConfig());
 
   if (response.data) {
     return response.data;

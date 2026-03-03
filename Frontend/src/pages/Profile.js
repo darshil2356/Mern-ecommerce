@@ -923,6 +923,8 @@ const Profile = () => {
                       <tr>
                         <th style={{ fontSize: "11px", textTransform: "uppercase", letterSpacing: "1px", color: "#6c757d" }}>Type</th>
                         <th style={{ fontSize: "11px", textTransform: "uppercase", letterSpacing: "1px", color: "#6c757d" }}>Details</th>
+                        <th style={{ fontSize: "11px", textTransform: "uppercase", letterSpacing: "1px", color: "#6c757d" }}>From (Contact)</th>
+                        <th style={{ fontSize: "11px", textTransform: "uppercase", letterSpacing: "1px", color: "#6c757d" }}>Order</th>
                         <th style={{ fontSize: "11px", textTransform: "uppercase", letterSpacing: "1px", color: "#6c757d" }}>Coins</th>
                         <th style={{ fontSize: "11px", textTransform: "uppercase", letterSpacing: "1px", color: "#6c757d" }}>Date</th>
                       </tr>
@@ -948,6 +950,28 @@ const Profile = () => {
                             </span>
                           </td>
                           <td>{getCoinTxnLabel(txn)}</td>
+                          <td style={{ fontSize: "13px", color: "#374151" }}>
+                            {txn?.relatedUser ? (
+                              <div>
+                                <div className="fw-semibold">{txn.relatedUser.name}</div>
+                                <div className="text-muted">{txn.relatedUser.mobile}</div>
+                              </div>
+                            ) : (
+                              <span className="text-muted">-</span>
+                            )}
+                          </td>
+                          <td style={{ fontSize: "13px", color: "#374151" }}>
+                            {txn?.orderInfo ? (
+                              <div>
+                                <div className="fw-semibold">{txn.orderInfo.orderTitle || "Order"}</div>
+                                <div className="text-muted">{txn.orderInfo.orderId}</div>
+                              </div>
+                            ) : txn?.metadata?.orderId ? (
+                              <span className="text-muted">{txn.metadata.orderId}</span>
+                            ) : (
+                              <span className="text-muted">-</span>
+                            )}
+                          </td>
                           <td className={txn.type === "credit" ? "text-success fw-bold" : "text-danger fw-bold"}>
                             {txn.type === "credit" ? "+" : "-"}{txn.coins || 0}
                           </td>

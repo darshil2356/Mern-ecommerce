@@ -1943,6 +1943,82 @@ const getMyReferrals = asyncHandler(async (req, res) => {
       ),
     ].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
+    // Enrich transactions with related user contact + order summary
+    const relatedUserIds = Array.from(
+      new Set(
+        mergedCoinTransactions
+          .map((txn) => txn?.metadata?.referredUserId)
+          .filter(Boolean)
+          .map((id) => String(id))
+      )
+    );
+
+    const relatedOrderIds = Array.from(
+      new Set(
+        mergedCoinTransactions
+          .map((txn) => txn?.metadata?.orderId)
+          .filter(Boolean)
+          .map((id) => String(id))
+      )
+    );
+
+    const relatedUsers = relatedUserIds.length
+      ? await User.find({ _id: { $in: relatedUserIds } }).select(
+          "firstname lastname mobile"
+        )
+      : [];
+
+    const relatedOrders = relatedOrderIds.length
+      ? await Order.find({ _id: { $in: relatedOrderIds } })
+          .select("_id orderItems createdAt")
+          .populate({
+            path: "orderItems.product",
+            select: "title",
+          })
+      : [];
+
+    const relatedUserMap = new Map(
+      relatedUsers.map((u) => [
+        String(u._id),
+        {
+          name: `${u.firstname || ""} ${u.lastname || ""}`.trim() || "N/A",
+          mobile: u.mobile || "",
+        },
+      ])
+    );
+
+    const relatedOrderMap = new Map(
+      relatedOrders.map((o) => {
+        const firstItem = o.orderItems?.[0];
+        const firstProductTitle = firstItem?.product?.title || "Order";
+        return [
+          String(o._id),
+          {
+            orderId: o._id,
+            orderTitle:
+              o.orderItems?.length > 1
+                ? `${firstProductTitle} +${o.orderItems.length - 1} more`
+                : firstProductTitle,
+          },
+        ];
+      })
+    );
+
+    const enrichedCoinTransactions = mergedCoinTransactions.map((txn) => {
+      const relatedUser = txn?.metadata?.referredUserId
+        ? relatedUserMap.get(String(txn.metadata.referredUserId))
+        : null;
+      const orderInfo = txn?.metadata?.orderId
+        ? relatedOrderMap.get(String(txn.metadata.orderId))
+        : null;
+
+      return {
+        ...txn,
+        relatedUser: relatedUser || null,
+        orderInfo: orderInfo || null,
+      };
+    });
+
     console.log("Sending response:", {
       referralCode: user.referralCode,
       referralCount: user.referralCount || 0,
@@ -1950,7 +2026,7 @@ const getMyReferrals = asyncHandler(async (req, res) => {
       signedInCount,
       orderedCount,
       referrals: detailedReferrals,
-      coinTransactions: mergedCoinTransactions,
+      coinTransactions: enrichedCoinTransactions,
     });
 
     res.json({
@@ -1960,7 +2036,7 @@ const getMyReferrals = asyncHandler(async (req, res) => {
       signedInCount,
       orderedCount,
       referrals: detailedReferrals,
-      coinTransactions: mergedCoinTransactions,
+      coinTransactions: enrichedCoinTransactions,
     });
   } catch (error) {
     throw new Error(error);

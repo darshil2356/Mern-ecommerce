@@ -14,6 +14,24 @@ const jwt = require("jsonwebtoken");
 const sendEmail = require("./emailCtrl");
 const { createPasswordResetToken } = require("../models/userModel");
 
+const appendCoinTransaction = (userDoc, transaction) => {
+  if (!userDoc) return;
+
+  if (!Array.isArray(userDoc.coinTransactions)) {
+    userDoc.coinTransactions = [];
+  }
+
+  userDoc.coinTransactions.push({
+    type: transaction.type,
+    coins: transaction.coins,
+    reason: transaction.reason || "",
+    source: transaction.source || "other",
+    description: transaction.description || "",
+    metadata: transaction.metadata || {},
+    createdAt: transaction.createdAt || new Date(),
+  });
+};
+
 
 
 const createOfflineOrder = asyncHandler(async (req, res) => {
@@ -258,6 +276,17 @@ if (referrer) {
       
       if (coinsToDeduct > 0) {
         actualCustomer.coins = currentCoins - coinsToDeduct;
+        appendCoinTransaction(actualCustomer, {
+          type: "debit",
+          coins: coinsToDeduct,
+          reason: "purchase",
+          source: "purchase",
+          description: "Coins used during billing",
+          metadata: {
+            orderId: order?._id,
+            mode: "OFFLINE",
+          },
+        });
         console.log(`Deducted ${coinsToDeduct} coins from customer ${actualCustomer._id}`);
       }
     }
@@ -881,6 +910,8 @@ const createOrder = asyncHandler(async (req, res) => {
     totalPrice,
     totalPriceAfterDiscount,
     paymentInfo,
+    coinsUsed,
+    coinAmount,
   } = req.body;
   const { _id } = req.user;
   try {
@@ -915,9 +946,35 @@ const createOrder = asyncHandler(async (req, res) => {
       orderItems,
       totalPrice,
       totalPriceAfterDiscount,
+      coinsUsed: coinsUsed || 0,
+      coinAmount: coinAmount || 0,
       paymentInfo,
       user: _id,
     });
+
+    if (coinsUsed && coinsUsed > 0) {
+      const currentUser = await User.findById(_id);
+      if (currentUser) {
+        const currentCoins = currentUser.coins || 0;
+        const coinsToDeduct = Math.min(coinsUsed, currentCoins);
+
+        if (coinsToDeduct > 0) {
+          currentUser.coins = currentCoins - coinsToDeduct;
+          appendCoinTransaction(currentUser, {
+            type: "debit",
+            coins: coinsToDeduct,
+            reason: "purchase",
+            source: "purchase",
+            description: "Coins used during checkout",
+            metadata: {
+              orderId: order?._id,
+              mode: "ONLINE",
+            },
+          });
+          await currentUser.save();
+        }
+      }
+    }
 
     // Award coins for referral if the user was referred
     if (totalPriceAfterDiscount > 0) {
@@ -1760,31 +1817,64 @@ const getMyReferrals = asyncHandler(async (req, res) => {
 
     console.log("Found referrals:", referrals.length, referrals);
 
-    // For each referral, check if they have orders
-    const detailedReferrals = await Promise.all(
-      referrals.map(async (ref) => {
-        // Check if user has any orders
-        const orderCount = await Order.countDocuments({ user: ref._id });
-        
-        return {
-          _id: ref._id,
-          firstname: ref.firstname,
-          lastname: ref.lastname,
-          mobile: ref.mobile,
-          createdAt: ref.createdAt,
-          coins: ref.coins || 0,
-          // Status: not_signed_in (not applicable for referred users), signed_in, ordered
-          status: orderCount > 0 ? "ordered" : "signed_in"
-        };
-      })
-    );
+    const referralIds = referrals.map((ref) => ref._id);
+    let referralOrderStatsMap = new Map();
+
+    if (referralIds.length > 0) {
+      const referralOrderStats = await Order.aggregate([
+        {
+          $match: {
+            user: { $in: referralIds },
+          },
+        },
+        {
+          $project: {
+            user: 1,
+            earnedCoins: {
+              $floor: {
+                $multiply: [{ $ifNull: ["$totalPriceAfterDiscount", 0] }, 0.1],
+              },
+            },
+          },
+        },
+        {
+          $group: {
+            _id: "$user",
+            orderCount: { $sum: 1 },
+            referrerEarnedCoins: { $sum: "$earnedCoins" },
+          },
+        },
+      ]);
+
+      referralOrderStatsMap = new Map(
+        referralOrderStats.map((stat) => [stat._id.toString(), stat])
+      );
+    }
+
+    const detailedReferrals = referrals.map((ref) => {
+      const stat = referralOrderStatsMap.get(ref._id.toString());
+      const orderCount = stat?.orderCount || 0;
+      const referrerEarnedCoins = stat?.referrerEarnedCoins || 0;
+
+      return {
+        _id: ref._id,
+        firstname: ref.firstname,
+        lastname: ref.lastname,
+        mobile: ref.mobile,
+        createdAt: ref.createdAt,
+        coins: ref.coins || 0,
+        referrerEarnedCoins,
+        // Status: not_signed_in (not applicable for referred users), signed_in, ordered
+        status: orderCount > 0 ? "ordered" : "signed_in",
+      };
+    });
 
     // Calculate counts
     const signedInCount = detailedReferrals.filter(r => r.status === "signed_in").length;
     const orderedCount = detailedReferrals.filter(r => r.status === "ordered").length;
-    const totalCoins = detailedReferrals.reduce((sum, r) => sum + (r.coins || 0), 0);
-
-    let user = await User.findById(_id);
+    let user = await User.findById(_id).select(
+      "referralCode referralCount coins coinTransactions createdAt updatedAt"
+    );
 
     // Ensure user has a referral code
     if (!user.referralCode) {
@@ -1807,6 +1897,52 @@ const getMyReferrals = asyncHandler(async (req, res) => {
       await user.save();
     }
     
+    const coinTransactionsFromDb = (user.coinTransactions || []).map((txn) => ({
+      _id: txn._id,
+      type: txn.type,
+      coins: txn.coins,
+      reason: txn.reason || "",
+      source: txn.source || "other",
+      description: txn.description || "",
+      metadata: txn.metadata || {},
+      createdAt: txn.createdAt || user.updatedAt || user.createdAt,
+    }));
+
+    // Backward compatibility for older orders before coinTransactions existed.
+    const legacyDebitOrders = await Order.find({
+      user: _id,
+      coinAmount: { $gt: 0 },
+    })
+      .select("_id coinAmount coinsUsed createdAt mode")
+      .sort({ createdAt: -1 });
+
+    const legacyDebitEntries = legacyDebitOrders.map((order) => ({
+      _id: `legacy-order-${order._id}`,
+      type: "debit",
+      coins: order.coinsUsed || order.coinAmount || 0,
+      reason: "purchase",
+      source: "purchase",
+      description: "Coins used during purchase",
+      metadata: {
+        orderId: order._id,
+        mode: order.mode || "ONLINE",
+      },
+      createdAt: order.createdAt,
+    }));
+
+    const seenLegacyOrderIds = new Set(
+      coinTransactionsFromDb
+        .filter((txn) => txn?.metadata?.orderId)
+        .map((txn) => String(txn.metadata.orderId))
+    );
+
+    const mergedCoinTransactions = [
+      ...coinTransactionsFromDb,
+      ...legacyDebitEntries.filter(
+        (txn) => !seenLegacyOrderIds.has(String(txn.metadata.orderId))
+      ),
+    ].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
     console.log("Sending response:", {
       referralCode: user.referralCode,
       referralCount: user.referralCount || 0,
@@ -1814,6 +1950,7 @@ const getMyReferrals = asyncHandler(async (req, res) => {
       signedInCount,
       orderedCount,
       referrals: detailedReferrals,
+      coinTransactions: mergedCoinTransactions,
     });
 
     res.json({
@@ -1823,6 +1960,7 @@ const getMyReferrals = asyncHandler(async (req, res) => {
       signedInCount,
       orderedCount,
       referrals: detailedReferrals,
+      coinTransactions: mergedCoinTransactions,
     });
   } catch (error) {
     throw new Error(error);
@@ -1904,6 +2042,18 @@ const awardCoinsOnOrder = async (referredUserId, orderAmount, coinPercent = 10) 
     if (referrer) {
       referrer.coins = (referrer.coins || 0) + coinsToAward;
       referrer.referralEarnings = (referrer.referralEarnings || 0) + coinsToAward;
+      appendCoinTransaction(referrer, {
+        type: "credit",
+        coins: coinsToAward,
+        reason: "referral_purchase",
+        source: "referral_purchase",
+        description: "Coins earned from referred user's purchase",
+        metadata: {
+          referredUserId: referredUser._id,
+          orderAmount,
+          coinPercent,
+        },
+      });
       await referrer.save();
     }
   }

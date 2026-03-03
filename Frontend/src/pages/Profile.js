@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import BreadCrumb from "../components/BreadCrumb";
 import Container from "../components/Container";
 import { useFormik } from "formik";
@@ -24,6 +24,7 @@ const Profile = () => {
   const [copiedLink, setCopiedLink] = useState(false);
   const [referralCodeInput, setReferralCodeInput] = useState("");
   const [isLoadingReferral, setIsLoadingReferral] = useState(false);
+  const [coinFilter, setCoinFilter] = useState("all");
 
   const getTokenFromLocalStorage = localStorage.getItem("customer")
     ? JSON.parse(localStorage.getItem("customer"))
@@ -126,6 +127,36 @@ const Profile = () => {
 
   const formatPrice = (price) => {
     return `₹ ${price?.toLocaleString("en-IN")}`;
+  };
+
+  const formatDateTime = (date) => {
+    if (!date) return "-";
+    return new Date(date).toLocaleString("en-IN", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
+
+  const coinTransactions = referralState?.coinTransactions || [];
+  const filteredCoinTransactions = useMemo(() => {
+    if (coinFilter === "credited") {
+      return coinTransactions.filter((txn) => txn.type === "credit");
+    }
+    if (coinFilter === "debited") {
+      return coinTransactions.filter((txn) => txn.type === "debit");
+    }
+    return coinTransactions;
+  }, [coinFilter, coinTransactions]);
+
+  const getCoinTxnLabel = (txn) => {
+    if (txn.reason === "referral_purchase") return "Referral Purchase Reward";
+    if (txn.reason === "purchase") return "Used In Purchase";
+    if (txn.reason === "expiry") return "Coin Expiry";
+    if (txn.reason === "admin_adjustment") return "Manual Adjustment";
+    return txn.description || "Coin Update";
   };
 
   const getReferralLink = () => {
@@ -813,6 +844,128 @@ const Profile = () => {
           </div>
         </motion.div>
 
+        {/* Coin Activity - All / Credited / Debited */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.25 }}
+          className="mb-4"
+        >
+          <div
+            className="card border-0"
+            style={{
+              borderRadius: "16px",
+              background: "#fff",
+              boxShadow: "0 4px 30px rgba(0,0,0,0.08)",
+            }}
+          >
+            <div
+              style={{
+                height: "4px",
+                background: "linear-gradient(90deg, #f59e0b, #fcd34d, #f59e0b)",
+              }}
+            />
+            <div className="card-body p-4">
+              <div className="d-flex justify-content-between align-items-center mb-3">
+                <h5 className="mb-0 fw-bold" style={{ fontFamily: "'Playfair Display', serif" }}>
+                  Coin Activity
+                </h5>
+                <div className="d-flex gap-2">
+                  <button
+                    className="btn btn-sm"
+                    onClick={() => setCoinFilter("all")}
+                    style={{
+                      borderRadius: "999px",
+                      padding: "6px 14px",
+                      border: coinFilter === "all" ? "none" : "1px solid #d1d5db",
+                      background: coinFilter === "all" ? "linear-gradient(135deg, #111827 0%, #1f2937 100%)" : "#fff",
+                      color: coinFilter === "all" ? "#fff" : "#374151",
+                      fontWeight: 600,
+                    }}
+                  >
+                    All
+                  </button>
+                  <button
+                    className="btn btn-sm"
+                    onClick={() => setCoinFilter("credited")}
+                    style={{
+                      borderRadius: "999px",
+                      padding: "6px 14px",
+                      border: coinFilter === "credited" ? "none" : "1px solid #d1d5db",
+                      background: coinFilter === "credited" ? "linear-gradient(135deg, #16a34a 0%, #22c55e 100%)" : "#fff",
+                      color: coinFilter === "credited" ? "#fff" : "#374151",
+                      fontWeight: 600,
+                    }}
+                  >
+                    Credited
+                  </button>
+                  <button
+                    className="btn btn-sm"
+                    onClick={() => setCoinFilter("debited")}
+                    style={{
+                      borderRadius: "999px",
+                      padding: "6px 14px",
+                      border: coinFilter === "debited" ? "none" : "1px solid #d1d5db",
+                      background: coinFilter === "debited" ? "linear-gradient(135deg, #dc2626 0%, #ef4444 100%)" : "#fff",
+                      color: coinFilter === "debited" ? "#fff" : "#374151",
+                      fontWeight: 600,
+                    }}
+                  >
+                    Debited
+                  </button>
+                </div>
+              </div>
+
+              {filteredCoinTransactions.length > 0 ? (
+                <div className="table-responsive">
+                  <table className="table table-hover mb-0">
+                    <thead>
+                      <tr>
+                        <th style={{ fontSize: "11px", textTransform: "uppercase", letterSpacing: "1px", color: "#6c757d" }}>Type</th>
+                        <th style={{ fontSize: "11px", textTransform: "uppercase", letterSpacing: "1px", color: "#6c757d" }}>Details</th>
+                        <th style={{ fontSize: "11px", textTransform: "uppercase", letterSpacing: "1px", color: "#6c757d" }}>Coins</th>
+                        <th style={{ fontSize: "11px", textTransform: "uppercase", letterSpacing: "1px", color: "#6c757d" }}>Date</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredCoinTransactions.map((txn) => (
+                        <tr key={txn._id || `${txn.type}-${txn.createdAt}`}>
+                          <td>
+                            <span
+                              className="badge"
+                              style={{
+                                background: txn.type === "credit"
+                                  ? "linear-gradient(135deg, #16a34a 0%, #22c55e 100%)"
+                                  : "linear-gradient(135deg, #dc2626 0%, #ef4444 100%)",
+                                color: "#fff",
+                                padding: "6px 10px",
+                                borderRadius: "999px",
+                                fontSize: "11px",
+                                textTransform: "capitalize",
+                              }}
+                            >
+                              {txn.type}
+                            </span>
+                          </td>
+                          <td>{getCoinTxnLabel(txn)}</td>
+                          <td className={txn.type === "credit" ? "text-success fw-bold" : "text-danger fw-bold"}>
+                            {txn.type === "credit" ? "+" : "-"}{txn.coins || 0}
+                          </td>
+                          <td style={{ color: "#6b7280", fontSize: "13px" }}>{formatDateTime(txn.createdAt)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div className="text-center py-4 text-muted">
+                  No coin activity found for this filter.
+                </div>
+              )}
+            </div>
+          </div>
+        </motion.div>
+
         {/* Referred Users List - Premium Table */}
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
@@ -868,7 +1021,7 @@ const Profile = () => {
                         <th style={{ border: 'none', background: 'transparent', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '1px', color: '#6c757d', padding: '12px 16px' }}>Mobile</th>
                         <th style={{ border: 'none', background: 'transparent', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '1px', color: '#6c757d', padding: '12px 16px' }}>Joined On</th>
                         <th style={{ border: 'none', background: 'transparent', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '1px', color: '#6c757d', padding: '12px 16px' }}>Status</th>
-                        <th style={{ border: 'none', background: 'transparent', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '1px', color: '#6c757d', padding: '12px 16px' }}>Coins Earned</th>
+                        <th style={{ border: 'none', background: 'transparent', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '1px', color: '#6c757d', padding: '12px 16px' }}>Lifetime Coins Earned</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -950,7 +1103,7 @@ const Profile = () => {
                               }}
                             >
                               <FiGift className="me-1" />
-                              {ref.coins || 0}
+                              {ref.referrerEarnedCoins || 0}
                             </span>
                           </td>
                         </motion.tr>

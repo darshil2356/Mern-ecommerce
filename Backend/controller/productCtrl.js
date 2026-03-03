@@ -86,6 +86,17 @@ const createProduct = asyncHandler(async (req, res) => {
       online: req.body.inventory?.online === true,
     };
 
+    if (Array.isArray(req.body.sizeStock)) {
+      req.body.sizeStock = req.body.sizeStock.map((item) => ({
+        ...item,
+        quantity: Math.max(0, Number(item.quantity) || 0),
+      }));
+      req.body.quantity = req.body.sizeStock.reduce(
+        (sum, item) => sum + (item.quantity || 0),
+        0
+      );
+    }
+
     console.log("NORMALIZED INVENTORY:", req.body.inventory);
 
     const product = await Product.create(req.body);
@@ -162,13 +173,15 @@ const updateProduct = asyncHandler(async (req, res) => {
     };
   }
 
-  const existingProduct = await Product.findById(id);
-  
+  const hasSizeStock = Object.prototype.hasOwnProperty.call(req.body, "sizeStock");
+
   // If sizeStock is being updated, regenerate unique barcodes for each new size
-  if (sizeStock && sizeStock.length > 0) {
+  if (hasSizeStock) {
     const updatedSizeStock = [];
-    
-    for (const item of sizeStock) {
+
+    const incomingSizeStock = Array.isArray(sizeStock) ? sizeStock : [];
+
+    for (const item of incomingSizeStock) {
       // Only generate new barcode if it doesn't exist
       let newBarcode = item.barcode;
       
@@ -193,11 +206,16 @@ const updateProduct = asyncHandler(async (req, res) => {
       
       updatedSizeStock.push({
         ...item,
+        quantity: Math.max(0, Number(item.quantity) || 0),
         barcode: newBarcode
       });
     }
     
     safeBody.sizeStock = updatedSizeStock;
+    safeBody.quantity = updatedSizeStock.reduce(
+      (sum, item) => sum + (item.quantity || 0),
+      0
+    );
   }
 
   const updatedProduct = await Product.findByIdAndUpdate(
@@ -587,4 +605,3 @@ module.exports = {
   markReviewHelpful,
   deleteReview,
 };
-

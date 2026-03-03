@@ -128,6 +128,40 @@ var userSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
+    coinTransactions: [
+      {
+        type: {
+          type: String,
+          enum: ["credit", "debit"],
+          required: true,
+        },
+        coins: {
+          type: Number,
+          required: true,
+        },
+        reason: {
+          type: String,
+          default: "",
+        },
+        source: {
+          type: String,
+          enum: ["referral_purchase", "purchase", "admin_adjustment", "expiry", "other"],
+          default: "other",
+        },
+        description: {
+          type: String,
+          default: "",
+        },
+        metadata: {
+          type: mongoose.Schema.Types.Mixed,
+          default: {},
+        },
+        createdAt: {
+          type: Date,
+          default: Date.now,
+        },
+      },
+    ],
     passwordChangedAt: Date,
     passwordResetToken: String,
     passwordResetExpires: Date,

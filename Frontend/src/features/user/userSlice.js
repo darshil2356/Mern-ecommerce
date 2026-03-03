@@ -198,6 +198,7 @@ const initialState = {
   signedInCount: 0,
   orderedCount: 0,
   referrals: [],
+  coinTransactions: [],
   appliedReferral: null,
 };
 
@@ -516,6 +517,7 @@ export const authSlice = createSlice({
         state.signedInCount = action.payload.signedInCount;
         state.orderedCount = action.payload.orderedCount;
         state.referrals = action.payload.referrals;
+        state.coinTransactions = action.payload.coinTransactions || [];
       })
       .addCase(getMyReferrals.rejected, (state, action) => {
         state.isLoading = false;
@@ -556,6 +558,7 @@ export const authSlice = createSlice({
         state.signedInCount = 0;
         state.orderedCount = 0;
         state.referrals = [];
+        state.coinTransactions = [];
         state.appliedReferral = null;
       })
       .addCase(resetState, () => initialState);

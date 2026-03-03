@@ -136,6 +136,14 @@ paymentInfo: {
       type: Number,
       default: 0,
     },
+    coinsUsed: {
+      type: Number,
+      default: 0,
+    },
+    coinAmount: {
+      type: Number,
+      default: 0,
+    },
     orderStatus: {
       type: String,
       default: "Ordered",

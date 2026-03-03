@@ -14,7 +14,7 @@ import { Select, Modal, Card, Input, Button } from "antd";
 import Dropzone from "react-dropzone";
 import { clearUploads } from "../features/upload/uploadSlice";
 import JsBarcode from "jsbarcode";
-import { FaEye, FaDownload, FaPlus, FaTrash, FaImage, FaVideo } from "react-icons/fa";
+import { FaEye, FaDownload, FaPlus, FaMinus, FaTrash, FaImage, FaVideo } from "react-icons/fa";
 import { MdPrint, MdInventory, MdCategory, MdColorLens, MdAttachMoney } from "react-icons/md";
 import BarcodeModal from "../components/BarcodeModal";
 
@@ -61,13 +61,39 @@ const Addproduct = () => {
   const [barcodeModalOpen, setBarcodeModalOpen] = useState(false);
   const [selectedBarcode, setSelectedBarcode] = useState("");
   const [selectedBarcodeTitle, setSelectedBarcodeTitle] = useState("");
+  const generatedBarcodesRef = useRef(new Set());
 
-  // Helper function to generate unique barcode client-side
-  const generateClientBarcode = (title, size) => {
-    const timestamp = Date.now().toString(36).toUpperCase();
-    const random = Math.random().toString(36).substring(2, 6).toUpperCase();
-    const prefix = title ? title.substring(0, 3).toUpperCase() : 'PRD';
-    return `PRD-${prefix}-${size}-${timestamp}${random}`;
+  // Client-side preview barcode generator: PRD-XXXXXXXX (8 uppercase hex chars)
+  const generateClientBarcode = (takenBarcodes = []) => {
+    const taken = new Set([
+      ...Array.from(generatedBarcodesRef.current),
+      ...takenBarcodes.filter(Boolean),
+    ]);
+
+    const randomHex8 = () => {
+      if (typeof window !== "undefined" && window.crypto?.getRandomValues) {
+        const bytes = new Uint8Array(4);
+        window.crypto.getRandomValues(bytes);
+        return Array.from(bytes)
+          .map((b) => b.toString(16).padStart(2, "0"))
+          .join("")
+          .toUpperCase();
+      }
+      return Math.floor(Math.random() * 0xffffffff)
+        .toString(16)
+        .padStart(8, "0")
+        .toUpperCase();
+    };
+
+    let code = `PRD-${randomHex8()}`;
+    let guard = 0;
+    while (taken.has(code) && guard < 20) {
+      code = `PRD-${randomHex8()}`;
+      guard += 1;
+    }
+
+    generatedBarcodesRef.current.add(code);
+    return code;
   };
 
   useEffect(() => {
@@ -162,7 +188,7 @@ const Addproduct = () => {
       sizeStock: newProduct?.sizeStock?.map(s => ({
         size: s.size,
         quantity: s.quantity,
-        barcode: s.barcode || (newProduct?.title ? generateClientBarcode(newProduct.title, s.size) : '')
+        barcode: s.barcode || generateClientBarcode()
       })) || [],
       inventory: {
         offline: true,
@@ -173,12 +199,24 @@ const Addproduct = () => {
     },
     validationSchema: schema,
     onSubmit: async (values) => {
-      const totalQuantity = values.sizeStock.reduce(
+      const normalizedSizeStock = (values.sizeStock || []).map((item) => ({
+        ...item,
+        quantity: Math.max(0, Number(item.quantity) || 0),
+        barcode:
+          item.barcode && /^PRD-[A-F0-9]{8}$/.test(item.barcode)
+            ? item.barcode
+            : generateClientBarcode(
+                (values.sizeStock || []).map((s) => s.barcode)
+              ),
+      }));
+
+      const totalQuantity = normalizedSizeStock.reduce(
         (sum, item) => sum + Number(item.quantity || 0),
         0
       );
       const payload = {
         ...values,
+        sizeStock: normalizedSizeStock,
         quantity: totalQuantity,
         inventory: {
           offline: true,
@@ -253,6 +291,14 @@ const Addproduct = () => {
       setPreviewBarcode("");
     }
   }, [formik.values.title]);
+
+  const updateSizeQuantity = (index, nextQuantity) => {
+    const safeQty = Math.max(0, Number(nextQuantity) || 0);
+    const updated = [...formik.values.sizeStock];
+    if (!updated[index]) return;
+    updated[index] = { ...updated[index], quantity: safeQty };
+    formik.setFieldValue("sizeStock", updated);
+  };
 
   return (
     <div className="add-product-page" style={{ backgroundColor: "#f5f5f5", minHeight: "100vh", padding: "24px" }}>
@@ -536,7 +582,7 @@ const Addproduct = () => {
                     return { 
                       size, 
                       quantity: 0,
-                      barcode: generateClientBarcode(formik.values.title || '', size)
+                      barcode: generateClientBarcode(existing.map((s) => s.barcode))
                     };
                   });
                   formik.setFieldValue("sizeStock", updated);
@@ -575,18 +621,38 @@ const Addproduct = () => {
                         <td style={{ padding: "12px 16px", color: "#8c8c8c" }}>{index + 1}</td>
                         <td style={{ padding: "12px 16px", fontWeight: 500 }}>{item.size}</td>
                         <td style={{ padding: "12px 16px" }}>
-                          <Input
-                            type="number"
-                            size="small"
-                            value={item.quantity}
-                            min={0}
-                            onChange={(e) => {
-                              const updated = [...formik.values.sizeStock];
-                              updated[index].quantity = Number(e.target.value);
-                              formik.setFieldValue("sizeStock", updated);
-                            }}
-                            style={{ width: "100px", borderRadius: "6px" }}
-                          />
+                          <div className="d-flex align-items-center gap-2">
+                            <Button
+                              type="text"
+                              size="small"
+                              icon={<FaMinus />}
+                              onClick={() => updateSizeQuantity(index, (Number(item.quantity) || 0) - 1)}
+                              style={{
+                                color: "#cf1322",
+                                backgroundColor: "#fff1f0",
+                              }}
+                              title="Decrease Quantity"
+                            />
+                            <Input
+                              type="number"
+                              size="small"
+                              value={item.quantity}
+                              min={0}
+                              onChange={(e) => updateSizeQuantity(index, e.target.value)}
+                              style={{ width: "90px", borderRadius: "6px", textAlign: "center" }}
+                            />
+                            <Button
+                              type="text"
+                              size="small"
+                              icon={<FaPlus />}
+                              onClick={() => updateSizeQuantity(index, (Number(item.quantity) || 0) + 1)}
+                              style={{
+                                color: "#389e0d",
+                                backgroundColor: "#f6ffed",
+                              }}
+                              title="Increase Quantity"
+                            />
+                          </div>
                         </td>
                         <td style={{ padding: "12px 16px" }}>
                           <span style={{ 
@@ -1004,4 +1070,3 @@ const Addproduct = () => {
 };
 
 export default Addproduct;
-

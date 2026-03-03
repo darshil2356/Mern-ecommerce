@@ -205,6 +205,25 @@ const customerData = {
   lastOrderDate: new Date(),
 };
 
+// Generate a unique referral code for the new customer
+const generateReferralCode = () => {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  let code = '';
+  for (let i = 0; i < 8; i++) {
+    code += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return code;
+};
+
+let newReferralCode = generateReferralCode();
+// Ensure the code is unique
+let existingCodeUser = await User.findOne({ referralCode: newReferralCode });
+while (existingCodeUser) {
+  newReferralCode = generateReferralCode();
+  existingCodeUser = await User.findOne({ referralCode: newReferralCode });
+}
+customerData.referralCode = newReferralCode;
+
 // =====================================================
 // LINK REFERRAL FOR NEW CUSTOMER
 // =====================================================
@@ -391,6 +410,24 @@ const createUser = asyncHandler(async (req, res) => {
     throw new Error("User already exists");
   }
 
+  // Generate a unique referral code for the new user
+  const generateReferralCode = () => {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    let code = '';
+    for (let i = 0; i < 8; i++) {
+      code += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return code;
+  };
+
+  let referralCode = generateReferralCode();
+  // Ensure the code is unique
+  let existingCodeUser = await User.findOne({ referralCode });
+  while (existingCodeUser) {
+    referralCode = generateReferralCode();
+    existingCodeUser = await User.findOne({ referralCode });
+  }
+
   const newUser = await User.create({
     firstname,
     lastname,
@@ -398,6 +435,7 @@ const createUser = asyncHandler(async (req, res) => {
     mobile,
     password: null,   // IMPORTANT
     role: "user",
+    referralCode: referralCode, // Generate referral code for new user
   });
 
   res.json(newUser);

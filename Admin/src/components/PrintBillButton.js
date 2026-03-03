@@ -10,6 +10,8 @@ const PrintBillButton = ({
   cgstAmount = 0,
   sgstAmount = 0,
   discountAmount = 0,
+  coinDiscountAmount = 0,
+  coinsUsed = 0,
   subtotal = 0,
   invoiceNumber = null,
   gstin = ""
@@ -40,6 +42,9 @@ const PrintBillButton = ({
     const now = new Date();
     const dateStr = now.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
     const timeStr = now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+    const effectiveSubtotal = subtotal || payableAmount + discountAmount + coinDiscountAmount - cgstAmount - sgstAmount;
+    const totalDiscount = discountAmount + coinDiscountAmount;
+    const displayCoinsUsed = coinsUsed || coinDiscountAmount;
 
     win.document.write(`
       <!DOCTYPE html>
@@ -137,7 +142,7 @@ const PrintBillButton = ({
                   <div class="bg-gray-50 rounded-lg p-4 space-y-2">
                     <div class="flex justify-between text-sm">
                       <span class="text-gray-600">Subtotal</span>
-                      <span class="font-medium">₹${(subtotal || payableAmount + discountAmount - cgstAmount - sgstAmount).toFixed(2)}</span>
+                      <span class="font-medium">₹${effectiveSubtotal.toFixed(2)}</span>
                     </div>
                     ${cgstAmount > 0 ? `
                     <div class="flex justify-between text-sm">
@@ -155,6 +160,18 @@ const PrintBillButton = ({
                     <div class="flex justify-between text-sm">
                       <span class="text-gray-600">Discount</span>
                       <span class="text-red-600">-₹${discountAmount.toFixed(2)}</span>
+                    </div>
+                    ` : ''}
+                    ${coinDiscountAmount > 0 ? `
+                    <div class="flex justify-between text-sm">
+                      <span class="text-gray-600">Coin Discount (${displayCoinsUsed} coins)</span>
+                      <span class="text-red-600">-₹${coinDiscountAmount.toFixed(2)}</span>
+                    </div>
+                    ` : ''}
+                    ${totalDiscount > 0 ? `
+                    <div class="flex justify-between text-sm">
+                      <span class="text-gray-700 font-medium">Total Discount</span>
+                      <span class="text-red-700 font-medium">-₹${totalDiscount.toFixed(2)}</span>
                     </div>
                     ` : ''}
                     <div class="border-t border-gray-200 pt-2 mt-2">

@@ -81,6 +81,9 @@ const LiveBilling = () => {
   const [customerCoins, setCustomerCoins] = useState(0);
   const [useCoins, setUseCoins] = useState(false);
   const [coinAmount, setCoinAmount] = useState(0);
+  const [showCoinCelebration, setShowCoinCelebration] = useState(false);
+  const [celebratedCoins, setCelebratedCoins] = useState(0);
+  const coinCelebrationTimerRef = useRef(null);
 
   // Scanner input ref
   const scannerRef = useRef(null);
@@ -155,6 +158,28 @@ const LiveBilling = () => {
   const itemCount = useMemo(() => {
     return Object.values(cart).reduce((sum, item) => sum + item.qty, 0);
   }, [cart]);
+
+  const triggerCoinCelebration = (appliedCoins) => {
+    if (!appliedCoins || appliedCoins <= 0) return;
+    setCelebratedCoins(appliedCoins);
+    setShowCoinCelebration(true);
+
+    if (coinCelebrationTimerRef.current) {
+      clearTimeout(coinCelebrationTimerRef.current);
+    }
+
+    coinCelebrationTimerRef.current = setTimeout(() => {
+      setShowCoinCelebration(false);
+    }, 1800);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (coinCelebrationTimerRef.current) {
+        clearTimeout(coinCelebrationTimerRef.current);
+      }
+    };
+  }, []);
 
   /* =========================
      BARCODE HANDLER
@@ -500,12 +525,14 @@ const LiveBilling = () => {
     setUseCoins(checked);
     if (!checked) {
       setCoinAmount(0);
+      setShowCoinCelebration(false);
     } else {
       // Calculate amount before coins: subtotal + taxes - discount
       const amountBeforeCoins = grandTotal + cgstAmount + sgstAmount - discountAmount;
       // Default to using all available coins (up to the amount before coins)
       const maxCoins = Math.min(customerCoins, Math.floor(amountBeforeCoins));
       setCoinAmount(maxCoins);
+      triggerCoinCelebration(maxCoins);
     }
   };
 
@@ -978,7 +1005,18 @@ const validateReferralContact = async (mobile) => {
   /* =========================
      PRINT BILL - Premium Design (same as PrintBillButton)
      ========================= */
-  const printBill = (cartData = cart, customerData = customer, payableAmt = payableAmount, gstinData = gstin, cgstAmt = cgstAmount, sgstAmt = sgstAmount, discountAmt = discountAmount, subtotalAmt = grandTotal) => {
+  const printBill = (
+    cartData = cart,
+    customerData = customer,
+    payableAmt = payableAmount,
+    gstinData = gstin,
+    cgstAmt = cgstAmount,
+    sgstAmt = sgstAmount,
+    discountAmt = discountAmount,
+    subtotalAmt = grandTotal,
+    coinDiscountAmt = coinDiscountAmount,
+    coinsUsedAmt = coinAmount
+  ) => {
     const activeCart = cartData;
     const activeCustomer = customerData;
     const activePayable = payableAmt;
@@ -987,6 +1025,9 @@ const validateReferralContact = async (mobile) => {
     const activeSgst = sgstAmt;
     const activeDiscount = discountAmt;
     const activeSubtotal = subtotalAmt;
+    const activeCoinDiscount = coinDiscountAmt;
+    const activeCoinsUsed = coinsUsedAmt || coinDiscountAmt;
+    const activeTotalDiscount = activeDiscount + activeCoinDiscount;
 
     if (!Object.keys(activeCart).length) {
       Swal.fire({
@@ -1143,6 +1184,18 @@ const validateReferralContact = async (mobile) => {
                     <div class="flex justify-between text-sm">
                       <span class="text-gray-600">Discount</span>
                       <span class="text-red-600">-₹${activeDiscount.toFixed(2)}</span>
+                    </div>
+                    ` : ''}
+                    ${activeCoinDiscount > 0 ? `
+                    <div class="flex justify-between text-sm">
+                      <span class="text-gray-600">Coin Discount (${activeCoinsUsed} coins)</span>
+                      <span class="text-red-600">-₹${activeCoinDiscount.toFixed(2)}</span>
+                    </div>
+                    ` : ''}
+                    ${activeTotalDiscount > 0 ? `
+                    <div class="flex justify-between text-sm">
+                      <span class="text-gray-700 font-medium">Total Discount</span>
+                      <span class="text-red-700 font-medium">-₹${activeTotalDiscount.toFixed(2)}</span>
                     </div>
                     ` : ''}
                     <div class="border-t border-gray-200 pt-2 mt-2">
@@ -1605,6 +1658,28 @@ const validateReferralContact = async (mobile) => {
                           Apply coins to get discount
                         </span>
                       </div>
+
+                      {showCoinCelebration && celebratedCoins > 0 && (
+                        <div className="relative mb-3 overflow-hidden rounded-lg border border-emerald-300/30 bg-emerald-400/10 px-3 py-2">
+                          <p className="text-sm font-semibold text-emerald-300 animate-pulse">
+                            Whoa! {celebratedCoins} coins discount is applied.
+                          </p>
+                          <div className="pointer-events-none absolute inset-0">
+                            {Array.from({ length: 10 }).map((_, i) => (
+                              <span
+                                key={i}
+                                className="absolute h-1.5 w-1.5 rounded-full bg-amber-300/90 animate-bounce"
+                                style={{
+                                  left: `${6 + i * 9}%`,
+                                  top: i % 2 === 0 ? "20%" : "65%",
+                                  animationDelay: `${i * 0.08}s`,
+                                  animationDuration: "0.9s",
+                                }}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                      )}
                       
                       {useCoins && (
                         <div className="mt-3">
@@ -1681,6 +1756,8 @@ const validateReferralContact = async (mobile) => {
                   cgstAmount={cgstAmount}
                   sgstAmount={sgstAmount}
                   discountAmount={discountAmount}
+                  coinDiscountAmount={coinDiscountAmount}
+                  coinsUsed={coinAmount}
                   gstin={gstin}
                 />
                 <button
@@ -1821,4 +1898,3 @@ const validateReferralContact = async (mobile) => {
 };
 
 export default LiveBilling;
-

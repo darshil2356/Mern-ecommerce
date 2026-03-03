@@ -632,24 +632,7 @@ const Profile = () => {
                     >
                       WhatsApp
                     </button>
-                    <button
-                      className="btn btn-sm"
-                      onClick={() => {
-                        const text = `Use my referral code ${userReferralCode || referralState.referralCode} to sign up! ${getReferralLink()}`;
-                        window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`, '_blank');
-                      }}
-                      style={{
-                        background: 'linear-gradient(135deg, #1DA1F2 0%, #0d8ecf 100%)',
-                        color: '#fff',
-                        border: 'none',
-                        padding: '8px 16px',
-                        borderRadius: '8px',
-                        fontSize: '12px',
-                        fontWeight: 600
-                      }}
-                    >
-                      Twitter
-                    </button>
+                   
                   </div>
                 </>
               ) : (

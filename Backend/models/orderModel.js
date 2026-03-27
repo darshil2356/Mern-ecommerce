@@ -136,6 +136,12 @@ paymentInfo: {
       type: Number,
       default: 0,
     },
+    // Breakdown of how the discount was applied
+    discountBreakdown: {
+      directDiscount: { type: Number, default: 0 },   // % discount applied by admin at billing
+      offerDiscount:  { type: Number, default: 0 },   // spin-wheel / user offer discount
+      coinDiscount:   { type: Number, default: 0 },   // coins redeemed as cash
+    },
     coinsUsed: {
       type: Number,
       default: 0,

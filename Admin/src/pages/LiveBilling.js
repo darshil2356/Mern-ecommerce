@@ -71,11 +71,15 @@ const LiveBilling = () => {
   const [appliedOfferAmount, setAppliedOfferAmount] = useState(0);
 
   // Settings state - loaded from backend
-  const [showSpinner, setShowSpinner] = useState(true);
+  const [showSpinner, setShowSpinner]           = useState(true);
   const [showReferralOffer, setShowReferralOffer] = useState(false);
   const [referralCoinPercent, setReferralCoinPercent] = useState(10);
-  const [storeName, setStoreName] = useState("Cart Corner");
-  const [storeTagline, setStoreTagline] = useState("Your One-Stop Shopping Destination");
+  const [storeName, setStoreName]               = useState("Cart Corner");
+  const [storeTagline, setStoreTagline]         = useState("Your One-Stop Shopping Destination");
+  // Tax settings — persisted from backend, NOT reset after sale
+  const [taxIncluded, setTaxIncluded]           = useState(false);
+  const [defaultCgst, setDefaultCgst]           = useState(0);
+  const [defaultSgst, setDefaultSgst]           = useState(0);
 
   // Coins state
   const [customerCoins, setCustomerCoins] = useState(0);
@@ -119,22 +123,33 @@ const LiveBilling = () => {
      TOTAL CALCULATIONS
      ========================= */
   const grandTotal = useMemo(() => {
-    return Object.values(cart).reduce(
-      (sum, item) => sum + item.qty * item.price,
-      0
-    );
+    return Object.values(cart).reduce((sum, item) => sum + item.qty * item.price, 0);
   }, [cart]);
 
-  const cgstAmount = useMemo(
-    () => (grandTotal * cgstPercent) / 100,
-    [grandTotal, cgstPercent]
-  );
+  // Tax-included mode: tax is already inside the price, we extract it
+  // Tax-excluded mode: tax is added on top of the price
+  const cgstAmount = useMemo(() => {
+    if (taxIncluded) {
+      // Extract: tax = price - price/(1 + rate/100)
+      const totalRate = (cgstPercent + sgstPercent) / 100;
+      if (totalRate === 0) return 0;
+      const baseAmount = grandTotal / (1 + totalRate);
+      return (baseAmount * cgstPercent) / 100;
+    }
+    return (grandTotal * cgstPercent) / 100;
+  }, [grandTotal, cgstPercent, sgstPercent, taxIncluded]);
 
-  const sgstAmount = useMemo(
-    () => (grandTotal * sgstPercent) / 100,
-    [grandTotal, sgstPercent]
-  );
+  const sgstAmount = useMemo(() => {
+    if (taxIncluded) {
+      const totalRate = (cgstPercent + sgstPercent) / 100;
+      if (totalRate === 0) return 0;
+      const baseAmount = grandTotal / (1 + totalRate);
+      return (baseAmount * sgstPercent) / 100;
+    }
+    return (grandTotal * sgstPercent) / 100;
+  }, [grandTotal, sgstPercent, cgstPercent, taxIncluded]);
 
+  // Discount is always on grandTotal (subtotal)
   const discountAmount = useMemo(
     () => (grandTotal * discountPercent) / 100 + appliedOfferAmount,
     [grandTotal, discountPercent, appliedOfferAmount]
@@ -142,18 +157,25 @@ const LiveBilling = () => {
 
   const coinDiscountAmount = useMemo(() => {
     if (!useCoins || coinAmount <= 0) return 0;
-    // Calculate amount before coins: subtotal + taxes - discount
-    const amountBeforeCoins = grandTotal + cgstAmount + sgstAmount - discountAmount;
-    // Can't use more coins than available or more than the amount before coins
+    const amountBeforeCoins = taxIncluded
+      ? grandTotal - discountAmount                          // tax-included: no extra tax added
+      : grandTotal + cgstAmount + sgstAmount - discountAmount; // tax-excluded: tax added on top
     const maxCoins = Math.min(customerCoins, Math.floor(amountBeforeCoins));
-    const actualCoins = Math.min(coinAmount, maxCoins);
-    return actualCoins;
-  }, [useCoins, coinAmount, customerCoins, grandTotal, cgstAmount, sgstAmount, discountAmount]);
+    return Math.min(coinAmount, maxCoins);
+  }, [useCoins, coinAmount, customerCoins, grandTotal, cgstAmount, sgstAmount, discountAmount, taxIncluded]);
 
-  const payableAmount = useMemo(
-    () => grandTotal + cgstAmount + sgstAmount - discountAmount - coinDiscountAmount,
-    [grandTotal, cgstAmount, sgstAmount, discountAmount, coinDiscountAmount]
-  );
+  const payableAmount = useMemo(() => {
+    if (taxIncluded) {
+      // Tax is inside price, so: payable = grandTotal - discount - coinDiscount
+      return Math.max(0, grandTotal - discountAmount - coinDiscountAmount);
+    }
+    // Tax excluded: payable = grandTotal + tax - discount - coinDiscount
+    return Math.max(0, grandTotal + cgstAmount + sgstAmount - discountAmount - coinDiscountAmount);
+  }, [grandTotal, cgstAmount, sgstAmount, discountAmount, coinDiscountAmount, taxIncluded]);
+
+  // The amount coins are calculated on = final payable (after ALL discounts)
+  // This is what gets passed to awardCoinsOnOrder on the backend
+  const coinBaseAmount = payableAmount;
 
   const itemCount = useMemo(() => {
     return Object.values(cart).reduce((sum, item) => sum + item.qty, 0);
@@ -431,9 +453,13 @@ const LiveBilling = () => {
     const fetchSettings = async () => {
       try {
         const res = await axios.get(`${base_url}user/settings`, config);
-        // Set fetched values to state
-        setCgstPercent(res.data.cgst || 0);
-        setSgstPercent(res.data.sgst || 0);
+        const cgst = res.data.cgst || 0;
+        const sgst = res.data.sgst || 0;
+        setCgstPercent(cgst);
+        setSgstPercent(sgst);
+        setDefaultCgst(cgst);   // remember defaults so reset after sale works
+        setDefaultSgst(sgst);
+        setTaxIncluded(res.data.taxIncluded === true);
         setShowSpinner(res.data.showSpinner === true);
         setShowReferralOffer(res.data.showReferralOffer === true);
         setReferralCoinPercent(res.data.referralCoinPercent || 10);
@@ -527,20 +553,20 @@ const LiveBilling = () => {
       setCoinAmount(0);
       setShowCoinCelebration(false);
     } else {
-      // Calculate amount before coins: subtotal + taxes - discount
-      const amountBeforeCoins = grandTotal + cgstAmount + sgstAmount - discountAmount;
-      // Default to using all available coins (up to the amount before coins)
+      const amountBeforeCoins = taxIncluded
+        ? grandTotal - discountAmount
+        : grandTotal + cgstAmount + sgstAmount - discountAmount;
       const maxCoins = Math.min(customerCoins, Math.floor(amountBeforeCoins));
       setCoinAmount(maxCoins);
       triggerCoinCelebration(maxCoins);
     }
   };
 
-  // Handle coin amount change
   const handleCoinAmountChange = (value) => {
     const val = parseInt(value) || 0;
-    // Calculate amount before coins: subtotal + taxes - discount
-    const amountBeforeCoins = grandTotal + cgstAmount + sgstAmount - discountAmount;
+    const amountBeforeCoins = taxIncluded
+      ? grandTotal - discountAmount
+      : grandTotal + cgstAmount + sgstAmount - discountAmount;
     const maxCoins = Math.min(customerCoins, Math.floor(amountBeforeCoins));
     setCoinAmount(Math.min(val, maxCoins));
   };
@@ -603,21 +629,26 @@ const validateReferralContact = async (mobile) => {
   // Apply offer to current bill
   const applyOffer = () => {
     if (!customerOffer.hasOffer || grandTotal === 0) return;
-    
     let offerAmt = 0;
     if (customerOffer.offerType === "percentage") {
       offerAmt = (grandTotal * customerOffer.offerDiscount) / 100;
     } else if (customerOffer.offerType === "flat") {
-      offerAmt = Math.min(customerOffer.offerDiscount, grandTotal); // Can't exceed total
+      offerAmt = Math.min(customerOffer.offerDiscount, grandTotal);
+    } else if (customerOffer.offerType === "free_product") {
+      // Free product — no monetary discount, admin handles manually
+      Swal.fire({
+        icon: 'info',
+        title: 'Free Product Offer',
+        text: 'This customer has a FREE PRODUCT reward from the spin wheel. Please add the free product to the cart manually.',
+        confirmButtonColor: '#d4af37',
+      });
+      return;
     }
     setAppliedOfferAmount(offerAmt);
     Swal.fire({
-      icon: 'success',
-      title: 'Offer Applied!',
+      icon: 'success', title: 'Offer Applied!',
       text: `Offer applied: -₹${offerAmt.toFixed(2)}`,
-      confirmButtonColor: '#d4af37',
-      timer: 2000,
-      showConfirmButton: false
+      confirmButtonColor: '#d4af37', timer: 2000, showConfirmButton: false,
     });
   };
 
@@ -626,77 +657,28 @@ const validateReferralContact = async (mobile) => {
     setAppliedOfferAmount(0);
   };
 
-  // Handle spin wheel result
+  // Handle spin wheel result — called ONLY when user clicks "Claim & Continue"
+  // At this point the reward is already saved in DB by the backend.
+  // We just finalize the sale here.
   const handleSpinComplete = async (offer) => {
-    setSpinCompleted(true); // IMPORTANT
-    if (!customer.contact) return;
-    
-    try {
-      // Save the offer for NEXT order (not current)
-      // await axios.put(
-      //   `${base_url}user/customer-offer`,
-      //   {
-      //     mobile: customer.contact,
-      //     offerDiscount: offer.value,
-      //     offerType: offer.type
-      //   },
-      //   config
-      // );
-      
-      // Update local state to show offer is now active for next order
-      setCustomerOffer({
-        hasOffer: offer.type !== "none",
-        offerDiscount: offer.value,
-        offerType: offer.type
-      });
-      
-      setShowSpinWheel(false);
-      
-      // Show success message
-      if (offer.type !== "none") {
-        Swal.fire({
-          icon: 'success',
-          title: 'Congratulations!',
-          text: `Offer won: ${offer.type === "percentage" ? `${offer.value}% OFF` : `₹${offer.value} FLAT OFF`}. This offer will be applicable on your NEXT purchase!`,
-          confirmButtonColor: '#d4af37'
-        });
-      } else {
-        Swal.fire({
-          icon: 'info',
-          title: 'No Offer',
-          text: 'Better luck next time! No offer this time.',
-          confirmButtonColor: '#1a1a1a'
-        });
-      }
-      
-      // Now finalize the sale WITHOUT the current offer (offer applies to next order)
-      finalizeSaleWithWhatsApp(offer);
-      setSpinCompleted(false);
-      
-    } catch (err) {
-      console.error("Failed to save customer offer:", err);
-    }
+    // offer = { label, rewardType, rewardValue, color }
+    setSpinCompleted(true);
+    // Finalize the sale now that spin is done
+    await finalizeSale();
+    setSpinCompleted(false);
   };
 
   // Handle complete sale with spin wheel logic
   const handleCompleteSale = () => {
-  if (!Object.keys(cart).length) return;
-
-  // If already spun → just finalize
-  if (spinCompleted) {
-    finalizeSale();
-    setSpinCompleted(false);
-    return;
-  }
-
-  // First time spin - only if showSpinner is enabled
-  if (customer.contact && showSpinner) {
-    setShowSpinWheel(true);
-  } else {
-    finalizeSale();
-    setSpinCompleted(false);
-  }
-};
+    if (!Object.keys(cart).length) return;
+    // Show spin wheel if enabled and customer has a contact
+    // finalizeSale() is called inside handleSpinComplete after user clicks Claim
+    if (showSpinner && customer.contact && !spinCompleted) {
+      setShowSpinWheel(true);
+    } else {
+      finalizeSale();
+    }
+  };
 
   // Search customers
   useEffect(() => {
@@ -847,6 +829,7 @@ const validateReferralContact = async (mobile) => {
           items,
           taxPercent: cgstPercent + sgstPercent,
           discount: discountAmount,
+          offerDiscount: appliedOfferAmount,
           total: payableAmount,
           paymentMethod: "CASH",
           referralContact: customer.referralContact || null,
@@ -902,90 +885,9 @@ const validateReferralContact = async (mobile) => {
       setReferrerName("");
       setReferrerError("");
       setReferrerCode("");
-      setCgstPercent(0);
-      setSgstPercent(0);
-      setDiscountPercent(0);
-      setAppliedOfferAmount(0);
-      setCustomerOffer({ hasOffer: false, offerDiscount: 0, offerType: "" });
-      setUseCoins(false);
-      setCoinAmount(0);
-    } catch (err) {
-      console.error("Failed to complete sale:", err);
-      Swal.fire({
-        icon: 'error',
-        title: 'Transaction Failed',
-        text: 'Failed to complete sale. Please try again.',
-        confirmButtonColor: '#1a1a1a'
-      });
-    }
-  };
-
-  /* =========================
-     FINALIZE SALE WITH WHATSAPP (Spin Wheel)
-     ========================= */
-  const finalizeSaleWithWhatsApp = async (wonOffer = null) => {
-    const items = Object.entries(cart).map(([barcode, data]) => ({
-      barcode,
-      quantity: data.qty,
-    }));
-
-    if (!items.length) return;
-
-    // Store data for WhatsApp message
-    const cartData = { ...cart };
-    const customerData = { ...customer };
-    const offerData = { ...customerOffer };
-    const appliedAmount = appliedOfferAmount;
-
-    try {
-      await axios.post(
-        `${base_url}user/offline-order`,
-        {
-          customer,
-          items,
-          taxPercent: cgstPercent + sgstPercent,
-          discount: discountAmount,
-          total: payableAmount,
-          paymentMethod: "CASH",
-          referralContact: customer.referralContact || null,
-          coinsUsed: useCoins ? coinAmount : 0,
-          coinAmount: useCoins ? coinDiscountAmount : 0
-        },
-        config
-      );
-
-      // Save the won offer for next purchase
-      if (wonOffer && customer.contact) {
-        await axios.put(
-          `${base_url}user/customer-offer`,
-          {
-            mobile: customer.contact,
-            offerDiscount: wonOffer.value,
-            offerType: wonOffer.type
-          },
-          config
-        );
-      }
-
-      // Generate and send WhatsApp message
-      const message = generateWhatsAppMessage(cartData, customerData, offerData, appliedAmount, wonOffer);
-      openWhatsApp(message, customerData);
-
-      printBill();
-      Swal.fire({
-        icon: 'success',
-        title: 'Sale Completed',
-        text: 'SALE COMPLETED SUCCESSFULLY! Bill sent to WhatsApp!',
-        confirmButtonColor: '#d4af37'
-      });
-
-      setCart({});
-      setCustomer({ name: "", address: "", contact: "", referralContact: "" });
-      setReferrerName("");
-      setReferrerError("");
-      setReferrerCode("");
-      setCgstPercent(0);
-      setSgstPercent(0);
+      // Restore tax to saved defaults, NOT to 0
+      setCgstPercent(defaultCgst);
+      setSgstPercent(defaultSgst);
       setDiscountPercent(0);
       setAppliedOfferAmount(0);
       setCustomerOffer({ hasOffer: false, offerDiscount: 0, offerType: "" });
@@ -1792,23 +1694,25 @@ const validateReferralContact = async (mobile) => {
               {/* Customer Offer Display */}
               {customerOffer.hasOffer && !appliedOfferAmount && (
                 <div className="p-3 bg-gradient-to-r from-amber-50 to-orange-50 rounded-xl border border-amber-200">
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-2">
-                      <FaGift className="text-amber-500" />
-                      <span className="text-sm font-medium text-amber-700">Available Offer</span>
-                    </div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <FaGift className="text-amber-500" />
+                    <span className="text-sm font-medium text-amber-700">Available Offer</span>
                   </div>
                   <p className="text-lg font-bold text-amber-600">
-                    {customerOffer.offerType === "percentage" 
-                      ? `${customerOffer.offerDiscount}% OFF` 
-                      : `₹${customerOffer.offerDiscount} FLAT OFF`}
+                    {customerOffer.offerType === "percentage"
+                      ? `${customerOffer.offerDiscount}% OFF`
+                      : customerOffer.offerType === "flat"
+                      ? `₹${customerOffer.offerDiscount} FLAT OFF`
+                      : customerOffer.offerType === "free_product"
+                      ? "🎀 FREE PRODUCT"
+                      : "Special Offer"}
                   </p>
                   <button
                     onClick={applyOffer}
                     disabled={grandTotal === 0}
                     className="w-full mt-2 py-2 bg-gradient-to-r from-amber-500 to-orange-500 text-white font-bold rounded-lg text-sm hover:from-amber-600 hover:to-orange-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    Apply Offer
+                    {customerOffer.offerType === "free_product" ? "View Details" : "Apply Offer"}
                   </button>
                 </div>
               )}
@@ -1886,11 +1790,15 @@ const validateReferralContact = async (mobile) => {
 
       {/* Spin Wheel Modal */}
       {showSpinner && (
-        <SpinWheel 
-          isOpen={showSpinWheel} 
-          onClose={() => setShowSpinWheel(false)}
+        <SpinWheel
+          isOpen={showSpinWheel}
+          onClose={() => {
+            setShowSpinWheel(false);
+            // User closed without spinning — finalize sale directly
+            if (!spinCompleted) finalizeSale();
+          }}
           onSpinComplete={handleSpinComplete}
-          purchaseAmount={grandTotal}
+          customerMobile={customer.contact}
         />
       )}
     </div>

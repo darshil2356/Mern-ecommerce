@@ -147,6 +147,11 @@ const ViewOrder = () => {
   const subtotal = orderState?.totalPrice || 0;
   const discount = orderState?.discountAmount || ((orderState?.totalPrice || 0) - (orderState?.totalPriceAfterDiscount || 0));
   const finalTotal = orderState?.totalPriceAfterDiscount || 0;
+  const breakdown = orderState?.discountBreakdown || {};
+  const directDiscount = breakdown.directDiscount || 0;
+  const offerDiscount = breakdown.offerDiscount || 0;
+  const coinDiscount = breakdown.coinDiscount || 0;
+  const hasBreakdown = directDiscount > 0 || offerDiscount > 0 || coinDiscount > 0;
 
   return (
     <div>
@@ -280,15 +285,60 @@ const ViewOrder = () => {
                   <strong>₹{subtotal.toFixed(2)}</strong>
                 </Table.Summary.Cell>
               </Table.Summary.Row>
-              {discount > 0 && (
-                <Table.Summary.Row>
-                  <Table.Summary.Cell colSpan={6}>
-                    <span style={{ color: "#52c41a" }}>Discount</span>
-                  </Table.Summary.Cell>
-                  <Table.Summary.Cell align="right">
-                    <span style={{ color: "#52c41a" }}>-₹{discount.toFixed(2)}</span>
-                  </Table.Summary.Cell>
-                </Table.Summary.Row>
+              {hasBreakdown ? (
+                <>
+                  {directDiscount > 0 && (
+                    <Table.Summary.Row>
+                      <Table.Summary.Cell colSpan={6}>
+                        <span style={{ color: "#52c41a" }}>🏷️ Direct Discount</span>
+                      </Table.Summary.Cell>
+                      <Table.Summary.Cell align="right">
+                        <span style={{ color: "#52c41a" }}>-₹{directDiscount.toFixed(2)}</span>
+                      </Table.Summary.Cell>
+                    </Table.Summary.Row>
+                  )}
+                  {offerDiscount > 0 && (
+                    <Table.Summary.Row>
+                      <Table.Summary.Cell colSpan={6}>
+                        <span style={{ color: "#fa8c16" }}>🎁 User Offer Discount</span>
+                      </Table.Summary.Cell>
+                      <Table.Summary.Cell align="right">
+                        <span style={{ color: "#fa8c16" }}>-₹{offerDiscount.toFixed(2)}</span>
+                      </Table.Summary.Cell>
+                    </Table.Summary.Row>
+                  )}
+                  {coinDiscount > 0 && (
+                    <Table.Summary.Row>
+                      <Table.Summary.Cell colSpan={6}>
+                        <span style={{ color: "#722ed1" }}>🪙 Coin Discount ({orderState?.coinsUsed || coinDiscount} coins)</span>
+                      </Table.Summary.Cell>
+                      <Table.Summary.Cell align="right">
+                        <span style={{ color: "#722ed1" }}>-₹{coinDiscount.toFixed(2)}</span>
+                      </Table.Summary.Cell>
+                    </Table.Summary.Row>
+                  )}
+                  {discount > 0 && (
+                    <Table.Summary.Row>
+                      <Table.Summary.Cell colSpan={6}>
+                        <span style={{ color: "#cf1322", fontWeight: 600 }}>Total Discount</span>
+                      </Table.Summary.Cell>
+                      <Table.Summary.Cell align="right">
+                        <span style={{ color: "#cf1322", fontWeight: 600 }}>-₹{discount.toFixed(2)}</span>
+                      </Table.Summary.Cell>
+                    </Table.Summary.Row>
+                  )}
+                </>
+              ) : (
+                discount > 0 && (
+                  <Table.Summary.Row>
+                    <Table.Summary.Cell colSpan={6}>
+                      <span style={{ color: "#52c41a" }}>Discount</span>
+                    </Table.Summary.Cell>
+                    <Table.Summary.Cell align="right">
+                      <span style={{ color: "#52c41a" }}>-₹{discount.toFixed(2)}</span>
+                    </Table.Summary.Cell>
+                  </Table.Summary.Row>
+                )
               )}
               <Table.Summary.Row>
                 <Table.Summary.Cell colSpan={6}>

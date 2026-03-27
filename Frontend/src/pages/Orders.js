@@ -39,6 +39,64 @@ const Orders = () => {
     return `₹ ${price?.toLocaleString("en-IN")}`;
   };
 
+  const renderDiscountBreakdown = (order) => {
+    const b = order.discountBreakdown || {};
+    const hasBreakdown = b.directDiscount > 0 || b.offerDiscount > 0 || b.coinDiscount > 0;
+    const totalDiscount = order.discountAmount || (order.totalPrice - order.totalPriceAfterDiscount);
+
+    if (!hasBreakdown && totalDiscount <= 0) return null;
+
+    return (
+      <div className="d-flex flex-column align-items-end gap-1 mt-3 pt-3 border-top">
+        <div className="d-flex justify-content-between w-100" style={{ maxWidth: 300 }}>
+          <span className="text-muted">Subtotal</span>
+          <span className="fw-semibold">{formatPrice(order.totalPrice)}</span>
+        </div>
+
+        {hasBreakdown ? (
+          <>
+            {b.directDiscount > 0 && (
+              <div className="d-flex justify-content-between w-100" style={{ maxWidth: 300 }}>
+                <span className="text-muted">🏷️ Direct Discount</span>
+                <span className="text-success">-{formatPrice(b.directDiscount)}</span>
+              </div>
+            )}
+            {b.offerDiscount > 0 && (
+              <div className="d-flex justify-content-between w-100" style={{ maxWidth: 300 }}>
+                <span className="text-muted">🎁 Your Offer</span>
+                <span style={{ color: "#fa8c16" }}>-{formatPrice(b.offerDiscount)}</span>
+              </div>
+            )}
+            {b.coinDiscount > 0 && (
+              <div className="d-flex justify-content-between w-100" style={{ maxWidth: 300 }}>
+                <span className="text-muted">🪙 Coins Redeemed</span>
+                <span style={{ color: "#722ed1" }}>-{formatPrice(b.coinDiscount)}</span>
+              </div>
+            )}
+            {totalDiscount > 0 && (
+              <div className="d-flex justify-content-between w-100" style={{ maxWidth: 300 }}>
+                <span className="fw-semibold text-danger">Total Savings</span>
+                <span className="fw-bold text-danger">-{formatPrice(totalDiscount)}</span>
+              </div>
+            )}
+          </>
+        ) : (
+          totalDiscount > 0 && (
+            <div className="d-flex justify-content-between w-100" style={{ maxWidth: 300 }}>
+              <span className="text-muted">Discount</span>
+              <span className="text-success">-{formatPrice(totalDiscount)}</span>
+            </div>
+          )
+        )}
+
+        <div className="d-flex justify-content-between w-100 border-top pt-2" style={{ maxWidth: 300 }}>
+          <span className="fw-bold">Total Paid</span>
+          <span className="fw-bold text-success fs-5">{formatPrice(order.totalPriceAfterDiscount)}</span>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <>
       <BreadCrumb title="My Orders" />
@@ -154,6 +212,9 @@ const Orders = () => {
                         </div>
                       </div>
                     ))}
+
+                    {/* Discount Breakdown + Total */}
+                    {renderDiscountBreakdown(order)}
                   </div>
                 </div>
               ))

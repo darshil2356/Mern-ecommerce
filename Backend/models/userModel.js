@@ -56,6 +56,11 @@ var userSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
+    // Tax mode: true = prices already include tax (extract), false = add tax on top
+    taxIncluded: {
+      type: Boolean,
+      default: false,
+    },
     // Admin configuration settings
     showSpinner: {
       type: Boolean,

@@ -2,11 +2,13 @@ import React, { useEffect, useState } from "react";
 import { Table, Modal, Form, Input, Avatar, Tooltip } from "antd";
 import { useDispatch, useSelector } from "react-redux";
 import { getCustomers, createCustomer, updateCustomer, deleteCustomer } from "../features/customers/customerSlice";
-import { FaSearch, FaEdit, FaTrash, FaUser, FaEnvelope, FaPhone, FaMapMarkerAlt, FaUserPlus } from "react-icons/fa";
+import { FaSearch, FaEdit, FaTrash, FaUser, FaEnvelope, FaPhone, FaMapMarkerAlt, FaUserPlus, FaEye } from "react-icons/fa";
+import { useNavigate } from "react-router-dom";
 import CustomModal from "../components/CustomModal";
 
 const Customers = () => {
   const dispatch = useDispatch();
+  const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [customerToDelete, setCustomerToDelete] = useState(null);
@@ -151,9 +153,17 @@ const Customers = () => {
       title: "Actions",
       dataIndex: "action",
       key: "action",
-      width: 120,
+      width: 150,
       render: (_, record) => (
         <div className="flex gap-2">
+          <Tooltip title="View Details">
+            <button
+              className="flex items-center justify-center w-9 h-9 rounded-lg bg-green-50 text-green-600 border-none cursor-pointer hover:bg-green-100 transition-colors"
+              onClick={() => navigate(`/admin/customer/${record._id}`)}
+            >
+              <FaEye size={14} />
+            </button>
+          </Tooltip>
           <Tooltip title="Edit Customer">
             <button
               className="flex items-center justify-center w-9 h-9 rounded-lg bg-blue-50 text-blue-600 border-none cursor-pointer hover:bg-blue-100 transition-colors"

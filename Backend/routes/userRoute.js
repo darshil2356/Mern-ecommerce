@@ -10,7 +10,9 @@ const {
   getCustomerOffer,
   updateCustomerOffer,
   getCustomerDetails,
-  getAllReferrals
+  getAllReferrals,
+  updateCustomerById,
+  deleteCustomerById,
 } = require("../controller/userCtrl");
 const { authMiddleware, isAdmin } = require("../middlewares/authMiddleware");
 
@@ -41,6 +43,12 @@ router.put("/customer-offer", authMiddleware, isAdmin, updateCustomerOffer);
 
 // Get customer details with order history - protected by auth middleware
 router.get("/customer/:id", authMiddleware, isAdmin, getCustomerDetails);
+
+// Update customer (admin)
+router.put("/update-customer/:id", authMiddleware, isAdmin, updateCustomerById);
+
+// Delete customer (admin)
+router.delete("/delete-customer/:id", authMiddleware, isAdmin, deleteCustomerById);
 
 // Get all referrals (for admin)
 router.get("/all-referrals", authMiddleware, isAdmin, getAllReferrals);

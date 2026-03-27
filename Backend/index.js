@@ -23,6 +23,8 @@ const productRoute = require("./routes/productRoute");
 const customerRoute = require("./routes/customerRoute");
 const reportRouter = require("./routes/reportRoute");
 const bundleRouter = require("./routes/bundleRoute");
+const spinRouter = require("./routes/spinRoute");
+const rewardRouter = require("./routes/rewardRoute");
 
 
      
@@ -50,6 +52,8 @@ app.use("/public", express.static("public"));
 app.use("/api/customers", customerRoute);
 app.use("/api/reports", reportRouter);
 app.use("/api/bundles", bundleRouter);
+app.use("/api/spin", spinRouter);
+app.use("/api/rewards", rewardRouter);
 
    
 

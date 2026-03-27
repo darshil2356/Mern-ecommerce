@@ -259,7 +259,25 @@ const columns = [
   { 
     title: "Discount", 
     dataIndex: "discount",
-    render: (discount) => discount > 0 ? <span style={{ color: "#52c41a" }}>-₹{discount.toFixed(2)}</span> : "-",
+    render: (discount, record) => {
+      if (discount <= 0) return "-";
+      const b = record.discountBreakdown || {};
+      const hasBreakdown = b.directDiscount > 0 || b.offerDiscount > 0 || b.coinDiscount > 0;
+      const tip = hasBreakdown ? (
+        <div style={{ fontSize: 12 }}>
+          {b.directDiscount > 0 && <div>🏷️ Direct: -₹{b.directDiscount.toFixed(2)}</div>}
+          {b.offerDiscount  > 0 && <div>🎁 Offer: -₹{b.offerDiscount.toFixed(2)}</div>}
+          {b.coinDiscount   > 0 && <div>🪙 Coins: -₹{b.coinDiscount.toFixed(2)}</div>}
+        </div>
+      ) : null;
+      return (
+        <Tooltip title={tip}>
+          <span style={{ color: "#52c41a", cursor: hasBreakdown ? "help" : "default" }}>
+            -₹{discount.toFixed(2)}{hasBreakdown ? " ℹ️" : ""}
+          </span>
+        </Tooltip>
+      );
+    },
   },
   { 
     title: "Final", 
@@ -341,6 +359,7 @@ const Orders = () => {
         items: order?.orderItems?.length || 0,
         amount: order?.totalPrice,
         discount: discount,
+        discountBreakdown: order?.discountBreakdown || {},
         finalAmount: order?.totalPriceAfterDiscount,
         status: order?.orderStatus || "Ordered",
         payment: payment,

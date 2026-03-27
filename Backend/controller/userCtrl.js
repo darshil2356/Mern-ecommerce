@@ -37,7 +37,7 @@ const appendCoinTransaction = (userDoc, transaction) => {
 const createOfflineOrder = asyncHandler(async (req, res) => {
 
   
-  const { items, paymentMethod, customer, discount, coinsUsed, coinAmount } = req.body;
+  const { items, paymentMethod, customer, discount, offerDiscount: offerDiscountAmt, coinsUsed, coinAmount } = req.body;
   const adminId = req.user._id;
 
 
@@ -169,6 +169,8 @@ const createOfflineOrder = asyncHandler(async (req, res) => {
   }
 
   const discountAmount = discount || 0;
+  const offerDiscountAmount = offerDiscountAmt || 0;
+  const directDiscountAmount = Math.max(0, discountAmount - offerDiscountAmount);
   const coinDiscountAmount = coinAmount || 0;
   const totalPriceAfterDiscount = totalPrice - discountAmount - coinDiscountAmount;
 
@@ -179,6 +181,11 @@ const createOfflineOrder = asyncHandler(async (req, res) => {
     totalPrice,
     totalPriceAfterDiscount,
     discountAmount,
+    discountBreakdown: {
+      directDiscount: directDiscountAmount,
+      offerDiscount: offerDiscountAmount,
+      coinDiscount: coinDiscountAmount,
+    },
     coinsUsed: coinsUsed || 0,
     coinAmount: coinAmount || 0,
     paymentInfo: {
@@ -381,6 +388,11 @@ const registerUser = asyncHandler(async (req, res) => {
     if (referredByUser) {
       referredByUser.referralCount = (referredByUser.referralCount || 0) + 1;
       await referredByUser.save();
+      // Process signup referral reward if configured
+      try {
+        const ReferralService = require("../services/ReferralService");
+        await ReferralService.processSignupReferralReward(referredByUser._id);
+      } catch (e) { console.error("Signup referral reward error:", e.message); }
     }
     return res.json(newUser);
   }
@@ -912,6 +924,7 @@ const createOrder = asyncHandler(async (req, res) => {
     paymentInfo,
     coinsUsed,
     coinAmount,
+    discountBreakdown,
   } = req.body;
   const { _id } = req.user;
   try {
@@ -946,6 +959,13 @@ const createOrder = asyncHandler(async (req, res) => {
       orderItems,
       totalPrice,
       totalPriceAfterDiscount,
+      discountBreakdown: discountBreakdown || {
+        directDiscount: 0,
+        offerDiscount: (totalPrice - totalPriceAfterDiscount - (coinAmount || 0)) > 0
+          ? (totalPrice - totalPriceAfterDiscount - (coinAmount || 0))
+          : 0,
+        coinDiscount: coinAmount || 0,
+      },
       coinsUsed: coinsUsed || 0,
       coinAmount: coinAmount || 0,
       paymentInfo,
@@ -1598,12 +1618,11 @@ const getSettings = asyncHandler(async (req, res) => {
 
   try {
     const user = await User.findById(_id).select(
-      "gstin email showSpinner showReferralOffer referralCoinPercent storeName storeTagline storeAddress storePhone cgst sgst"
+      "gstin email showSpinner showReferralOffer referralCoinPercent storeName storeTagline storeAddress storePhone cgst sgst taxIncluded"
     );
     res.json({
       gstin: user.gstin || "",
       email: user.email || "",
-      // showSpinner: user.showSpinner !== false,
       showSpinner: user.showSpinner === true,
       showReferralOffer: user.showReferralOffer === true,
       referralCoinPercent: user.referralCoinPercent || 10,
@@ -1612,7 +1631,8 @@ const getSettings = asyncHandler(async (req, res) => {
       storeAddress: user.storeAddress || "",
       storePhone: user.storePhone || "",
       cgst: user.cgst || 0,
-      sgst: user.sgst || 0
+      sgst: user.sgst || 0,
+      taxIncluded: user.taxIncluded === true,
     });
   } catch (error) {
     throw new Error(error);
@@ -1623,10 +1643,11 @@ const getSettings = asyncHandler(async (req, res) => {
 const updateSettings = asyncHandler(async (req, res) => {
   const { _id } = req.user;
 
-  console.log("Admin updating:", _id);
-  console.log("Incoming body:", req.body);
-
-  const { showSpinner, showReferralOffer, referralCoinPercent, cgst, sgst } = req.body;
+  const {
+    showSpinner, showReferralOffer, referralCoinPercent,
+    cgst, sgst, taxIncluded,
+    storeName, storeTagline, storeAddress, storePhone,
+  } = req.body;
 
   const updatedUser = await User.findByIdAndUpdate(
     _id,
@@ -1635,12 +1656,15 @@ const updateSettings = asyncHandler(async (req, res) => {
       showReferralOffer: Boolean(showReferralOffer),
       referralCoinPercent: Number(referralCoinPercent) || 10,
       cgst: Number(cgst) || 0,
-      sgst: Number(sgst) || 0
+      sgst: Number(sgst) || 0,
+      taxIncluded: Boolean(taxIncluded),
+      ...(storeName    !== undefined && { storeName }),
+      ...(storeTagline !== undefined && { storeTagline }),
+      ...(storeAddress !== undefined && { storeAddress }),
+      ...(storePhone   !== undefined && { storePhone }),
     },
     { new: true }
   );
-
-  console.log("Updated value in DB:", updatedUser.showSpinner, updatedUser.showReferralOffer, updatedUser.referralCoinPercent, updatedUser.cgst, updatedUser.sgst);
 
   res.json({
     success: true,
@@ -1648,7 +1672,12 @@ const updateSettings = asyncHandler(async (req, res) => {
     showReferralOffer: updatedUser.showReferralOffer,
     referralCoinPercent: updatedUser.referralCoinPercent,
     cgst: updatedUser.cgst,
-    sgst: updatedUser.sgst
+    sgst: updatedUser.sgst,
+    taxIncluded: updatedUser.taxIncluded,
+    storeName: updatedUser.storeName,
+    storeTagline: updatedUser.storeTagline,
+    storeAddress: updatedUser.storeAddress,
+    storePhone: updatedUser.storePhone,
   });
 });
 
@@ -1704,6 +1733,11 @@ const getCustomerDetails = asyncHandler(async (req, res) => {
       return sum + ((order.totalPrice || 0) - (order.totalPriceAfterDiscount || 0));
     }, 0);
 
+    // Populate referredBy info
+    const referredByUser = customer.referredBy
+      ? await User.findById(customer.referredBy).select("firstname lastname mobile referralCode")
+      : null;
+
     res.json({
       customer: {
         _id: customer._id,
@@ -1716,6 +1750,25 @@ const getCustomerDetails = asyncHandler(async (req, res) => {
         createdAt: customer.createdAt,
         offerDiscount: customer.offerDiscount,
         offerType: customer.offerType,
+        coins: customer.coins || 0,
+        referralCode: customer.referralCode || null,
+        referralCount: customer.referralCount || 0,
+        referralEarnings: customer.referralEarnings || 0,
+        referredBy: customer.referredBy || null,
+      },
+      coinTransactions: (customer.coinTransactions || []).sort(
+        (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
+      ),
+      referralInfo: {
+        referredBy: referredByUser
+          ? {
+              _id: referredByUser._id,
+              firstname: referredByUser.firstname,
+              lastname: referredByUser.lastname,
+              mobile: referredByUser.mobile,
+              referralCode: referredByUser.referralCode,
+            }
+          : null,
       },
       statistics: {
         totalOrders,
@@ -2095,43 +2148,17 @@ const applyReferral = asyncHandler(async (req, res) => {
   }
 });
 
-// Award coins to referrer for lifetime purchases of a referred user.
-// coinPercent defaults to 10% (1 coin == 1 INR).
-const awardCoinsOnOrder = async (referredUserId, orderAmount, coinPercent = 10) => {
-  if (!referredUserId || !orderAmount || orderAmount <= 0) {
-    return;
-  }
-
-  const referredUser = await User.findById(referredUserId);
-  
-  if (!referredUser || !referredUser.referredBy) {
-    return;
-  }
-
-  // Calculate coins based on order amount and percentage
-  // e.g., 10% of ₹100 = ₹10 = 10 coins (assuming 1 coin per ₹1)
-  const coinsToAward = Math.floor((orderAmount * coinPercent) / 100);
-
-  if (coinsToAward > 0) {
-    // Award coins to referrer
-    const referrer = await User.findById(referredUser.referredBy);
-    if (referrer) {
-      referrer.coins = (referrer.coins || 0) + coinsToAward;
-      referrer.referralEarnings = (referrer.referralEarnings || 0) + coinsToAward;
-      appendCoinTransaction(referrer, {
-        type: "credit",
-        coins: coinsToAward,
-        reason: "referral_purchase",
-        source: "referral_purchase",
-        description: "Coins earned from referred user's purchase",
-        metadata: {
-          referredUserId: referredUser._id,
-          orderAmount,
-          coinPercent,
-        },
-      });
-      await referrer.save();
-    }
+// Award coins on order - delegates to ReferralService for config-driven logic
+// orderAmount = totalPriceAfterDiscount (after ALL discounts including coin discount)
+const awardCoinsOnOrder = async (referredUserId, orderAmount, _coinPercent = 10) => {
+  try {
+    const ReferralService = require("../services/ReferralService");
+    const orderCount = await Order.countDocuments({ user: referredUserId });
+    const isFirstPurchase = orderCount <= 1;
+    // processReferralReward handles BOTH referrer coins AND buyer purchase coins internally
+    await ReferralService.processReferralReward(referredUserId, orderAmount, isFirstPurchase);
+  } catch (err) {
+    console.error("awardCoinsOnOrder error:", err.message);
   }
 };
 
@@ -2212,6 +2239,29 @@ const getAllReferrals = asyncHandler(async (req, res) => {
   }
 });
 
+// Update customer (admin)
+const updateCustomerById = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  validateMongoDbId(id);
+  const { firstname, lastname, email, mobile, address } = req.body;
+  const updated = await User.findByIdAndUpdate(
+    id,
+    { firstname, lastname, email, mobile, address },
+    { new: true }
+  );
+  if (!updated) { res.status(404); throw new Error("Customer not found"); }
+  res.json(updated);
+});
+
+// Delete customer (admin)
+const deleteCustomerById = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  validateMongoDbId(id);
+  const deleted = await User.findByIdAndDelete(id);
+  if (!deleted) { res.status(404); throw new Error("Customer not found"); }
+  res.json(deleted);
+});
+
 module.exports = {
   createUser,
   loginUserCtrl,
@@ -2261,4 +2311,6 @@ module.exports = {
   applyReferral,
   awardCoinsOnOrder,
   getAllReferrals,
+  updateCustomerById,
+  deleteCustomerById,
 };

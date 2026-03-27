@@ -34,6 +34,9 @@ import AddBundle from "./pages/AddBundle";
 import Bundlelist from "./pages/Bundlelist";
 import Reviews from "./pages/Reviews";
 import ReferralDetails from "./pages/ReferralDetails";
+import SpinManagement from "./pages/SpinManagement";
+import ReferralSettings from "./pages/ReferralSettings";
+import CoinSettings from "./pages/CoinSettings";
 
 function App() {
   return (
@@ -88,6 +91,9 @@ function App() {
           <Route path="reports" element={<Reports />} />
 <Route path="reviews" element={<Reviews />} />
           <Route path="referral-details" element={<ReferralDetails />} />
+          <Route path="spin-management" element={<SpinManagement />} />
+          <Route path="referral-settings" element={<ReferralSettings />} />
+          <Route path="coin-settings" element={<CoinSettings />} />
           <Route path="add-bundle" element={<AddBundle />} />
           <Route path="bundle/:id" element={<AddBundle />} />
           <Route path="list-bundle" element={<Bundlelist />} />

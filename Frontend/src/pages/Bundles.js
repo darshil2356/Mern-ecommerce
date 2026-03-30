@@ -119,13 +119,13 @@ const Bundles = () => {
                           <p style={{ margin: "2px 0 4px", fontSize: "11px", color: "#888" }}>
                             Qty: {item.quantity} × ₹{item.price?.toLocaleString()}
                           </p>
-                          {/* Available sizes */}
-                          {item.product?.sizeStock?.filter(s => s.quantity > 0).length > 0 && (
+                          {/* All sizes with stock status */}
+                          {item.product?.sizeStock?.length > 0 && (
                             <div className="d-flex gap-1 flex-wrap">
                               <span style={{ fontSize: "10px", color: "#888", marginRight: "2px" }}>Sizes:</span>
-                              {item.product.sizeStock.filter(s => s.quantity > 0).map(s => (
-                                <span key={s.size} style={{ fontSize: "10px", fontWeight: 700, padding: "2px 7px", borderRadius: "6px", border: "1.5px solid #667eea", color: "#667eea", background: "#f0f0ff" }}>
-                                  {s.size}
+                              {item.product.sizeStock.map(s => (
+                                <span key={s.size} style={{ fontSize: "10px", fontWeight: 700, padding: "2px 7px", borderRadius: "6px", border: s.quantity > 0 ? "1.5px solid #667eea" : "1.5px solid #e5e5e5", color: s.quantity > 0 ? "#667eea" : "#bbb", background: s.quantity > 0 ? "#f0f0ff" : "#f5f5f5", textDecoration: s.quantity > 0 ? "none" : "line-through" }}>
+                                  {s.size}{s.quantity === 0 && " ✕"}
                                 </span>
                               ))}
                             </div>
@@ -203,7 +203,7 @@ const Bundles = () => {
             {(bundleSizeModal.products || []).map((item) => {
               const product = item.product;
               if (!product) return null;
-              const sizes = (product.sizeStock || []).filter(s => s.quantity > 0);
+              const sizes = product.sizeStock || [];
               if (sizes.length === 0) return null;
               const pid = product._id?.toString();
               return (
@@ -218,15 +218,22 @@ const Bundles = () => {
                     {sizes.map(s => (
                       <button
                         key={s.size}
-                        onClick={() => setBundleSelectedSizes(prev => ({ ...prev, [pid]: s.size }))}
+                        disabled={s.quantity === 0}
+                        onClick={() => s.quantity > 0 && setBundleSelectedSizes(prev => ({ ...prev, [pid]: s.size }))}
                         style={{
-                          padding: "8px 16px", borderRadius: "8px", fontWeight: 700, cursor: "pointer", fontSize: "13px",
-                          border: bundleSelectedSizes[pid] === s.size ? "2px solid #667eea" : "2px solid #e5e5e5",
-                          background: bundleSelectedSizes[pid] === s.size ? "#667eea" : "#fff",
-                          color: bundleSelectedSizes[pid] === s.size ? "#fff" : "#333",
+                          padding: "8px 16px", borderRadius: "8px", fontWeight: 700, fontSize: "13px",
+                          cursor: s.quantity === 0 ? "not-allowed" : "pointer",
+                          border: bundleSelectedSizes[pid] === s.size ? "2px solid #667eea" : s.quantity === 0 ? "2px solid #e5e5e5" : "2px solid #e5e5e5",
+                          background: bundleSelectedSizes[pid] === s.size ? "#667eea" : s.quantity === 0 ? "#f5f5f5" : "#fff",
+                          color: bundleSelectedSizes[pid] === s.size ? "#fff" : s.quantity === 0 ? "#bbb" : "#333",
+                          position: "relative", opacity: s.quantity === 0 ? 0.6 : 1,
                         }}
                       >
-                        {s.size} <span style={{ fontSize: "10px", opacity: 0.7 }}>({s.quantity})</span>
+                        <span style={{ textDecoration: s.quantity === 0 ? "line-through" : "none" }}>{s.size}</span>
+                        {s.quantity === 0
+                          ? <span style={{ display: "block", fontSize: "9px", color: "#ef4444", fontWeight: 700, lineHeight: 1 }}>Out of Stock</span>
+                          : <span style={{ display: "block", fontSize: "9px", color: "#22c55e", fontWeight: 700, lineHeight: 1 }}>{s.quantity} left</span>
+                        }
                       </button>
                     ))}
                   </div>

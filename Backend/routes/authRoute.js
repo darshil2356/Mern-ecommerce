@@ -46,6 +46,7 @@ const {
   getMyReferrals,
   applyReferral,
   getAllReferrals,
+  addBundleToCart,
 } = require("../controller/userCtrl");
 
 
@@ -83,6 +84,7 @@ router.put("/password", authMiddleware, updatePassword);
 router.post("/login", loginUserCtrl);
 router.post("/admin-login", loginAdmin);
 router.post("/cart", authMiddleware, userCart);
+router.post("/cart/bundle", authMiddleware, addBundleToCart);
 router.post("/order/checkout", authMiddleware, checkout);
 router.post("/order/paymentVerification", authMiddleware, paymentVerification);
 

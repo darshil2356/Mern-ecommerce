@@ -46,6 +46,17 @@ export const addProdToCart = createAsyncThunk(
   }
 );
 
+export const addBundleToCart = createAsyncThunk(
+  "user/cart/add-bundle",
+  async (bundleId, thunkAPI) => {
+    try {
+      return await authService.addBundleToCart(bundleId);
+    } catch (error) {
+      return thunkAPI.rejectWithValue(error);
+    }
+  }
+);
+
 export const getUserCart = createAsyncThunk(
   "user/cart/get",
   async (data, thunkAPI) => {
@@ -70,9 +81,9 @@ export const deleteUserCart = createAsyncThunk(
 
 export const getOrders = createAsyncThunk(
   "user/orders/get",
-  async (thunkAPI) => {
+  async ({ page = 1, limit = 10 } = {}, thunkAPI) => {
     try {
-      return await authService.getUserOrders();
+      return await authService.getUserOrders({ page, limit });
     } catch (error) {
       return thunkAPI.rejectWithValue(error);
     }
@@ -116,7 +127,7 @@ export const updateProfile = createAsyncThunk(
   "user/profile/update",
   async (data, thunkAPI) => {
     try {
-      return await authService.updateUser(data);
+      return await authService.updateUser({ data });
     } catch (error) {
       return thunkAPI.rejectWithValue(error);
     }
@@ -302,6 +313,21 @@ export const authSlice = createSlice({
         state.isSuccess = false;
         state.message = action.error;
       })
+      .addCase(addBundleToCart.pending, (state) => {
+        state.isLoading = true;
+      })
+      .addCase(addBundleToCart.fulfilled, (state, action) => {
+        state.isLoading = false;
+        state.isError = false;
+        state.isSuccess = true;
+        state.cartProduct = action.payload;
+      })
+      .addCase(addBundleToCart.rejected, (state, action) => {
+        state.isLoading = false;
+        state.isError = true;
+        state.isSuccess = false;
+        state.message = action.error;
+      })
       .addCase(getUserCart.pending, (state) => {
         state.isLoading = true;
       })
@@ -367,8 +393,12 @@ export const authSlice = createSlice({
         state.isError = false;
         state.isSuccess = true;
         state.orderedProduct = action.payload;
+        // Deduct coins from Redux state immediately
+        if (action.meta?.arg?.coinsUsed > 0) {
+          state.coins = Math.max(0, (state.coins || 0) - action.meta.arg.coinsUsed);
+        }
         if (state.isSuccess) {
-          toast.success("Ordered createad Successfully!");
+          toast.success("Ordered created Successfully!");
         }
       })
       .addCase(createAnOrder.rejected, (state, action) => {
@@ -387,7 +417,20 @@ export const authSlice = createSlice({
         state.isLoading = false;
         state.isError = false;
         state.isSuccess = true;
-        state.getorderedProduct = action.payload;
+        const { orders, page, total, hasMore } = action.payload;
+        if (page === 1) {
+          // First page — replace
+          state.getorderedProduct = { orders, total, hasMore, page };
+        } else {
+          // Subsequent pages — append
+          const existing = state.getorderedProduct?.orders || [];
+          state.getorderedProduct = {
+            orders: [...existing, ...orders],
+            total,
+            hasMore,
+            page,
+          };
+        }
       })
       .addCase(getOrders.rejected, (state, action) => {
         state.isLoading = false;
@@ -403,19 +446,17 @@ export const authSlice = createSlice({
         state.isError = false;
         state.isSuccess = true;
         state.updatedUser = action.payload;
-
         if (state.isSuccess === true) {
-          let currentUserData = JSON.parse(localStorage.getItem("customer"));
+          let currentUserData = JSON.parse(localStorage.getItem("customer")) || {};
           let newUserData = {
-            _id: currentUserData?._id,
-            token: currentUserData.token,
+            ...currentUserData,
             firstname: action?.payload?.firstname,
             lastname: action?.payload?.lastname,
             email: action?.payload?.email,
             mobile: action?.payload?.mobile,
           };
           localStorage.setItem("customer", JSON.stringify(newUserData));
-          state.user = newUserData;
+          state.user = { ...state.user, ...newUserData };
           toast.success("Profile Updated Successfully!");
         }
       })

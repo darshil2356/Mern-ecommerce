@@ -1,97 +1,203 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useRef, useCallback } from "react";
 import Container from "../components/Container";
 import BreadCrumb from "../components/BreadCrumb";
 import { useDispatch, useSelector } from "react-redux";
 import { getOrders } from "../features/user/userSlice";
+import { FiPackage, FiShoppingBag } from "react-icons/fi";
+import { Link } from "react-router-dom";
+
+const LIMIT = 10;
 
 const Orders = () => {
   const dispatch = useDispatch();
+  const isLoading   = useSelector((state) => state?.auth?.isLoading);
+  const ordersData  = useSelector((state) => state?.auth?.getorderedProduct);
+  const orders      = ordersData?.orders  || [];
+  const hasMore     = ordersData?.hasMore ?? false;
+  const currentPage = ordersData?.page    || 0;
 
-  const orderState = useSelector(
-    (state) => state?.auth?.getorderedProduct?.orders
-  );
+  // Sentinel ref for IntersectionObserver
+  const sentinelRef = useRef(null);
 
-  const customer = localStorage.getItem("customer")
-    ? JSON.parse(localStorage.getItem("customer"))
-    : null;
-
+  // Load page 1 on mount
   useEffect(() => {
-    if (customer?.token) {
-      dispatch(
-        getOrders({
-          headers: {
-            Authorization: `Bearer ${customer.token}`,
-          },
-        })
-      );
-    }
+    dispatch(getOrders({ page: 1, limit: LIMIT }));
   }, [dispatch]);
 
-  const formatDate = (date) => {
-    return new Date(date).toLocaleDateString("en-IN", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    });
+  // IntersectionObserver — fires when sentinel enters viewport
+  const loadMore = useCallback(() => {
+    if (!isLoading && hasMore) {
+      dispatch(getOrders({ page: currentPage + 1, limit: LIMIT }));
+    }
+  }, [dispatch, isLoading, hasMore, currentPage]);
+
+  useEffect(() => {
+    const el = sentinelRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      (entries) => { if (entries[0].isIntersecting) loadMore(); },
+      { threshold: 0.1 }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [loadMore]);
+
+  // ── helpers ──
+  const fmt = (p) => `₹${Number(p || 0).toLocaleString("en-IN")}`;
+  const fmtDate = (d) =>
+    new Date(d).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+
+  const statusStyle = (s) => {
+    const m = {
+      Delivered: { bg: "#dcfce7", color: "#166534" },
+      Shipped:   { bg: "#dbeafe", color: "#1e40af" },
+      Ordered:   { bg: "#fef9c3", color: "#854d0e" },
+      Processed: { bg: "#e0e7ff", color: "#3730a3" },
+      Cancelled: { bg: "#fee2e2", color: "#991b1b" },
+    };
+    return m[s] || { bg: "#f3f4f6", color: "#374151" };
   };
 
-  const formatPrice = (price) => {
-    return `₹ ${price?.toLocaleString("en-IN")}`;
-  };
-
-  const renderDiscountBreakdown = (order) => {
-    const b = order.discountBreakdown || {};
-    const hasBreakdown = b.directDiscount > 0 || b.offerDiscount > 0 || b.coinDiscount > 0;
-    const totalDiscount = order.discountAmount || (order.totalPrice - order.totalPriceAfterDiscount);
-
-    if (!hasBreakdown && totalDiscount <= 0) return null;
+  // ── render one order card ──
+  const renderOrder = (order) => {
+    const subtotal     = order.totalPrice || 0;
+    const paid         = order.totalPriceAfterDiscount || 0;
+    const b            = order.discountBreakdown || {};
+    const coinDiscount = b.coinDiscount   || order.coinAmount || 0;
+    const offerDiscount= b.offerDiscount  || 0;
+    const directDiscount = b.directDiscount || 0;
+    const totalDiscount  = subtotal - paid;
+    const sc = statusStyle(order.orderStatus);
 
     return (
-      <div className="d-flex flex-column align-items-end gap-1 mt-3 pt-3 border-top">
-        <div className="d-flex justify-content-between w-100" style={{ maxWidth: 300 }}>
-          <span className="text-muted">Subtotal</span>
-          <span className="fw-semibold">{formatPrice(order.totalPrice)}</span>
+      <div
+        key={order._id}
+        className="card mb-4 border-0"
+        style={{ borderRadius: 16, boxShadow: "0 4px 24px rgba(0,0,0,0.08)", overflow: "hidden" }}
+      >
+        {/* Header */}
+        <div
+          className="d-flex justify-content-between align-items-center flex-wrap gap-2 px-4 py-3"
+          style={{ background: "#f8f9fa", borderBottom: "1px solid #eee" }}
+        >
+          <div>
+            <div style={{ fontSize: 10, color: "#aaa", textTransform: "uppercase", letterSpacing: 1 }}>Order ID</div>
+            <div style={{ fontFamily: "monospace", fontWeight: 700, fontSize: 13 }}>
+              #{order._id?.slice(-10).toUpperCase()}
+            </div>
+          </div>
+          <div>
+            <div style={{ fontSize: 10, color: "#aaa", textTransform: "uppercase", letterSpacing: 1 }}>Placed On</div>
+            <div style={{ fontWeight: 600, fontSize: 13 }}>{fmtDate(order.createdAt)}</div>
+          </div>
+          <div>
+            <div style={{ fontSize: 10, color: "#aaa", textTransform: "uppercase", letterSpacing: 1 }}>Total Paid</div>
+            <div style={{ fontWeight: 700, fontSize: 17, color: "#16a34a" }}>{fmt(paid)}</div>
+          </div>
+          <span style={{ background: sc.bg, color: sc.color, padding: "5px 16px", borderRadius: 20, fontSize: 12, fontWeight: 700 }}>
+            {order.orderStatus}
+          </span>
         </div>
 
-        {hasBreakdown ? (
-          <>
-            {b.directDiscount > 0 && (
-              <div className="d-flex justify-content-between w-100" style={{ maxWidth: 300 }}>
-                <span className="text-muted">🏷️ Direct Discount</span>
-                <span className="text-success">-{formatPrice(b.directDiscount)}</span>
-              </div>
-            )}
-            {b.offerDiscount > 0 && (
-              <div className="d-flex justify-content-between w-100" style={{ maxWidth: 300 }}>
-                <span className="text-muted">🎁 Your Offer</span>
-                <span style={{ color: "#fa8c16" }}>-{formatPrice(b.offerDiscount)}</span>
-              </div>
-            )}
-            {b.coinDiscount > 0 && (
-              <div className="d-flex justify-content-between w-100" style={{ maxWidth: 300 }}>
-                <span className="text-muted">🪙 Coins Redeemed</span>
-                <span style={{ color: "#722ed1" }}>-{formatPrice(b.coinDiscount)}</span>
-              </div>
-            )}
-            {totalDiscount > 0 && (
-              <div className="d-flex justify-content-between w-100" style={{ maxWidth: 300 }}>
-                <span className="fw-semibold text-danger">Total Savings</span>
-                <span className="fw-bold text-danger">-{formatPrice(totalDiscount)}</span>
-              </div>
-            )}
-          </>
-        ) : (
-          totalDiscount > 0 && (
-            <div className="d-flex justify-content-between w-100" style={{ maxWidth: 300 }}>
-              <span className="text-muted">Discount</span>
-              <span className="text-success">-{formatPrice(totalDiscount)}</span>
-            </div>
-          )
-        )}
+        {/* Items */}
+        <div className="card-body px-4 py-3">
+          {order.orderItems?.map((item, idx) => {
+            const isLast = idx === order.orderItems.length - 1;
+            const border = isLast ? "none" : "1px solid #f0f0f0";
 
-        <div className="d-flex justify-content-between w-100 border-top pt-2" style={{ maxWidth: 300 }}>
-          <span className="fw-bold">Total Paid</span>
-          <span className="fw-bold text-success fs-5">{formatPrice(order.totalPriceAfterDiscount)}</span>
+            if (item?.isBundle) {
+              return (
+                <div key={idx} className="d-flex align-items-start gap-3 mb-3 pb-3" style={{ borderBottom: border }}>
+                  <div style={{ width: 64, height: 64, background: "linear-gradient(135deg,#667eea,#764ba2)", borderRadius: 12, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                    <FiPackage style={{ color: "#fff", fontSize: 26 }} />
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div className="d-flex align-items-center gap-2 mb-1 flex-wrap">
+                      <span style={{ background: "#667eea", color: "#fff", fontSize: 9, fontWeight: 700, padding: "2px 8px", borderRadius: 4 }}>BUNDLE</span>
+                      <span style={{ fontWeight: 700, fontSize: 15, color: "#667eea" }}>{item?.bundleTitle || "Bundle"}</span>
+                    </div>
+                    {item?.bundleProducts?.map((bp, i) => (
+                      <span key={i} style={{ fontSize: 12, color: "#666", marginRight: 10 }}>• {bp.title} ×{bp.quantity}</span>
+                    ))}
+                    <div style={{ fontSize: 11, color: "#999", marginTop: 2 }}>Qty: {item.quantity}</div>
+                  </div>
+                  <div style={{ textAlign: "right", flexShrink: 0 }}>
+                    <div style={{ fontWeight: 700, fontSize: 16 }}>{fmt(item.price * item.quantity)}</div>
+                    <div style={{ fontSize: 11, color: "#22c55e", fontWeight: 600 }}>Bundle Price</div>
+                  </div>
+                </div>
+              );
+            }
+
+            return (
+              <div key={idx} className="d-flex align-items-center gap-3 mb-3 pb-3" style={{ borderBottom: border }}>
+                <div style={{ width: 64, height: 64, borderRadius: 12, overflow: "hidden", flexShrink: 0, background: "#f5f5f5" }}>
+                  {item?.product?.images?.[0]?.url ? (
+                    <img src={item.product.images[0].url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                  ) : (
+                    <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                      <FiPackage style={{ color: "#ccc", fontSize: 24 }} />
+                    </div>
+                  )}
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 4 }}>{item?.product?.title || "Product"}</div>
+                  <div className="d-flex align-items-center gap-2">
+                    {item?.color?.title && (
+                      <div style={{ width: 14, height: 14, borderRadius: "50%", background: item.color.title, border: "1px solid #ddd", flexShrink: 0 }} />
+                    )}
+                    <span style={{ fontSize: 12, color: "#999" }}>Qty: {item.quantity}</span>
+                    <span style={{ fontSize: 12, color: "#bbb" }}>• {fmt(item.price)} each</span>
+                  </div>
+                </div>
+                <div style={{ textAlign: "right", flexShrink: 0 }}>
+                  <div style={{ fontWeight: 700, fontSize: 16 }}>{fmt(item.price * item.quantity)}</div>
+                </div>
+              </div>
+            );
+          })}
+
+          {/* Price summary */}
+          <div className="mt-2 pt-3" style={{ borderTop: "2px solid #f0f0f0" }}>
+            <div className="d-flex justify-content-between mb-1">
+              <span style={{ color: "#666", fontSize: 14 }}>Subtotal</span>
+              <span style={{ fontWeight: 600 }}>{fmt(subtotal)}</span>
+            </div>
+            {order.mode !== "OFFLINE" && (
+              <div className="d-flex justify-content-between mb-1">
+                <span style={{ color: "#666", fontSize: 14 }}>Shipping</span>
+                <span style={{ fontWeight: 600 }}>₹100</span>
+              </div>
+            )}
+            {directDiscount > 0 && (
+              <div className="d-flex justify-content-between mb-1">
+                <span style={{ color: "#666", fontSize: 14 }}>🏷️ Direct Discount</span>
+                <span style={{ color: "#22c55e", fontWeight: 600 }}>-{fmt(directDiscount)}</span>
+              </div>
+            )}
+            {offerDiscount > 0 && (
+              <div className="d-flex justify-content-between mb-1">
+                <span style={{ color: "#666", fontSize: 14 }}>🎁 Offer Discount</span>
+                <span style={{ color: "#f97316", fontWeight: 600 }}>-{fmt(offerDiscount)}</span>
+              </div>
+            )}
+            {coinDiscount > 0 && (
+              <div className="d-flex justify-content-between mb-1">
+                <span style={{ color: "#666", fontSize: 14 }}>🪙 Coins Redeemed ({order.coinsUsed || coinDiscount} coins)</span>
+                <span style={{ color: "#7c3aed", fontWeight: 600 }}>-{fmt(coinDiscount)}</span>
+              </div>
+            )}
+            {!directDiscount && !offerDiscount && !coinDiscount && totalDiscount > 0 && (
+              <div className="d-flex justify-content-between mb-1">
+                <span style={{ color: "#666", fontSize: 14 }}>Discount</span>
+                <span style={{ color: "#22c55e", fontWeight: 600 }}>-{fmt(totalDiscount)}</span>
+              </div>
+            )}
+            <div className="d-flex justify-content-between mt-2 pt-2" style={{ borderTop: "1px solid #eee" }}>
+              <span style={{ fontWeight: 700, fontSize: 16 }}>Total Paid</span>
+              <span style={{ fontWeight: 700, fontSize: 18, color: "#16a34a" }}>{fmt(paid)}</span>
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -100,124 +206,57 @@ const Orders = () => {
   return (
     <>
       <BreadCrumb title="My Orders" />
-
       <Container class1="home-wrapper-2 py-5">
         <div className="row">
           <div className="col-12">
-            <h3 className="mb-4 fw-bold">My Orders</h3>
+            <div className="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+              <h3 className="fw-bold mb-0" style={{ fontFamily: "'Playfair Display', serif" }}>
+                My Orders
+              </h3>
+              {ordersData?.total > 0 && (
+                <span style={{ fontSize: 13, color: "#999" }}>
+                  Showing {orders.length} of {ordersData.total} orders
+                </span>
+              )}
+            </div>
 
-            {!orderState || orderState.length === 0 ? (
+            {/* Initial loading */}
+            {isLoading && orders.length === 0 && (
               <div className="text-center py-5">
-                <h5>No Orders Found</h5>
+                <div className="spinner-border text-warning" role="status" />
+                <p className="mt-3" style={{ color: "#999" }}>Loading your orders...</p>
               </div>
-            ) : (
-              orderState.map((order) => (
-                <div
-                  key={order._id}
-                  className="card mb-4 shadow-sm border-0"
-                  style={{ borderRadius: "12px" }}
-                >
-                  {/* Order Header */}
-                  <div
-                    className="card-header d-flex justify-content-between align-items-center"
-                    style={{ background: "#f8f9fa" }}
-                  >
-                    <div>
-                      <small className="text-muted">Order ID</small>
-                      <div className="fw-semibold">{order._id}</div>
-                    </div>
+            )}
 
-                    <div>
-                      <small className="text-muted">Placed On</small>
-                      <div className="fw-semibold">
-                        {formatDate(order.createdAt)}
-                      </div>
-                    </div>
+            {/* Empty state */}
+            {!isLoading && orders.length === 0 && (
+              <div className="text-center py-5">
+                <FiShoppingBag style={{ fontSize: 64, color: "#ddd", marginBottom: 16 }} />
+                <h5 style={{ color: "#999", marginBottom: 8 }}>No Orders Found</h5>
+                <p style={{ color: "#bbb", marginBottom: 24 }}>You haven't placed any orders yet.</p>
+                <Link to="/product" className="button">Start Shopping</Link>
+              </div>
+            )}
 
-                    <div>
-                      <small className="text-muted">Total</small>
-                      <div className="fw-bold text-success">
-                        {formatPrice(order.totalPriceAfterDiscount)}
-                      </div>
-                    </div>
+            {/* Orders list */}
+            {orders.map(renderOrder)}
 
-                    <span
-                      className={`badge ${
-                        order.orderStatus === "Delivered"
-                          ? "bg-success"
-                          : order.orderStatus === "Ordered"
-                          ? "bg-warning text-dark"
-                          : "bg-secondary"
-                      }`}
-                    >
-                      {order.orderStatus}
-                    </span>
-                  </div>
+            {/* Sentinel — IntersectionObserver watches this */}
+            <div ref={sentinelRef} style={{ height: 1 }} />
 
-                  {/* Order Items */}
-                  <div className="card-body">
-                    {order.orderItems?.map((item) => (
-                      <div
-                        key={item._id}
-                        className="row align-items-center mb-3 border-bottom pb-3"
-                      >
-                        {/* Product Image */}
-                        <div className="col-md-2">
-                          {item?.product?.images?.[0]?.url ? (
-                            <img
-                              src={item.product.images[0].url}
-                              alt="product"
-                              className="img-fluid rounded"
-                            />
-                          ) : (
-                            <div
-                              style={{
-                                height: "80px",
-                                background: "#eee",
-                                borderRadius: "8px",
-                              }}
-                            ></div>
-                          )}
-                        </div>
+            {/* Loading more spinner */}
+            {isLoading && orders.length > 0 && (
+              <div className="text-center py-4">
+                <div className="spinner-border text-warning spinner-border-sm" role="status" />
+                <span className="ms-2" style={{ color: "#999", fontSize: 14 }}>Loading more orders...</span>
+              </div>
+            )}
 
-                        {/* Product Info */}
-                        <div className="col-md-4">
-                          <h6 className="mb-1">
-                            {item?.product?.title || "Product Not Available"}
-                          </h6>
-                          <small className="text-muted">
-                            Qty: {item.quantity}
-                          </small>
-                        </div>
-
-                        {/* Price */}
-                        <div className="col-md-3 fw-semibold">
-                          {formatPrice(item.price)}
-                        </div>
-
-                        {/* Color */}
-                        <div className="col-md-3">
-                          <div className="d-flex align-items-center gap-2">
-                            <div
-                              style={{
-                                width: "20px",
-                                height: "20px",
-                                borderRadius: "50%",
-                                backgroundColor: item?.color?.title,
-                                border: "1px solid #ccc",
-                              }}
-                            ></div>
-                            <small>{item?.color?.title}</small>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-
-                    {/* Discount Breakdown + Total */}
-                    {renderDiscountBreakdown(order)}
-                  </div>
-                </div>
-              ))
+            {/* End of list */}
+            {!hasMore && orders.length > 0 && (
+              <div className="text-center py-3">
+                <span style={{ fontSize: 13, color: "#bbb" }}>— You've seen all your orders —</span>
+              </div>
             )}
           </div>
         </div>

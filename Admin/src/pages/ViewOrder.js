@@ -61,28 +61,26 @@ const ViewOrder = () => {
       dataIndex: "product",
       render: (text, record) => (
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          {record.image ? (
-            <img 
-              src={record.image} 
-              alt={text} 
-              style={{ width: 50, height: 50, objectFit: "cover", borderRadius: 8 }} 
-            />
+          {record.isBundle ? (
+            <div style={{ width: 50, height: 50, background: "linear-gradient(135deg,#667eea,#764ba2)", borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+              <ShopOutlined style={{ fontSize: 20, color: "#fff" }} />
+            </div>
+          ) : record.image ? (
+            <img src={record.image} alt={text} style={{ width: 50, height: 50, objectFit: "cover", borderRadius: 8 }} />
           ) : (
-            <div style={{ 
-              width: 50, 
-              height: 50, 
-              background: "#f5f5f5", 
-              borderRadius: 8,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center"
-            }}>
+            <div style={{ width: 50, height: 50, background: "#f5f5f5", borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center" }}>
               <ShopOutlined style={{ fontSize: 20, color: "#ccc" }} />
             </div>
           )}
           <div>
-            <p style={{ margin: 0, fontWeight: 500 }}>{text}</p>
-            <p style={{ margin: 0, fontSize: 12, color: "#8c8c8c" }}>{record.brand}</p>
+            {record.isBundle && (
+              <span style={{ background: "#667eea", color: "#fff", fontSize: 9, fontWeight: 700, padding: "1px 6px", borderRadius: 4, marginBottom: 4, display: "inline-block" }}>BUNDLE</span>
+            )}
+            <p style={{ margin: 0, fontWeight: 600, color: record.isBundle ? "#667eea" : "inherit" }}>{text}</p>
+            {record.isBundle && record.bundleProducts?.map((bp, i) => (
+              <p key={i} style={{ margin: 0, fontSize: 11, color: "#8c8c8c" }}>• {bp.title} ×{bp.quantity}</p>
+            ))}
+            {!record.isBundle && <p style={{ margin: 0, fontSize: 12, color: "#8c8c8c" }}>{record.brand}</p>}
           </div>
         </div>
       ),
@@ -131,17 +129,34 @@ const ViewOrder = () => {
   for (let i = 0; i < orderState?.orderItems?.length; i++) {
     const item = orderState.orderItems[i];
     const product = item?.product;
-    data1.push({
-      key: i + 1,
-      product: product?.title || "N/A",
-      brand: product?.brand || "N/A",
-      barcode: product?.barcode || "N/A",
-      color: item?.color,
-      count: item?.quantity,
-      amount: item?.price,
-      total: (item?.price || 0) * (item?.quantity || 0),
-      image: product?.images?.[0] || null,
-    });
+    if (item?.isBundle) {
+      data1.push({
+        key: i + 1,
+        product: item?.bundleTitle || "Bundle",
+        brand: "Bundle Deal",
+        barcode: "—",
+        color: null,
+        count: item?.quantity,
+        amount: item?.price,
+        total: (item?.price || 0) * (item?.quantity || 0),
+        image: null,
+        isBundle: true,
+        bundleProducts: item?.bundleProducts || [],
+      });
+    } else {
+      data1.push({
+        key: i + 1,
+        product: product?.title || "N/A",
+        brand: product?.brand || "N/A",
+        barcode: product?.barcode || "N/A",
+        color: item?.color,
+        count: item?.quantity,
+        amount: item?.price,
+        total: (item?.price || 0) * (item?.quantity || 0),
+        image: product?.images?.[0] || null,
+        isBundle: false,
+      });
+    }
   }
 
   const subtotal = orderState?.totalPrice || 0;

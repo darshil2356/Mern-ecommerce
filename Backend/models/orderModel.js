@@ -96,12 +96,13 @@ paymentInfo: {
     product: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Product",
-      required: true,
+      required: false,
+      default: null,
     },
     color: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Color",
-      required: false, // ✅ optional
+      required: false,
       default: null,
     },
     quantity: {
@@ -112,6 +113,18 @@ paymentInfo: {
       type: Number,
       required: true,
     },
+    // Bundle fields
+    isBundle: { type: Boolean, default: false },
+    bundleId: { type: mongoose.Schema.Types.ObjectId, ref: "Bundle", default: null },
+    bundleTitle: { type: String, default: null },
+    bundleProducts: [
+      {
+        title: String,
+        quantity: Number,
+        price: Number,
+        image: String,
+      },
+    ],
   },
 ],
 

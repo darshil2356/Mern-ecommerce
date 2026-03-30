@@ -31,6 +31,13 @@ const addToCart = async (cartData) => {
   }
 };
 
+const addBundleToCart = async (bundleId) => {
+  const response = await axios.post(`${base_url}user/cart/bundle`, { bundleId }, getConfig());
+  if (response.data) {
+    return response.data;
+  }
+};
+
 const getCart = async (data) => {
   const response = await axios.get(`${base_url}user/cart`, getConfig());
   if (response.data) {
@@ -70,9 +77,11 @@ const createOrder = async (orderDetail) => {
   }
 };
 
-const getUserOrders = async () => {
-  const response = await axios.get(`${base_url}user/getmyorders`, getConfig());
-
+const getUserOrders = async ({ page = 1, limit = 10 } = {}) => {
+  const response = await axios.get(
+    `${base_url}user/getmyorders?page=${page}&limit=${limit}`,
+    getConfig()
+  );
   if (response.data) {
     return response.data;
   }
@@ -82,10 +91,8 @@ const updateUser = async (data) => {
   const response = await axios.put(
     `${base_url}user/edit-user`,
     data.data,
-    data.config2,
     getConfig()
   );
-
   if (response.data) {
     return response.data;
   }
@@ -160,6 +167,7 @@ export const authService = {
   login,
   getUserWislist,
   addToCart,
+  addBundleToCart,
   getCart,
   removeProductFromCart,
   updateProductFromCart,

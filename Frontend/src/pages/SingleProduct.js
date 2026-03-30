@@ -10,7 +10,7 @@ import Container from "../components/Container";
 import { useDispatch, useSelector } from "react-redux";
 import { addRating, getAProduct, getAllProducts, resetSingleProduct } from "../features/products/productSlilce";
 import { toast } from "react-toastify";
-import { addProdToCart, getUserCart } from "../features/user/userSlice";
+import { addProdToCart, addBundleToCart, getUserCart } from "../features/user/userSlice";
 import { addToWishlist } from "../features/products/productSlilce";
 import { motion, AnimatePresence } from "framer-motion";
 import axios from "axios";
@@ -24,6 +24,7 @@ const SingleProduct = () => {
   const [isZoomed, setIsZoomed] = useState(false);
   const [productBundles, setProductBundles] = useState([]);
   const [loadingBundles, setLoadingBundles] = useState(false);
+  const [addingBundle, setAddingBundle] = useState(null);
   // Review state
   const [reviewImages, setReviewImages] = useState([]);
   const [uploadingImages, setUploadingImages] = useState(false);
@@ -225,10 +226,25 @@ const SingleProduct = () => {
   // Get active media
   const activeMedia = media[activeMediaIndex];
 
-  // Handle add bundle to cart
-  const handleAddBundleToCart = (bundle) => {
-    toast.success(`${bundle.title} added to cart!`);
-    // Here you would dispatch to add the bundle items to cart
+  // Add bundle as single cart entry at bundle price
+  const handleAddBundleToCart = async (e, bundle) => {
+    e.stopPropagation();
+    const customer = localStorage.getItem("customer");
+    if (!customer) {
+      toast.error("Please login to add items to cart");
+      navigate("/login");
+      return;
+    }
+    setAddingBundle(bundle._id);
+    try {
+      await dispatch(addBundleToCart(bundle._id)).unwrap();
+      toast.success(`🛒 ${bundle.title} added to cart at ₹${bundle.bundlePrice}!`);
+      navigate("/cart");
+    } catch {
+      toast.error("Failed to add bundle to cart");
+    } finally {
+      setAddingBundle(null);
+    }
   };
 
   if (!productState) {
@@ -850,17 +866,18 @@ const SingleProduct = () => {
                         </div>
 
                         <button
-                          onClick={() => handleAddBundleToCart(bundle)}
+                          onClick={(e) => handleAddBundleToCart(e, bundle)}
+                          disabled={addingBundle === bundle._id}
                           style={{
                             width: '100%',
                             marginTop: '12px',
                             padding: '12px',
-                            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                            background: addingBundle === bundle._id ? '#a5b4fc' : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
                             color: '#fff',
                             border: 'none',
                             borderRadius: '8px',
                             fontWeight: 600,
-                            cursor: 'pointer',
+                            cursor: addingBundle === bundle._id ? 'not-allowed' : 'pointer',
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
@@ -868,7 +885,7 @@ const SingleProduct = () => {
                           }}
                         >
                           <AiOutlineShoppingCart />
-                          Add Bundle to Cart
+                          {addingBundle === bundle._id ? 'Adding…' : 'Add Bundle to Cart'}
                         </button>
                       </div>
                     </motion.div>

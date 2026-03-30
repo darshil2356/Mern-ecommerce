@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState } from "react";
 import BreadCrumb from "../components/BreadCrumb";
 import Meta from "../components/Meta";
 import ReactStars from "react-rating-stars-component";
@@ -7,7 +7,7 @@ import Color from "../components/Color";
 import Container from "../components/Container";
 import { useDispatch, useSelector } from "react-redux";
 import { getAllProducts } from "../features/products/productSlilce";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 
 const OurStore = () => {
   const [grid, setGrid] = useState(4);
@@ -36,16 +36,19 @@ const OurStore = () => {
   });
 
   const dispatch = useDispatch();
+  const location = useLocation();
 
-  // Initial load only - fetch products once on mount with mounted check
-  const isMounted = useRef(false);
-  
+  // On mount, check if a category was passed from Home page
   useEffect(() => {
-    if (!isMounted.current) {
-      isMounted.current = true;
+    const incomingCategory = location.state?.category || null;
+    if (incomingCategory) {
+      setCategory(incomingCategory);
+      setFilterState(prev => ({ ...prev, category: incomingCategory }));
+      dispatch(getAllProducts({ category: incomingCategory }));
+    } else {
       dispatch(getAllProducts({}));
     }
-  }, [dispatch]);
+  }, [dispatch]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Extract unique brands, categories, tags from productState
   useEffect(() => {

@@ -855,6 +855,47 @@ const userCart = asyncHandler(async (req, res) => {
   }
 });
 
+const addBundleToCart = asyncHandler(async (req, res) => {
+  const { bundleId } = req.body;
+  const { _id } = req.user;
+  validateMongoDbId(_id);
+
+  const Bundle = require("../models/bundleModel");
+  const bundle = await Bundle.findById(bundleId).populate("products.product");
+  if (!bundle) {
+    res.status(404);
+    throw new Error("Bundle not found");
+  }
+
+  // Remove any existing bundle cart entry for this bundle
+  await Cart.deleteOne({ userId: _id, bundleId: bundle._id });
+
+  // Build snapshot of bundle products for display
+  const bundleProducts = (bundle.products || []).map((item) => ({
+    title: item.product?.title || "",
+    quantity: item.quantity || 1,
+    price: item.price || item.product?.price || 0,
+    image: item.product?.images?.[0]?.url || "",
+  }));
+
+  // Use first product as the productId reference (required by schema)
+  const firstProduct = bundle.products?.[0]?.product;
+
+  const cartEntry = await new Cart({
+    userId: _id,
+    productId: firstProduct?._id || null,
+    quantity: 1,
+    price: bundle.bundlePrice,
+    color: firstProduct?.color || null,
+    isBundle: true,
+    bundleId: bundle._id,
+    bundleTitle: bundle.title,
+    bundleProducts,
+  }).save();
+
+  res.json(cartEntry);
+});
+
 const getUserCart = asyncHandler(async (req, res) => {
   const { _id } = req.user;
   validateMongoDbId(_id);
@@ -928,15 +969,15 @@ const createOrder = asyncHandler(async (req, res) => {
   } = req.body;
   const { _id } = req.user;
   try {
-    // Decrease stock for each ordered item
+    // Decrease stock for each ordered item (skip bundle items - stock handled separately)
     for (const item of orderItems) {
+      if (item.isBundle) continue; // bundle stock not tracked per-product here
+      if (!item.product) continue;
       const product = await Product.findById(item.product);
       
       if (product) {
-        // If product has sizeStock, decrease from the first available size
         if (product.sizeStock && product.sizeStock.length > 0) {
           let remainingQty = item.quantity;
-          
           for (let i = 0; i < product.sizeStock.length && remainingQty > 0; i++) {
             if (product.sizeStock[i].quantity > 0) {
               const deductQty = Math.min(product.sizeStock[i].quantity, remainingQty);
@@ -945,10 +986,8 @@ const createOrder = asyncHandler(async (req, res) => {
             }
           }
         } else {
-          // Decrease from main quantity
           product.quantity = Math.max(0, product.quantity - item.quantity);
         }
-        
         product.sold = (product.sold || 0) + item.quantity;
         await product.save();
       }
@@ -1012,13 +1051,24 @@ const createOrder = asyncHandler(async (req, res) => {
 
 const getMyOrders = asyncHandler(async (req, res) => {
   const { _id } = req.user;
+  const page  = Math.max(1, parseInt(req.query.page)  || 1);
+  const limit = Math.max(1, parseInt(req.query.limit) || 10);
+  const skip  = (page - 1) * limit;
   try {
+    const total  = await Order.countDocuments({ user: _id });
     const orders = await Order.find({ user: _id })
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
       .populate("user")
-      .populate("orderItems.product")
+      .populate({ path: "orderItems.product", select: "title brand price images barcode" })
       .populate("orderItems.color");
     res.json({
       orders,
+      page,
+      limit,
+      total,
+      hasMore: skip + orders.length < total,
     });
   } catch (error) {
     throw new Error(error);
@@ -2313,4 +2363,5 @@ module.exports = {
   getAllReferrals,
   updateCustomerById,
   deleteCustomerById,
+  addBundleToCart,
 };

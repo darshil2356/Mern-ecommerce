@@ -18,8 +18,6 @@ import { base_url, config, getConfig } from "../../utils/axiosConfig";
 //   }
 // };
 const getProducts = async (data = {}) => {
- 
-  console.log(  "Service",data)
   const response = await axios.get(`${base_url}product`, {
     params: {
       ...(data.tag && { tags: data.tag }),

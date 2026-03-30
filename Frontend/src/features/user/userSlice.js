@@ -48,9 +48,9 @@ export const addProdToCart = createAsyncThunk(
 
 export const addBundleToCart = createAsyncThunk(
   "user/cart/add-bundle",
-  async (bundleId, thunkAPI) => {
+  async ({ bundleId, selectedSizes }, thunkAPI) => {
     try {
-      return await authService.addBundleToCart(bundleId);
+      return await authService.addBundleToCart({ bundleId, selectedSizes });
     } catch (error) {
       return thunkAPI.rejectWithValue(error);
     }

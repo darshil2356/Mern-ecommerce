@@ -25,6 +25,8 @@ const SingleProduct = () => {
   const [productBundles, setProductBundles] = useState([]);
   const [loadingBundles, setLoadingBundles] = useState(false);
   const [addingBundle, setAddingBundle] = useState(null);
+  const [bundleSizeModal, setBundleSizeModal] = useState(null); // holds the bundle being configured
+  const [bundleSelectedSizes, setBundleSelectedSizes] = useState({}); // { productId: size }
   // Review state
   const [reviewImages, setReviewImages] = useState([]);
   const [uploadingImages, setUploadingImages] = useState(false);
@@ -226,8 +228,8 @@ const SingleProduct = () => {
   // Get active media
   const activeMedia = media[activeMediaIndex];
 
-  // Add bundle as single cart entry at bundle price
-  const handleAddBundleToCart = async (e, bundle) => {
+  // Open size selection modal for bundle
+  const handleAddBundleToCart = (e, bundle) => {
     e.stopPropagation();
     const customer = localStorage.getItem("customer");
     if (!customer) {
@@ -235,13 +237,27 @@ const SingleProduct = () => {
       navigate("/login");
       return;
     }
+    // Check if any product in bundle has sizes
+    const needsSizes = (bundle.products || []).some(
+      (item) => item.product?.sizeStock?.length > 0
+    );
+    if (needsSizes) {
+      setBundleSelectedSizes({});
+      setBundleSizeModal(bundle);
+    } else {
+      confirmAddBundleToCart(bundle, {});
+    }
+  };
+
+  const confirmAddBundleToCart = async (bundle, selectedSizes) => {
+    setBundleSizeModal(null);
     setAddingBundle(bundle._id);
     try {
-      await dispatch(addBundleToCart(bundle._id)).unwrap();
+      await dispatch(addBundleToCart({ bundleId: bundle._id, selectedSizes })).unwrap();
       toast.success(`🛒 ${bundle.title} added to cart at ₹${bundle.bundlePrice}!`);
       navigate("/cart");
-    } catch {
-      toast.error("Failed to add bundle to cart");
+    } catch (err) {
+      toast.error(err?.response?.data?.message || "Failed to add bundle to cart");
     } finally {
       setAddingBundle(null);
     }
@@ -792,7 +808,7 @@ const SingleProduct = () => {
                       {/* Bundle Products */}
                       <div style={{ padding: '15px' }}>
                         {bundle.products && bundle.products.map((item, idx) => (
-                          <div key={idx} className="d-flex align-items-center gap-2 mb-2">
+                          <div key={idx} className="d-flex align-items-start gap-2 mb-3">
                             <div style={{
                               width: '40px',
                               height: '40px',
@@ -830,9 +846,27 @@ const SingleProduct = () => {
                               }}>
                                 {item.product?.title}
                               </p>
-                              <p style={{ margin: 0, fontSize: '11px', color: '#666' }}>
+                              <p style={{ margin: '2px 0 4px', fontSize: '11px', color: '#666' }}>
                                 Qty: {item.quantity} × ₹{item.price?.toLocaleString()}
                               </p>
+                              {/* Show available sizes inline */}
+                              {item.product?.sizeStock?.filter(s => s.quantity > 0).length > 0 && (
+                                <div className="d-flex gap-1 flex-wrap">
+                                  {item.product.sizeStock.filter(s => s.quantity > 0).map(s => (
+                                    <span key={s.size} style={{
+                                      fontSize: '10px',
+                                      fontWeight: 700,
+                                      padding: '2px 7px',
+                                      borderRadius: '6px',
+                                      border: '1.5px solid #667eea',
+                                      color: '#667eea',
+                                      background: '#f0f0ff'
+                                    }}>
+                                      {s.size}
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
                             </div>
                           </div>
                         ))}
@@ -865,6 +899,11 @@ const SingleProduct = () => {
                           </div>
                         </div>
 
+                        {(bundle.products || []).some(i => i.product?.sizeStock?.filter(s => s.quantity > 0).length > 0) && (
+                          <p style={{ margin: '10px 0 0', fontSize: '11px', color: '#667eea', fontWeight: 600, textAlign: 'center' }}>
+                            ⚠️ You’ll choose a size for each product
+                          </p>
+                        )}
                         <button
                           onClick={(e) => handleAddBundleToCart(e, bundle)}
                           disabled={addingBundle === bundle._id}
@@ -885,7 +924,12 @@ const SingleProduct = () => {
                           }}
                         >
                           <AiOutlineShoppingCart />
-                          {addingBundle === bundle._id ? 'Adding…' : 'Add Bundle to Cart'}
+                          {addingBundle === bundle._id
+                            ? 'Adding…'
+                            : (bundle.products || []).some(i => i.product?.sizeStock?.filter(s => s.quantity > 0).length > 0)
+                              ? 'Select Size & Add to Cart'
+                              : 'Add Bundle to Cart'
+                          }
                         </button>
                       </div>
                     </motion.div>
@@ -1404,6 +1448,115 @@ const SingleProduct = () => {
           >
             ✕
           </button>
+        </div>
+      )}
+      {/* Bundle Size Selection Modal */}
+      {bundleSizeModal && (
+        <div
+          onClick={() => setBundleSizeModal(null)}
+          style={{
+            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+            background: 'rgba(0,0,0,0.6)', zIndex: 9999,
+            display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px'
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: '#fff', borderRadius: '16px', padding: '30px',
+              maxWidth: '480px', width: '100%', maxHeight: '80vh', overflowY: 'auto'
+            }}
+          >
+            <h4 style={{ marginBottom: '6px', fontWeight: 700 }}>{bundleSizeModal.title}</h4>
+            <p style={{ color: '#666', fontSize: '14px', marginBottom: '20px' }}>
+              Select a size for each product in this bundle
+            </p>
+
+            {(bundleSizeModal.products || []).map((item) => {
+              const product = item.product;
+              if (!product) return null;
+              const sizes = (product.sizeStock || []).filter(s => s.quantity > 0);
+              if (sizes.length === 0) return null;
+              const productId = product._id?.toString();
+              return (
+                <div key={productId} style={{ marginBottom: '20px' }}>
+                  <div className="d-flex align-items-center gap-2 mb-2">
+                    {product.images?.[0]?.url && (
+                      <img
+                        src={product.images[0].url}
+                        alt={product.title}
+                        style={{ width: '40px', height: '40px', objectFit: 'cover', borderRadius: '8px' }}
+                      />
+                    )}
+                    <span style={{ fontWeight: 600, fontSize: '14px' }}>{product.title}</span>
+                  </div>
+                  <div className="d-flex gap-2 flex-wrap">
+                    {sizes.map((s) => (
+                      <button
+                        key={s.size}
+                        onClick={() =>
+                          setBundleSelectedSizes((prev) => ({ ...prev, [productId]: s.size }))
+                        }
+                        style={{
+                          padding: '8px 16px',
+                          borderRadius: '8px',
+                          border: bundleSelectedSizes[productId] === s.size
+                            ? '2px solid #667eea'
+                            : '2px solid #e5e5e5',
+                          background: bundleSelectedSizes[productId] === s.size ? '#667eea' : '#fff',
+                          color: bundleSelectedSizes[productId] === s.size ? '#fff' : '#333',
+                          fontWeight: 600,
+                          cursor: 'pointer',
+                          fontSize: '13px'
+                        }}
+                      >
+                        {s.size}
+                        <span style={{ fontSize: '10px', opacity: 0.7, marginLeft: '4px' }}>
+                          ({s.quantity})
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+
+            <div className="d-flex gap-3 mt-3">
+              <button
+                onClick={() => setBundleSizeModal(null)}
+                style={{
+                  flex: 1, padding: '12px', borderRadius: '10px',
+                  border: '2px solid #e5e5e5', background: '#fff',
+                  fontWeight: 600, cursor: 'pointer'
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  // Validate all products with sizes have a selection
+                  const missing = (bundleSizeModal.products || []).find((item) => {
+                    const p = item.product;
+                    if (!p) return false;
+                    const hasSizes = (p.sizeStock || []).some(s => s.quantity > 0);
+                    return hasSizes && !bundleSelectedSizes[p._id?.toString()];
+                  });
+                  if (missing) {
+                    toast.error(`Please select a size for ${missing.product.title}`);
+                    return;
+                  }
+                  confirmAddBundleToCart(bundleSizeModal, bundleSelectedSizes);
+                }}
+                style={{
+                  flex: 1, padding: '12px', borderRadius: '10px',
+                  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                  color: '#fff', border: 'none', fontWeight: 600, cursor: 'pointer'
+                }}
+              >
+                Add Bundle to Cart
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </>

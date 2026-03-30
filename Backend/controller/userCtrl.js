@@ -856,7 +856,8 @@ const userCart = asyncHandler(async (req, res) => {
 });
 
 const addBundleToCart = asyncHandler(async (req, res) => {
-  const { bundleId } = req.body;
+  const { bundleId, selectedSizes } = req.body;
+  // selectedSizes: { [productId]: "M" | "XL" | ... }
   const { _id } = req.user;
   validateMongoDbId(_id);
 
@@ -867,18 +868,38 @@ const addBundleToCart = asyncHandler(async (req, res) => {
     throw new Error("Bundle not found");
   }
 
+  // Validate selected sizes against product sizeStock
+  for (const item of bundle.products || []) {
+    const product = item.product;
+    if (!product) continue;
+    const hasSizes = product.sizeStock && product.sizeStock.length > 0;
+    if (hasSizes) {
+      const chosen = selectedSizes?.[product._id.toString()];
+      if (!chosen) {
+        res.status(400);
+        throw new Error(`Please select a size for ${product.title}`);
+      }
+      const sizeEntry = product.sizeStock.find(s => s.size === chosen);
+      if (!sizeEntry || sizeEntry.quantity < 1) {
+        res.status(400);
+        throw new Error(`Size ${chosen} is out of stock for ${product.title}`);
+      }
+    }
+  }
+
   // Remove any existing bundle cart entry for this bundle
   await Cart.deleteOne({ userId: _id, bundleId: bundle._id });
 
   // Build snapshot of bundle products for display
   const bundleProducts = (bundle.products || []).map((item) => ({
+    productId: item.product?._id || null,
     title: item.product?.title || "",
     quantity: item.quantity || 1,
     price: item.price || item.product?.price || 0,
     image: item.product?.images?.[0]?.url || "",
+    selectedSize: selectedSizes?.[item.product?._id?.toString()] || null,
   }));
 
-  // Use first product as the productId reference (required by schema)
   const firstProduct = bundle.products?.[0]?.product;
 
   const cartEntry = await new Cart({

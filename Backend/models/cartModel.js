@@ -37,10 +37,12 @@ var cartSchema = new mongoose.Schema(
     },
     bundleProducts: [
       {
+        productId: { type: mongoose.Schema.Types.ObjectId, ref: "Product" },
         title: String,
         quantity: Number,
         price: Number,
         image: String,
+        selectedSize: String,
       },
     ],
   },

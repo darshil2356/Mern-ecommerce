@@ -90,6 +90,19 @@ const Cart = () => {
                         {item?.bundleProducts?.map((bp, i) => (
                           <p key={i} style={{ fontSize: "12px", color: "#666", marginBottom: "2px" }}>
                             • {bp.title} × {bp.quantity}
+                            {bp.selectedSize && (
+                              <span style={{
+                                marginLeft: "6px",
+                                background: "#667eea",
+                                color: "#fff",
+                                padding: "1px 7px",
+                                borderRadius: "10px",
+                                fontSize: "10px",
+                                fontWeight: 700
+                              }}>
+                                {bp.selectedSize}
+                              </span>
+                            )}
                           </p>
                         ))}
                         <span style={{ fontSize: "11px", background: "#dcfce7", color: "#166534", padding: "2px 8px", borderRadius: "10px", fontWeight: 600 }}>

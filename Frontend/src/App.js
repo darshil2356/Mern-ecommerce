@@ -28,6 +28,7 @@ import { OpenRoutes } from "./routing/OpenRoutes";
 import Orders from "./pages/Orders";
 import Profile from "./pages/Profile";
 import Reels from "./pages/Reels";
+import Bundles from "./pages/Bundles";
 
 function App() {
   return (
@@ -46,6 +47,7 @@ function App() {
             
             {/* Reels Page - Full Screen Reel-Based Shopping */}
             <Route path="reels" element={<Reels />} />
+            <Route path="bundles" element={<Bundles />} />
             
             <Route
               path="cart"

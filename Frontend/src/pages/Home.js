@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import Meta from "../components/Meta";
 import BlogCard from "../components/BlogCard";
 import Container from "../components/Container";
 import { services } from "../utils/Data";
@@ -154,6 +155,12 @@ const Home = () => {
 
   return (
     <>
+      <Meta
+        title="Premium Fashion & Clothing"
+        description="Yashoda Fashion – Shop the latest fashion trends, new arrivals, bundles, and exclusive deals online in India."
+        keywords="fashion, clothing, online shopping, new arrivals, premium fashion, Yashoda Fashion, India"
+        url="/"
+      />
       {/* ── HERO ── */}
       <div style={{ position: "relative", height: "88vh", minHeight: "580px", overflow: "hidden", background: "#111" }}>
         <div style={{ position: "absolute", inset: 0, backgroundImage: "url(images/main-banner.jpg)", backgroundSize: "cover", backgroundPosition: "center", opacity: 0.45 }} />

@@ -20,7 +20,12 @@ const Blog = () => {
 
   return (
     <>
-      <Meta title={"Blogs"} />
+      <Meta
+        title="Fashion Blog"
+        description="Read the latest fashion tips, style guides, and trend updates on the Yashoda Fashion blog."
+        keywords="fashion blog, style tips, clothing trends, Yashoda Fashion blog"
+        url="/blog"
+      />
       <BreadCrumb title="Blogs" />
       <Container class1="blog-wrapper home-wrapper-2 py-5">
         <div className="row">

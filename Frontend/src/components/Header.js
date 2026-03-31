@@ -93,7 +93,7 @@ const Header = () => {
           <div className="row align-items-center">
             <div className="col-6">
               <p className="text-white mb-0" style={{ fontSize: '13px' }}>
-                Welcome to VogueCraft - Premium Clothing Brand
+                Welcome to Yashoda Fashion - Premium Clothing Brand
               </p>
             </div>
             <div className="col-6">

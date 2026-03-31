@@ -62,12 +62,12 @@ const Footer = () => {
                       color: '#ffffff'
                     }}
                   >
-                    <span style={{ color: '#d4af37' }}>VOGUE</span>
-                    <span style={{ color: '#ffffff' }}>CRAFT</span>
+                    <span style={{ color: '#d4af37' }}>YASHODA</span>
+                    <span style={{ color: '#ffffff' }}> FASHION</span>
                   </h2>
                 </Link>
                 <p className="footer-description" style={{ marginTop: '20px', lineHeight: 1.8 }}>
-                  Discover the latest trends in fashion at VogueCraft. We bring you premium quality clothing with style that speaks volumes.
+                  Discover the latest trends in fashion at Yashoda Fashion. We bring you premium quality clothing with style that speaks volumes.
                 </p>
                 <div className="social-links">
                   <a 
@@ -174,7 +174,7 @@ const Footer = () => {
             gap: '20px'
           }}>
             <p className="copyright" style={{ color: 'rgba(255,255,255,0.5)', fontSize: '14px', margin: 0 }}>
-              © {new Date().getFullYear()} <span style={{ color: '#d4af37' }}>VogueCraft</span>. All rights reserved.
+              © {new Date().getFullYear()} <span style={{ color: '#d4af37' }}>Yashoda Fashion</span>. All rights reserved.
             </p>
             <div className="payment-methods">
               <span style={{ color: 'rgba(255,255,255,0.5)', fontSize: '12px', marginRight: '10px' }}>We Accept:</span>

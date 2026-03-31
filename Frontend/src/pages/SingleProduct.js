@@ -278,7 +278,17 @@ const SingleProduct = () => {
 
   return (
     <>
-      <Meta title={productState?.title || "Product Details"} />
+      <Meta
+        title={productState?.title}
+        description={productState?.description?.replace(/<[^>]+>/g, "").slice(0, 160)}
+        keywords={`${productState?.title}, ${productState?.brand}, ${productState?.category}, buy online, Yashoda Fashion`}
+        image={productState?.images?.[0]?.url}
+        url={`/product/${productState?._id}`}
+        type="product"
+        price={productState?.price}
+        brand={productState?.brand}
+        availability={productState?.quantity > 0}
+      />
       <BreadCrumb title={productState?.title} />
 
       {/* Product Gallery & Details Section */}

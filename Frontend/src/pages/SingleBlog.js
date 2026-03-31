@@ -22,7 +22,13 @@ const SingleBlog = () => {
   };
   return (
     <>
-      <Meta title={blogState?.title} />
+      <Meta
+        title={blogState?.title}
+        description={blogState?.description?.replace(/<[^>]+>/g, "").slice(0, 160)}
+        image={blogState?.images?.[0]?.url}
+        url={`/blog/${getBlogId}`}
+        type="article"
+      />
       <BreadCrumb title={blogState?.title} />
       <Container class1="blog-wrapper home-wrapper-2 py-5">
         <div className="row">

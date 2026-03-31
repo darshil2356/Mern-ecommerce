@@ -115,7 +115,12 @@ const OurStore = () => {
 
   return (
     <>
-      <Meta title={"Our Store"} />
+      <Meta
+        title="Shop All Products"
+        description="Browse Yashoda Fashion's full collection of premium fashion, clothing, and accessories. Filter by category, brand, price, and more."
+        keywords="shop fashion online, buy clothes, premium clothing, Yashoda Fashion store"
+        url="/product"
+      />
       <BreadCrumb title="Our Store" />
       <Container class1="store-wrapper home-wrapper-2 py-5">
         <div className="row">

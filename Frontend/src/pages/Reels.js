@@ -381,7 +381,7 @@ const Reels = () => {
               }}>
                 {/* Username */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
-                  <span style={{ fontWeight: 600, color: '#fff', fontSize: '15px' }}>@voguecraft</span>
+                  <span style={{ fontWeight: 600, color: '#fff', fontSize: '15px' }}>@yashodafashion</span>
                   <span style={{ background: 'rgba(212, 175, 55, 0.8)', color: '#000', padding: '2px 8px', borderRadius: '4px', fontSize: '10px', fontWeight: 600 }}>FOLLOW</span>
                 </div>
 

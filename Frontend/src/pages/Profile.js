@@ -1,12 +1,16 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import BreadCrumb from "../components/BreadCrumb";
 import Container from "../components/Container";
 import { useFormik } from "formik";
 import * as yup from "yup";
 import { useDispatch, useSelector } from "react-redux";
 import { updateProfile, getOrders, getMyReferrals, applyReferralCode, getReferralCode } from "../features/user/userSlice";
-import { FiEdit, FiCopy, FiCheck, FiShare2, FiUsers, FiGift, FiLink, FiUserCheck, FiShoppingBag, FiAward, FiStar, FiChevronRight } from "react-icons/fi";
+import { FiEdit, FiCopy, FiCheck, FiShare2, FiUsers, FiGift, FiLink, FiUserCheck, FiShoppingBag, FiAward, FiStar, FiChevronRight, FiPackage } from "react-icons/fi";
 import { motion } from "framer-motion";
+import { Link } from "react-router-dom";
+import { getColorSwatch, getReadableColorName } from "../utils/colorDisplay";
+
+const ORDERS_LIMIT = 10;
 
 let profileSchema = yup.object({
   firstname: yup.string().required("First Name is Required"),
@@ -41,8 +45,13 @@ const Profile = () => {
 
   const dispatch = useDispatch();
   const userState = useSelector((state) => state?.auth?.user);
-  const orderState = useSelector((state) => state?.auth?.getorderedProduct?.orders);
+  const ordersData  = useSelector((state) => state?.auth?.getorderedProduct);
+  const orders      = ordersData?.orders  || [];
+  const hasMore     = ordersData?.hasMore ?? false;
+  const currentPage = ordersData?.page    || 0;
+  const isOrdersLoading = useSelector((state) => state?.auth?.isLoading);
   const referralState = useSelector((state) => state.auth);
+  const sentinelRef = useRef(null);
   
   // Get referral code from multiple sources: localStorage, userState, or referralState
   const getUserReferralCode = () => {
@@ -79,16 +88,28 @@ const Profile = () => {
 
   // Fetch orders when tab is changed to orders
   useEffect(() => {
-    if (activeTab === "orders" && getTokenFromLocalStorage?.token) {
-      dispatch(
-        getOrders({
-          headers: {
-            Authorization: `Bearer ${getTokenFromLocalStorage.token}`,
-          },
-        })
-      );
+    if (activeTab === "orders") {
+      dispatch(getOrders({ page: 1, limit: ORDERS_LIMIT }));
     }
   }, [activeTab, dispatch]);
+
+  const loadMoreOrders = useCallback(() => {
+    if (!isOrdersLoading && hasMore) {
+      dispatch(getOrders({ page: currentPage + 1, limit: ORDERS_LIMIT }));
+    }
+  }, [dispatch, isOrdersLoading, hasMore, currentPage]);
+
+  useEffect(() => {
+    if (activeTab !== "orders") return;
+    const el = sentinelRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      (entries) => { if (entries[0].isIntersecting) loadMoreOrders(); },
+      { threshold: 0.1 }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [activeTab, loadMoreOrders]);
 
   // Fetch referrals when tab is changed to referrals
   useEffect(() => {
@@ -282,121 +303,217 @@ const Profile = () => {
     </div>
   );
 
+  const fmtOrderPrice = (p) => `₹${Number(p || 0).toLocaleString("en-IN")}`;
+  const fmtOrderDate = (d) =>
+    new Date(d).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+
+  const statusStyle = (s) => {
+    const m = {
+      Delivered: { bg: "#dcfce7", color: "#166534" },
+      Shipped:   { bg: "#dbeafe", color: "#1e40af" },
+      Ordered:   { bg: "#fef9c3", color: "#854d0e" },
+      Processed: { bg: "#e0e7ff", color: "#3730a3" },
+      Cancelled: { bg: "#fee2e2", color: "#991b1b" },
+    };
+    return m[s] || { bg: "#f3f4f6", color: "#374151" };
+  };
+
+  const renderOrderCard = (order) => {
+    const subtotal      = order.totalPrice || 0;
+    const paid          = order.totalPriceAfterDiscount || 0;
+    const b             = order.discountBreakdown || {};
+    const coinDiscount  = b.coinDiscount    || order.coinAmount || 0;
+    const offerDiscount = b.offerDiscount   || 0;
+    const directDiscount = b.directDiscount || 0;
+    const totalDiscount  = subtotal - paid;
+    const sc = statusStyle(order.orderStatus);
+
+    return (
+      <div
+        key={order._id}
+        className="card mb-4 border-0"
+        style={{ borderRadius: 16, boxShadow: "0 4px 24px rgba(0,0,0,0.08)", overflow: "hidden" }}
+      >
+        <div
+          className="d-flex justify-content-between align-items-center flex-wrap gap-2 px-4 py-3"
+          style={{ background: "#f8f9fa", borderBottom: "1px solid #eee" }}
+        >
+          <div>
+            <div style={{ fontSize: 10, color: "#aaa", textTransform: "uppercase", letterSpacing: 1 }}>Order ID</div>
+            <div style={{ fontFamily: "monospace", fontWeight: 700, fontSize: 13 }}>#{order._id?.slice(-10).toUpperCase()}</div>
+          </div>
+          <div>
+            <div style={{ fontSize: 10, color: "#aaa", textTransform: "uppercase", letterSpacing: 1 }}>Placed On</div>
+            <div style={{ fontWeight: 600, fontSize: 13 }}>{fmtOrderDate(order.createdAt)}</div>
+          </div>
+          <div>
+            <div style={{ fontSize: 10, color: "#aaa", textTransform: "uppercase", letterSpacing: 1 }}>Total Paid</div>
+            <div style={{ fontWeight: 700, fontSize: 17, color: "#16a34a" }}>{fmtOrderPrice(paid)}</div>
+          </div>
+          <span style={{ background: sc.bg, color: sc.color, padding: "5px 16px", borderRadius: 20, fontSize: 12, fontWeight: 700 }}>
+            {order.orderStatus}
+          </span>
+        </div>
+
+        <div className="card-body px-4 py-3">
+          {order.orderItems?.map((item, idx) => {
+            const isLast = idx === order.orderItems.length - 1;
+            const border = isLast ? "none" : "1px solid #f0f0f0";
+
+            if (item?.isBundle) {
+              return (
+                <div key={idx} className="d-flex align-items-start gap-3 mb-3 pb-3" style={{ borderBottom: border, padding: "10px 12px", borderRadius: 14, background: "#f8fafc" }}>
+                  <div style={{ width: 64, height: 64, background: "linear-gradient(135deg,#0f172a,#334155)", borderRadius: 12, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                    <FiPackage style={{ color: "#fff", fontSize: 26 }} />
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div className="d-flex align-items-center gap-2 mb-1 flex-wrap">
+                      <span style={{ background: "#0f172a", color: "#fff", fontSize: 9, fontWeight: 700, padding: "2px 8px", borderRadius: 4 }}>BUNDLE</span>
+                      <span style={{ fontWeight: 700, fontSize: 15, color: "#0f172a" }}>{item?.bundleTitle || "Bundle"}</span>
+                    </div>
+                    <div className="d-flex flex-column gap-2 mt-2">
+                      {item?.bundleProducts?.map((bp, i) => (
+                        <div key={i} style={{ padding: "8px 10px", borderRadius: 10, background: "#fff", border: "1px solid #e2e8f0" }}>
+                          <div style={{ fontSize: 13, color: "#0f172a", fontWeight: 600 }}>{bp.title} ×{bp.quantity}</div>
+                          <div className="d-flex align-items-center gap-2 flex-wrap mt-1">
+                            {bp.selectedColorLabel && (
+                              <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, color: "#64748b" }}>
+                                <span style={{ width: 10, height: 10, borderRadius: "50%", background: getColorSwatch(bp.selectedColor || bp.selectedColorLabel), border: "1px solid #cbd5e1" }} />
+                                Color selected
+                              </span>
+                            )}
+                            {bp.selectedSize && <span style={{ fontSize: 12, color: "#64748b" }}>Size {bp.selectedSize}</span>}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <div style={{ fontSize: 11, color: "#999", marginTop: 2 }}>Qty: {item.quantity}</div>
+                  </div>
+                  <div style={{ textAlign: "right", flexShrink: 0 }}>
+                    <div style={{ fontWeight: 700, fontSize: 16 }}>{fmtOrderPrice(item.price * item.quantity)}</div>
+                    <div style={{ fontSize: 11, color: "#0f766e", fontWeight: 700 }}>Bundle Price</div>
+                  </div>
+                </div>
+              );
+            }
+
+            return (
+              <div key={idx} className="d-flex align-items-center gap-3 mb-3 pb-3" style={{ borderBottom: border }}>
+                <div style={{ width: 64, height: 64, borderRadius: 12, overflow: "hidden", flexShrink: 0, background: "#f5f5f5" }}>
+                  {item?.product?.images?.[0]?.url ? (
+                    <img src={item.product.images[0].url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                  ) : (
+                    <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                      <FiPackage style={{ color: "#ccc", fontSize: 24 }} />
+                    </div>
+                  )}
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 4 }}>{item?.product?.title || "Product"}</div>
+                  <div className="d-flex align-items-center gap-2">
+                    {item?.color && (
+                      <div style={{ width: 14, height: 14, borderRadius: "50%", background: getColorSwatch(item.color), border: "1px solid #ddd", flexShrink: 0 }} />
+                    )}
+                    <span style={{ fontSize: 12, color: "#999" }}>
+                      {item?.color ? `${getReadableColorName(item.color)} • ` : ""}Qty: {item.quantity}
+                    </span>
+                    <span style={{ fontSize: 12, color: "#bbb" }}>• {fmtOrderPrice(item.price)} each</span>
+                  </div>
+                </div>
+                <div style={{ textAlign: "right", flexShrink: 0 }}>
+                  <div style={{ fontWeight: 700, fontSize: 16 }}>{fmtOrderPrice(item.price * item.quantity)}</div>
+                </div>
+              </div>
+            );
+          })}
+
+          <div className="mt-2 pt-3" style={{ borderTop: "2px solid #f0f0f0" }}>
+            <div className="d-flex justify-content-between mb-1">
+              <span style={{ color: "#666", fontSize: 14 }}>Subtotal</span>
+              <span style={{ fontWeight: 600 }}>{fmtOrderPrice(subtotal)}</span>
+            </div>
+            {order.mode !== "OFFLINE" && (
+              <div className="d-flex justify-content-between mb-1">
+                <span style={{ color: "#666", fontSize: 14 }}>Shipping</span>
+                <span style={{ fontWeight: 600 }}>₹100</span>
+              </div>
+            )}
+            {directDiscount > 0 && (
+              <div className="d-flex justify-content-between mb-1">
+                <span style={{ color: "#666", fontSize: 14 }}>🏷️ Direct Discount</span>
+                <span style={{ color: "#22c55e", fontWeight: 600 }}>-{fmtOrderPrice(directDiscount)}</span>
+              </div>
+            )}
+            {offerDiscount > 0 && (
+              <div className="d-flex justify-content-between mb-1">
+                <span style={{ color: "#666", fontSize: 14 }}>🎁 Offer Discount</span>
+                <span style={{ color: "#f97316", fontWeight: 600 }}>-{fmtOrderPrice(offerDiscount)}</span>
+              </div>
+            )}
+            {coinDiscount > 0 && (
+              <div className="d-flex justify-content-between mb-1">
+                <span style={{ color: "#666", fontSize: 14 }}>🪙 Coins Redeemed ({order.coinsUsed || coinDiscount} coins)</span>
+                <span style={{ color: "#7c3aed", fontWeight: 600 }}>-{fmtOrderPrice(coinDiscount)}</span>
+              </div>
+            )}
+            {!directDiscount && !offerDiscount && !coinDiscount && totalDiscount > 0 && (
+              <div className="d-flex justify-content-between mb-1">
+                <span style={{ color: "#666", fontSize: 14 }}>Discount</span>
+                <span style={{ color: "#22c55e", fontWeight: 600 }}>-{fmtOrderPrice(totalDiscount)}</span>
+              </div>
+            )}
+            <div className="d-flex justify-content-between mt-2 pt-2" style={{ borderTop: "1px solid #eee" }}>
+              <span style={{ fontWeight: 700, fontSize: 16 }}>Total Paid</span>
+              <span style={{ fontWeight: 700, fontSize: 18, color: "#16a34a" }}>{fmtOrderPrice(paid)}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   // Render My Orders Tab
   const renderMyOrders = () => (
     <div className="row">
       <div className="col-12">
-        <h3 className="mb-4 fw-bold">My Orders</h3>
+        <div className="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+          <h3 className="fw-bold mb-0" style={{ fontFamily: "'Playfair Display', serif" }}>My Orders</h3>
+          {ordersData?.total > 0 && (
+            <span style={{ fontSize: 13, color: "#999" }}>Showing {orders.length} of {ordersData.total} orders</span>
+          )}
+        </div>
 
-        {!orderState || orderState.length === 0 ? (
+        {isOrdersLoading && orders.length === 0 && (
           <div className="text-center py-5">
-            <h5>No Orders Found</h5>
+            <div className="spinner-border text-warning" role="status" />
+            <p className="mt-3" style={{ color: "#999" }}>Loading your orders...</p>
           </div>
-        ) : (
-          orderState.map((order) => (
-            <div
-              key={order._id}
-              className="card mb-4 shadow-sm border-0"
-              style={{ borderRadius: "12px" }}
-            >
-              {/* Order Header */}
-              <div
-                className="card-header d-flex justify-content-between align-items-center"
-                style={{ background: "#f8f9fa" }}
-              >
-                <div>
-                  <small className="text-muted">Order ID</small>
-                  <div className="fw-semibold">{order._id}</div>
-                </div>
+        )}
 
-                <div>
-                  <small className="text-muted">Placed On</small>
-                  <div className="fw-semibold">
-                    {formatDate(order.createdAt)}
-                  </div>
-                </div>
+        {!isOrdersLoading && orders.length === 0 && (
+          <div className="text-center py-5">
+            <FiShoppingBag style={{ fontSize: 64, color: "#ddd", marginBottom: 16 }} />
+            <h5 style={{ color: "#999", marginBottom: 8 }}>No Orders Found</h5>
+            <p style={{ color: "#bbb", marginBottom: 24 }}>You haven't placed any orders yet.</p>
+            <Link to="/product" className="button">Start Shopping</Link>
+          </div>
+        )}
 
-                <div>
-                  <small className="text-muted">Total</small>
-                  <div className="fw-bold text-success">
-                    {formatPrice(order.totalPriceAfterDiscount)}
-                  </div>
-                </div>
+        {orders.map(renderOrderCard)}
 
-                <span
-                  className={`badge ${
-                    order.orderStatus === "Delivered"
-                      ? "bg-success"
-                      : order.orderStatus === "Ordered"
-                      ? "bg-warning text-dark"
-                      : "bg-secondary"
-                  }`}
-                >
-                  {order.orderStatus}
-                </span>
-              </div>
+        <div ref={sentinelRef} style={{ height: 1 }} />
 
-              {/* Order Items */}
-              <div className="card-body">
-                {order.orderItems?.map((item) => (
-                  <div
-                    key={item._id}
-                    className="row align-items-center mb-3 border-bottom pb-3"
-                  >
-                    {/* Product Image */}
-                    <div className="col-md-2">
-                      {item?.product?.images?.[0]?.url ? (
-                        <img
-                          src={item.product.images[0].url}
-                          alt="product"
-                          className="img-fluid rounded"
-                        />
-                      ) : (
-                        <div
-                          style={{
-                            height: "80px",
-                            background: "#eee",
-                            borderRadius: "8px",
-                          }}
-                        ></div>
-                      )}
-                    </div>
+        {isOrdersLoading && orders.length > 0 && (
+          <div className="text-center py-4">
+            <div className="spinner-border text-warning spinner-border-sm" role="status" />
+            <span className="ms-2" style={{ color: "#999", fontSize: 14 }}>Loading more orders...</span>
+          </div>
+        )}
 
-                    {/* Product Info */}
-                    <div className="col-md-4">
-                      <h6 className="mb-1">
-                        {item?.product?.title || "Product Not Available"}
-                      </h6>
-                      <small className="text-muted">
-                        Qty: {item.quantity}
-                      </small>
-                    </div>
-
-                    {/* Price */}
-                    <div className="col-md-3 fw-semibold">
-                      {formatPrice(item.price)}
-                    </div>
-
-                    {/* Color */}
-                    <div className="col-md-3">
-                      <div className="d-flex align-items-center gap-2">
-                        <div
-                          style={{
-                            width: "20px",
-                            height: "20px",
-                            borderRadius: "50%",
-                            backgroundColor: item?.color?.title,
-                            border: "1px solid #ccc",
-                          }}
-                        ></div>
-                        <small>{item?.color?.title}</small>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ))
+        {!hasMore && orders.length > 0 && (
+          <div className="text-center py-3">
+            <span style={{ fontSize: 13, color: "#bbb" }}>— You've seen all your orders —</span>
+          </div>
         )}
       </div>
     </div>

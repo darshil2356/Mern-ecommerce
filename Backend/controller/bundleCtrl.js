@@ -3,6 +3,14 @@ const asyncHandler = require("express-async-handler");
 const slugify = require("slugify");
 const validateMongoDbId = require("../utils/validateMongodbId");
 
+const bundleProductPopulate = {
+  path: "products.product",
+  populate: [
+    { path: "color" },
+    { path: "variants.color" },
+  ],
+};
+
 // Create a new bundle
 const createBundle = asyncHandler(async (req, res) => {
   try {
@@ -27,7 +35,7 @@ const getAllBundles = asyncHandler(async (req, res) => {
     let queryStr = JSON.stringify(queryObj);
     queryStr = queryStr.replace(/\b(gte|gt|lte|lt)\b/g, (match) => `$${match}`);
 
-    let query = Bundle.find(JSON.parse(queryStr)).populate("products.product");
+    let query = Bundle.find(JSON.parse(queryStr)).populate(bundleProductPopulate);
 
     if (req.query.sort) {
       const sortBy = req.query.sort.split(",").join(" ");
@@ -63,7 +71,7 @@ const getBundle = asyncHandler(async (req, res) => {
   const { id } = req.params;
   validateMongoDbId(id);
   try {
-    const bundle = await Bundle.findById(id).populate("products.product");
+    const bundle = await Bundle.findById(id).populate(bundleProductPopulate);
     res.json(bundle);
   } catch (error) {
     throw new Error(error);
@@ -81,7 +89,7 @@ const updateBundle = asyncHandler(async (req, res) => {
 
     const updatedBundle = await Bundle.findByIdAndUpdate(id, req.body, {
       new: true,
-    }).populate("products.product");
+    }).populate(bundleProductPopulate);
 
     res.json(updatedBundle);
   } catch (error) {
@@ -111,7 +119,7 @@ const getBundlesForProduct = asyncHandler(async (req, res) => {
       "products.product": productId,
       isActive: true,
       showOnProductPage: true,
-    }).populate("products.product");
+    }).populate(bundleProductPopulate);
 
     res.json(bundles);
   } catch (error) {
@@ -123,7 +131,7 @@ const getBundlesForProduct = asyncHandler(async (req, res) => {
 const getActiveBundles = asyncHandler(async (req, res) => {
   try {
     const bundles = await Bundle.find({ isActive: true })
-      .populate("products.product")
+      .populate(bundleProductPopulate)
       .sort("-createdAt");
     res.json(bundles);
   } catch (error) {
@@ -161,4 +169,3 @@ module.exports = {
   getActiveBundles,
   getBundleStats,
 };
-

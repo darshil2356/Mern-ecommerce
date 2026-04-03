@@ -9,6 +9,7 @@ import { delImg } from "../features/upload/uploadSlice";
 import CustomModal from "../components/CustomModal";
 import BarcodeModal from "../components/BarcodeModal";
 import SizeBarcodesList from "../components/SizeBarcodesList";
+import { getReadableColorName, getColorSwatch } from "../utils/colorDisplay";
 import JsBarcode from "jsbarcode";
 import { MdInventory, MdOutlineInventory2 } from "react-icons/md";
 
@@ -46,19 +47,20 @@ const Productlist = () => {
   // Show all barcodes for a product (size-wise only)
   const showSizeBarcodes = (record) => {
     const barcodes = [];
-    
     // Only add size-wise barcodes (no main barcode)
-    if (record.sizeStock && record.sizeStock.length > 0) {
-      record.sizeStock.forEach(item => {
-        if (item.barcode) {
-          barcodes.push({
-            size: item.size,
-            barcode: item.barcode,
-            quantity: item.quantity
-          });
-        }
-      });
-    }
+    const sizeItems = (record.sizeStock && record.sizeStock.length > 0)
+      ? record.sizeStock
+      : (record.variants || []).flatMap((variant) => variant.sizeStock || []);
+
+    sizeItems.forEach((item) => {
+      if (item.barcode) {
+        barcodes.push({
+          size: item.size,
+          barcode: item.barcode,
+          quantity: item.quantity,
+        });
+      }
+    });
     
     setProductSizeBarcodes(barcodes);
     setSelectedTitle(record.title);
@@ -89,6 +91,19 @@ const Productlist = () => {
     if (quantity === 0) return { color: "red", text: "Out of Stock", bg: "#fff1f0" };
     if (quantity < 10) return { color: "orange", text: "Low Stock", bg: "#fff7e6" };
     return { color: "green", text: "In Stock", bg: "#f6ffed" };
+  };
+
+  const getEffectiveStock = (record) => {
+    if (record.sizeStock && record.sizeStock.length > 0) {
+      return record.sizeStock.reduce((sum, item) => sum + Number(item.quantity || 0), 0);
+    }
+    if (record.variants && record.variants.length > 0) {
+      return record.variants.reduce((sum, variant) => {
+        const variantQuantity = (variant.sizeStock || []).reduce((s, item) => s + Number(item.quantity || 0), 0);
+        return sum + variantQuantity;
+      }, 0);
+    }
+    return Number(record.quantity || 0);
   };
 
   const columns = [
@@ -125,31 +140,59 @@ const Productlist = () => {
       ),
     },
     {
-      title: "Color",
-      dataIndex: "color",
-      key: "color",
-      width: 80,
-      render: (color) =>
-        color && color.title ? (
-          <Tooltip title={color.title}>
-            <div
-              style={{
-                backgroundColor: color.title,
-                width: "28px",
-                height: "28px",
-                borderRadius: "50%",
-                display: "inline-flex",
-                alignItems: "center",
-                justifyContent: "center",
-                border: "2px solid #fff",
-                boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
-                cursor: "pointer",
-              }}
-            />
-          </Tooltip>
-        ) : (
-          <span className="text-muted">-</span>
-        ),
+      title: "Color & Size",
+      key: "colorSize",
+      width: 120,
+      render: (_, record) => {
+        const color = record.color;
+        const hasSizeStock = record.sizeStock && record.sizeStock.length > 0;
+        const hasVariants = record.variants && record.variants.length > 0;
+
+        let sizeInfo = "";
+        if (hasSizeStock) {
+          const sizes = record.sizeStock.map(item => item.size).join(", ");
+          sizeInfo = sizes.length > 15 ? sizes.substring(0, 12) + "..." : sizes;
+        } else if (hasVariants) {
+          const allSizes = record.variants.flatMap(variant =>
+            variant.sizeStock ? variant.sizeStock.map(item => item.size) : []
+          );
+          const uniqueSizes = [...new Set(allSizes)];
+          sizeInfo = uniqueSizes.join(", ");
+          sizeInfo = sizeInfo.length > 15 ? sizeInfo.substring(0, 12) + "..." : sizeInfo;
+        }
+
+        return (
+          <div className="d-flex flex-column gap-1">
+            {color && color.title ? (
+              <div className="d-flex align-items-center gap-2">
+                <div
+                  style={{
+                    backgroundColor: getColorSwatch(color),
+                    width: "20px",
+                    height: "20px",
+                    borderRadius: "50%",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    border: "1px solid #fff",
+                    boxShadow: "0 1px 3px rgba(0,0,0,0.2)",
+                  }}
+                />
+                <span style={{ fontSize: "12px", fontWeight: 500 }}>{getReadableColorName(color)}</span>
+              </div>
+            ) : (
+              <span className="text-muted" style={{ fontSize: "12px" }}>-</span>
+            )}
+            {sizeInfo && (
+              <div>
+                <Tag color="geekblue" style={{ fontSize: "10px", padding: "1px 4px" }}>
+                  Sizes: {sizeInfo}
+                </Tag>
+              </div>
+            )}
+          </div>
+        );
+      },
     },
     {
       title: "Brand",
@@ -166,7 +209,10 @@ const Productlist = () => {
       dataIndex: "barcode",
       key: "barcode",
       render: (barcode, record) => {
-        const sizeBarcodes = record.sizeStock ? record.sizeStock.filter(s => s.barcode) : [];
+        const allSizeItems = record.sizeStock && record.sizeStock.length > 0
+          ? record.sizeStock
+          : (record.variants || []).flatMap((variant) => variant.sizeStock || []);
+        const sizeBarcodes = allSizeItems.filter((s) => s.barcode);
         const barcodeCount = sizeBarcodes.length;
         
         if (barcodeCount > 0) {
@@ -180,6 +226,25 @@ const Productlist = () => {
                   style={{ backgroundColor: "#722ed1", borderColor: "#722ed1" }}
                 >
                   {barcodeCount} {barcodeCount === 1 ? 'Size' : 'Sizes'}
+                </Button>
+              </Tooltip>
+            </div>
+          );
+        }
+        if (record.barcode) {
+          return (
+            <div className="d-flex gap-1">
+              <Tooltip title="View Main Barcode">
+                <Button
+                  type="default"
+                  size="small"
+                  onClick={() => {
+                    setSelectedBarcode(record.barcode);
+                    setSelectedTitle(record.title);
+                    setBarcodeModalOpen(true);
+                  }}
+                >
+                  Main
                 </Button>
               </Tooltip>
             </div>
@@ -218,17 +283,18 @@ const Productlist = () => {
     {
   title: "Stock",
   key: "quantity",
-  sorter: (a, b) => {
-    const totalA = a.sizeStock?.reduce((sum, item) => sum + item.quantity, 0) || 0;
-    const totalB = b.sizeStock?.reduce((sum, item) => sum + item.quantity, 0) || 0;
-    return totalA - totalB;
-  },
+    sorter: (a, b) => {
+      const totalA = (a.sizeStock && a.sizeStock.length > 0)
+        ? a.sizeStock.reduce((sum, item) => sum + item.quantity, 0)
+        : (a.variants || []).flatMap((variant) => variant.sizeStock || []).reduce((sum, item) => sum + item.quantity, 0);
+      const totalB = (b.sizeStock && b.sizeStock.length > 0)
+        ? b.sizeStock.reduce((sum, item) => sum + item.quantity, 0)
+        : (b.variants || []).flatMap((variant) => variant.sizeStock || []).reduce((sum, item) => sum + item.quantity, 0);
+      return totalA - totalB;
+    },
   render: (_, record) => {
     const total =
-      record.sizeStock?.reduce(
-        (sum, item) => sum + item.quantity,
-        0
-      ) || 0;
+      getEffectiveStock(record);
 
     const status = getStockStatus(total);
 
@@ -577,9 +643,17 @@ const Productlist = () => {
         open={sizeBarcodesModalOpen}
         onCancel={() => setSizeBarcodesModalOpen(false)}
         footer={null}
-        width={600}
+        width={700}
       >
-        <SizeBarcodesList barcodes={productSizeBarcodes} onDownload={downloadBarcode} />
+        <SizeBarcodesList
+          barcodes={productSizeBarcodes}
+          onDownload={downloadBarcode}
+          productData={{
+            title: selectedTitle,
+            color: filteredProducts?.find(p => p.title === selectedTitle)?.color,
+            price: filteredProducts?.find(p => p.title === selectedTitle)?.price
+          }}
+        />
       </Modal>
 
       <style>{`
@@ -614,4 +688,3 @@ const Productlist = () => {
 };
 
 export default Productlist;
-

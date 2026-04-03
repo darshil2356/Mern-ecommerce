@@ -10,6 +10,7 @@ import {
 } from "@ant-design/icons";
 import { useDispatch, useSelector } from "react-redux";
 import { getBundles, deleteBundle, updateBundle } from "../features/bundle/bundleSlice";
+import { getReadableColorName, getColorSwatch } from "../utils/colorDisplay";
 
 const BundleList = () => {
   const dispatch = useDispatch();
@@ -91,9 +92,29 @@ const BundleList = () => {
       dataIndex: "products",
       key: "products",
       render: (products) => (
-        <Tag icon={<ShoppingCartOutlined />} color="blue">
-          {products?.length || 0} Products
-        </Tag>
+        <div>
+          <Tag icon={<ShoppingCartOutlined />} color="blue">
+            {products?.length || 0} Products
+          </Tag>
+          <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 6 }}>
+            {(products || []).slice(0, 2).map((item, index) => (
+              <div key={index} style={{ fontSize: 12, color: "#475569" }}>
+                <div style={{ fontWeight: 600 }}>{item.product?.title || "Product"}</div>
+                {(item.product?.variants || []).length > 0 && (
+                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 4 }}>
+                    {item.product.variants.slice(0, 3).map((variant, vIndex) => (
+                      <span key={vIndex} style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "2px 8px", borderRadius: 999, border: "1px solid #dbeafe", background: "#f8fafc" }}>
+                        <span style={{ width: 10, height: 10, borderRadius: "50%", background: getColorSwatch(variant.color), border: "1px solid #cbd5e1" }} />
+                        {getReadableColorName(variant.color)}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+            {(products || []).length > 2 && <span style={{ fontSize: 11, color: "#94a3b8" }}>+{products.length - 2} more</span>}
+          </div>
+        </div>
       ),
     },
     {
@@ -218,4 +239,3 @@ const BundleList = () => {
 };
 
 export default BundleList;
-

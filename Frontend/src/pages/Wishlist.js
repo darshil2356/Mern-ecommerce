@@ -10,6 +10,7 @@ import { motion } from "framer-motion";
 import { AiOutlineHeart, AiOutlineShoppingCart, AiOutlineEye } from "react-icons/ai";
 import { IoIosClose } from "react-icons/io";
 import { toast } from "react-toastify";
+import { getColorSwatch, getReadableColorName } from "../utils/colorDisplay";
 
 const Wishlist = () => {
   const dispatch = useDispatch();
@@ -279,10 +280,10 @@ const Wishlist = () => {
                               width: '20px',
                               height: '20px',
                               borderRadius: '50%',
-                              background: item.color.title,
+                              background: getColorSwatch(item.color),
                               border: '1px solid #ddd'
                             }}
-                            title={item.color.title}
+                            title={getReadableColorName(item.color)}
                           />
                         )}
                       </div>
@@ -397,4 +398,3 @@ const Wishlist = () => {
 };
 
 export default Wishlist;
-

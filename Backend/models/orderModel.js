@@ -119,10 +119,14 @@ paymentInfo: {
     bundleTitle: { type: String, default: null },
     bundleProducts: [
       {
+        productId: { type: mongoose.Schema.Types.ObjectId, ref: "Product", default: null },
         title: String,
         quantity: Number,
         price: Number,
         image: String,
+        selectedColor: { type: mongoose.Schema.Types.ObjectId, ref: "Color", default: null },
+        selectedColorLabel: { type: String, default: null },
+        selectedSize: { type: String, default: null },
       },
     ],
   },

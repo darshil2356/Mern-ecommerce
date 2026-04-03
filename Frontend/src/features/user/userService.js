@@ -31,8 +31,8 @@ const addToCart = async (cartData) => {
   }
 };
 
-const addBundleToCart = async ({ bundleId, selectedSizes }) => {
-  const response = await axios.post(`${base_url}user/cart/bundle`, { bundleId, selectedSizes }, getConfig());
+const addBundleToCart = async ({ bundleId, selectedOptions }) => {
+  const response = await axios.post(`${base_url}user/cart/bundle`, { bundleId, selectedOptions }, getConfig());
   if (response.data) {
     return response.data;
   }

@@ -1,10 +1,27 @@
 const Color = require("../models/colorModel");
 const asyncHandler = require("express-async-handler");
 const validateMongoDbId = require("../utils/validateMongodbId");
+const { getReadableColorName, normalizeHex, isHexColor } = require("../utils/colorDisplay");
+
+const normalizeColorPayload = (body = {}) => {
+  const rawTitle = body.title || "";
+  const rawHex = body.hex || "";
+  const rawName = body.name || "";
+  const normalizedHex = normalizeHex(rawHex || rawTitle);
+  const hex = isHexColor(normalizedHex) ? normalizedHex : "";
+  const title = hex || rawTitle;
+  const name = (rawName || getReadableColorName(hex || rawTitle || rawName || "")).trim();
+  return {
+    ...body,
+    title,
+    hex,
+    name,
+  };
+};
 
 const createColor = asyncHandler(async (req, res) => {
   try {
-    const newColor = await Color.create(req.body);
+    const newColor = await Color.create(normalizeColorPayload(req.body));
     res.json(newColor);
   } catch (error) {
     throw new Error(error);
@@ -14,7 +31,7 @@ const updateColor = asyncHandler(async (req, res) => {
   const { id } = req.params;
   validateMongoDbId(id);
   try {
-    const updatedColor = await Color.findByIdAndUpdate(id, req.body, {
+    const updatedColor = await Color.findByIdAndUpdate(id, normalizeColorPayload(req.body), {
       new: true,
     });
     res.json(updatedColor);

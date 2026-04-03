@@ -23,6 +23,10 @@ var cartSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "Color",
     },
+    size: {
+      type: String,
+      default: null,
+    },
     // Bundle fields
     isBundle: {
       type: Boolean,
@@ -42,6 +46,8 @@ var cartSchema = new mongoose.Schema(
         quantity: Number,
         price: Number,
         image: String,
+        selectedColor: { type: mongoose.Schema.Types.ObjectId, ref: "Color", default: null },
+        selectedColorLabel: { type: String, default: null },
         selectedSize: String,
       },
     ],

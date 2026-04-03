@@ -39,7 +39,23 @@ let schema = yup.object().shape({
   brand: yup.string().required("Brand is Required"),
   category: yup.string().required("Category is Required"),
   tags: yup.string().required("Tag is Required"),
-  color: yup.string().required("Color is Required"),
+  color: yup.string().when("variants", function(variants) {
+    return !Array.isArray(variants) || variants.length === 0
+      ? yup.string().required("Color is Required when no variants are set")
+      : yup.string().notRequired();
+  }),
+  variants: yup.array().of(
+    yup.object().shape({
+      color: yup.string().required("Color is required for variant"),
+      sizeStock: yup.array().of(
+        yup.object().shape({
+          size: yup.string().required("Size is required"),
+          quantity: yup.number().min(0, "Quantity must be 0 or more").required("Quantity is required"),
+          barcode: yup.string().optional(),
+        })
+      ).min(1, "At least one size is required for variant"),
+    })
+  ).optional(),
   inventory: yup.object({
     offline: yup.boolean().oneOf([true]),
     online: yup.boolean(),
@@ -185,11 +201,20 @@ const Addproduct = () => {
       category: productCategory || "",
       tags: productTag || "",
       color: productColors?._id || productColors || undefined,
-      sizeStock: newProduct?.sizeStock?.map(s => ({
+      sizeStock: newProduct?.sizeStock?.map((s) => ({
         size: s.size,
         quantity: s.quantity,
-        barcode: s.barcode || generateClientBarcode()
+        barcode: s.barcode || generateClientBarcode(),
       })) || [],
+      variants:
+        newProduct?.variants?.map((variant) => ({
+          color: variant.color?._id || variant.color,
+          sizeStock: (variant.sizeStock || []).map((item) => ({
+            size: item.size,
+            quantity: item.quantity,
+            barcode: item.barcode || generateClientBarcode(),
+          })),
+        })) || [],
       inventory: {
         offline: true,
         online: newProduct?.inventory?.online ?? false,
@@ -199,24 +224,44 @@ const Addproduct = () => {
     },
     validationSchema: schema,
     onSubmit: async (values) => {
-      const normalizedSizeStock = (values.sizeStock || []).map((item) => ({
-        ...item,
-        quantity: Math.max(0, Number(item.quantity) || 0),
-        barcode:
-          item.barcode && /^PRD-[A-F0-9]{8}$/.test(item.barcode)
-            ? item.barcode
-            : generateClientBarcode(
-                (values.sizeStock || []).map((s) => s.barcode)
-              ),
-      }));
+      const normalizeSizeStock = (stock) =>
+        (Array.isArray(stock) ? stock : []).map((item) => ({
+          ...item,
+          quantity: Math.max(0, Number(item.quantity) || 0),
+          barcode:
+            item.barcode && /^PRD-[A-F0-9]{8}$/.test(item.barcode)
+              ? item.barcode
+              : generateClientBarcode(
+                  (values.sizeStock || []).map((s) => s.barcode)
+                ),
+        }));
 
-      const totalQuantity = normalizedSizeStock.reduce(
-        (sum, item) => sum + Number(item.quantity || 0),
-        0
+      const normalizedSizeStock = normalizeSizeStock(values.sizeStock);
+      const normalizedVariants = (Array.isArray(values.variants) ? values.variants : []).map(
+        (variant) => {
+          const cleaned = {
+            color: variant.color,
+            sizeStock: normalizeSizeStock(variant.sizeStock),
+          };
+          return cleaned;
+        }
       );
+
+      const totalQuantity = normalizedVariants.length > 0
+        ? normalizedVariants.reduce(
+            (sum, variant) =>
+              sum + variant.sizeStock.reduce((sn, item) => sn + Number(item.quantity || 0), 0),
+            0
+          )
+        : normalizedSizeStock.reduce((sum, item) => sum + Number(item.quantity || 0), 0);
       const payload = {
         ...values,
-        sizeStock: normalizedSizeStock,
+        sizeStock: normalizedVariants.length > 0 ? [] : normalizedSizeStock,
+        variants: normalizedVariants,
+        color:
+          normalizedVariants.length > 0
+            ? normalizedVariants[0].color
+            : values.color,
         quantity: totalQuantity,
         inventory: {
           offline: true,
@@ -298,6 +343,56 @@ const Addproduct = () => {
     if (!updated[index]) return;
     updated[index] = { ...updated[index], quantity: safeQty };
     formik.setFieldValue("sizeStock", updated);
+  };
+
+  const addVariant = () => {
+    const current = formik.values.variants || [];
+    formik.setFieldValue("variants", [
+      ...current,
+      { color: "", sizeStock: [] },
+    ]);
+  };
+
+  const removeVariant = (variantIndex) => {
+    const updated = (formik.values.variants || []).filter((_, idx) => idx !== variantIndex);
+    formik.setFieldValue("variants", updated);
+  };
+
+  const setVariantColor = (variantIndex, colorValue) => {
+    const updated = [...(formik.values.variants || [])];
+    updated[variantIndex] = {
+      ...updated[variantIndex],
+      color: colorValue,
+    };
+    formik.setFieldValue("variants", updated);
+  };
+
+  const setVariantSizes = (variantIndex, selectedSizes) => {
+    const variants = [...(formik.values.variants || [])];
+    const currentVariant = variants[variantIndex] || { color: "", sizeStock: [] };
+    const existing = currentVariant.sizeStock || [];
+    const updatedSizeStock = selectedSizes.map((size) => {
+      const found = existing.find((s) => s.size === size);
+      if (found) return found;
+      return {
+        size,
+        quantity: 0,
+        barcode: generateClientBarcode(existing.map((s) => s.barcode)),
+      };
+    });
+    variants[variantIndex] = { ...currentVariant, sizeStock: updatedSizeStock };
+    formik.setFieldValue("variants", variants);
+  };
+
+  const updateVariantSizeQuantity = (variantIndex, sizeIndex, nextQuantity) => {
+    const safeQty = Math.max(0, Number(nextQuantity) || 0);
+    const variants = [...(formik.values.variants || [])];
+    if (!variants[variantIndex]) return;
+    const sizeStock = [...(variants[variantIndex].sizeStock || [])];
+    if (!sizeStock[sizeIndex]) return;
+    sizeStock[sizeIndex] = { ...sizeStock[sizeIndex], quantity: safeQty };
+    variants[variantIndex] = { ...variants[variantIndex], sizeStock };
+    formik.setFieldValue("variants", variants);
   };
 
   return (
@@ -548,8 +643,121 @@ const Addproduct = () => {
             </div>
           </Card>
 
-          {/* Size & Stock Card */}
           <Card
+            style={{
+              borderRadius: "12px",
+              border: "none",
+              boxShadow: "0 1px 3px rgba(0,0,0,0.08)",
+              marginBottom: "24px",
+            }}
+            bodyStyle={{ padding: "24px" }}
+          >
+            <div className="d-flex align-items-center gap-2 mb-4">
+              <MdInventory style={{ fontSize: "20px", color: "#52c41a" }} />
+              <h4 className="mb-0" style={{ fontWeight: 600 }}>Color Variants</h4>
+            </div>
+
+            <p className="text-muted" style={{ fontSize: "14px" }}>
+              Add multiple color variants; each variant can have its own size and stock values.
+            </p>
+
+            <Button type="dashed" onClick={addVariant} style={{ marginBottom: "16px" }}>
+              + Add Variant
+            </Button>
+
+            {(formik.values.variants || []).map((variant, variantIndex) => (
+              <Card
+                key={`variant-${variantIndex}`}
+                size="small"
+                style={{ marginBottom: "16px", border: "1px solid #e0e0e0" }}
+              >
+                <div className="d-flex justify-content-between align-items-center mb-3">
+                  <div style={{ fontWeight: 600 }}>Variant #{variantIndex + 1}</div>
+                  <Button danger type="text" onClick={() => removeVariant(variantIndex)}>
+                    Remove
+                  </Button>
+                </div>
+
+                <div className="row g-3">
+                  <div className="col-md-6">
+                    <label className="fw-medium mb-2 d-block" style={{ color: "#1a1a1a" }}>
+                      Color
+                    </label>
+                    <Select
+                      showSearch
+                      size="large"
+                      placeholder="Select variant color"
+                      style={{ width: "100%" }}
+                      value={variant.color || undefined}
+                      onChange={(value) => setVariantColor(variantIndex, value)}
+                      options={coloropt}
+                    />
+                  </div>
+
+                  <div className="col-md-6">
+                    <label className="fw-medium mb-2 d-block" style={{ color: "#1a1a1a" }}>
+                      Sizes
+                    </label>
+                    <Select
+                      mode="multiple"
+                      allowClear
+                      size="large"
+                      placeholder="Select sizes for variant"
+                      style={{ width: "100%" }}
+                      value={(variant.sizeStock || []).map((s) => s.size)}
+                      onChange={(selectedSizes) => setVariantSizes(variantIndex, selectedSizes)}
+                      options={[
+                        { label: "XS", value: "XS" },
+                        { label: "S", value: "S" },
+                        { label: "M", value: "M" },
+                        { label: "L", value: "L" },
+                        { label: "XL", value: "XL" },
+                        { label: "2XL", value: "2XL" },
+                        { label: "3XL", value: "3XL" },
+                      ]}
+                    />
+                  </div>
+                </div>
+
+                {(variant.sizeStock || []).length > 0 && (
+                  <div className="table-responsive" style={{ marginTop: "16px" }}>
+                    <table className="table" style={{ borderRadius: "8px", overflow: "hidden", border: "1px solid #f0f0f0" }}>
+                      <thead style={{ backgroundColor: "#fafafa" }}>
+                        <tr>
+                          <th>#</th>
+                          <th>Size</th>
+                          <th>Quantity</th>
+                          <th>Barcode</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(variant.sizeStock || []).map((item, sizeIndex) => (
+                          <tr key={`${variantIndex}-${item.size}`}>
+                            <td>{sizeIndex + 1}</td>
+                            <td>{item.size}</td>
+                            <td>
+                              <Input
+                                type="number"
+                                min={0}
+                                value={item.quantity}
+                                onChange={(e) => updateVariantSizeQuantity(variantIndex, sizeIndex, e.target.value)}
+                                style={{ width: "100px" }}
+                              />
+                            </td>
+                            <td>{item.barcode || "-"}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </Card>
+            ))}
+          </Card>
+
+          {/* Size & Stock Card */}
+          {!(formik.values.variants && formik.values.variants.length > 0) && (
+            <Card
             style={{
               borderRadius: "12px",
               border: "none",
@@ -749,7 +957,8 @@ const Addproduct = () => {
                 </table>
               </div>
             )}
-          </Card>
+            </Card>
+          )}
 
           {/* Inventory Settings Card */}
           <Card

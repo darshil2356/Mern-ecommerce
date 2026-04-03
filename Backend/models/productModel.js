@@ -82,9 +82,39 @@ var productSchema = new mongoose.Schema(
 
     // color: [{ type: mongoose.Schema.Types.ObjectId, ref: "Color" }],
     color: {
-  type: mongoose.Schema.Types.ObjectId,
-  ref: "Color",
-},
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Color",
+      required: false,
+      default: null,
+    },
+
+    // New variant schema supports multiple colors each with its own size/qty breakdown
+    variants: [
+      {
+        color: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "Color",
+          required: true,
+        },
+        sizeStock: [
+          {
+            size: {
+              type: String,
+              enum: ["XS", "S", "M", "L", "XL", "2XL", "3XL"],
+            },
+            quantity: {
+              type: Number,
+              default: 0,
+            },
+            barcode: {
+              type: String,
+              unique: true,
+              sparse: true,
+            },
+          },
+        ],
+      },
+    ],
 
 //     size: {
 //   type: [String],

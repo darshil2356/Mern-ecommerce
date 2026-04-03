@@ -7,6 +7,7 @@ import { AiFillDelete } from "react-icons/ai";
 import { Link } from "react-router-dom";
 import CustomModal from "../components/CustomModal";
 import { FaPlus, FaPalette } from "react-icons/fa";
+import { getColorSwatch, getReadableColorName } from "../utils/colorDisplay";
 
 const Colorlist = () => {
   const [open, setOpen] = useState(false);
@@ -33,10 +34,10 @@ const Colorlist = () => {
           <div
             className="w-10 h-10 rounded-full shadow-md border-2 border-white"
             style={{
-              backgroundColor: colorState[i].title,
+              backgroundColor: getColorSwatch(colorState[i]),
             }}
           ></div>
-          <span className="font-medium text-gray-700">{colorState[i].title}</span>
+          <span className="font-medium text-gray-700">{getReadableColorName(colorState[i])}</span>
         </div>
       ),
       action: (
@@ -161,4 +162,3 @@ const Colorlist = () => {
 };
 
 export default Colorlist;
-

@@ -12,7 +12,8 @@ import {
   updateAColor,
 } from "../features/color/colorSlice";
 let schema = yup.object().shape({
-  title: yup.string().required("Color is Required"),
+  name: yup.string().required("Color name is Required"),
+  hex: yup.string().required("Color hex is Required"),
 });
 const Addcolor = () => {
   const dispatch = useDispatch();
@@ -27,6 +28,7 @@ const Addcolor = () => {
     createdColor,
     updatedColor,
     colorName,
+    colorHex,
   } = newColor;
   useEffect(() => {
     if (getColorId !== undefined) {
@@ -50,7 +52,8 @@ const Addcolor = () => {
   const formik = useFormik({
     enableReinitialize: true,
     initialValues: {
-      title: colorName || "",
+      name: colorName || "",
+      hex: colorHex || "#000000",
     },
     validationSchema: schema,
     onSubmit: (values) => {
@@ -75,15 +78,26 @@ const Addcolor = () => {
       <div>
         <form action="" onSubmit={formik.handleSubmit}>
           <CustomInput
+            type="text"
+            label="Enter Color Name"
+            onChng={formik.handleChange("name")}
+            onBlr={formik.handleBlur("name")}
+            val={formik.values.name}
+            id="name"
+          />
+          <div className="error">
+            {formik.touched.name && formik.errors.name}
+          </div>
+          <CustomInput
             type="color"
             label="Enter Product Color"
-            onChng={formik.handleChange("title")}
-            onBlr={formik.handleBlur("title")}
-            val={formik.values.title}
+            onChng={formik.handleChange("hex")}
+            onBlr={formik.handleBlur("hex")}
+            val={formik.values.hex}
             id="color"
           />
           <div className="error">
-            {formik.touched.title && formik.errors.title}
+            {formik.touched.hex && formik.errors.hex}
           </div>
           <button
             className="btn btn-success border-0 rounded-3 my-5"

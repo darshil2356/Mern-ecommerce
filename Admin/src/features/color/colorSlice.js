@@ -121,7 +121,8 @@ export const colorSlice = createSlice({
         state.isLoading = false;
         state.isError = false;
         state.isSuccess = true;
-        state.colorName = action.payload.title;
+        state.colorName = action.payload.name || "";
+        state.colorHex = action.payload.hex || action.payload.title || "";
       })
       .addCase(getAColor.rejected, (state, action) => {
         state.isLoading = false;

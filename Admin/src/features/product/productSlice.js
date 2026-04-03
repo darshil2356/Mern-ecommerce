@@ -58,6 +58,7 @@ export const resetState = createAction("Reset_all");
 
 const initialState = {
   products: [],
+  variants: [],
 
   isError: false,
   isLoading: false,
@@ -126,6 +127,7 @@ state.productVideos = action.payload.videos || [];
         state.productQuantity = action.payload.quantity;
         state.inventory = action.payload.inventory;
         state.sizeStock = action.payload.sizeStock || [];
+  state.variants = action.payload.variants || [];
 
 
 

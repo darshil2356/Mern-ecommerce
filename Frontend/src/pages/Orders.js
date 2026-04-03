@@ -5,6 +5,7 @@ import { useDispatch, useSelector } from "react-redux";
 import { getOrders } from "../features/user/userSlice";
 import { FiPackage, FiShoppingBag } from "react-icons/fi";
 import { Link } from "react-router-dom";
+import { getColorSwatch, getReadableColorName } from "../utils/colorDisplay";
 
 const LIMIT = 10;
 
@@ -107,23 +108,36 @@ const Orders = () => {
 
             if (item?.isBundle) {
               return (
-                <div key={idx} className="d-flex align-items-start gap-3 mb-3 pb-3" style={{ borderBottom: border }}>
-                  <div style={{ width: 64, height: 64, background: "linear-gradient(135deg,#667eea,#764ba2)", borderRadius: 12, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                <div key={idx} className="d-flex align-items-start gap-3 mb-3 pb-3" style={{ borderBottom: border, padding: "10px 12px", borderRadius: 14, background: "#f8fafc" }}>
+                  <div style={{ width: 64, height: 64, background: "linear-gradient(135deg,#0f172a,#334155)", borderRadius: 12, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                     <FiPackage style={{ color: "#fff", fontSize: 26 }} />
                   </div>
                   <div style={{ flex: 1 }}>
                     <div className="d-flex align-items-center gap-2 mb-1 flex-wrap">
-                      <span style={{ background: "#667eea", color: "#fff", fontSize: 9, fontWeight: 700, padding: "2px 8px", borderRadius: 4 }}>BUNDLE</span>
-                      <span style={{ fontWeight: 700, fontSize: 15, color: "#667eea" }}>{item?.bundleTitle || "Bundle"}</span>
+                      <span style={{ background: "#0f172a", color: "#fff", fontSize: 9, fontWeight: 700, padding: "2px 8px", borderRadius: 4 }}>BUNDLE</span>
+                      <span style={{ fontWeight: 700, fontSize: 15, color: "#0f172a" }}>{item?.bundleTitle || "Bundle"}</span>
                     </div>
-                    {item?.bundleProducts?.map((bp, i) => (
-                      <span key={i} style={{ fontSize: 12, color: "#666", marginRight: 10 }}>• {bp.title} ×{bp.quantity}</span>
-                    ))}
+                    <div className="d-flex flex-column gap-2 mt-2">
+                      {item?.bundleProducts?.map((bp, i) => (
+                        <div key={i} style={{ padding: "8px 10px", borderRadius: 10, background: "#fff", border: "1px solid #e2e8f0" }}>
+                          <div style={{ fontSize: 13, color: "#0f172a", fontWeight: 600 }}>{bp.title} ×{bp.quantity}</div>
+                          <div className="d-flex align-items-center gap-2 flex-wrap mt-1">
+                            {bp.selectedColorLabel && (
+                              <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, color: "#64748b" }}>
+                                <span style={{ width: 10, height: 10, borderRadius: "50%", background: getColorSwatch(bp.selectedColor || bp.selectedColorLabel), border: "1px solid #cbd5e1" }} />
+                                Color selected
+                              </span>
+                            )}
+                            {bp.selectedSize && <span style={{ fontSize: 12, color: "#64748b" }}>Size {bp.selectedSize}</span>}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                     <div style={{ fontSize: 11, color: "#999", marginTop: 2 }}>Qty: {item.quantity}</div>
                   </div>
                   <div style={{ textAlign: "right", flexShrink: 0 }}>
                     <div style={{ fontWeight: 700, fontSize: 16 }}>{fmt(item.price * item.quantity)}</div>
-                    <div style={{ fontSize: 11, color: "#22c55e", fontWeight: 600 }}>Bundle Price</div>
+                    <div style={{ fontSize: 11, color: "#0f766e", fontWeight: 700 }}>Bundle Price</div>
                   </div>
                 </div>
               );
@@ -143,10 +157,12 @@ const Orders = () => {
                 <div style={{ flex: 1 }}>
                   <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 4 }}>{item?.product?.title || "Product"}</div>
                   <div className="d-flex align-items-center gap-2">
-                    {item?.color?.title && (
-                      <div style={{ width: 14, height: 14, borderRadius: "50%", background: item.color.title, border: "1px solid #ddd", flexShrink: 0 }} />
+                    {item?.color && (
+                      <div style={{ width: 14, height: 14, borderRadius: "50%", background: getColorSwatch(item.color), border: "1px solid #ddd", flexShrink: 0 }} />
                     )}
-                    <span style={{ fontSize: 12, color: "#999" }}>Qty: {item.quantity}</span>
+                    <span style={{ fontSize: 12, color: "#999" }}>
+                      {item?.color ? `${getReadableColorName(item.color)} • ` : ""}Qty: {item.quantity}
+                    </span>
                     <span style={{ fontSize: 12, color: "#bbb" }}>• {fmt(item.price)} each</span>
                   </div>
                 </div>

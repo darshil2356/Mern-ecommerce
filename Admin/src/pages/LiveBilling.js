@@ -89,6 +89,10 @@ const LiveBilling = () => {
   const [celebratedCoins, setCelebratedCoins] = useState(0);
   const coinCelebrationTimerRef = useRef(null);
 
+  // Sale processing state
+  const [isProcessingSale, setIsProcessingSale] = useState(false);
+  const isProcessingSaleRef = useRef(false); // Synchronous ref for immediate checks
+
   // Scanner input ref
   const scannerRef = useRef(null);
 
@@ -210,7 +214,9 @@ const LiveBilling = () => {
     if (e.key !== "Enter") return;
 
     if (buffer.trim() === "") {
-      await finalizeSale();
+      if (!isProcessingSaleRef.current) {
+        await finalizeSale();
+      }
       return;
     }
 
@@ -260,6 +266,7 @@ const LiveBilling = () => {
             price: product.price,
             qty: 1,
             size: product.size || null, // Store size info
+            color: product.color || null, // Store color info
             isSizeSpecific: product.isSizeSpecific || false,
           },
         };
@@ -405,6 +412,7 @@ const LiveBilling = () => {
                 price: product.price,
                 qty: 1,
                 size: product.size || null,
+                color: product.color || null,
                 isSizeSpecific: product.isSizeSpecific || false,
               },
             };
@@ -664,13 +672,15 @@ const validateReferralContact = async (mobile) => {
     // offer = { label, rewardType, rewardValue, color }
     setSpinCompleted(true);
     // Finalize the sale now that spin is done
-    await finalizeSale();
+    if (!isProcessingSaleRef.current) {
+      await finalizeSale();
+    }
     setSpinCompleted(false);
   };
 
   // Handle complete sale with spin wheel logic
   const handleCompleteSale = () => {
-    if (!Object.keys(cart).length) return;
+    if (!Object.keys(cart).length || isProcessingSaleRef.current) return;
     // Show spin wheel if enabled and customer has a contact
     // finalizeSale() is called inside handleSpinComplete after user clicks Claim
     if (showSpinner && customer.contact && !spinCompleted) {
@@ -807,6 +817,8 @@ const validateReferralContact = async (mobile) => {
      FINALIZE SALE
      ========================= */
   const finalizeSale = async () => {
+    if (isProcessingSaleRef.current) return; // Prevent multiple calls using ref
+
     const items = Object.entries(cart).map(([barcode, data]) => ({
       barcode,
       quantity: data.qty,
@@ -820,6 +832,12 @@ const validateReferralContact = async (mobile) => {
     const customerData = { ...customer };
     const offerData = { ...customerOffer };
     const appliedAmount = appliedOfferAmount;
+
+    // Additional check: if cart becomes empty during processing, abort
+    if (Object.keys(cart).length === 0) return;
+
+    setIsProcessingSale(true); // Set loading state
+    isProcessingSaleRef.current = true; // Set ref immediately
 
     try {
       await axios.post(
@@ -893,6 +911,7 @@ const validateReferralContact = async (mobile) => {
       setCustomerOffer({ hasOffer: false, offerDiscount: 0, offerType: "" });
       setUseCoins(false);
       setCoinAmount(0);
+      setSpinCompleted(false); // Reset spin state for next sale
     } catch (err) {
       console.error("Failed to complete sale:", err);
       Swal.fire({
@@ -901,6 +920,9 @@ const validateReferralContact = async (mobile) => {
         text: 'Failed to complete sale. Please try again.',
         confirmButtonColor: '#1a1a1a'
       });
+    } finally {
+      setIsProcessingSale(false); // Always reset loading state
+      isProcessingSaleRef.current = false; // Always reset ref
     }
   };
 
@@ -1429,6 +1451,11 @@ const validateReferralContact = async (mobile) => {
                       <td className="px-6 py-4 text-gray-500">{i + 1}</td>
                       <td className="px-6 py-4">
                         <div className="font-semibold text-gray-800">{item.name}</div>
+                        {item.color && (
+                          <div className="text-xs text-blue-600 font-medium mt-1">
+                            Color: {item.color}
+                          </div>
+                        )}
                         {item.size && (
                           <div className="text-xs text-indigo-600 font-medium mt-1">
                             Size: {item.size}
@@ -1664,11 +1691,20 @@ const validateReferralContact = async (mobile) => {
                 />
                 <button
                   onClick={handleCompleteSale}
-                  disabled={!Object.keys(cart).length}
+                  disabled={!Object.keys(cart).length || isProcessingSale}
                   className="w-full py-4 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 rounded-xl font-bold flex items-center justify-center gap-2 transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  <FaCheckCircle />
-                  Complete Sale
+                  {isProcessingSale ? (
+                    <>
+                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                      Processing...
+                    </>
+                  ) : (
+                    <>
+                      <FaCheckCircle />
+                      Complete Sale
+                    </>
+                  )}
                 </button>
               </div>
             </div>
@@ -1794,8 +1830,7 @@ const validateReferralContact = async (mobile) => {
           isOpen={showSpinWheel}
           onClose={() => {
             setShowSpinWheel(false);
-            // User closed without spinning — finalize sale directly
-            if (!spinCompleted) finalizeSale();
+            // Don't call finalizeSale here - let SpinWheel component handle it
           }}
           onSpinComplete={handleSpinComplete}
           customerMobile={customer.contact}

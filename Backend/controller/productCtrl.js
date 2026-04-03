@@ -86,11 +86,31 @@ const createProduct = asyncHandler(async (req, res) => {
       online: req.body.inventory?.online === true,
     };
 
-    if (Array.isArray(req.body.sizeStock)) {
-      req.body.sizeStock = req.body.sizeStock.map((item) => ({
+    const normalizeSizeStock = (items) =>
+      (Array.isArray(items) ? items : []).map((item) => ({
         ...item,
         quantity: Math.max(0, Number(item.quantity) || 0),
       }));
+
+    if (Array.isArray(req.body.variants) && req.body.variants.length > 0) {
+      req.body.variants = req.body.variants.map((variant) => {
+        const sizeStock = normalizeSizeStock(variant.sizeStock);
+        return {
+          ...variant,
+          sizeStock,
+        };
+      });
+
+      req.body.quantity = req.body.variants.reduce((p, variant) => {
+        return p + variant.sizeStock.reduce((q, item) => q + (item.quantity || 0), 0);
+      }, 0);
+
+      // set fallback top-level color to first variant if missing
+      if (!req.body.color && req.body.variants[0]?.color) {
+        req.body.color = req.body.variants[0].color;
+      }
+    } else if (Array.isArray(req.body.sizeStock)) {
+      req.body.sizeStock = normalizeSizeStock(req.body.sizeStock);
       req.body.quantity = req.body.sizeStock.reduce(
         (sum, item) => sum + (item.quantity || 0),
         0
@@ -103,12 +123,25 @@ const createProduct = asyncHandler(async (req, res) => {
 
     // Generate unique main barcode using UUID
     product.barcode = await generateUniqueBarcode("PRD");
-    
-    // Generate unique barcodes for each size in sizeStock
+
+    // Generate unique barcodes for each size in top-level sizeStock
     if (product.sizeStock && product.sizeStock.length > 0) {
       for (let i = 0; i < product.sizeStock.length; i++) {
-        // Generate unique barcode for each size using UUID
-        product.sizeStock[i].barcode = await generateUniqueBarcode("PRD");
+        if (!product.sizeStock[i].barcode) {
+          product.sizeStock[i].barcode = await generateUniqueBarcode("PRD");
+        }
+      }
+    }
+
+    // Generate unique barcodes for each size in variant sizeStock
+    if (product.variants && product.variants.length > 0) {
+      for (const variant of product.variants) {
+        if (!Array.isArray(variant.sizeStock)) continue;
+        for (let i = 0; i < variant.sizeStock.length; i++) {
+          if (!variant.sizeStock[i].barcode) {
+            variant.sizeStock[i].barcode = await generateUniqueBarcode("PRD");
+          }
+        }
       }
     }
     
@@ -164,7 +197,7 @@ const updateProduct = asyncHandler(async (req, res) => {
   }
 
   // Don't allow manual barcode updates from frontend
-  const { barcode, sizeStock, ...safeBody } = req.body;
+  const { barcode, ...safeBody } = req.body;
 
   if (safeBody.inventory) {
     safeBody.inventory = {
@@ -174,43 +207,87 @@ const updateProduct = asyncHandler(async (req, res) => {
   }
 
   const hasSizeStock = Object.prototype.hasOwnProperty.call(req.body, "sizeStock");
+  const hasVariants = Object.prototype.hasOwnProperty.call(req.body, "variants");
 
-  // If sizeStock is being updated, regenerate unique barcodes for each new size
-  if (hasSizeStock) {
+  if (hasVariants ) {
+    const updatedVariants = [];
+    const incomingVariants = Array.isArray(req.body.variants) ? req.body.variants : [];
+
+    for (const variant of incomingVariants) {
+      if (!variant?.color) continue; // valid variant needs color
+
+      const incomingSizeStock = Array.isArray(variant.sizeStock) ? variant.sizeStock : [];
+      const updatedSizeStock = [];
+
+      for (const item of incomingSizeStock) {
+        let newBarcode = item.barcode;
+        if (!newBarcode) {
+          newBarcode = await generateUniqueBarcode("PRD");
+        } else {
+          const existing = await Product.findOne({
+            $or: [
+              { barcode: newBarcode },
+              { "sizeStock.barcode": newBarcode },
+              { "variants.sizeStock.barcode": newBarcode },
+            ],
+            _id: { $ne: id },
+          });
+
+          if (existing) newBarcode = await generateUniqueBarcode("PRD");
+        }
+
+        updatedSizeStock.push({
+          ...item,
+          quantity: Math.max(0, Number(item.quantity) || 0),
+          barcode: newBarcode,
+        });
+      }
+
+      updatedVariants.push({
+        color: variant.color,
+        sizeStock: updatedSizeStock,
+      });
+    }
+
+    safeBody.variants = updatedVariants;
+    safeBody.quantity = updatedVariants.reduce((sum, variant) => {
+      return sum + variant.sizeStock.reduce((q, s) => q + (s.quantity || 0), 0);
+    }, 0);
+    
+    // fallback top-level color
+    if (updatedVariants[0]?.color) safeBody.color = updatedVariants[0].color;
+  } else if (hasSizeStock) {
     const updatedSizeStock = [];
 
-    const incomingSizeStock = Array.isArray(sizeStock) ? sizeStock : [];
+    const incomingSizeStock = Array.isArray(req.body.sizeStock) ? req.body.sizeStock : [];
 
     for (const item of incomingSizeStock) {
-      // Only generate new barcode if it doesn't exist
       let newBarcode = item.barcode;
-      
+
       if (!newBarcode) {
-        // Generate new unique barcode for this size
         newBarcode = await generateUniqueBarcode("PRD");
       } else {
-        // Check if barcode already exists elsewhere
         const existing = await Product.findOne({
           $or: [
             { barcode: newBarcode },
-            { "sizeStock.barcode": newBarcode }
+            { "sizeStock.barcode": newBarcode },
+            { "variants.sizeStock.barcode": newBarcode },
           ],
-          _id: { $ne: id } // Exclude current product
+          _id: { $ne: id },
         });
-        
+
         if (existing) {
-          // Generate new unique barcode
           newBarcode = await generateUniqueBarcode("PRD");
         }
       }
-      
+
       updatedSizeStock.push({
         ...item,
         quantity: Math.max(0, Number(item.quantity) || 0),
-        barcode: newBarcode
+        barcode: newBarcode,
       });
     }
-    
+
     safeBody.sizeStock = updatedSizeStock;
     safeBody.quantity = updatedSizeStock.reduce(
       (sum, item) => sum + (item.quantity || 0),
@@ -295,10 +372,16 @@ const getaProduct = asyncHandler(async (req, res) => {
   const { id } = req.params;
   validateMongoDbId(id);
   try {
-    const findProduct = await Product.findById(id).populate("color");
+    const findProduct = await Product.findById(id).populate("color").populate("variants.color");
     
     // Calculate total quantity from sizeStock if it exists
-    if (findProduct.sizeStock && findProduct.sizeStock.length > 0) {
+    if (findProduct.variants && findProduct.variants.length > 0) {
+      const totalQuantity = findProduct.variants.reduce(
+        (sum, variant) => sum + variant.sizeStock.reduce((q, item) => q + (item.quantity || 0), 0),
+        0
+      );
+      findProduct.quantity = totalQuantity;
+    } else if (findProduct.sizeStock && findProduct.sizeStock.length > 0) {
       const totalQuantity = findProduct.sizeStock.reduce((sum, item) => sum + (item.quantity || 0), 0);
       findProduct.quantity = totalQuantity;
     }
@@ -355,7 +438,7 @@ const getAllProduct = asyncHandler(async (req, res) => {
     let queryStr = JSON.stringify(queryObj);
     queryStr = queryStr.replace(/\b(gte|gt|lte|lt)\b/g, (m) => `$${m}`);
 
-    let query = Product.find(JSON.parse(queryStr)).populate("color");
+    let query = Product.find(JSON.parse(queryStr)).populate("color").populate("variants.color");
 
     if (req.query.sort) {
       query = query.sort(req.query.sort.split(",").join(" "));
@@ -364,7 +447,24 @@ const getAllProduct = asyncHandler(async (req, res) => {
     }
 
     const product = await query;
-    res.json(product);
+    // Ensure quantity is normalized for old products with sizeStock / variants
+    const normalizedProducts = product.map((prod) => {
+      const calcQuantity = () => {
+        const p = prod.toObject ? prod.toObject() : prod;
+        if (p.variants && p.variants.length > 0) {
+          return p.variants.reduce((total, variant) => total + (variant.sizeStock || []).reduce((sum, item) => sum + Number(item.quantity || 0), 0), 0);
+        }
+        if (p.sizeStock && p.sizeStock.length > 0) {
+          return p.sizeStock.reduce((sum, item) => sum + Number(item.quantity || 0), 0);
+        }
+        return Number(p.quantity || 0);
+      };
+      return {
+        ...prod.toObject(),
+        quantity: calcQuantity(),
+      };
+    });
+    res.json(normalizedProducts);
   } catch (error) {
     throw new Error(error);
   }

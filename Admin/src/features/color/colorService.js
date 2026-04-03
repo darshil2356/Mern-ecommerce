@@ -16,7 +16,7 @@ const createColor = async (color) => {
 const updateColor = async (color) => {
   const response = await axios.put(
     `${base_url}color/${color.id}`,
-    { title: color.colorData.title },
+    color.colorData,
     config
   );
 

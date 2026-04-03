@@ -103,7 +103,21 @@ const Home = () => {
   const [activeBundles, setActiveBundles] = useState([]);
   const [addingBundle, setAddingBundle] = useState(null);
   const [bundleSizeModal, setBundleSizeModal] = useState(null);
-  const [bundleSelectedSizes, setBundleSelectedSizes] = useState({});
+  const [bundleSelections, setBundleSelections] = useState({});
+
+  const bundleNeedsSelection = (bundle) =>
+    (bundle?.products || []).some((item) => {
+      const product = item.product;
+      if (!product) return false;
+      const hasVariantStock = (product.variants || []).some(
+        (variant) => (variant.sizeStock || []).some((sizeEntry) => sizeEntry.quantity > 0)
+      );
+      const hasTopLevelSizes = (product.sizeStock || []).some((sizeEntry) => sizeEntry.quantity > 0);
+      return hasVariantStock || hasTopLevelSizes;
+    });
+
+  const getColorSwatch = (colorOption) =>
+    colorOption?.hex || colorOption?.title || "#d1d5db";
 
   useEffect(() => {
     dispatch(getAllBlogs());
@@ -128,22 +142,19 @@ const Home = () => {
       navigate("/login");
       return;
     }
-    const needsSizes = (bundle.products || []).some(
-      i => i.product?.sizeStock?.filter(s => s.quantity > 0).length > 0
-    );
-    if (needsSizes) {
-      setBundleSelectedSizes({});
+    if (bundleNeedsSelection(bundle)) {
+      setBundleSelections({});
       setBundleSizeModal(bundle);
     } else {
       confirmAddBundleToCart(bundle, {});
     }
   };
 
-  const confirmAddBundleToCart = async (bundle, selectedSizes) => {
+  const confirmAddBundleToCart = async (bundle, selectedOptions) => {
     setBundleSizeModal(null);
     setAddingBundle(bundle._id);
     try {
-      await dispatch(addBundleToCart({ bundleId: bundle._id, selectedSizes })).unwrap();
+      await dispatch(addBundleToCart({ bundleId: bundle._id, selectedOptions })).unwrap();
       toast.success(`🛒 ${bundle.title} added to cart at ₹${bundle.bundlePrice}!`);
       navigate("/cart");
     } catch (err) {
@@ -244,6 +255,24 @@ const Home = () => {
                           <div style={{ flex: 1, minWidth: 0 }}>
                             <p style={{ margin: 0, fontSize: "12px", fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.product?.title}</p>
                             <p style={{ margin: "2px 0 4px", fontSize: "11px", color: "#888" }}>Qty: {item.quantity} × ₹{item.price?.toLocaleString()}</p>
+                            {(item.product?.variants || []).length > 0 && (
+                              <div className="d-flex gap-1 flex-wrap mb-1">
+                                {(item.product.variants || []).map((variant, vIndex) => (
+                                  <span
+                                    key={`${variant.color?._id || variant.color || vIndex}`}
+                                    style={{
+                                      width: "14px",
+                                      height: "14px",
+                                      borderRadius: "50%",
+                                      background: getColorSwatch(variant.color),
+                                      border: "1px solid rgba(15,23,42,0.15)",
+                                      display: "inline-block",
+                                    }}
+                                    title={variant.color?.name || variant.color?.title || ""}
+                                  />
+                                ))}
+                              </div>
+                            )}
                             {item.product?.sizeStock?.length > 0 && (
                               <div className="d-flex gap-1 flex-wrap">
                                 {item.product.sizeStock.map(s => (
@@ -265,8 +294,8 @@ const Home = () => {
                       </div>
                     </div>
                     <div style={{ padding: "0 14px 14px" }}>
-                      {(bundle.products || []).some(i => i.product?.sizeStock?.filter(s => s.quantity > 0).length > 0) && (
-                        <p style={{ margin: "0 0 5px", fontSize: "11px", color: "#667eea", fontWeight: 600, textAlign: "center" }}>⚠️ You’ll choose a size for each product</p>
+                      {bundleNeedsSelection(bundle) && (
+                        <p style={{ margin: "0 0 5px", fontSize: "11px", color: "#667eea", fontWeight: 600, textAlign: "center" }}>⚠️ You’ll choose options for each product</p>
                       )}
                       <button
                         onClick={(e) => handleAddBundleToCart(e, bundle)}
@@ -274,7 +303,7 @@ const Home = () => {
                         style={{ width: "100%", padding: "11px", background: addingBundle === bundle._id ? "#a5b4fc" : "linear-gradient(135deg,#667eea,#764ba2)", color: "#fff", border: "none", borderRadius: "8px", fontWeight: 700, cursor: addingBundle === bundle._id ? "not-allowed" : "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", fontSize: "13px" }}
                       >
                         <AiOutlineShoppingCart />
-                        {addingBundle === bundle._id ? "Adding…" : (bundle.products || []).some(i => i.product?.sizeStock?.filter(s => s.quantity > 0).length > 0) ? "Select Size & Add to Cart" : "Add Bundle to Cart"}
+                        {addingBundle === bundle._id ? "Adding…" : bundleNeedsSelection(bundle) ? "Select Options & Add to Cart" : "Add Bundle to Cart"}
                       </button>
                     </div>
                   </motion.div>
@@ -429,37 +458,73 @@ const Home = () => {
             style={{ background: "#fff", borderRadius: "16px", padding: "30px", maxWidth: "480px", width: "100%", maxHeight: "80vh", overflowY: "auto" }}
           >
             <h4 style={{ marginBottom: "6px", fontWeight: 700 }}>{bundleSizeModal.title}</h4>
-            <p style={{ color: "#666", fontSize: "14px", marginBottom: "20px" }}>Select a size for each product</p>
+            <p style={{ color: "#666", fontSize: "14px", marginBottom: "20px" }}>Select the correct color and size for each product</p>
             {(bundleSizeModal.products || []).map((item) => {
               const product = item.product;
               if (!product) return null;
-              const sizes = product.sizeStock || [];
-              if (sizes.length === 0) return null;
               const pid = product._id?.toString();
+              const variantColors = (product.variants || [])
+                .filter((variant) => (variant.sizeStock || []).some((s) => s.quantity > 0))
+                .map((variant) => variant.color)
+                .filter(Boolean);
+              const hasVariantColors = variantColors.length > 0;
+              const selectedColor = bundleSelections[pid]?.color || null;
+              const sizes = hasVariantColors
+                ? ((product.variants || []).find((variant) => {
+                    const variantColorId = variant.color?._id || variant.color;
+                    return variantColorId?.toString() === selectedColor;
+                  })?.sizeStock || [])
+                : (product.sizeStock || []);
+              const needsAnySelection = hasVariantColors || sizes.length > 0;
+              if (!needsAnySelection) return null;
               return (
-                <div key={pid} style={{ marginBottom: "20px" }}>
+                <div key={pid} style={{ marginBottom: "20px", padding: "16px", borderRadius: "16px", border: "1px solid #e5e7eb", background: "#fff" }}>
                   <div className="d-flex align-items-center gap-2 mb-2">
                     {product.images?.[0]?.url && (
                       <img src={product.images[0].url} alt={product.title} style={{ width: "40px", height: "40px", objectFit: "cover", borderRadius: "8px" }} />
                     )}
-                    <span style={{ fontWeight: 600, fontSize: "14px" }}>{product.title}</span>
+                    <div>
+                      <span style={{ fontWeight: 600, fontSize: "14px", display: "block" }}>{product.title}</span>
+                      {hasVariantColors && <span style={{ fontSize: "11px", color: "#64748b" }}>Choose color first, then size</span>}
+                    </div>
                   </div>
-                  <div className="d-flex gap-2 flex-wrap">
-                    {sizes.map(s => (
-                      <button
-                        key={s.size}
-                        disabled={s.quantity === 0}
-                        onClick={() => s.quantity > 0 && setBundleSelectedSizes(prev => ({ ...prev, [pid]: s.size }))}
-                        style={{ padding: "8px 16px", borderRadius: "8px", fontWeight: 700, fontSize: "13px", cursor: s.quantity === 0 ? "not-allowed" : "pointer", border: bundleSelectedSizes[pid] === s.size ? "2px solid #667eea" : "2px solid #e5e5e5", background: bundleSelectedSizes[pid] === s.size ? "#667eea" : s.quantity === 0 ? "#f5f5f5" : "#fff", color: bundleSelectedSizes[pid] === s.size ? "#fff" : s.quantity === 0 ? "#bbb" : "#333", opacity: s.quantity === 0 ? 0.6 : 1 }}
-                      >
-                        <span style={{ textDecoration: s.quantity === 0 ? "line-through" : "none" }}>{s.size}</span>
-                        {s.quantity === 0
-                          ? <span style={{ display: "block", fontSize: "9px", color: "#ef4444", fontWeight: 700, lineHeight: 1 }}>Out of Stock</span>
-                          : <span style={{ display: "block", fontSize: "9px", color: "#22c55e", fontWeight: 700, lineHeight: 1 }}>{s.quantity} left</span>
-                        }
-                      </button>
-                    ))}
-                  </div>
+                  {hasVariantColors && (
+                    <div style={{ marginBottom: "12px" }}>
+                      <div style={{ fontSize: "12px", fontWeight: 700, color: "#334155", marginBottom: "8px" }}>Color</div>
+                      <div className="d-flex gap-2 flex-wrap align-items-center">
+                        {variantColors.map((colorOption, index) => {
+                          const colorId = (colorOption?._id || colorOption)?.toString();
+                          const isSelected = bundleSelections[pid]?.color === colorId;
+                          return (
+                            <div
+                              key={colorId || index}
+                              onClick={() => setBundleSelections((prev) => ({ ...prev, [pid]: { ...prev[pid], color: colorId, size: null } }))}
+                              style={{ width: "30px", height: "30px", borderRadius: "50%", background: getColorSwatch(colorOption), border: isSelected ? "3px solid #d4af37" : "2px solid #e5e5e5", boxShadow: isSelected ? "0 0 0 3px rgba(212,175,55,0.22)" : "none", cursor: "pointer", transition: "all 0.2s ease" }}
+                              title={colorOption?.name || colorOption?.title || ""}
+                            />
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                  {sizes.length > 0 && (
+                    <div className="d-flex gap-2 flex-wrap">
+                      {sizes.map(s => (
+                        <button
+                          key={s.size}
+                          disabled={s.quantity === 0 || (hasVariantColors && !selectedColor)}
+                          onClick={() => s.quantity > 0 && (!hasVariantColors || selectedColor) && setBundleSelections(prev => ({ ...prev, [pid]: { ...prev[pid], size: s.size } }))}
+                          style={{ padding: "8px 16px", borderRadius: "8px", fontWeight: 700, fontSize: "13px", cursor: s.quantity === 0 || (hasVariantColors && !selectedColor) ? "not-allowed" : "pointer", border: bundleSelections[pid]?.size === s.size ? "2px solid #0f172a" : "1px solid #cbd5e1", background: bundleSelections[pid]?.size === s.size ? "#0f172a" : s.quantity === 0 ? "#f5f5f5" : "#fff", color: bundleSelections[pid]?.size === s.size ? "#fff" : s.quantity === 0 ? "#bbb" : "#333", opacity: s.quantity === 0 || (hasVariantColors && !selectedColor) ? 0.6 : 1 }}
+                        >
+                          <span style={{ textDecoration: s.quantity === 0 ? "line-through" : "none" }}>{s.size}</span>
+                          {s.quantity === 0
+                            ? <span style={{ display: "block", fontSize: "9px", color: "#ef4444", fontWeight: 700, lineHeight: 1 }}>Out of Stock</span>
+                            : <span style={{ display: "block", fontSize: "9px", color: bundleSelections[pid]?.size === s.size ? "#fff" : "#22c55e", fontWeight: 700, lineHeight: 1 }}>{s.quantity} left</span>
+                          }
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
               );
             })}
@@ -470,10 +535,21 @@ const Home = () => {
                   const missing = (bundleSizeModal.products || []).find(item => {
                     const p = item.product;
                     if (!p) return false;
-                    return (p.sizeStock || []).some(s => s.quantity > 0) && !bundleSelectedSizes[p._id?.toString()];
+                    const pid = p._id?.toString();
+                    const hasVariantStock = (p.variants || []).some((variant) => (variant.sizeStock || []).some((s) => s.quantity > 0));
+                    const hasTopLevelSizes = (p.sizeStock || []).some((s) => s.quantity > 0);
+                    const selection = bundleSelections[pid] || {};
+                    if (hasVariantStock) return !selection.color || !selection.size;
+                    if (hasTopLevelSizes) return !selection.size;
+                    return false;
                   });
-                  if (missing) { toast.error(`Please select a size for ${missing.product.title}`); return; }
-                  confirmAddBundleToCart(bundleSizeModal, bundleSelectedSizes);
+                  if (missing) {
+                    const p = missing.product;
+                    const hasVariantStock = (p.variants || []).some((variant) => (variant.sizeStock || []).some((s) => s.quantity > 0));
+                    toast.error(hasVariantStock ? `Please select color and size for ${p.title}` : `Please select a size for ${p.title}`);
+                    return;
+                  }
+                  confirmAddBundleToCart(bundleSizeModal, bundleSelections);
                 }}
                 style={{ flex: 1, padding: "12px", borderRadius: "10px", background: "linear-gradient(135deg,#667eea,#764ba2)", color: "#fff", border: "none", fontWeight: 700, cursor: "pointer" }}
               >

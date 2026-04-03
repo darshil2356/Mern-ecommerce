@@ -5,6 +5,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { ArrowLeftOutlined, HomeOutlined, UserOutlined, CreditCardOutlined, ShopOutlined } from "@ant-design/icons";
 import { getaOrder } from "../features/auth/authSlice";
 import dayjs from "dayjs";
+import { getColorSwatch, getReadableColorName } from "../utils/colorDisplay";
 
 const getStatusColor = (status) => {
   const colors = {
@@ -62,7 +63,7 @@ const ViewOrder = () => {
       render: (text, record) => (
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           {record.isBundle ? (
-            <div style={{ width: 50, height: 50, background: "linear-gradient(135deg,#667eea,#764ba2)", borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+            <div style={{ width: 50, height: 50, background: "linear-gradient(135deg,#0f172a,#334155)", borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
               <ShopOutlined style={{ fontSize: 20, color: "#fff" }} />
             </div>
           ) : record.image ? (
@@ -74,12 +75,29 @@ const ViewOrder = () => {
           )}
           <div>
             {record.isBundle && (
-              <span style={{ background: "#667eea", color: "#fff", fontSize: 9, fontWeight: 700, padding: "1px 6px", borderRadius: 4, marginBottom: 4, display: "inline-block" }}>BUNDLE</span>
+              <span style={{ background: "#0f172a", color: "#fff", fontSize: 9, fontWeight: 700, padding: "2px 8px", borderRadius: 999, marginBottom: 6, display: "inline-block" }}>BUNDLE</span>
             )}
-            <p style={{ margin: 0, fontWeight: 600, color: record.isBundle ? "#667eea" : "inherit" }}>{text}</p>
-            {record.isBundle && record.bundleProducts?.map((bp, i) => (
-              <p key={i} style={{ margin: 0, fontSize: 11, color: "#8c8c8c" }}>• {bp.title} ×{bp.quantity}</p>
-            ))}
+            <p style={{ margin: 0, fontWeight: 700, color: record.isBundle ? "#0f172a" : "inherit" }}>{text}</p>
+            {record.isBundle && (
+              <div style={{ marginTop: 6, display: "flex", flexDirection: "column", gap: 6 }}>
+                {record.bundleProducts?.map((bp, i) => (
+                  <div key={i} style={{ padding: "8px 10px", borderRadius: 10, background: "#f8fafc", border: "1px solid #e2e8f0" }}>
+                    <div style={{ margin: 0, fontSize: 12, color: "#0f172a", fontWeight: 600 }}>{bp.title} ×{bp.quantity}</div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginTop: 4 }}>
+                      {bp.selectedColorLabel && (
+                        <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 11, color: "#64748b" }}>
+                          <span style={{ width: 10, height: 10, borderRadius: "50%", background: getColorSwatch(bp.selectedColor || bp.selectedColorLabel), border: "1px solid #cbd5e1" }} />
+                          Color selected
+                        </span>
+                      )}
+                      {bp.selectedSize && (
+                        <span style={{ fontSize: 11, color: "#64748b" }}>Size {bp.selectedSize}</span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
             {!record.isBundle && <p style={{ margin: 0, fontSize: 12, color: "#8c8c8c" }}>{record.brand}</p>}
           </div>
         </div>
@@ -99,10 +117,10 @@ const ViewOrder = () => {
             width: 24,
             height: 24,
             borderRadius: "50%",
-            backgroundColor: color?.title || color,
+            backgroundColor: getColorSwatch(color),
             border: "1px solid #d9d9d9"
           }} />
-          <span>{color?.title || "N/A"}</span>
+          <span>{getReadableColorName(color)}</span>
         </div>
       ) : "-",
     },
@@ -372,4 +390,3 @@ const ViewOrder = () => {
 };
 
 export default ViewOrder;
-

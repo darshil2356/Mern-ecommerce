@@ -3,6 +3,7 @@ const Product = require("../models/productModel");
 const Cart = require("../models/cartModel");
 const Coupon = require("../models/couponModel");
 const Order = require("../models/orderModel");
+const Color = require("../models/colorModel");
 const uniqid = require("uniqid");
 
 const asyncHandler = require("express-async-handler");
@@ -13,6 +14,7 @@ const crypto = require("crypto");
 const jwt = require("jsonwebtoken");
 const sendEmail = require("./emailCtrl");
 const { createPasswordResetToken } = require("../models/userModel");
+const { getReadableColorName } = require("../utils/colorDisplay");
 
 const appendCoinTransaction = (userDoc, transaction) => {
   if (!userDoc) return;
@@ -30,6 +32,160 @@ const appendCoinTransaction = (userDoc, transaction) => {
     metadata: transaction.metadata || {},
     createdAt: transaction.createdAt || new Date(),
   });
+};
+
+const findProductByBarcode = async (barcode) => {
+  if (!barcode) return null;
+  const product = await Product.findOne({ barcode }).populate("color").populate("variants.color");
+  if (product) return product;
+  const product2 = await Product.findOne({ "sizeStock.barcode": barcode }).populate("color").populate("variants.color");
+  if (product2) return product2;
+  return await Product.findOne({ "variants.sizeStock.barcode": barcode }).populate("color").populate("variants.color");
+};
+
+const normalizeProductQuantity = (product) => {
+  if (!product) return 0;
+  const p = product.toObject ? product.toObject() : product;
+  if (p.variants && p.variants.length > 0) {
+    return p.variants.reduce((sum, variant) => {
+      const variantQty = (variant.sizeStock || []).reduce((s, item) => s + Number(item.quantity || 0), 0);
+      return sum + variantQty;
+    }, 0);
+  }
+  if (p.sizeStock && p.sizeStock.length > 0) {
+    return p.sizeStock.reduce((sum, item) => sum + Number(item.quantity || 0), 0);
+  }
+  return Number(p.quantity || 0);
+};
+
+const resolveColorLabel = (colorInfo, product) => {
+  if (colorInfo) {
+    return getReadableColorName(colorInfo);
+  }
+  if (!product) return null;
+  return getReadableColorName(product.color);
+};
+
+const resolveColorId = async (colorInfo, product) => {
+  if (!colorInfo) {
+    return product?.color || null;
+  }
+
+  // If colorInfo is an object with _id, return the _id
+  if (typeof colorInfo === 'object' && colorInfo._id) {
+    return colorInfo._id;
+  }
+
+  // If colorInfo is already an ObjectId string, return it
+  if (typeof colorInfo === 'string' && colorInfo.match(/^[0-9a-fA-F]{24}$/)) {
+    return colorInfo;
+  }
+
+  // If colorInfo is a string (color name), try to find the Color document
+  if (typeof colorInfo === 'string') {
+    try {
+      const colorDoc = await Color.findOne({
+        $or: [
+          { name: new RegExp(colorInfo, 'i') },
+          { title: new RegExp(colorInfo, 'i') },
+          { hex: colorInfo.toLowerCase() }
+        ]
+      });
+      if (colorDoc) {
+        return colorDoc._id;
+      }
+    } catch (error) {
+      console.error('Error finding color:', error);
+    }
+    // Fallback to product color
+    return product?.color || null;
+  }
+
+  return product?.color || null;
+};
+
+const deductStockFromProduct = async (product, item) => {
+  let barcode = item.barcode || null;
+  let deducted = false;
+
+  // If provided precise barcode, use it
+  if (item.barcode) {
+    // Try to deduct from exact barcode path
+    if (product.sizeStock && product.sizeStock.length > 0) {
+      const sizeEntry = product.sizeStock.find((s) => s.barcode === item.barcode);
+      if (sizeEntry && sizeEntry.quantity >= item.quantity) {
+        sizeEntry.quantity -= item.quantity;
+        barcode = sizeEntry.barcode;
+        deducted = true;
+      }
+    }
+    if (!deducted && product.variants && product.variants.length > 0) {
+      for (const variant of product.variants) {
+        const sizeEntry = (variant.sizeStock || []).find((s) => s.barcode === item.barcode);
+        if (sizeEntry && sizeEntry.quantity >= item.quantity) {
+          sizeEntry.quantity -= item.quantity;
+          barcode = sizeEntry.barcode;
+          deducted = true;
+          break;
+        }
+      }
+    }
+    if (deducted) return { deducted, barcode };
+  }
+
+  // Match by color and size if available
+  if (item.color && item.size && product.variants && product.variants.length > 0) {
+    const variant = product.variants.find((v) => {
+      const variantColorId = v.color?._id ? v.color._id.toString() : (v.color || "").toString();
+      const itemColorId = item.color?._id ? item.color._id.toString() : (item.color || "").toString();
+      return variantColorId === itemColorId;
+    });
+    if (variant) {
+      const sizeEntry = (variant.sizeStock || []).find((s) => s.size === item.size);
+      if (sizeEntry && sizeEntry.quantity >= item.quantity) {
+        sizeEntry.quantity -= item.quantity;
+        barcode = sizeEntry.barcode || barcode;
+        deducted = true;
+      }
+    }
+    if (deducted) return { deducted, barcode };
+  }
+
+  // Top-level sizeStock path
+  if (product.sizeStock && product.sizeStock.length > 0) {
+    if (item.size) {
+      const sizeEntry = product.sizeStock.find((s) => s.size === item.size);
+      if (sizeEntry && sizeEntry.quantity >= item.quantity) {
+        sizeEntry.quantity -= item.quantity;
+        barcode = sizeEntry.barcode || barcode;
+        deducted = true;
+      }
+    } else {
+      let remainingQty = item.quantity;
+      for (const sizeEntry of product.sizeStock) {
+        if (sizeEntry.quantity > 0 && remainingQty > 0) {
+          const decrement = Math.min(sizeEntry.quantity, remainingQty);
+          sizeEntry.quantity -= decrement;
+          remainingQty -= decrement;
+          if (!barcode) barcode = sizeEntry.barcode;
+        }
+      }
+      if (remainingQty === 0) {
+        deducted = true;
+      }
+    }
+    if (deducted) return { deducted, barcode };
+  }
+
+  // Fallback to main quantity
+  if (product.quantity >= item.quantity) {
+    product.quantity = Math.max(0, product.quantity - item.quantity);
+    barcode = barcode || product.barcode;
+    deducted = true;
+    return { deducted, barcode };
+  }
+
+  return { deducted: false, barcode };
 };
 
 
@@ -105,63 +261,32 @@ const createOfflineOrder = asyncHandler(async (req, res) => {
 
   // Step 2: Validate & deduct stock
   for (const item of items) {
-    // First try to find by main barcode
-    let product = await Product.findOne({ barcode: item.barcode });
-
-    // If not found, search in sizeStock array
-    if (!product) {
-      product = await Product.findOne({ "sizeStock.barcode": item.barcode });
-    }
+    // Find product by barcode in any slot (main, top-level sizeStock, variant sizeStock)
+    const product = await findProductByBarcode(item.barcode);
 
     if (!product) {
       res.status(404);
       throw new Error(`Product not found for barcode ${item.barcode}`);
     }
 
-    // Check if barcode is from sizeStock
-    let sizeInfo = null;
-    let sizeIndex = -1;
-    
-    if (product.sizeStock && product.sizeStock.length > 0) {
-      const sizeEntryIndex = product.sizeStock.findIndex(s => s.barcode === item.barcode);
-      if (sizeEntryIndex !== -1) {
-        sizeInfo = product.sizeStock[sizeEntryIndex];
-        sizeIndex = sizeEntryIndex;
-      }
-    }
-
-    let availableStock = 0;
-    
-    // Determine available stock based on whether it's size-specific
-    if (sizeInfo) {
-      availableStock = sizeInfo.quantity;
-    } else {
-      availableStock = product.quantity;
-    }
-
-    if (availableStock < item.quantity) {
+    const { deducted, barcode: deductedBarcode } = await deductStockFromProduct(product, item);
+    if (!deducted) {
       res.status(400);
-      throw new Error(`Insufficient stock for ${product.title}${sizeInfo ? ` (Size: ${sizeInfo.size})` : ''}`);
+      throw new Error(`Insufficient stock for ${product.title}${item.size ? ` (Size: ${item.size})` : ''}`);
     }
 
-    // Deduct stock
-    if (sizeInfo && sizeIndex !== -1) {
-      // Deduct from sizeStock
-      product.sizeStock[sizeIndex].quantity -= item.quantity;
-    } else {
-      // Deduct from main quantity
-      product.quantity -= item.quantity;
-    }
-    
-    product.sold += item.quantity;
+    item.barcode = deductedBarcode || item.barcode;
+
+    product.sold = (product.sold || 0) + item.quantity;
+    product.quantity = normalizeProductQuantity(product);
     await product.save();
 
     orderItems.push({
       product: product._id,
       quantity: item.quantity,
       price: product.price,
-      color: product.color?.[0] || null,
-      size: sizeInfo ? sizeInfo.size : null, // Store size info in order
+      color: await resolveColorId(item.color || product.color || (product.variants?.[0]?.color ?? null), product),
+      size: item.size || null,
       barcode: item.barcode // Store barcode for reference
     });
 
@@ -837,7 +962,7 @@ const getWishlist = asyncHandler(async (req, res) => {
 });
 
 const userCart = asyncHandler(async (req, res) => {
-  const { productId, color, quantity, price } = req.body;
+  const { productId, color, quantity, price, size } = req.body;
 
   const { _id } = req.user;
   validateMongoDbId(_id);
@@ -848,6 +973,7 @@ const userCart = asyncHandler(async (req, res) => {
       color,
       price,
       quantity,
+      size,
     }).save();
     res.json(newCart);
   } catch (error) {
@@ -856,34 +982,113 @@ const userCart = asyncHandler(async (req, res) => {
 });
 
 const addBundleToCart = asyncHandler(async (req, res) => {
-  const { bundleId, selectedSizes } = req.body;
-  // selectedSizes: { [productId]: "M" | "XL" | ... }
+  const { bundleId, selectedSizes, selectedColors, selectedOptions } = req.body;
+  // Backward compatible payload support:
+  // selectedOptions: { [productId]: { color: colorId|null, size: "M"|null } }
   const { _id } = req.user;
   validateMongoDbId(_id);
 
   const Bundle = require("../models/bundleModel");
-  const bundle = await Bundle.findById(bundleId).populate("products.product");
+  const bundle = await Bundle.findById(bundleId).populate({
+    path: "products.product",
+    populate: [
+      { path: "color" },
+      { path: "variants.color" },
+    ],
+  });
   if (!bundle) {
     res.status(404);
     throw new Error("Bundle not found");
   }
 
-  // Validate selected sizes against product sizeStock
+  const resolvedSelections = {};
+
+  // Validate selected variant/top-level selections
   for (const item of bundle.products || []) {
     const product = item.product;
     if (!product) continue;
-    const hasSizes = product.sizeStock && product.sizeStock.length > 0;
-    if (hasSizes) {
-      const chosen = selectedSizes?.[product._id.toString()];
-      if (!chosen) {
+
+    const productId = product._id.toString();
+    const normalizedSelection = selectedOptions?.[productId] || {
+      color: selectedColors?.[productId] || null,
+      size: selectedSizes?.[productId] || null,
+    };
+
+    const chosenColor = normalizedSelection?.color || null;
+    const chosenSize = normalizedSelection?.size || null;
+    const hasVariantStock = Array.isArray(product.variants) && product.variants.some(
+      (variant) => (variant.sizeStock || []).some((sizeEntry) => sizeEntry.quantity > 0)
+    );
+    const hasTopLevelSizes = Array.isArray(product.sizeStock) && product.sizeStock.some(
+      (sizeEntry) => sizeEntry.quantity > 0
+    );
+
+    if (hasVariantStock) {
+      if (!chosenColor) {
+        res.status(400);
+        throw new Error(`Please select a color for ${product.title}`);
+      }
+
+      const variant = product.variants.find((v) => {
+        const variantColorId = v.color?._id ? v.color._id.toString() : v.color?.toString?.();
+        return variantColorId === chosenColor.toString();
+      });
+
+      if (!variant) {
+        res.status(400);
+        throw new Error(`Selected color is not available for ${product.title}`);
+      }
+
+      if (!chosenSize) {
         res.status(400);
         throw new Error(`Please select a size for ${product.title}`);
       }
-      const sizeEntry = product.sizeStock.find(s => s.size === chosen);
+
+      const sizeEntry = (variant.sizeStock || []).find((s) => s.size === chosenSize);
       if (!sizeEntry || sizeEntry.quantity < 1) {
         res.status(400);
-        throw new Error(`Size ${chosen} is out of stock for ${product.title}`);
+        throw new Error(`Selected size is out of stock for ${product.title}`);
       }
+
+      resolvedSelections[productId] = {
+        color: chosenColor,
+        colorLabel: resolveColorLabel(variant.color, product),
+        size: chosenSize,
+      };
+      continue;
+    }
+
+    if (hasTopLevelSizes) {
+      if (!chosenSize) {
+        res.status(400);
+        throw new Error(`Please select a size for ${product.title}`);
+      }
+
+      const sizeEntry = product.sizeStock.find((s) => s.size === chosenSize);
+      if (!sizeEntry || sizeEntry.quantity < 1) {
+        res.status(400);
+        throw new Error(`Size ${chosenSize} is out of stock for ${product.title}`);
+      }
+    }
+
+    resolvedSelections[productId] = {
+      color: chosenColor || product.color || null,
+      colorLabel: resolveColorLabel(chosenColor || product.color || null, product),
+      size: chosenSize || null,
+    };
+  }
+
+  // Ensure bundle items with no size selection still preserve color info
+  for (const item of bundle.products || []) {
+    const product = item.product;
+    if (!product) continue;
+    const productId = product._id.toString();
+    if (!resolvedSelections[productId]) {
+      resolvedSelections[productId] = {
+        color: selectedColors?.[productId] || product.color || null,
+        colorLabel: resolveColorLabel(selectedColors?.[productId] || product.color || null, product),
+        size: selectedSizes?.[productId] || null,
+      };
     }
   }
 
@@ -897,7 +1102,9 @@ const addBundleToCart = asyncHandler(async (req, res) => {
     quantity: item.quantity || 1,
     price: item.price || item.product?.price || 0,
     image: item.product?.images?.[0]?.url || "",
-    selectedSize: selectedSizes?.[item.product?._id?.toString()] || null,
+    selectedColor: resolvedSelections[item.product?._id?.toString()]?.color || null,
+    selectedColorLabel: resolvedSelections[item.product?._id?.toString()]?.colorLabel || null,
+    selectedSize: resolvedSelections[item.product?._id?.toString()]?.size || null,
   }));
 
   const firstProduct = bundle.products?.[0]?.product;
@@ -907,7 +1114,7 @@ const addBundleToCart = asyncHandler(async (req, res) => {
     productId: firstProduct?._id || null,
     quantity: 1,
     price: bundle.bundlePrice,
-    color: firstProduct?.color || null,
+    color: null,
     isBundle: true,
     bundleId: bundle._id,
     bundleTitle: bundle.title,
@@ -992,25 +1199,70 @@ const createOrder = asyncHandler(async (req, res) => {
   try {
     // Decrease stock for each ordered item (skip bundle items - stock handled separately)
     for (const item of orderItems) {
-      if (item.isBundle) continue; // bundle stock not tracked per-product here
+      console.log(`Processing order item:`, {
+        product: item.product,
+        quantity: item.quantity,
+        color: item.color,
+        size: item.size,
+        isBundle: item.isBundle
+      });
+
+      if (item.isBundle && Array.isArray(item.bundleProducts)) {
+        // Deduct stock for each product in the bundle
+        for (const bundleItem of item.bundleProducts) {
+          if (!bundleItem.productId) continue;
+          const product = await Product.findById(bundleItem.productId);
+          if (!product) continue;
+          const deductionResult = await deductStockFromProduct(product, {
+            quantity: bundleItem.quantity || 1,
+            color: bundleItem.selectedColor || bundleItem.color || null,
+            size: bundleItem.selectedSize || null,
+            barcode: bundleItem.barcode || null
+          });
+          if (!deductionResult.deducted) {
+            throw new Error(`Insufficient stock for bundle product: ${product.title}${bundleItem.selectedSize ? ` (Size: ${bundleItem.selectedSize})` : ''}`);
+          }
+          product.sold = (product.sold || 0) + (bundleItem.quantity || 1);
+          product.quantity = normalizeProductQuantity(product);
+          await product.save();
+          bundleItem.barcode = deductionResult.barcode || bundleItem.barcode;
+        }
+        continue;
+      }
+
       if (!item.product) continue;
       const product = await Product.findById(item.product);
-      
+
       if (product) {
-        if (product.sizeStock && product.sizeStock.length > 0) {
-          let remainingQty = item.quantity;
-          for (let i = 0; i < product.sizeStock.length && remainingQty > 0; i++) {
-            if (product.sizeStock[i].quantity > 0) {
-              const deductQty = Math.min(product.sizeStock[i].quantity, remainingQty);
-              product.sizeStock[i].quantity -= deductQty;
-              remainingQty -= deductQty;
-            }
-          }
+        console.log(`Found product: ${product.title}, current stock structure:`, {
+          mainQuantity: product.quantity,
+          sizeStock: product.sizeStock?.map(s => ({ size: s.size, quantity: s.quantity, barcode: s.barcode })),
+          variants: product.variants?.map(v => ({
+            color: v.color,
+            sizeStock: v.sizeStock?.map(s => ({ size: s.size, quantity: s.quantity, barcode: s.barcode }))
+          }))
+        });
+
+        const result = await deductStockFromProduct(product, item);
+        const { deducted, barcode } = result;
+
+        if (deducted) {
+          product.sold = (product.sold || 0) + item.quantity;
+          item.barcode = barcode || item.barcode;
+          product.quantity = normalizeProductQuantity(product);
+          await product.save();
+          console.log(`Stock deducted successfully for ${product.title}. New stock:`, {
+            mainQuantity: product.quantity,
+            sizeStock: product.sizeStock?.map(s => ({ size: s.size, quantity: s.quantity })),
+            variants: product.variants?.map(v => ({
+              color: v.color,
+              sizeStock: v.sizeStock?.map(s => ({ size: s.size, quantity: s.quantity }))
+            }))
+          });
         } else {
-          product.quantity = Math.max(0, product.quantity - item.quantity);
+          console.error(`Failed to deduct stock for ${product.title} - insufficient stock`);
+          throw new Error(`Insufficient stock for ${product.title}`);
         }
-        product.sold = (product.sold || 0) + item.quantity;
-        await product.save();
       }
     }
 
@@ -1489,22 +1741,32 @@ const getYearlyTotalOrder = asyncHandler(async (req, res) => {
 const getProductByBarcode = asyncHandler(async (req, res) => {
   const { barcode } = req.params;
 
-  // First try to find by main barcode
-  let product = await Product.findOne({ barcode });
+  let product = await findProductByBarcode(barcode);
 
-  // If not found, search in sizeStock array
-  if (!product) {
-    product = await Product.findOne({ "sizeStock.barcode": barcode });
-  }
 
   if (!product) {
     res.status(404);
     throw new Error("Product not found");
   }
 
-  // Check if barcode is from sizeStock
+  // Check if barcode is from variants.sizeStock
   let sizeInfo = null;
-  if (product.sizeStock && product.sizeStock.length > 0) {
+  let colorInfo = null;
+  if (product.variants && product.variants.length > 0) {
+    for (const variant of product.variants) {
+      const sizeEntry = variant.sizeStock.find(s => s.barcode === barcode);
+      if (sizeEntry) {
+        sizeInfo = {
+          size: sizeEntry.size,
+          quantity: sizeEntry.quantity,
+          barcode: sizeEntry.barcode
+        };
+        colorInfo = variant.color;
+        break;
+      }
+    }
+  } else if (product.sizeStock && product.sizeStock.length > 0) {
+    // Legacy support
     const sizeEntry = product.sizeStock.find(s => s.barcode === barcode);
     if (sizeEntry) {
       sizeInfo = {
@@ -1515,6 +1777,13 @@ const getProductByBarcode = asyncHandler(async (req, res) => {
     }
   }
 
+  let colorLabel = null;
+  if (colorInfo) {
+    colorLabel = typeof colorInfo === "string" ? colorInfo : colorInfo?.title || colorInfo?.name || null;
+  } else if (product.color) {
+    colorLabel = typeof product.color === "string" ? product.color : product.color?.title || product.color?.name || null;
+  }
+
   res.json({
     _id: product._id,
     title: product.title,
@@ -1523,6 +1792,7 @@ const getProductByBarcode = asyncHandler(async (req, res) => {
     quantity: sizeInfo ? sizeInfo.quantity : product.quantity,
     barcode: barcode,
     size: sizeInfo ? sizeInfo.size : null,
+    color: colorLabel,
     isSizeSpecific: sizeInfo !== null
   });
 });
@@ -1536,24 +1806,33 @@ const checkStock = asyncHandler(async (req, res) => {
     throw new Error("Barcode is required");
   }
 
-  // First try to find by main barcode
-  let product = await Product.findOne({ barcode: barcode });
-
-  // If not found, search in sizeStock array
-  if (!product) {
-    product = await Product.findOne({ "sizeStock.barcode": barcode });
-  }
+  let product = await findProductByBarcode(barcode);
 
   if (!product) {
     res.status(404);
     throw new Error("Product not found");
   }
 
-  // Check if barcode is from sizeStock
+  // Check if barcode is from variants.sizeStock
   let availableStock = 0;
   let sizeInfo = null;
-  
-  if (product.sizeStock && product.sizeStock.length > 0) {
+  let colorInfo = null;
+
+  if (product.variants && product.variants.length > 0) {
+    for (const variant of product.variants) {
+      const sizeEntry = variant.sizeStock.find(s => s.barcode === barcode);
+      if (sizeEntry) {
+        availableStock = sizeEntry.quantity;
+        sizeInfo = {
+          size: sizeEntry.size,
+          quantity: sizeEntry.quantity
+        };
+        colorInfo = variant.color;
+        break;
+      }
+    }
+  } else if (product.sizeStock && product.sizeStock.length > 0) {
+    // Legacy support
     const sizeEntry = product.sizeStock.find(s => s.barcode === barcode);
     if (sizeEntry) {
       availableStock = sizeEntry.quantity;
@@ -1564,12 +1843,19 @@ const checkStock = asyncHandler(async (req, res) => {
     }
   }
 
-  // If not found in sizeStock, use main quantity
-  if (availableStock === 0 && !sizeInfo) {
+  // If not found in sizeStock or variants, use main quantity
+  if (!sizeInfo && (availableStock === 0 || !product.sizeStock?.length && !product.variants?.length)) {
     availableStock = product.quantity;
   }
 
   const requestedQty = parseInt(quantity) || 1;
+
+  let colorLabel = null;
+  if (colorInfo) {
+    colorLabel = typeof colorInfo === "string" ? colorInfo : colorInfo?.title || colorInfo?.name || null;
+  } else if (product.color) {
+    colorLabel = typeof product.color === "string" ? product.color : product.color?.title || product.color?.name || null;
+  }
 
   res.json({
     barcode: barcode,
@@ -1579,6 +1865,7 @@ const checkStock = asyncHandler(async (req, res) => {
     isAvailable: availableStock >= requestedQty,
     canAdd: availableStock > 0,
     size: sizeInfo ? sizeInfo.size : null,
+    color: colorLabel,
     isSizeSpecific: sizeInfo !== null
   });
 });

@@ -115,9 +115,16 @@ const Profile = () => {
   // Fetch referrals when tab is changed to referrals
   useEffect(() => {
     if (activeTab === "referrals" && getTokenFromLocalStorage?.token) {
-      dispatch(getMyReferrals());
+      dispatch(getMyReferrals({ page: 1, limit: 10 }));
     }
   }, [activeTab, dispatch]);
+
+  // Fetch order total on profile load so the summary count is available
+  useEffect(() => {
+    if (getTokenFromLocalStorage?.token && !ordersData?.total) {
+      dispatch(getOrders({ page: 1, limit: 1 }));
+    }
+  }, [dispatch, getTokenFromLocalStorage?.token, ordersData?.total]);
 
   // Fetch referral code if not available and user is logged in
   useEffect(() => {
@@ -163,6 +170,9 @@ const Profile = () => {
   };
 
   const coinTransactions = referralState?.coinTransactions || [];
+  const coinTransactionsPage = referralState?.coinTransactionsPage || 1;
+  const coinTransactionsLimit = referralState?.coinTransactionsLimit || 10;
+  const coinTransactionsHasMore = referralState?.coinTransactionsHasMore || false;
   const filteredCoinTransactions = useMemo(() => {
     if (coinFilter === "credited") {
       return coinTransactions.filter((txn) => txn.type === "credit");
@@ -200,6 +210,14 @@ const Profile = () => {
     navigator.clipboard.writeText(link);
     setCopiedLink(true);
     setTimeout(() => setCopiedLink(false), 2000);
+  };
+
+  const loadMoreCoinTransactions = () => {
+    if (!referralState?.isLoading && coinTransactionsHasMore) {
+      dispatch(
+        getMyReferrals({ page: coinTransactionsPage + 1, limit: coinTransactionsLimit })
+      );
+    }
   };
 
   const renderProfileSummary = () => (
@@ -1274,6 +1292,20 @@ const Profile = () => {
               ) : (
                 <div className="text-center py-4 text-muted">
                   No coin activity found for this filter.
+                </div>
+              )}
+
+              {coinTransactionsHasMore && (
+                <div className="text-center mt-4">
+                  <button
+                    type="button"
+                    className="btn btn-outline-primary"
+                    onClick={loadMoreCoinTransactions}
+                    disabled={referralState?.isLoading}
+                    style={{ borderRadius: 14 }}
+                  >
+                    {referralState?.isLoading ? "Loading more..." : "Load More Transactions"}
+                  </button>
                 </div>
               )}
             </div>

@@ -169,9 +169,9 @@ export const getReferralCode = createAsyncThunk(
 
 export const getMyReferrals = createAsyncThunk(
   "user/referral/getMyReferrals",
-  async (thunkAPI) => {
+  async ({ page = 1, limit = 10 } = {}, thunkAPI) => {
     try {
-      return await authService.getMyReferrals();
+      return await authService.getMyReferrals({ page, limit });
     } catch (error) {
       return thunkAPI.rejectWithValue(error);
     }
@@ -210,6 +210,10 @@ const initialState = {
   orderedCount: 0,
   referrals: [],
   coinTransactions: [],
+  coinTransactionsPage: 1,
+  coinTransactionsLimit: 10,
+  coinTransactionsHasMore: false,
+  coinTransactionsTotal: 0,
   appliedReferral: null,
 };
 
@@ -558,7 +562,23 @@ export const authSlice = createSlice({
         state.signedInCount = action.payload.signedInCount;
         state.orderedCount = action.payload.orderedCount;
         state.referrals = action.payload.referrals;
-        state.coinTransactions = action.payload.coinTransactions || [];
+        const page = action.payload.coinTransactionsPage || 1;
+        const limit = action.payload.coinTransactionsLimit || 10;
+        const hasMore = action.payload.coinTransactionsHasMore || false;
+        const total = action.payload.coinTransactionsTotal || 0;
+
+        if (page === 1) {
+          state.coinTransactions = action.payload.coinTransactions || [];
+        } else {
+          state.coinTransactions = [
+            ...(state.coinTransactions || []),
+            ...(action.payload.coinTransactions || []),
+          ];
+        }
+        state.coinTransactionsPage = page;
+        state.coinTransactionsLimit = limit;
+        state.coinTransactionsHasMore = hasMore;
+        state.coinTransactionsTotal = total;
       })
       .addCase(getMyReferrals.rejected, (state, action) => {
         state.isLoading = false;

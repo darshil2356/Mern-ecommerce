@@ -140,11 +140,14 @@ const getReferralCode = async () => {
   }
 };
 
-const getMyReferrals = async () => {
+const getMyReferrals = async ({ page = 1, limit = 10 } = {}) => {
   console.log("Fetching my referrals...");
   const config = getConfig();
   console.log("Config being used:", config);
-  const response = await axios.get(`${base_url}user/my-referrals`, config);
+  const response = await axios.get(
+    `${base_url}user/my-referrals?txnPage=${page}&txnLimit=${limit}`,
+    config
+  );
   console.log("My referrals response:", response.data);
   if (response.data) {
     return response.data;

@@ -2343,6 +2343,9 @@ const getMyReferrals = asyncHandler(async (req, res) => {
       await user.save();
     }
     
+    const txnPage = parseInt(req.query.txnPage, 10) || 1;
+    const txnLimit = parseInt(req.query.txnLimit, 10) || 10;
+
     const coinTransactionsFromDb = (user.coinTransactions || []).map((txn) => ({
       _id: txn._id,
       type: txn.type,
@@ -2465,6 +2468,12 @@ const getMyReferrals = asyncHandler(async (req, res) => {
       };
     });
 
+    const totalCoinTransactions = enrichedCoinTransactions.length;
+    const startIndex = (txnPage - 1) * txnLimit;
+    const endIndex = startIndex + txnLimit;
+    const paginatedCoinTransactions = enrichedCoinTransactions.slice(startIndex, endIndex);
+    const hasMoreTransactions = endIndex < totalCoinTransactions;
+
     console.log("Sending response:", {
       referralCode: user.referralCode,
       referralCount: user.referralCount || 0,
@@ -2472,7 +2481,11 @@ const getMyReferrals = asyncHandler(async (req, res) => {
       signedInCount,
       orderedCount,
       referrals: detailedReferrals,
-      coinTransactions: enrichedCoinTransactions,
+      coinTransactions: paginatedCoinTransactions,
+      coinTransactionsPage: txnPage,
+      coinTransactionsLimit: txnLimit,
+      coinTransactionsTotal: totalCoinTransactions,
+      coinTransactionsHasMore: hasMoreTransactions,
     });
 
     res.json({
@@ -2482,7 +2495,11 @@ const getMyReferrals = asyncHandler(async (req, res) => {
       signedInCount,
       orderedCount,
       referrals: detailedReferrals,
-      coinTransactions: enrichedCoinTransactions,
+      coinTransactions: paginatedCoinTransactions,
+      coinTransactionsPage: txnPage,
+      coinTransactionsLimit: txnLimit,
+      coinTransactionsTotal: totalCoinTransactions,
+      coinTransactionsHasMore: hasMoreTransactions,
     });
   } catch (error) {
     throw new Error(error);

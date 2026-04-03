@@ -37,10 +37,10 @@ const Login = () => {
     },
   });
   useEffect(() => {
-    if (authState.user !== null && authState.isError === false) {
-      window.location.href = "/";
+    if (authState.isSuccess && authState.user !== null) {
+      navigate("/", { replace: true });
     }
-  }, [authState]);
+  }, [authState.isSuccess, authState.user, navigate]);
 
   return (
     <>

@@ -1,479 +1,447 @@
 import React, { useEffect, useState } from "react";
 import BreadCrumb from "../components/BreadCrumb";
 import Meta from "../components/Meta";
-import ReactStars from "react-rating-stars-component";
 import ProductCard from "../components/ProductCard";
-import Color from "../components/Color";
 import Container from "../components/Container";
 import { useDispatch, useSelector } from "react-redux";
 import { getAllProducts } from "../features/products/productSlilce";
-import { Link, useLocation } from "react-router-dom";
+import { useLocation } from "react-router-dom";
+import { AiOutlineFilter, AiOutlineClose } from "react-icons/ai";
 
 const OurStore = () => {
-  const [grid, setGrid] = useState(4);
   const productState = useSelector((state) => state?.product?.product);
   const isLoading = useSelector((state) => state?.product?.isLoading);
   const [brands, setBrands] = useState([]);
   const [categories, setCategories] = useState([]);
   const [tags, setTags] = useState([]);
+  const [showFilter, setShowFilter] = useState(false);
 
-  //filter state
   const [tag, setTag] = useState(null);
   const [category, setCategory] = useState(null);
   const [brand, setBrand] = useState(null);
   const [minPrice, setMinPrice] = useState(null);
   const [maxPrice, setMaxPrice] = useState(null);
   const [sort, setSort] = useState(null);
-  
-  // Track filter state for fetching
-  const [filterState, setFilterState] = useState({
-    sort: null,
-    tag: null,
-    brand: null,
-    category: null,
-    minPrice: null,
-    maxPrice: null
-  });
+  const [filterState, setFilterState] = useState({});
 
   const dispatch = useDispatch();
   const location = useLocation();
 
-  // On mount, check if a category was passed from Home page
   useEffect(() => {
     const incomingCategory = location.state?.category || null;
     if (incomingCategory) {
       setCategory(incomingCategory);
-      setFilterState(prev => ({ ...prev, category: incomingCategory }));
-      dispatch(getAllProducts({ category: incomingCategory }));
+      const fs = { category: incomingCategory };
+      setFilterState(fs);
+      dispatch(getAllProducts(fs));
     } else {
       dispatch(getAllProducts({}));
     }
-  }, [dispatch]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [dispatch]); // eslint-disable-line
 
-  // Extract unique brands, categories, tags from productState
   useEffect(() => {
-    if (productState && Array.isArray(productState)) {
-      const uniqueBrands = [...new Set(productState.map(p => p.brand).filter(Boolean))];
-      const uniqueCategories = [...new Set(productState.map(p => p.category).filter(Boolean))];
-      const uniqueTags = [...new Set(productState.map(p => p.tags).filter(Boolean))];
-      setBrands(uniqueBrands);
-      setCategories(uniqueCategories);
-      setTags(uniqueTags);
+    if (productState?.length > 0) {
+      setBrands([...new Set(productState.map((p) => p.brand).filter(Boolean))]);
+      setCategories([...new Set(productState.map((p) => p.category).filter(Boolean))]);
+      setTags([...new Set(productState.map((p) => p.tags).filter(Boolean))]);
     }
   }, [productState]);
 
-  // Handle filter changes - only fetch when user explicitly changes filters
-  const handleFilterChange = (newFilters) => {
-    setFilterState(prev => {
+  const applyFilter = (newFilters) => {
+    setFilterState((prev) => {
       const updated = { ...prev, ...newFilters };
       dispatch(getAllProducts(updated));
       return updated;
     });
   };
 
-  // Clear individual filters
-  const clearCategory = () => {
-    setCategory(null);
-    handleFilterChange({ category: null });
-  };
-  
-  const clearBrand = () => {
-    setBrand(null);
-    handleFilterChange({ brand: null });
-  };
-  
-  const clearTag = () => {
-    setTag(null);
-    handleFilterChange({ tag: null });
-  };
-  
-  const clearPrice = () => {
-    setMinPrice(null);
-    setMaxPrice(null);
-    handleFilterChange({ minPrice: null, maxPrice: null });
-  };
-  
-  const clearAllFilters = () => {
-    setTag(null);
-    setCategory(null);
-    setBrand(null);
-    setMinPrice(null);
-    setMaxPrice(null);
-    setSort(null);
-    handleFilterChange({
-      tag: null,
-      category: null,
-      brand: null,
-      minPrice: null,
-      maxPrice: null,
-      sort: null
-    });
+  const clearAll = () => {
+    setTag(null); setCategory(null); setBrand(null);
+    setMinPrice(null); setMaxPrice(null); setSort(null);
+    setFilterState({});
+    dispatch(getAllProducts({}));
+    setShowFilter(false);
   };
 
-  // Check if any filter is active
-  const hasActiveFilters = tag || category || brand || minPrice || maxPrice || sort;
+  const hasFilters = tag || category || brand || minPrice || maxPrice || sort;
+  const activeCount = [tag, category, brand, minPrice || maxPrice, sort].filter(Boolean).length;
+
+  const FilterContent = () => (
+    <div style={{ padding: "0 0 80px" }}>
+      {/* Categories */}
+      <div style={{ marginBottom: 28 }}>
+        <p style={sectionLabel}>Categories</p>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+          <Chip
+            label="All"
+            active={!category}
+            onClick={() => { setCategory(null); applyFilter({ category: null }); }}
+          />
+          {categories.map((item, i) => (
+            <Chip
+              key={i}
+              label={item}
+              active={category === item}
+              onClick={() => { setCategory(item); applyFilter({ category: item }); }}
+            />
+          ))}
+        </div>
+      </div>
+
+      {/* Tags */}
+      {tags.length > 0 && (
+        <div style={{ marginBottom: 28 }}>
+          <p style={sectionLabel}>Tags</p>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+            {tags.map((item, i) => (
+              <Chip
+                key={i}
+                label={item}
+                active={tag === item}
+                onClick={() => { const v = tag === item ? null : item; setTag(v); applyFilter({ tag: v }); }}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Brands */}
+      {brands.length > 0 && (
+        <div style={{ marginBottom: 28 }}>
+          <p style={sectionLabel}>Brands</p>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+            {brands.map((item, i) => (
+              <Chip
+                key={i}
+                label={item}
+                active={brand === item}
+                onClick={() => { const v = brand === item ? null : item; setBrand(v); applyFilter({ brand: v }); }}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Price */}
+      <div style={{ marginBottom: 28 }}>
+        <p style={sectionLabel}>Price Range (₹)</p>
+        <div style={{ display: "flex",flexWrap : "wrap" , gap: 12 }}>
+          <input
+            type="number"
+            placeholder="Min"
+            value={minPrice || ""}
+            onChange={(e) => {
+              const v = e.target.value ? Number(e.target.value) : null;
+              setMinPrice(v);
+              applyFilter({ minPrice: v, maxPrice });
+            }}
+            style={priceInput}
+          />
+          <input
+            type="number"
+            placeholder="Max"
+            value={maxPrice || ""}
+            onChange={(e) => {
+              const v = e.target.value ? Number(e.target.value) : null;
+              setMaxPrice(v);
+              applyFilter({ minPrice, maxPrice: v });
+            }}
+            style={priceInput}
+          />
+        </div>
+      </div>
+    </div>
+  );
 
   return (
     <>
       <Meta
         title="Shop All Products"
-        description="Browse Yashoda Fashion's full collection of premium fashion, clothing, and accessories. Filter by category, brand, price, and more."
-        keywords="shop fashion online, buy clothes, premium clothing, Yashoda Fashion store"
+        description="Browse our full collection of premium fashion, clothing, and accessories."
+        keywords="shop fashion online, buy clothes, premium clothing"
         url="/product"
       />
       <BreadCrumb title="Our Store" />
-      <Container class1="store-wrapper home-wrapper-2 py-5">
-        <div className="row">
-          {/* Filter Sidebar */}
-          <div className="col-12 col-lg-3">
-            <div className="filter-card mb-4" style={{
-              background: '#fff',
-              borderRadius: '16px',
-              padding: '24px',
-              boxShadow: '0 4px 20px rgba(0,0,0,0.06)'
-            }}>
-              <div className="d-flex justify-content-between align-items-center mb-4">
-                <h3 className="filter-title" style={{ 
-                  fontFamily: "'Playfair Display', serif",
-                  fontSize: '20px',
-                  fontWeight: 600,
-                  color: '#1a1a1a',
-                  marginBottom: 0
-                }}>Shop By</h3>
-                {hasActiveFilters && (
-                  <button 
-                    onClick={clearAllFilters}
-                    style={{
-                      background: 'none',
-                      border: 'none',
-                      color: '#d4af37',
-                      fontSize: '13px',
-                      fontWeight: 600,
-                      cursor: 'pointer',
-                      textDecoration: 'underline'
-                    }}
-                  >
-                    Clear All
-                  </button>
-                )}
-              </div>
-              
-              {/* Categories */}
-              <div className="mb-4">
-                <h5 className="sub-title" style={{ 
-                  fontSize: '14px', 
-                  fontWeight: 600, 
-                  color: '#1a1a1a',
-                  marginBottom: '16px'
-                }}>Categories</h5>
-                <ul className="ps-0" style={{ listStyle: 'none' }}>
-                  <li 
-                    onClick={() => {
-                      setCategory(null);
-                      handleFilterChange({ category: null });
-                    }}
-                    style={{ 
-                      cursor: 'pointer',
-                      padding: '8px 12px',
-                      borderRadius: '8px',
-                      marginBottom: '4px',
-                      transition: 'all 0.2s',
-                      background: !category ? '#d4af37' : 'transparent',
-                      color: !category ? '#fff' : '#666'
-                    }}
-                  >
-                    All Products
-                  </li>
-                  {categories && categories.map((item, index) => (
-                    <li 
-                      key={index} 
-                      onClick={() => {
-                        setCategory(item);
-                        handleFilterChange({ category: item });
-                      }}
-                      style={{ 
-                        cursor: 'pointer',
-                        padding: '8px 12px',
-                        borderRadius: '8px',
-                        marginBottom: '4px',
-                        transition: 'all 0.2s',
-                        background: category === item ? '#d4af37' : 'transparent',
-                        color: category === item ? '#fff' : '#666'
-                      }}
-                    >
-                      {item}
-                    </li>
-                  ))}
-                </ul>
-              </div>
 
-              {/* Price Filter */}
-              <div className="mb-4">
-                <h5 className="sub-title" style={{ 
-                  fontSize: '14px', 
-                  fontWeight: 600, 
-                  color: '#1a1a1a',
-                  marginBottom: '16px'
-                }}>Price Range</h5>
-                <div className="d-flex align-items-center gap-10 mb-3">
-                  <div className="form-floating">
-                    <input
-                      type="number"
-                      className="form-control"
-                      id="floatingInput"
-                      placeholder="From"
-                      value={minPrice || ''}
-                      onChange={(e) => {
-                        const val = e.target.value ? Number(e.target.value) : null;
-                        setMinPrice(val);
-                        handleFilterChange({ minPrice: val, maxPrice });
-                      }}
-                      style={{ borderRadius: '12px' }}
-                    />
-                    <label htmlFor="floatingInput">Min ₹</label>
-                  </div>
-                  <span style={{ color: '#999' }}>-</span>
-                  <div className="form-floating">
-                    <input
-                      type="number"
-                      className="form-control"
-                      id="floatingInput1"
-                      placeholder="To"
-                      value={maxPrice || ''}
-                      onChange={(e) => {
-                        const val = e.target.value ? Number(e.target.value) : null;
-                        setMaxPrice(val);
-                        handleFilterChange({ minPrice, maxPrice: val });
-                      }}
-                      style={{ borderRadius: '12px' }}
-                    />
-                    <label htmlFor="floatingInput1">Max ₹</label>
-                  </div>
-                </div>
-                {(minPrice || maxPrice) && (
-                  <button 
-                    onClick={clearPrice}
-                    style={{
-                      background: 'none',
-                      border: 'none',
-                      color: '#d4af37',
-                      fontSize: '12px',
-                      cursor: 'pointer'
-                    }}
-                  >
-                    Clear Price
-                  </button>
-                )}
-              </div>
+      <div style={{ background: "#f7f7f7", minHeight: "100vh" }}>
+        <Container class1="store-wrapper py-4">
 
-              {/* Product Tags */}
-              <div className="mb-4">
-                <h5 className="sub-title" style={{ 
-                  fontSize: '14px', 
-                  fontWeight: 600, 
-                  color: '#1a1a1a',
-                  marginBottom: '16px'
-                }}>Tags</h5>
-                <div className="product-tags d-flex flex-wrap gap-10">
-                  {tags && tags.map((item, index) => (
-                    <span
-                      key={index}
-                      onClick={() => {
-                        const newTag = tag === item ? null : item;
-                        setTag(newTag);
-                        handleFilterChange({ tag: newTag });
-                      }}
-                      className="text-capitalize badge rounded-3 py-2 px-3"
-                      style={{
-                        background: tag === item ? '#d4af37' : '#f5f5f5',
-                        color: tag === item ? '#fff' : '#666',
-                        cursor: 'pointer',
-                        transition: 'all 0.2s',
-                        fontSize: '12px',
-                        fontWeight: 500
-                      }}
-                    >
-                      {item}
-                    </span>
-                  ))}
-                </div>
-              </div>
+          {/* ── Sticky Top Bar ── */}
+          <div style={topBar}>
+            {/* Filter Button */}
+            <button onClick={() => setShowFilter(true)} style={filterBtn}>
+              <AiOutlineFilter size={18} />
+              <span>Filter</span>
+              {activeCount > 0 && (
+                <span style={badge}>{activeCount}</span>
+              )}
+            </button>
 
-              {/* Product Brands */}
-              <div>
-                <h5 className="sub-title" style={{ 
-                  fontSize: '14px', 
-                  fontWeight: 600, 
-                  color: '#1a1a1a',
-                  marginBottom: '16px'
-                }}>Brands</h5>
-                <div className="product-tags d-flex flex-wrap gap-10">
-                  {brands && brands.map((item, index) => (
-                    <span
-                      key={index}
-                      onClick={() => {
-                        const newBrand = brand === item ? null : item;
-                        setBrand(newBrand);
-                        handleFilterChange({ brand: newBrand });
-                      }}
-                      className="text-capitalize badge rounded-3 py-2 px-3"
-                      style={{
-                        background: brand === item ? '#d4af37' : '#f5f5f5',
-                        color: brand === item ? '#fff' : '#666',
-                        cursor: 'pointer',
-                        transition: 'all 0.2s',
-                        fontSize: '12px',
-                        fontWeight: 500
-                      }}
-                    >
-                      {item}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            </div>
+            {/* Sort */}
+            <select
+              value={sort || ""}
+              onChange={(e) => {
+                const v = e.target.value || null;
+                setSort(v);
+                applyFilter({ sort: v });
+              }}
+              style={sortSelect}
+            >
+              <option value="">Sort: Featured</option>
+              <option value="price">Price: Low → High</option>
+              <option value="-price">Price: High → Low</option>
+              <option value="-createdAt">Newest First</option>
+              <option value="title">A → Z</option>
+              <option value="-title">Z → A</option>
+            </select>
+
+            {/* Count */}
+            <span style={{ fontSize: 13, color: "#888", whiteSpace: "nowrap" }}>
+              {productState?.length || 0} items
+            </span>
           </div>
 
-          {/* Product List */}
-          <div className="col-12 col-lg-9">
-            {/* Sort and Grid Controls */}
-            <div className="filter-sort-grid mb-4" style={{
-              background: '#fff',
-              borderRadius: '16px',
-              padding: '20px',
-              boxShadow: '0 4px 20px rgba(0,0,0,0.06)'
-            }}>
-              <div className="d-flex justify-content-between align-items-center flex-wrap gap-3">
-                <div className="d-flex align-items-center gap-10">
-                  <p className="mb-0 d-block" style={{ width: "auto", fontWeight: 500, color: '#666' }}>
-                    Sort By:
-                  </p>
-                  <select
-                    className="form-control form-select"
-                    style={{ borderRadius: '12px', width: '180px' }}
-                    onChange={(e) => {
-                      const val = e.target.value || null;
-                      setSort(val);
-                      handleFilterChange({ sort: val });
-                    }}
-                    value={sort || ""}
-                  >
-                    <option value="">Featured</option>
-                    <option value="title">Alphabetically, A-Z</option>
-                    <option value="-title">Alphabetically, Z-A</option>
-                    <option value="price">Price: Low to High</option>
-                    <option value="-price">Price: High to Low</option>
-                    <option value="createdAt">Date: Old to New</option>
-                    <option value="-createdAt">Date: New to Old</option>
-                  </select>
+          {/* ── Active Filter Pills ── */}
+          {hasFilters && (
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 16 }}>
+              {category && <ActivePill label={`Cat: ${category}`} onRemove={() => { setCategory(null); applyFilter({ category: null }); }} />}
+              {brand && <ActivePill label={`Brand: ${brand}`} onRemove={() => { setBrand(null); applyFilter({ brand: null }); }} />}
+              {tag && <ActivePill label={`Tag: ${tag}`} onRemove={() => { setTag(null); applyFilter({ tag: null }); }} />}
+              {(minPrice || maxPrice) && <ActivePill label={`₹${minPrice || 0} - ₹${maxPrice || "∞"}`} onRemove={() => { setMinPrice(null); setMaxPrice(null); applyFilter({ minPrice: null, maxPrice: null }); }} />}
+              <button onClick={clearAll} style={clearAllBtn}>Clear All</button>
+            </div>
+          )}
+
+          {/* ── Desktop Layout ── */}
+          <div style={{ display: "flex", gap: 24, alignItems: "flex-start" }}>
+
+            {/* Sidebar — desktop only */}
+            <div style={sidebar}>
+              <div style={sidebarCard}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+                  <h3 style={{ fontSize: 18, fontWeight: 700, color: "#1a1a1a" }}>Filters</h3>
+                  {hasFilters && (
+                    <button onClick={clearAll} style={{ background: "none", border: "none", color: "#d4af37", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
+                      Clear All
+                    </button>
+                  )}
                 </div>
-                <div className="d-flex align-items-center gap-10">
-                  <p className="totalproducts mb-0" style={{ color: '#666', fontWeight: 500 }}>
-                    {productState?.length || 0} Products
-                  </p>
-                  <div className="d-flex gap-10 align-items-center grid">
-                    <img
-                      onClick={() => setGrid(3)}
-                      src="images/gr3.svg"
-                      className={`d-block img-fluid ${grid === 3 ? 'active-grid' : ''}`}
-                      alt="grid"
-                      style={{ 
-                        cursor: 'pointer', 
-                        opacity: grid === 3 ? 1 : 0.5,
-                        transition: 'all 0.2s'
-                      }}
-                    />
-                    <img
-                      onClick={() => setGrid(4)}
-                      src="images/gr4.svg"
-                      className={`d-block img-fluid ${grid === 4 ? 'active-grid' : ''}`}
-                      alt="grid"
-                      style={{ 
-                        cursor: 'pointer', 
-                        opacity: grid === 4 ? 1 : 0.5,
-                        transition: 'all 0.2s'
-                      }}
-                    />
-                    <img
-                      onClick={() => setGrid(6)}
-                      src="images/gr2.svg"
-                      className={`d-block img-fluid ${grid === 6 ? 'active-grid' : ''}`}
-                      alt="grid"
-                      style={{ 
-                        cursor: 'pointer', 
-                        opacity: grid === 6 ? 1 : 0.5,
-                        transition: 'all 0.2s'
-                      }}
-                    />
-                    <img
-                      onClick={() => setGrid(12)}
-                      src="images/gr.svg"
-                      className={`d-block img-fluid ${grid === 12 ? 'active-grid' : ''}`}
-                      alt="grid"
-                      style={{ 
-                        cursor: 'pointer', 
-                        opacity: grid === 12 ? 1 : 0.5,
-                        transition: 'all 0.2s'
-                      }}
-                    />
-                  </div>
-                </div>
+                <FilterContent />
               </div>
             </div>
 
             {/* Products Grid */}
-            {isLoading ? (
-              <div className="text-center py-5">
-                <div className="spinner-border text-warning" role="status">
-                  <span className="visually-hidden">Loading...</span>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              {isLoading ? (
+                <div style={loadingBox}>
+                  <div style={spinner} />
+                  <p style={{ color: "#888", marginTop: 12, fontSize: 14 }}>Loading products...</p>
                 </div>
-                <p className="mt-3" style={{ color: '#666' }}>Loading products...</p>
-              </div>
-            ) : (
-              <div className="products-list pb-5">
-                {productState && productState.length > 0 ? (
-                  <div 
-                    className="d-flex flex-wrap gap-3"
-                    style={{
-                      display: 'grid',
-                      gridTemplateColumns: `repeat(auto-fill, minmax(${grid === 12 ? '100%' : grid === 6 ? 'calc(50% - 12px)' : grid === 3 ? 'calc(33.333% - 16px)' : 'calc(25% - 18px)'}, 1fr))`,
-                      gap: '20px'
-                    }}
-                  >
-                    <ProductCard data={productState} grid={grid} />
-                  </div>
-                ) : (
-                  <div className="text-center py-5" style={{
-                    background: '#fff',
-                    borderRadius: '16px',
-                    boxShadow: '0 4px 20px rgba(0,0,0,0.06)'
-                  }}>
-                    <p style={{ color: '#999', fontSize: '16px', marginBottom: '16px' }}>No products found</p>
-                    {hasActiveFilters && (
-                      <button 
-                        onClick={clearAllFilters}
-                        style={{
-                          background: '#d4af37',
-                          color: '#fff',
-                          border: 'none',
-                          padding: '12px 24px',
-                          borderRadius: '25px',
-                          cursor: 'pointer',
-                          fontWeight: 500
-                        }}
-                      >
-                        Clear Filters
-                      </button>
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
+              ) : productState?.length > 0 ? (
+                <div style={productsGrid}>
+                  <ProductCard data={productState} grid={4} />
+                </div>
+              ) : (
+                <div style={emptyBox}>
+                  <p style={{ fontSize: 40, marginBottom: 8 }}>🛍️</p>
+                  <p style={{ color: "#888", fontSize: 16, marginBottom: 16 }}>No products found</p>
+                  {hasFilters && (
+                    <button onClick={clearAll} style={clearFiltersBtn}>Clear Filters</button>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
-        </div>
-      </Container>
+        </Container>
+      </div>
+
+      {/* ── Mobile Filter Bottom Sheet ── */}
+      {showFilter && (
+        <>
+          <div onClick={() => setShowFilter(false)} style={overlay} />
+          <div style={bottomSheet}>
+            <div style={sheetHandle} />
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+              <h3 style={{ fontSize: 18, fontWeight: 700 }}>Filters</h3>
+              <button onClick={() => setShowFilter(false)} style={{ background: "none", border: "none", cursor: "pointer" }}>
+                <AiOutlineClose size={22} />
+              </button>
+            </div>
+            <div style={{ overflowY: "auto", flex: 1 }}>
+              <FilterContent />
+            </div>
+            <div style={sheetFooter}>
+              <button onClick={clearAll} style={sheetClearBtn}>Clear All</button>
+              <button onClick={() => setShowFilter(false)} style={sheetApplyBtn}>
+                Show {productState?.length || 0} Results
+              </button>
+            </div>
+          </div>
+        </>
+      )}
     </>
   );
+};
+
+/* ── Small Components ── */
+const Chip = ({ label, active, onClick }) => (
+  <button
+    onClick={onClick}
+    style={{
+      padding: "7px 14px",
+      borderRadius: 20,
+      border: active ? "none" : "1.5px solid #e0e0e0",
+      background: active ? "#1a1a1a" : "#fff",
+      color: active ? "#fff" : "#555",
+      fontSize: 13,
+      fontWeight: active ? 600 : 400,
+      cursor: "pointer",
+      transition: "all 0.2s",
+      whiteSpace: "nowrap",
+    }}
+  >
+    {label}
+  </button>
+);
+
+const ActivePill = ({ label, onRemove }) => (
+  <span style={{
+    display: "inline-flex", alignItems: "center", gap: 6,
+    background: "#1a1a1a", color: "#fff",
+    padding: "5px 12px", borderRadius: 20, fontSize: 12, fontWeight: 500,
+  }}>
+    {label}
+    <AiOutlineClose size={12} style={{ cursor: "pointer" }} onClick={onRemove} />
+  </span>
+);
+
+/* ── Styles ── */
+const sectionLabel = {
+  fontSize: 13, fontWeight: 700, color: "#1a1a1a",
+  textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 12,
+};
+
+const priceInput = {
+  flex: 1, padding: "10px 14px", border: "1.5px solid #e0e0e0",
+  borderRadius: 10, fontSize: 14, outline: "none", background: "#fafafa",
+};
+
+const topBar = {
+  display: "flex", alignItems: "center", gap: 12,
+  background: "#fff", borderRadius: 14, padding: "12px 16px",
+  marginBottom: 16, boxShadow: "0 2px 12px rgba(0,0,0,0.06)",
+  position: "sticky", top: 70, zIndex: 50,
+};
+
+const filterBtn = {
+  display: "flex", alignItems: "center", gap: 6,
+  padding: "8px 16px", borderRadius: 20,
+  border: "1.5px solid #1a1a1a", background: "#fff",
+  fontSize: 14, fontWeight: 600, cursor: "pointer",
+  position: "relative", whiteSpace: "nowrap",
+};
+
+const badge = {
+  position: "absolute", top: -6, right: -6,
+  background: "#d4af37", color: "#fff",
+  width: 18, height: 18, borderRadius: "50%",
+  fontSize: 10, fontWeight: 700,
+  display: "flex", alignItems: "center", justifyContent: "center",
+};
+
+const sortSelect = {
+  flex: 1, padding: "8px 12px", border: "1.5px solid #e0e0e0",
+  borderRadius: 20, fontSize: 13, background: "#fff",
+  outline: "none", cursor: "pointer", maxWidth: 200,
+};
+
+const clearAllBtn = {
+  background: "none", border: "1.5px solid #d4af37",
+  color: "#d4af37", padding: "4px 12px", borderRadius: 20,
+  fontSize: 12, fontWeight: 600, cursor: "pointer",
+};
+
+const sidebar = {
+  width: 260, flexShrink: 0,
+  display: "none",
+  // shown via media query in CSS
+};
+
+const sidebarCard = {
+  background: "#fff", borderRadius: 16,
+  padding: 24, boxShadow: "0 2px 12px rgba(0,0,0,0.06)",
+  position: "sticky", top: 130,
+};
+
+const productsGrid = {
+  display: "grid",
+  gridTemplateColumns: "repeat(2, 1fr)",
+  gap: 14,
+};
+
+const loadingBox = {
+  display: "flex", flexDirection: "column",
+  alignItems: "center", justifyContent: "center",
+  minHeight: 300,
+};
+
+const spinner = {
+  width: 36, height: 36, border: "3px solid #f0f0f0",
+  borderTop: "3px solid #d4af37", borderRadius: "50%",
+  animation: "spin 0.8s linear infinite",
+};
+
+const emptyBox = {
+  display: "flex", flexDirection: "column",
+  alignItems: "center", justifyContent: "center",
+  minHeight: 300, background: "#fff",
+  borderRadius: 16, padding: 40,
+};
+
+const clearFiltersBtn = {
+  background: "#1a1a1a", color: "#fff",
+  border: "none", padding: "12px 28px",
+  borderRadius: 25, cursor: "pointer",
+  fontSize: 14, fontWeight: 600,
+};
+
+/* Bottom Sheet */
+const overlay = {
+  position: "fixed", inset: 0,
+  background: "rgba(0,0,0,0.5)", zIndex: 200,
+};
+
+const bottomSheet = {
+  position: "fixed", bottom: 0, left: 0, right: 0,
+  background: "#fff", borderRadius: "20px 20px 0 0",
+  padding: "16px 20px 0",
+  zIndex: 201, maxHeight: "85vh",
+  display: "flex", flexDirection: "column",
+  boxShadow: "0 -8px 40px rgba(0,0,0,0.15)",
+};
+
+const sheetHandle = {
+  width: 40, height: 4, background: "#e0e0e0",
+  borderRadius: 2, margin: "0 auto 16px",
+};
+
+const sheetFooter = {
+  display: "flex", gap: 12,
+  padding: "16px 0 24px",
+  borderTop: "1px solid #f0f0f0",
+  background: "#fff",
+};
+
+const sheetClearBtn = {
+  flex: 1, padding: "14px", border: "1.5px solid #1a1a1a",
+  background: "#fff", borderRadius: 12,
+  fontSize: 14, fontWeight: 600, cursor: "pointer",
+};
+
+const sheetApplyBtn = {
+  flex: 2, padding: "14px", border: "none",
+  background: "#1a1a1a", color: "#fff",
+  borderRadius: 12, fontSize: 14, fontWeight: 600, cursor: "pointer",
 };
 
 export default OurStore;

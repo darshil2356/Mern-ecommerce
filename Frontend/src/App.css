@@ -1369,89 +1369,44 @@ footer {
   min-height: 60vh;
 }
 
-.store-wrapper .filter-card {
-  position: sticky;
-  top: 100px;
+/* Spinner animation */
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }
 
-.store-wrapper .sub-title {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--color-text-primary);
-  margin-bottom: 16px;
-}
+/* Desktop sidebar */
+@media (min-width: 992px) {
+  .store-wrapper [style*="width: 260px"] {
+    display: block !important;
+  }
 
-.store-wrapper .product-tags .badge {
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.store-wrapper .product-tags .badge:hover {
-  transform: translateY(-2px);
-}
-
-.store-wrapper .grid img {
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.store-wrapper .grid img:hover {
-  transform: scale(1.1);
-}
-
-.store-wrapper .grid img.active-grid {
-  opacity: 1;
-}
-
-/* Products Grid Layout */
-.store-wrapper .products-list > div {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 20px;
-}
-
-@media (max-width: 1200px) {
-  .store-wrapper .products-list > div {
-    grid-template-columns: repeat(3, 1fr);
+  /* On desktop, products grid = 3 columns */
+  .store-wrapper [style*="gridTemplateColumns"] {
+    grid-template-columns: repeat(3, 1fr) !important;
   }
 }
 
-@media (max-width: 992px) {
-  .store-wrapper .products-list > div {
-    grid-template-columns: repeat(2, 1fr);
-  }
-  
-  .store-wrapper .filter-card {
-    position: static;
-    margin-bottom: 24px;
+/* Tablet: 2 columns, no sidebar */
+@media (min-width: 576px) and (max-width: 991px) {
+  .store-wrapper [style*="gridTemplateColumns"] {
+    grid-template-columns: repeat(2, 1fr) !important;
   }
 }
 
-@media (max-width: 576px) {
-  .store-wrapper .products-list > div {
-    grid-template-columns: 1fr;
-    gap: 16px;
+/* Mobile: 2 columns */
+@media (max-width: 575px) {
+  .store-wrapper [style*="gridTemplateColumns"] {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 10px !important;
   }
 }
 
-/* Grid column variations */
-.store-wrapper .products-list.grid-2 > div {
-  grid-template-columns: repeat(2, 1fr);
-}
-
-.store-wrapper .products-list.grid-3 > div {
-  grid-template-columns: repeat(3, 1fr);
-}
-
-.store-wrapper .products-list.grid-4 > div {
-  grid-template-columns: repeat(4, 1fr);
-}
-
-.store-wrapper .products-list.grid-6 > div {
-  grid-template-columns: repeat(6, 1fr);
-}
-
-.store-wrapper .products-list.grid-12 > div {
-  grid-template-columns: 1fr;
+/* Product card hover — desktop only */
+@media (hover: hover) {
+  .store-wrapper [style*="borderRadius: 14px"]:hover {
+    box-shadow: 0 8px 30px rgba(0,0,0,0.12) !important;
+    transform: translateY(-4px);
+    transition: all 0.25s ease;
+  }
 }
 

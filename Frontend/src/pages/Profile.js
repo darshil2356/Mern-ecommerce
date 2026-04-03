@@ -79,6 +79,7 @@ const Profile = () => {
       email: userState?.email,
       mobile: userState?.mobile,
     },
+    enableReinitialize: true,
     validationSchema: profileSchema,
     onSubmit: (values) => {
       dispatch(updateProfile({ data: values, config2: config2 }));
@@ -201,6 +202,95 @@ const Profile = () => {
     setTimeout(() => setCopiedLink(false), 2000);
   };
 
+  const renderProfileSummary = () => (
+    <div className="row mb-4">
+      <div className="col-12">
+        <div
+          className="card border-0"
+          style={{
+            borderRadius: 26,
+            background: "#fff",
+            boxShadow: "0 24px 60px rgba(15, 23, 42, 0.08)",
+            overflow: "hidden",
+          }}
+        >
+          <div
+            style={{
+              background: "linear-gradient(135deg, #febd69, #ffda7a)",
+              padding: "28px",
+            }}
+          >
+            <div className="d-flex flex-column flex-lg-row align-items-start align-items-lg-center justify-content-between gap-4">
+              <div className="d-flex align-items-center gap-3">
+                <div
+                  style={{
+                    width: 84,
+                    height: 84,
+                    borderRadius: 24,
+                    background: "#1a1a1a",
+                    color: "#fff",
+                    display: "grid",
+                    placeItems: "center",
+                    fontSize: 32,
+                    fontWeight: 700,
+                  }}
+                >
+                  {(userState?.firstname?.[0] || "U").toUpperCase()}
+                  {(userState?.lastname?.[0] || "").toUpperCase()}
+                </div>
+                <div>
+                  <p className="mb-1 text-uppercase fw-bold small text-dark opacity-75">
+                    Welcome back
+                  </p>
+                  <h2 className="mb-1 fw-bold" style={{ color: "#111827" }}>
+                    {userState?.firstname || "User"} {userState?.lastname || ""}
+                  </h2>
+                  <p className="mb-0 text-muted">{userState?.email}</p>
+                </div>
+              </div>
+
+              <div className="d-flex flex-wrap gap-3">
+                <div
+                  className="p-3 rounded-4"
+                  style={{
+                    minWidth: 140,
+                    background: "rgba(255,255,255,0.9)",
+                    border: "1px solid rgba(255,255,255,0.6)",
+                  }}
+                >
+                  <p className="mb-1 text-uppercase small text-muted">Orders Placed</p>
+                  <h4 className="mb-0 fw-bold">{ordersData?.total || 0}</h4>
+                </div>
+                <div
+                  className="p-3 rounded-4"
+                  style={{
+                    minWidth: 140,
+                    background: "rgba(255,255,255,0.9)",
+                    border: "1px solid rgba(255,255,255,0.6)",
+                  }}
+                >
+                  <p className="mb-1 text-uppercase small text-muted">Referral Coins</p>
+                  <h4 className="mb-0 fw-bold">{referralState?.coins || 0}</h4>
+                </div>
+                <div
+                  className="p-3 rounded-4"
+                  style={{
+                    minWidth: 140,
+                    background: "rgba(255,255,255,0.9)",
+                    border: "1px solid rgba(255,255,255,0.6)",
+                  }}
+                >
+                  <p className="mb-1 text-uppercase small text-muted">Referrals</p>
+                  <h4 className="mb-0 fw-bold">{referralState?.referrals?.length || 0}</h4>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
   const handleApplyReferral = () => {
     if (referralCodeInput.trim()) {
       dispatch(applyReferralCode(referralCodeInput.trim()));
@@ -210,95 +300,195 @@ const Profile = () => {
 
   // Render Profile Info Tab
   const renderProfileInfo = () => (
-    <div className="row">
-      <div className="col-12">
-        <div className="d-flex justify-content-between align-items-center mb-4">
-          <h3 className="my-3">Update Profile</h3>
-          <FiEdit className="fs-3 cursor-pointer" onClick={() => setEdit(false)} style={{ cursor: "pointer" }} />
-        </div>
-      </div>
-      <div className="col-12">
-        <form action="" onSubmit={formik.handleSubmit}>
-          <div className="mb-3">
-            <div className="mb-3">
-              <label htmlFor="example1" className="form-label">
-                First Name
-              </label>
-              <input
-                type="text"
-                name="firstname"
-                className="form-control"
-                id="example1"
-                disabled={edit}
-                value={formik.values.firstname}
-                onChange={formik.handleChange("firstname")}
-                onBlur={formik.handleBlur("firstname")}
-              />
-              <div className="error">
-                {formik.touched.firstname && formik.errors.firstname}
+    <div className="row g-4">
+      <div className="col-12 col-lg-4">
+        <div
+          className="card h-100 p-4"
+          style={{
+            borderRadius: 22,
+            boxShadow: "0 20px 60px rgba(15, 23, 42, 0.08)",
+          }}
+        >
+          <div className="d-flex align-items-center gap-3 mb-4">
+            <div
+              style={{
+                width: 72,
+                height: 72,
+                borderRadius: 20,
+                background: "#febd69",
+                display: "grid",
+                placeItems: "center",
+                fontSize: 28,
+                fontWeight: 700,
+                color: "#1a1a1a",
+              }}
+            >
+              {(userState?.firstname?.[0] || "U").toUpperCase()}
+              {(userState?.lastname?.[0] || "").toUpperCase()}
+            </div>
+            <div>
+              <h5 className="mb-1 fw-bold">
+                {userState?.firstname || "User"} {userState?.lastname || ""}
+              </h5>
+              <p className="text-muted small mb-1">{userState?.email}</p>
+              <p className="text-muted small mb-0">
+                {userState?.mobile || "Mobile number not set"}
+              </p>
+            </div>
+          </div>
+
+          <div className="mb-4">
+            <div className="mb-3 text-muted small">
+              Quick overview of your account metrics.
+            </div>
+            <div className="d-flex flex-column gap-3">
+              <div
+                className="d-flex justify-content-between align-items-center px-3 py-2 rounded-3"
+                style={{ background: "#f8fafc" }}
+              >
+                <span className="text-muted small">Orders Placed</span>
+                <strong>{ordersData?.total || 0}</strong>
               </div>
-            </div>
-            <div className="mb-3">
-              <label htmlFor="example2" className="form-label">
-                Last Name
-              </label>
-              <input
-                type="text"
-                name="lastname"
-                className="form-control"
-                id="example2"
-                disabled={edit}
-                value={formik.values.lastname}
-                onChange={formik.handleChange("lastname")}
-                onBlur={formik.handleBlur("lastname")}
-              />
-              <div className="error">
-                {formik.touched.lastname && formik.errors.lastname}
+              <div
+                className="d-flex justify-content-between align-items-center px-3 py-2 rounded-3"
+                style={{ background: "#f8fafc" }}
+              >
+                <span className="text-muted small">Referral Coins</span>
+                <strong>{referralState?.coins || 0}</strong>
               </div>
-            </div>
-            <label htmlFor="exampleInputEmail1" className="form-label">
-              Email address
-            </label>
-            <input
-              type="email"
-              name="email"
-              className="form-control"
-              id="exampleInputEmail1"
-              disabled={edit}
-              aria-describedby="emailHelp"
-              value={formik.values.email}
-              onChange={formik.handleChange("email")}
-              onBlur={formik.handleBlur("email")}
-            />
-            <div className="error">
-              {formik.touched.email && formik.errors.email}
-            </div>
-            <div className="mb-3">
-              <label htmlFor="example3" className="form-label">
-                Mobile No
-              </label>
-              <input
-                type="number"
-                name="mobile"
-                className="form-control"
-                id="example3"
-                disabled={edit}
-                value={formik.values.mobile}
-                onChange={formik.handleChange("mobile")}
-                onBlur={formik.handleBlur("mobile")}
-              />
-              <div className="error">
-                {formik.touched.mobile && formik.errors.mobile}
+              <div
+                className="d-flex justify-content-between align-items-center px-3 py-2 rounded-3"
+                style={{ background: "#f8fafc" }}
+              >
+                <span className="text-muted small">Active Referrals</span>
+                <strong>{referralState?.referrals?.length || 0}</strong>
               </div>
             </div>
           </div>
 
-          {edit === false && (
-            <button type="submit" className="btn btn-primary">
-              Save
+          <button
+            type="button"
+            className="btn btn-warning w-100"
+            onClick={() => setEdit(false)}
+            style={{ borderRadius: 14 }}
+          >
+            <FiEdit className="me-2" /> Update Profile
+          </button>
+        </div>
+      </div>
+
+      <div className="col-12 col-lg-8">
+        <div
+          className="card p-4"
+          style={{
+            borderRadius: 22,
+            boxShadow: "0 20px 60px rgba(15, 23, 42, 0.08)",
+          }}
+        >
+          <div className="d-flex justify-content-between align-items-start flex-column flex-md-row gap-3 mb-4">
+            <div>
+              <h3 className="mb-2 fw-bold">Profile Details</h3>
+              <p className="text-muted mb-0 small">
+                Review and update your information for a smoother shopping experience.
+              </p>
+            </div>
+            <button
+              type="button"
+              className="btn btn-outline-dark btn-sm"
+              onClick={() => setEdit(false)}
+              style={{ borderRadius: 14, minWidth: 120 }}
+            >
+              <FiEdit className="me-1" /> Edit
             </button>
-          )}
-        </form>
+          </div>
+
+          <form onSubmit={formik.handleSubmit}>
+            <div className="row g-3">
+              <div className="col-12 col-md-6">
+                <label htmlFor="firstname" className="form-label">
+                  First Name
+                </label>
+                <input
+                  type="text"
+                  name="firstname"
+                  id="firstname"
+                  className="form-control"
+                  disabled={edit}
+                  value={formik.values.firstname}
+                  onChange={formik.handleChange}
+                  onBlur={formik.handleBlur}
+                />
+                <div className="error small text-danger mt-1">
+                  {formik.touched.firstname && formik.errors.firstname}
+                </div>
+              </div>
+              <div className="col-12 col-md-6">
+                <label htmlFor="lastname" className="form-label">
+                  Last Name
+                </label>
+                <input
+                  type="text"
+                  name="lastname"
+                  id="lastname"
+                  className="form-control"
+                  disabled={edit}
+                  value={formik.values.lastname}
+                  onChange={formik.handleChange}
+                  onBlur={formik.handleBlur}
+                />
+                <div className="error small text-danger mt-1">
+                  {formik.touched.lastname && formik.errors.lastname}
+                </div>
+              </div>
+              <div className="col-12 col-md-6">
+                <label htmlFor="email" className="form-label">
+                  Email address
+                </label>
+                <input
+                  type="email"
+                  name="email"
+                  id="email"
+                  className="form-control"
+                  disabled={edit}
+                  value={formik.values.email}
+                  onChange={formik.handleChange}
+                  onBlur={formik.handleBlur}
+                />
+                <div className="error small text-danger mt-1">
+                  {formik.touched.email && formik.errors.email}
+                </div>
+              </div>
+              <div className="col-12 col-md-6">
+                <label htmlFor="mobile" className="form-label">
+                  Mobile Number
+                </label>
+                <input
+                  type="text"
+                  name="mobile"
+                  id="mobile"
+                  className="form-control"
+                  disabled={edit}
+                  value={formik.values.mobile}
+                  onChange={formik.handleChange}
+                  onBlur={formik.handleBlur}
+                />
+                <div className="error small text-danger mt-1">
+                  {formik.touched.mobile && formik.errors.mobile}
+                </div>
+              </div>
+            </div>
+
+            {!edit && (
+              <button
+                type="submit"
+                className="btn btn-primary mt-4"
+                style={{ borderRadius: 14 }}
+              >
+                Save Changes
+              </button>
+            )}
+          </form>
+        </div>
       </div>
     </div>
   );
@@ -1265,6 +1455,7 @@ const Profile = () => {
     <>
       <BreadCrumb title="My Profile" />
       <Container class1="cart-wrapper home-wrapper-2 py-5">
+        {renderProfileSummary()}
         {/* Tab Navigation */}
         <div className="row mb-4">
           <div className="col-12">

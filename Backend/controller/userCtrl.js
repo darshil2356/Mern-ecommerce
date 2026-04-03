@@ -134,18 +134,33 @@ const deductStockFromProduct = async (product, item) => {
   }
 
   // Match by color and size if available
-  if (item.color && item.size && product.variants && product.variants.length > 0) {
+  if (item.color && product.variants && product.variants.length > 0) {
     const variant = product.variants.find((v) => {
       const variantColorId = v.color?._id ? v.color._id.toString() : (v.color || "").toString();
       const itemColorId = item.color?._id ? item.color._id.toString() : (item.color || "").toString();
       return variantColorId === itemColorId;
     });
     if (variant) {
-      const sizeEntry = (variant.sizeStock || []).find((s) => s.size === item.size);
-      if (sizeEntry && sizeEntry.quantity >= item.quantity) {
-        sizeEntry.quantity -= item.quantity;
-        barcode = sizeEntry.barcode || barcode;
-        deducted = true;
+      if (item.size) {
+        // Exact size match
+        const sizeEntry = (variant.sizeStock || []).find((s) => s.size === item.size);
+        if (sizeEntry && sizeEntry.quantity >= item.quantity) {
+          sizeEntry.quantity -= item.quantity;
+          barcode = sizeEntry.barcode || barcode;
+          deducted = true;
+        }
+      } else {
+        // No size specified — deduct from first available size in this variant
+        let remainingQty = item.quantity;
+        for (const sizeEntry of (variant.sizeStock || [])) {
+          if (sizeEntry.quantity > 0 && remainingQty > 0) {
+            const decrement = Math.min(sizeEntry.quantity, remainingQty);
+            sizeEntry.quantity -= decrement;
+            remainingQty -= decrement;
+            if (!barcode) barcode = sizeEntry.barcode;
+          }
+        }
+        if (remainingQty === 0) deducted = true;
       }
     }
     if (deducted) return { deducted, barcode };
@@ -175,6 +190,26 @@ const deductStockFromProduct = async (product, item) => {
       }
     }
     if (deducted) return { deducted, barcode };
+  }
+
+  // Fallback: no color specified but product only has variants — deduct from any available slot
+  if (!deducted && product.variants && product.variants.length > 0) {
+    let remainingQty = item.quantity;
+    outer: for (const variant of product.variants) {
+      for (const sizeEntry of (variant.sizeStock || [])) {
+        if (sizeEntry.quantity > 0 && remainingQty > 0) {
+          const decrement = Math.min(sizeEntry.quantity, remainingQty);
+          sizeEntry.quantity -= decrement;
+          remainingQty -= decrement;
+          if (!barcode) barcode = sizeEntry.barcode;
+        }
+        if (remainingQty === 0) break outer;
+      }
+    }
+    if (remainingQty === 0) {
+      deducted = true;
+      return { deducted, barcode };
+    }
   }
 
   // Fallback to main quantity

@@ -2,7 +2,6 @@ import { useEffect, useState, useRef } from "react";
 import ReactStars from "react-rating-stars-component";
 import BreadCrumb from "../components/BreadCrumb";
 import Meta from "../components/Meta";
-import ProductCard from "../components/ProductCard";
 import Color from "../components/Color";
 import { AiOutlineHeart, AiFillHeart, AiOutlinePlayCircle, AiOutlineZoomIn, AiOutlineShoppingCart, AiOutlineUpload, AiFillCheckCircle, AiOutlineLike } from "react-icons/ai";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -851,6 +850,12 @@ const SingleProduct = () => {
       </Container>
 
       {/* Bundle Section - Frequently Bought Together */}
+      {loadingBundles && (
+        <div className="text-center py-4">
+          <div className="spinner-border text-primary" role="status" />
+          <p style={{ marginTop: '12px', color: '#475569' }}>Loading bundles...</p>
+        </div>
+      )}
       {(productBundles && productBundles.length > 0) && (
         <Container className="py-5">
           <div className="row">
@@ -878,32 +883,35 @@ const SingleProduct = () => {
                 Frequently Bought Together
               </h3>
               
-              <div className="row g-4">
+              <div className="row g-3">
                 {productBundles.map((bundle, index) => (
                   <div className="col-12 col-md-6 col-lg-4" key={index}>
                     <motion.div
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: index * 0.1 }}
-                      whileHover={{ y: -8 }}
+                      whileHover={{ y: -8, boxShadow: '0 12px 32px rgba(0,0,0,0.16)' }}
                       style={{
                         background: '#fff',
-                        borderRadius: '16px',
+                        borderRadius: '18px',
                         overflow: 'hidden',
-                        boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
-                        border: '2px solid #667eea'
+                        boxShadow: '0 6px 24px rgba(0,0,0,0.08)',
+                        border: '1px solid #e5e7eb',
+                        height: '100%',
+                        display: 'flex',
+                        flexDirection: 'column'
                       }}
                     >
                       {/* Bundle Header */}
                       <div style={{
-                        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                        padding: '15px 20px',
+                        background: 'linear-gradient(135deg, #334155 0%, #0f172a 100%)',
+                        padding: '16px 18px',
                         color: '#fff'
                       }}>
-                        <h4 style={{ margin: 0, fontSize: '16px', fontWeight: 600 }}>
+                        <h4 style={{ margin: 0, fontSize: '16px', fontWeight: 700, lineHeight: 1.2 }}>
                           {bundle.title}
                         </h4>
-                        <p style={{ margin: '5px 0 0 0', fontSize: '12px', opacity: 0.9 }}>
+                        <p style={{ margin: '6px 0 0 0', fontSize: '12px', opacity: 0.9 }}>
                           {bundle.products?.length} products included
                         </p>
                       </div>
@@ -1412,7 +1420,7 @@ const SingleProduct = () => {
                               <img 
                                 key={idx}
                                 src={img.url} 
-                                alt={`Review image ${idx + 1}`}
+                                alt={`${item.postedby?.firstname || 'Reviewer'} feedback ${idx + 1}`}
                                 style={{ 
                                   width: '100px', 
                                   height: '100px', 
@@ -1594,23 +1602,27 @@ const SingleProduct = () => {
         </div>
       )}
       {/* Bundle Size Selection Modal */}
-{bundleSizeModal && (
+      {bundleSizeModal && (
         <div
           onClick={() => setBundleSizeModal(null)}
           style={{
-            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-            background: 'rgba(0,0,0,0.6)', zIndex: 9999,
-            display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem'
+            position: 'fixed', inset: 0,
+            background: 'rgba(0,0,0,0.64)', zIndex: 9999,
+            display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
+            padding: '0.5rem',
+            touchAction: 'none'
           }}
         >
           <div
             onClick={(e) => e.stopPropagation()}
             style={{
-              background: '#fff', borderRadius: '20px', 
-              width: 'min(95vw, 600px)', maxWidth: '600px',
-              maxHeight: '90vh', 
+              background: '#fff', borderRadius: '24px 24px 0 0',
+              width: '100%', maxWidth: '620px',
+              maxHeight: '88vh',
               display: 'flex', flexDirection: 'column',
-              boxShadow: '0 25px 50px rgba(0,0,0,0.25)'
+              boxShadow: '0 -8px 40px rgba(0,0,0,0.35)',
+              border: '1px solid #e2e8f0',
+              overflow: 'hidden'
             }}
           >
             {/* Sticky Header */}
@@ -1862,11 +1874,13 @@ const SingleProduct = () => {
 
             {/* Fixed Footer */}
             <div style={{
-              padding: '1.5rem 2rem', borderTop: '1px solid #f1f5f9',
-              background: '#fff', borderRadius: '0 0 20px 20px'
+              position: 'sticky', bottom: 0, zIndex: 20,
+              padding: '1.25rem 1.5rem', borderTop: '1px solid #f1f5f9',
+              background: '#fff', borderRadius: '0 0 20px 20px',
+              boxShadow: '0 -8px 16px rgba(15,23,42,0.06)'
             }}>
-              <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap' }}>
-                <div style={{ fontSize: '0.875rem', color: '#64748b' }}>
+              <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap' }}>
+                <div style={{ fontSize: '0.85rem', color: '#64748b', flex: '1 1 auto', minWidth: '180px' }}>
                   All selections must be made before adding to cart
                 </div>
                 <div style={{ display: 'flex', gap: '1rem', flex: '1', minWidth: '280px', justifyContent: 'flex-end' }}>

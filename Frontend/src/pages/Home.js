@@ -7,7 +7,7 @@ import { services } from "../utils/Data";
 import { useDispatch, useSelector } from "react-redux";
 import { getAllBlogs } from "../features/blogs/blogSlice";
 import { getAllProducts } from "../features/products/productSlilce";
-import { addProdToCart, addBundleToCart } from "../features/user/userSlice";
+import { addBundleToCart } from "../features/user/userSlice";
 import ShopTheLook from "../components/ShopTheLook";
 import { motion } from "framer-motion";
 import { BsArrowRight, BsPlay } from "react-icons/bs";
@@ -258,20 +258,20 @@ const Home = () => {
               linkTo="/bundles"
               linkText="View All Bundles"
             />
-            <div className="row g-4">
+            <div className="row g-3">
               {activeBundles.slice(0, 4).map((bundle, index) => (
-                <div key={index} className="col-12 col-sm-6 col-lg-3">
+                <div key={index} className="col-12 col-md-6 col-lg-4">
                   <motion.div
-                    whileHover={{ y: -6 }}
-                    style={{ background: "#fff", borderRadius: "16px", overflow: "hidden", boxShadow: "0 4px 20px rgba(0,0,0,0.08)", border: "2px solid #667eea", height: "100%", display: "flex", flexDirection: "column" }}
+                    whileHover={{ y: -5, boxShadow: "0 12px 32px rgba(0,0,0,0.16)" }}
+                    style={{ background: "#fff", borderRadius: "18px", overflow: "hidden", boxShadow: "0 6px 24px rgba(0,0,0,0.08)", border: "1px solid #e5e7eb", height: "100%", display: "flex", flexDirection: "column" }}
                   >
-                    <div style={{ background: "linear-gradient(135deg,#667eea,#764ba2)", padding: "14px 18px", color: "#fff" }}>
-                      <h4 style={{ margin: 0, fontSize: "14px", fontWeight: 700 }}>{bundle.title}</h4>
-                      <p style={{ margin: "3px 0 0", fontSize: "11px", opacity: 0.85 }}>{bundle.products?.length} products included</p>
+                    <div style={{ background: "linear-gradient(135deg,#334155,#0f172a)", padding: "16px 18px", color: "#fff" }}>
+                      <h4 style={{ margin: 0, fontSize: "16px", fontWeight: 800, lineHeight: 1.2 }}>{bundle.title}</h4>
+                      <p style={{ margin: "6px 0 0", fontSize: "12px", opacity: 0.85 }}>{bundle.products?.length} products included</p>
                     </div>
-                    <div style={{ padding: "14px", flex: 1 }}>
+                    <div style={{ padding: "16px", flex: 1 }}>
                       {bundle.products?.slice(0, 3).map((item, idx) => (
-                        <div key={idx} className="d-flex align-items-start gap-2 mb-2">
+                        <div key={idx} className="d-flex align-items-start gap-3 mb-2" style={{ borderRadius: "12px", padding: "8px", background: "#f8fafc", border: "1px solid #e2e8f0" }}>
                           <div style={{ width: "38px", height: "38px", borderRadius: "8px", overflow: "hidden", flexShrink: 0, background: "#f5f5f5" }}>
                             {item.product?.images?.[0]?.url
                               ? <img src={item.product.images[0].url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
@@ -320,16 +320,16 @@ const Home = () => {
                         </div>
                       ))}
                       {bundle.products?.length > 3 && <p style={{ fontSize: "11px", color: "#888", margin: "4px 0 0" }}>+{bundle.products.length - 3} more items</p>}
-                      <div style={{ background: "#f9f9f9", borderRadius: "8px", padding: "10px 12px", marginTop: "10px" }}>
+                      <div style={{ background: "linear-gradient(180deg,#f0f9ff,#f8fafc)", borderRadius: "10px", padding: "12px 14px", marginTop: "12px", border: "1px solid #dbeafe" }}>
                         <div className="d-flex justify-content-between align-items-center mb-1">
-                          <span style={{ fontSize: "12px", color: "#999", textDecoration: "line-through" }}>₹{bundle.originalPrice?.toLocaleString()}</span>
-                          <span style={{ fontSize: "11px", background: "#dcfce7", color: "#166534", padding: "2px 8px", borderRadius: "10px", fontWeight: 700 }}>{bundle.discountPercent}% OFF</span>
+                          <span style={{ fontSize: "12px", color: "#64748b", textDecoration: "line-through" }}>₹{bundle.originalPrice?.toLocaleString()}</span>
+                          <span style={{ fontSize: "11px", background: "#dcfce7", color: "#166534", padding: "3px 9px", borderRadius: "10px", fontWeight: 700 }}>{bundle.discountPercent}% OFF</span>
                         </div>
-                        <p style={{ margin: 0, fontSize: "20px", fontWeight: 700, color: "#667eea" }}>₹{bundle.bundlePrice?.toLocaleString()}</p>
-                        <p style={{ margin: "2px 0 0", fontSize: "11px", color: "#22c55e", fontWeight: 600 }}>You save ₹{(bundle.originalPrice - bundle.bundlePrice)?.toLocaleString()}</p>
+                        <p style={{ margin: 0, fontSize: "20px", fontWeight: 800, color: "#1e293b" }}>₹{bundle.bundlePrice?.toLocaleString()}</p>
+                        <p style={{ margin: "2px 0 0", fontSize: "12px", color: "#10b981", fontWeight: 700 }}>You save ₹{(bundle.originalPrice - bundle.bundlePrice)?.toLocaleString()}</p>
                       </div>
                     </div>
-                    <div style={{ padding: "0 14px 14px" }}>
+                    <div style={{ padding: "0 16px 16px" }}>
                       {bundleNeedsSelection(bundle) && (
                         <p style={{ margin: "0 0 5px", fontSize: "11px", color: "#667eea", fontWeight: 600, textAlign: "center" }}>⚠️ You’ll choose options for each product</p>
                       )}
@@ -351,21 +351,21 @@ const Home = () => {
                       <button
                         onClick={(e) => handleAddBundleToCart(e, bundle)}
                         disabled={addingBundle === bundle._id || !isBundleAvailable(bundle)}
-                        style={{ 
-                          width: "100%", 
-                          padding: "11px", 
-                          background: (addingBundle === bundle._id || !isBundleAvailable(bundle)) 
-                            ? "#a5b4fc" 
-                            : "linear-gradient(135deg,#667eea,#764ba2)", 
-                          color: "#fff", 
-                          border: "none", 
-                          borderRadius: "8px", 
-                          fontWeight: 700, 
-                          cursor: (addingBundle === bundle._id || !isBundleAvailable(bundle)) ? "not-allowed" : "pointer", 
-                          display: "flex", 
-                          alignItems: "center", 
-                          justifyContent: "center", 
-                          gap: "8px", 
+                        style={{
+                          width: "100%",
+                          padding: "11px",
+                          background: (addingBundle === bundle._id || !isBundleAvailable(bundle))
+                            ? "#a5b4fc"
+                            : "linear-gradient(135deg,#667eea,#764ba2)",
+                          color: "#fff",
+                          border: "none",
+                          borderRadius: "8px",
+                          fontWeight: 700,
+                          cursor: (addingBundle === bundle._id || !isBundleAvailable(bundle)) ? "not-allowed" : "pointer",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          gap: "8px",
                           fontSize: "13px",
                           opacity: !isBundleAvailable(bundle) ? 0.6 : 1
                         }}
@@ -375,8 +375,8 @@ const Home = () => {
                           ? "Adding…"
                           : !isBundleAvailable(bundle)
                             ? "Out of Stock"
-                            : bundleNeedsSelection(bundle) 
-                              ? "Select Options & Add to Cart" 
+                            : bundleNeedsSelection(bundle)
+                              ? "Select Options & Add to Cart"
                               : "Add Bundle to Cart"}
                       </button>
                     </div>
@@ -522,23 +522,27 @@ const Home = () => {
       </div>
 
       {/* Bundle Size Selection Modal */}
-{bundleSizeModal && (
+      {bundleSizeModal && (
         <div
           onClick={() => setBundleSizeModal(null)}
           style={{
-            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-            background: 'rgba(0,0,0,0.6)', zIndex: 9999,
-            display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem'
+            position: 'fixed', inset: 0,
+            background: 'rgba(0,0,0,0.64)', zIndex: 9999,
+            display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
+            padding: '0.5rem',
+            touchAction: 'none'
           }}
         >
           <div
             onClick={(e) => e.stopPropagation()}
             style={{
-              background: '#fff', borderRadius: '20px', 
-              width: 'min(95vw, 600px)', maxWidth: '600px',
-              maxHeight: '90vh', 
+              background: '#fff', borderRadius: '24px 24px 0 0',
+              width: '100%', maxWidth: '620px',
+              maxHeight: '88vh',
               display: 'flex', flexDirection: 'column',
-              boxShadow: '0 25px 50px rgba(0,0,0,0.25)'
+              boxShadow: '0 -8px 40px rgba(0,0,0,0.35)',
+              border: '1px solid #e2e8f0',
+              overflow: 'hidden'
             }}
           >
             {/* Sticky Header */}
@@ -558,7 +562,6 @@ const Home = () => {
               <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
                 {/* Progress Indicator */}
                 {(() => {
-                  const totalProducts = bundleSizeModal.products?.length || 0;
                   const productsWithOptions = bundleSizeModal.products?.filter(item => {
                     const p = item.product;
                     if (!p) return false;
@@ -566,10 +569,10 @@ const Home = () => {
                     const hasTopLevelSizes = (p.sizeStock || []).some(s => s.quantity > 0);
                     return hasVariantStock || hasTopLevelSizes;
                   }).length || 0;
-                  
+
                   const configuredCount = Object.values(bundleSelections).filter(s => s.color && s.size).length;
                   const progress = productsWithOptions > 0 ? Math.round((configuredCount / productsWithOptions) * 100) : 0;
-                  
+
                   return (
                     <div style={{ minWidth: '100px' }}>
                       <div style={{ fontSize: '0.75rem', color: '#64748b', marginBottom: '0.25rem' }}>
@@ -621,11 +624,11 @@ const Home = () => {
                 const selectedColor = bundleSelections[productId]?.color;
                 const sizes = hasVariantColors
                   ? ((product.variants || []).find(variant => {
-                      const variantColorId = variant.color?._id || variant.color;
-                      return variantColorId?.toString() === selectedColor;
-                    })?.sizeStock || [])
+                    const variantColorId = variant.color?._id || variant.color;
+                    return variantColorId?.toString() === selectedColor;
+                  })?.sizeStock || [])
                   : (product.sizeStock || []);
-                
+
                 // Fix: needsSelection = has ANY available stock to select from
                 const hasAvailableStock = sizes.some(s => s.quantity > 0) || hasVariantColors;
                 const needsSelection = hasAvailableStock;
@@ -634,7 +637,7 @@ const Home = () => {
 
                 return (
                   <div key={productId} style={{
-                    marginBottom: '1.5rem', padding: '1.25rem', 
+                    marginBottom: '1.5rem', padding: '1.25rem',
                     borderRadius: '16px', border: `2px solid ${isConfigured ? '#d1fae5' : '#fef3c7'}`,
                     background: isConfigured ? '#f0fdf4' : '#fffbeb'
                   }}>
@@ -646,9 +649,9 @@ const Home = () => {
                         <img
                           src={product.images[0].url}
                           alt={product.title}
-                          style={{ 
-                            width: '56px', height: '56px', objectFit: 'cover', 
-                            borderRadius: '12px', flexShrink: 0 
+                          style={{
+                            width: '56px', height: '56px', objectFit: 'cover',
+                            borderRadius: '12px', flexShrink: 0
                           }}
                         />
                       ) : (
@@ -661,7 +664,7 @@ const Home = () => {
                         </div>
                       )}
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <h4 style={{ 
+                        <h4 style={{
                           margin: '0 0 0.25rem 0', fontSize: '1rem', fontWeight: 600,
                           color: '#1e293b'
                         }}>
@@ -749,7 +752,7 @@ const Home = () => {
                                       padding: '0.75rem 1.25rem', minWidth: '72px',
                                       borderRadius: '12px', fontWeight: 600, fontSize: '0.875rem',
                                       border: isSelected ? '2px solid #1e40af' : '1px solid #d1d5db',
-                                      backgroundColor: isSelected ? '#1e40af' : 
+                                      backgroundColor: isSelected ? '#1e40af' :
                                         !canSelect ? '#f3f4f6' : 'white',
                                       color: isSelected ? 'white' : !canSelect ? '#9ca3af' : '#374151',
                                       cursor: canSelect ? 'pointer' : 'not-allowed',
@@ -769,15 +772,17 @@ const Home = () => {
                           </div>
                         )}
                       </>
-                      ) : (
+                    ) : (
                       <div style={{
                         padding: '1rem', textAlign: 'center',
-                        background: hasAvailableStock ? '#ecfdf5' : '#fef2f2', 
+                        background: hasAvailableStock ? '#ecfdf5' : '#fef2f2',
                         borderRadius: '12px',
                         border: hasAvailableStock ? '1px solid #bbf7d0' : '1px solid #fecaca'
                       }}>
-                        <p style={{ margin: 0, fontSize: '0.875rem', 
-                          color: hasAvailableStock ? '#166534' : '#dc2626', fontWeight: 500 }}>
+                        <p style={{
+                          margin: 0, fontSize: '0.875rem',
+                          color: hasAvailableStock ? '#166534' : '#dc2626', fontWeight: 500
+                        }}>
                           {hasAvailableStock ? '✓ Fixed quantity - no selection needed' : '⚠️ Out of stock - cannot select'}
                         </p>
                       </div>
@@ -823,7 +828,7 @@ const Home = () => {
                           if (!hasAnyAvailableStock) return false; // Fixed qty OK
                           return (!selection.color || !selection.size);
                         });
-                      
+
                       if (incompleteProducts.length > 0) {
                         toast.error(`Please complete selections for ${incompleteProducts.length} product(s)`);
                         return;

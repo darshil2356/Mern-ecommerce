@@ -269,83 +269,89 @@ const ReferralDetails = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
+    <div className="min-h-screen bg-slate-50 p-4 sm:p-6 lg:p-8">
       {/* ── Header ── */}
-      <div className="bg-white rounded-2xl shadow-sm mb-6 p-5">
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white shadow-lg">
-              <FaLink size={20} />
+      <div className="bg-white rounded-[32px] shadow-md mb-6 p-5 sm:p-6 lg:p-7">
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex items-start gap-4">
+            <div className="w-14 h-14 rounded-[24px] bg-gradient-to-br from-indigo-600 to-violet-600 flex items-center justify-center text-white shadow-lg">
+              <FaLink size={22} />
             </div>
             <div>
-              <h2 className="text-2xl font-bold text-gray-800 mb-0">Referral Dashboard</h2>
-              <p className="text-gray-400 text-sm mb-0">Track referrals, coins & growth analytics</p>
+              <h2 className="text-2xl sm:text-3xl font-bold text-slate-900">Referral Dashboard</h2>
+              <p className="text-sm sm:text-base text-slate-500 mt-1">A polished admin view for referral growth, codes and user incentives.</p>
             </div>
           </div>
-          <div className="flex flex-wrap gap-3">
-            <RangePicker onChange={setDateRange} className="h-10 rounded-lg" />
-            <div className="relative">
-              <input
-                type="text"
-                placeholder="Search name, mobile, code…"
-                value={searchText}
-                onChange={(e) => setSearchText(e.target.value)}
-                className="h-10 pl-9 pr-4 w-60 rounded-lg border border-gray-200 focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 outline-none text-sm"
-              />
-              <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300" size={13} />
+
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-[1.15fr_1fr] items-end">
+            <RangePicker
+              onChange={setDateRange}
+              className="w-full h-11 rounded-2xl border-slate-200"
+            />
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end sm:flex-wrap">
+              <div className="relative w-full sm:w-72">
+                <input
+                  type="text"
+                  placeholder="Search name, mobile, code…"
+                  value={searchText}
+                  onChange={(e) => setSearchText(e.target.value)}
+                  className="h-11 w-full pl-11 pr-4 rounded-2xl border border-slate-200 bg-slate-50 text-sm text-slate-700 outline-none transition focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
+                />
+                <FaSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
+              </div>
+              <Button
+                onClick={() => dispatch(getAllReferrals())}
+                icon={<FaSync size={13} />}
+                className="h-11 px-4 rounded-2xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+              >
+                Refresh
+              </Button>
+              <Button
+                type="primary"
+                onClick={exportToCSV}
+                icon={<FaDownload size={13} />}
+                className="h-11 px-4 rounded-2xl bg-indigo-600 border-indigo-600 text-white hover:bg-indigo-700"
+              >
+                Export CSV
+              </Button>
             </div>
-            <Button
-              onClick={() => dispatch(getAllReferrals())}
-              icon={<FaSync size={12} />}
-              className="h-10 px-4 rounded-lg"
-            >
-              Refresh
-            </Button>
-            <Button
-              type="primary"
-              onClick={exportToCSV}
-              icon={<FaDownload size={12} />}
-              className="h-10 px-4 rounded-lg bg-indigo-600 border-indigo-600 hover:bg-indigo-700"
-            >
-              Export CSV
-            </Button>
           </div>
         </div>
       </div>
 
       {/* ── Stat Cards ── */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 mb-6">
         <StatCard
           title="Total Customers"
           value={referralStats?.totalUsers || 0}
-          icon={<FaUsers size={20} className="text-indigo-500" />}
+          icon={<FaUsers size={20} className="text-indigo-600" />}
           color="border-indigo-500"
         />
         <StatCard
           title="With Referral Code"
           value={referralStats?.usersWithReferralCode || 0}
-          icon={<FaCode size={18} className="text-purple-500" />}
-          color="border-purple-500"
+          icon={<FaCode size={18} className="text-violet-600" />}
+          color="border-violet-500"
           sub={`${referralStats?.totalUsers ? Math.round((referralStats.usersWithReferralCode / referralStats.totalUsers) * 100) : 0}% of total`}
         />
         <StatCard
           title="Users Referred"
           value={referralStats?.usersReferred || 0}
-          icon={<FaUserPlus size={18} className="text-green-500" />}
-          color="border-green-500"
+          icon={<FaUserPlus size={18} className="text-emerald-600" />}
+          color="border-emerald-500"
         />
         <StatCard
           title="Conversion Rate"
           value={`${conversionRate}%`}
-          icon={<FaPercentage size={18} className="text-blue-500" />}
-          color="border-blue-500"
-          sub="Referred / Total users"
+          icon={<FaPercentage size={18} className="text-sky-600" />}
+          color="border-sky-500"
+          sub="Referred / total users"
         />
         <StatCard
           title="Total Coins"
           value={(referralStats?.totalCoins || 0).toLocaleString()}
-          icon={<FaCoins size={18} className="text-yellow-500" />}
-          color="border-yellow-500"
+          icon={<FaCoins size={18} className="text-amber-500" />}
+          color="border-amber-500"
           sub={`Avg ${avgCoinsPerUser} per user`}
         />
         <StatCard
@@ -358,53 +364,51 @@ const ReferralDetails = () => {
       </div>
 
       {/* ── Charts Row ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-        {/* Monthly Trend */}
+      <div className="grid grid-cols-1 xl:grid-cols-[1.7fr_1.3fr] gap-6 mb-6">
         <Card
-          className="lg:col-span-2 shadow-sm rounded-2xl"
+          className="shadow-sm rounded-[28px]"
           title={
-            <div className="flex items-center gap-2 text-gray-700 font-semibold">
+            <div className="flex items-center gap-2 text-slate-700 font-semibold">
               <FaChartLine className="text-indigo-500" />
               Monthly Referral Trend
             </div>
           }
         >
-          <ResponsiveContainer width="100%" height={260}>
+          <ResponsiveContainer width="100%" height={280}>
             <BarChart data={monthlyData} barGap={4}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-              <XAxis dataKey="month" tick={{ fontSize: 11 }} />
-              <YAxis tick={{ fontSize: 11 }} />
+              <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+              <XAxis dataKey="month" tick={{ fontSize: 12, fill: '#64748b' }} />
+              <YAxis tick={{ fontSize: 12, fill: '#64748b' }} />
               <RechartsTooltip
-                contentStyle={{ borderRadius: 10, border: "none", boxShadow: "0 4px 20px rgba(0,0,0,0.1)" }}
+                contentStyle={{ borderRadius: 12, border: 'none', boxShadow: '0 8px 24px rgba(15, 23, 42, 0.12)' }}
               />
-              <Legend />
-              <Bar dataKey="newUsers" name="New Users" fill="#6366f1" radius={[4, 4, 0, 0]} />
-              <Bar dataKey="referred" name="Referred" fill="#10b981" radius={[4, 4, 0, 0]} />
+              <Legend wrapperStyle={{ fontSize: 12, color: '#475569' }} />
+              <Bar dataKey="newUsers" name="New Users" fill="#6366f1" radius={[6, 6, 0, 0]} />
+              <Bar dataKey="referred" name="Referred" fill="#10b981" radius={[6, 6, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </Card>
 
-        {/* Pie Chart */}
         <Card
-          className="shadow-sm rounded-2xl"
+          className="shadow-sm rounded-[28px]"
           title={
-            <div className="flex items-center gap-2 text-gray-700 font-semibold">
+            <div className="flex items-center gap-2 text-slate-700 font-semibold">
               <FaPercentage className="text-green-500" />
               Signup Source
             </div>
           }
         >
-          <ResponsiveContainer width="100%" height={200}>
+          <ResponsiveContainer width="100%" height={240}>
             <PieChart>
               <Pie
                 data={sourceData}
                 cx="50%"
                 cy="50%"
-                innerRadius={55}
+                innerRadius={60}
                 outerRadius={85}
-                paddingAngle={4}
+                paddingAngle={3}
                 dataKey="value"
-                label={({ name, percent }) => `${(percent * 100).toFixed(0)}%`}
+                label={({ percent }) => `${(percent * 100).toFixed(0)}%`}
                 labelLine={false}
               >
                 {sourceData.map((_, i) => (
@@ -412,15 +416,16 @@ const ReferralDetails = () => {
                 ))}
               </Pie>
               <RechartsTooltip
-                contentStyle={{ borderRadius: 10, border: "none", boxShadow: "0 4px 20px rgba(0,0,0,0.1)" }}
+                contentStyle={{ borderRadius: 12, border: 'none', boxShadow: '0 8px 24px rgba(15, 23, 42, 0.12)' }}
               />
             </PieChart>
           </ResponsiveContainer>
-          <div className="flex justify-center gap-6 mt-2">
+          <div className="grid grid-cols-1 gap-2 mt-4 text-sm text-slate-500 sm:grid-cols-2">
             {sourceData.map((s, i) => (
-              <div key={i} className="flex items-center gap-2 text-xs text-gray-500">
+              <div key={i} className="flex items-center gap-2">
                 <span className="w-3 h-3 rounded-full" style={{ background: COLORS[i] }} />
-                {s.name}: <strong>{s.value}</strong>
+                <span className="font-medium text-slate-700">{s.name}</span>
+                <span>{s.value}</span>
               </div>
             ))}
           </div>
@@ -429,20 +434,20 @@ const ReferralDetails = () => {
 
       {/* ── Top Referrers ── */}
       <Card
-        className="shadow-sm rounded-2xl mb-6"
+        className="shadow-sm rounded-[28px] mb-6"
         title={
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 text-gray-700 font-semibold">
-              <FaTrophy className="text-yellow-500" />
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between text-slate-700 font-semibold">
+            <div className="flex items-center gap-2">
+              <FaTrophy className="text-amber-500" />
               Top Referrers
             </div>
-            <div className="flex items-center gap-2 text-sm font-normal text-gray-500">
-              Show top
+            <div className="flex items-center gap-2 text-sm font-medium text-slate-500">
+              <span>Show top</span>
               <Select
                 value={topLimit}
                 onChange={setTopLimit}
                 size="small"
-                style={{ width: 65 }}
+                style={{ width: 76 }}
                 options={[3, 6, 10, 20].map((v) => ({ value: v, label: v }))}
               />
             </div>
@@ -450,53 +455,49 @@ const ReferralDetails = () => {
         }
       >
         {topReferrers.length === 0 ? (
-          <div className="text-center text-gray-400 py-8">No referrers yet</div>
+          <div className="text-center text-slate-400 py-8">No referrers yet</div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
             {topReferrers.map((r, i) => (
               <div
                 key={r._id}
-                className={`p-4 rounded-xl border-2 transition-all hover:shadow-md ${
+                className={`p-4 rounded-[28px] border transition-all hover:shadow-xl ${
                   i === 0
-                    ? "border-yellow-300 bg-gradient-to-br from-yellow-50 to-orange-50"
+                    ? 'border-amber-300 bg-amber-50'
                     : i === 1
-                    ? "border-gray-300 bg-gradient-to-br from-gray-50 to-slate-50"
+                    ? 'border-slate-300 bg-slate-50'
                     : i === 2
-                    ? "border-orange-300 bg-gradient-to-br from-orange-50 to-amber-50"
-                    : "border-gray-100 bg-white"
+                    ? 'border-orange-300 bg-orange-50'
+                    : 'border-slate-100 bg-white'
                 }`}
               >
-                <div className="flex items-center gap-3 mb-3">
+                <div className="flex items-center gap-3 mb-4">
                   <div
-                    className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-white text-sm flex-shrink-0 ${
-                      i === 0 ? "bg-yellow-400" : i === 1 ? "bg-gray-400" : i === 2 ? "bg-orange-400" : "bg-indigo-400"
+                    className={`w-11 h-11 rounded-3xl flex items-center justify-center font-bold text-white text-base ${
+                      i === 0 ? 'bg-amber-500' : i === 1 ? 'bg-slate-500' : i === 2 ? 'bg-orange-500' : 'bg-indigo-500'
                     }`}
                   >
-                    {i < 3 ? ["🥇", "🥈", "🥉"][i] : i + 1}
+                    {i < 3 ? ['🥇', '🥈', '🥉'][i] : i + 1}
                   </div>
                   <div className="min-w-0">
-                    <div className="font-semibold text-gray-900 text-sm truncate">
-                      {r.firstname} {r.lastname}
-                    </div>
-                    <div className="text-gray-400 text-xs">{r.mobile}</div>
+                    <div className="text-sm font-semibold text-slate-900 truncate">{r.firstname} {r.lastname}</div>
+                    <div className="text-xs text-slate-500 truncate">{r.mobile}</div>
                   </div>
                 </div>
-                <div className="space-y-2">
-                  <div className="flex justify-between text-xs text-gray-500">
+                <div className="space-y-3">
+                  <div className="flex justify-between text-xs text-slate-500">
                     <span>Referrals</span>
-                    <span className="font-bold text-green-600">{r.referredUsersCount}</span>
+                    <span className="font-semibold text-emerald-700">{r.referredUsersCount}</span>
                   </div>
                   <Progress
                     percent={Math.round((r.referredUsersCount / maxReferrals) * 100)}
                     showInfo={false}
-                    strokeColor={i === 0 ? "#f59e0b" : i === 1 ? "#94a3b8" : i === 2 ? "#f97316" : "#6366f1"}
+                    strokeColor={i === 0 ? '#f59e0b' : i === 1 ? '#94a3b8' : i === 2 ? '#f97316' : '#6366f1'}
                     size="small"
                   />
-                  <div className="flex justify-between text-xs">
-                    <span className="text-gray-400 flex items-center gap-1">
-                      <FaCoins className="text-yellow-400" size={10} /> {r.coins || 0} coins
-                    </span>
-                    <code className="text-indigo-500 font-mono text-xs">{r.referralCode}</code>
+                  <div className="flex flex-col gap-2 text-xs text-slate-500 sm:flex-row sm:justify-between sm:items-center">
+                    <span className="flex items-center gap-1"><FaCoins className="text-amber-400" size={11} /> {r.coins || 0} coins</span>
+                    <code className="text-indigo-600 font-mono text-xs break-all">{r.referralCode}</code>
                   </div>
                 </div>
               </div>
@@ -506,68 +507,85 @@ const ReferralDetails = () => {
       </Card>
 
       {/* ── Referrals Table ── */}
-      <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+      <div className="bg-white rounded-[32px] shadow-sm overflow-hidden">
+        <div className="px-6 py-5 border-b border-slate-100 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h3 className="font-semibold text-gray-800">All Customers</h3>
-            <p className="text-xs text-gray-400 mt-0.5">
+            <h3 className="font-semibold text-slate-900">Referral Customers</h3>
+            <p className="text-xs text-slate-500 mt-1">
               Showing {filteredReferrals.length} of {referrals?.length || 0} customers
             </p>
           </div>
         </div>
-        <Table
-          columns={columns}
-          dataSource={filteredReferrals.map((item) => ({ ...item, key: item._id }))}
-          rowKey="_id"
-          loading={loading}
-          pagination={{
-            pageSize: 10,
-            showSizeChanger: true,
-            showTotal: (total, range) => `${range[0]}–${range[1]} of ${total}`,
-            pageSizeOptions: ["10", "20", "50"],
-          }}
-          expandable={{
-            expandedRowRender: (record) => (
-              <div className="p-4 bg-gray-50 rounded-xl mx-4 my-2">
-                <h4 className="font-semibold text-gray-700 mb-3 text-sm">
-                  Users referred by {record.firstname} {record.lastname}
-                </h4>
-                {record.referredUsers?.length > 0 ? (
-                  <Table
-                    columns={referredUsersColumns}
-                    dataSource={record.referredUsers.map((u, i) => ({ ...u, key: u._id || i }))}
-                    pagination={false}
-                    size="small"
-                    className="rounded-lg overflow-hidden"
-                  />
-                ) : (
-                  <p className="text-gray-400 text-sm">No referred users yet</p>
-                )}
-              </div>
-            ),
-            expandedRowKeys: Object.keys(expandedRows).filter((k) => expandedRows[k]),
-            onExpand: (_, record) =>
-              setExpandedRows((prev) => ({ ...prev, [record._id]: !prev[record._id] })),
-            rowExpandable: (record) => (record.referredUsersCount || 0) > 0,
-          }}
-        />
+        <div className="overflow-x-auto">
+          <Table
+            columns={columns}
+            dataSource={filteredReferrals.map((item) => ({ ...item, key: item._id }))}
+            rowKey="_id"
+            loading={loading}
+            scroll={{ x: 1120 }}
+            pagination={{
+              pageSize: 10,
+              showSizeChanger: true,
+              showTotal: (total, range) => `${range[0]}–${range[1]} of ${total}`,
+              pageSizeOptions: ["10", "20", "50"],
+            }}
+            expandable={{
+              expandedRowRender: (record) => (
+                <div className="p-4 bg-slate-50 rounded-[28px] mx-4 my-3">
+                  <h4 className="font-semibold text-slate-700 mb-3 text-sm">
+                    Users referred by {record.firstname} {record.lastname}
+                  </h4>
+                  {record.referredUsers?.length > 0 ? (
+                    <Table
+                      columns={referredUsersColumns}
+                      dataSource={record.referredUsers.map((u, i) => ({ ...u, key: u._id || i }))}
+                      pagination={false}
+                      size="small"
+                      className="rounded-2xl overflow-hidden"
+                    />
+                  ) : (
+                    <p className="text-slate-400 text-sm">No referred users yet</p>
+                  )}
+                </div>
+              ),
+              expandedRowKeys: Object.keys(expandedRows).filter((k) => expandedRows[k]),
+              onExpand: (_, record) =>
+                setExpandedRows((prev) => ({ ...prev, [record._id]: !prev[record._id] })),
+              rowExpandable: (record) => (record.referredUsersCount || 0) > 0,
+            }}
+          />
+        </div>
       </div>
 
       <style>{`
         .ant-table-thead > tr > th {
-          background: #fafafa !important;
-          font-weight: 600 !important;
+          background: #f8fafc !important;
+          font-weight: 700 !important;
           font-size: 12px !important;
-          color: #6b7280 !important;
+          color: #475569 !important;
           text-transform: uppercase;
-          letter-spacing: 0.05em;
-          border-bottom: 2px solid #f0f0f0 !important;
+          letter-spacing: 0.07em;
+          border-bottom: 2px solid #e2e8f0 !important;
         }
-        .ant-table-tbody > tr:hover > td { background: #f8f9ff !important; }
-        .ant-table-tbody > tr > td { border-bottom: 1px solid #f5f5f5 !important; padding: 14px 16px !important; }
-        .ant-pagination { padding: 16px 24px !important; margin: 0 !important; background: #fafafa; border-top: 1px solid #f0f0f0; }
-        .ant-pagination-item-active { border-color: #6366f1 !important; }
-        .ant-pagination-item-active a { color: #6366f1 !important; }
+        .ant-table-tbody > tr:hover > td {
+          background: #f8fafc !important;
+        }
+        .ant-table-tbody > tr > td {
+          border-bottom: 1px solid #e2e8f0 !important;
+          padding: 14px 16px !important;
+        }
+        .ant-pagination {
+          padding: 16px 24px !important;
+          margin: 0 !important;
+          background: #f8fafc;
+          border-top: 1px solid #e2e8f0;
+        }
+        .ant-pagination-item-active {
+          border-color: #6366f1 !important;
+        }
+        .ant-pagination-item-active a {
+          color: #6366f1 !important;
+        }
       `}</style>
     </div>
   );

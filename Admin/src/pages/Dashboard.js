@@ -318,7 +318,7 @@ const Dashboard = () => {
   const topCustomers = dashboardStats?.topCustomers || [];
 
   return (
-    <div className="dashboard-container" style={{ backgroundColor: "#f0f2f5", minHeight: "100vh", padding: "24px" }}>
+    <div className="dashboard-container" style={{ backgroundColor: "#f0f2f5", minHeight: "100vh" }}>
       {/* Modern Gradient Header */}
       <div className="dashboard-header animate__animated animate__fadeInDown" style={{
         background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
@@ -332,54 +332,35 @@ const Dashboard = () => {
         <div style={{ position: "absolute", top: "-50%", right: "-10%", width: "300px", height: "300px", background: "rgba(255,255,255,0.1)", borderRadius: "50%" }}></div>
         <div style={{ position: "absolute", bottom: "-30%", left: "-5%", width: "200px", height: "200px", background: "rgba(255,255,255,0.08)", borderRadius: "50%" }}></div>
         
-        <div className="d-flex justify-content-between align-items-start flex-wrap gap-3" style={{ position: "relative", zIndex: 1 }}>
-          <div>
-            <h2 className="mb-1" style={{ fontWeight: 700, color: "#ffffff", fontSize: "28px", textShadow: "0 2px 4px rgba(0,0,0,0.1)" }}>Dashboard</h2>
-            <p className="mb-0" style={{ color: "rgba(255,255,255,0.85)", fontSize: "14px" }}>Welcome back! Here's your business overview</p>
+        <div style={{ position: "relative", zIndex: 1 }}>
+          <div className="d-flex justify-content-between align-items-start flex-wrap gap-2">
+            <div>
+              <h2 className="mb-1" style={{ fontWeight: 700, color: "#ffffff", fontSize: "clamp(20px, 4vw, 28px)", textShadow: "0 2px 4px rgba(0,0,0,0.1)" }}>Dashboard</h2>
+              <p className="mb-0" style={{ color: "rgba(255,255,255,0.85)", fontSize: "14px" }}>Welcome back! Here's your business overview</p>
+            </div>
+            <Select
+              value={selectedMode}
+              onChange={setSelectedMode}
+              style={{ width: 130, alignSelf: "flex-start" }}
+              className="fw-medium"
+              popupClassName="dashboard-select-popup"
+            >
+              <Option value="ALL"><div className="d-flex align-items-center gap-2"><BsGrid /><span>All Orders</span></div></Option>
+              <Option value="ONLINE"><div className="d-flex align-items-center gap-2"><BsGraphUp /><span>Online</span></div></Option>
+              <Option value="OFFLINE"><div className="d-flex align-items-center gap-2"><BsCart4 /><span>Offline</span></div></Option>
+            </Select>
           </div>
-          
+
           {/* Filter Buttons */}
-          <div className="d-flex gap-2 flex-wrap align-items-center">
-            <div className="d-flex gap-1" style={{ background: "rgba(255,255,255,0.15)", padding: "4px", borderRadius: "24px" }}>
-              <Button 
-                type="text" 
-                style={getFilterButtonStyle(FILTERS.TODAY)}
-                onClick={() => { setSelectedFilter(FILTERS.TODAY); setDateRange(null); }}
-              >
-                Today
-              </Button>
-              <Button 
-                type="text" 
-                style={getFilterButtonStyle(FILTERS.WEEK)}
-                onClick={() => { setSelectedFilter(FILTERS.WEEK); setDateRange(null); }}
-              >
-                7 Days
-              </Button>
-              <Button 
-                type="text" 
-                style={getFilterButtonStyle(FILTERS.MONTH)}
-                onClick={() => { setSelectedFilter(FILTERS.MONTH); setDateRange(null); }}
-              >
-                Month
-              </Button>
-              <Button 
-                type="text" 
-                style={getFilterButtonStyle(FILTERS.YEAR)}
-                onClick={() => { setSelectedFilter(FILTERS.YEAR); setDateRange(null); }}
-              >
-                Year
-              </Button>
-              <Button 
-                type="text" 
-                className="d-flex align-items-center gap-2"
-                style={getFilterButtonStyle(FILTERS.CUSTOM)}
-                onClick={() => setSelectedFilter(FILTERS.CUSTOM)}
-              >
-                <BsCalendar style={{ marginRight: 4 }} />
-                Custom
+          <div className="d-flex gap-2 flex-wrap align-items-center mt-3">
+            <div className="filter-btn-group d-flex gap-1 flex-wrap" style={{ background: "rgba(255,255,255,0.15)", padding: "4px", borderRadius: "24px" }}>
+              {[{f: FILTERS.TODAY, label: "Today"}, {f: FILTERS.WEEK, label: "7 Days"}, {f: FILTERS.MONTH, label: "Month"}, {f: FILTERS.YEAR, label: "Year"}].map(({f, label}) => (
+                <Button key={f} type="text" style={getFilterButtonStyle(f)} onClick={() => { setSelectedFilter(f); setDateRange(null); }}>{label}</Button>
+              ))}
+              <Button type="text" className="d-flex align-items-center" style={getFilterButtonStyle(FILTERS.CUSTOM)} onClick={() => setSelectedFilter(FILTERS.CUSTOM)}>
+                <BsCalendar style={{ marginRight: 4 }} />Custom
               </Button>
             </div>
-            
             {selectedFilter === FILTERS.CUSTOM && (
               <DatePicker.RangePicker
                 size="middle"
@@ -387,36 +368,9 @@ const Dashboard = () => {
                 value={dateRange}
                 onChange={(dates) => setDateRange(dates)}
                 allowClear
-                style={{ borderRadius: "12px", width: "240px" }}
+                style={{ borderRadius: "12px", maxWidth: "100%" }}
               />
             )}
-            
-            <Select
-              value={selectedMode}
-              onChange={setSelectedMode}
-              style={{ width: 140 }}
-              className="fw-medium"
-              popupClassName="dashboard-select-popup"
-            >
-              <Option value="ALL">
-                <div className="d-flex align-items-center gap-2">
-                  <BsGrid />
-                  <span>All Orders</span>
-                </div>
-              </Option>
-              <Option value="ONLINE">
-                <div className="d-flex align-items-center gap-2">
-                  <BsGraphUp />
-                  <span>Online</span>
-                </div>
-              </Option>
-              <Option value="OFFLINE">
-                <div className="d-flex align-items-center gap-2">
-                  <BsCart4 />
-                  <span>Offline</span>
-                </div>
-              </Option>
-            </Select>
           </div>
         </div>
         
@@ -785,6 +739,7 @@ const Dashboard = () => {
       <style>{`
         .dashboard-container {
           font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+          padding: 24px;
         }
         
         @keyframes fadeInUp {
@@ -872,18 +827,29 @@ const Dashboard = () => {
           .dashboard-container {
             padding: 12px !important;
           }
-          
+
           .dashboard-header {
             padding: 16px !important;
             border-radius: 16px !important;
           }
-          
-          .dashboard-header h2 {
-            font-size: 22px !important;
-          }
-          
+
           .stat-card {
             border-radius: 16px !important;
+          }
+
+          .filter-btn-group {
+            border-radius: 16px !important;
+          }
+        }
+
+        @media (max-width: 480px) {
+          .dashboard-container {
+            padding: 8px !important;
+          }
+
+          .filter-btn-group button {
+            padding: 4px 10px !important;
+            font-size: 12px !important;
           }
         }
       `}</style>

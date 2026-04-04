@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from "react";
-import { MenuFoldOutlined, MenuUnfoldOutlined } from "@ant-design/icons";
+import React, { useState, useEffect, useCallback } from "react";
+import { MenuFoldOutlined, MenuUnfoldOutlined, CloseOutlined } from "@ant-design/icons";
 import {
   AiOutlineDashboard,
   AiOutlineShoppingCart,
@@ -17,22 +17,34 @@ import "react-toastify/dist/ReactToastify.css";
 import { Link } from "react-router-dom";
 import { Outlet, useLocation } from "react-router-dom";
 import { ImBlog } from "react-icons/im";
-import { IoIosNotifications, IoMenuOutline } from "react-icons/io";
+import { IoIosNotifications } from "react-icons/io";
 import { FaClipboardList, FaBloggerB, FaChartLine, FaBox, FaUsers, FaTags, FaFileAlt, FaCube, FaLink, FaMagic, FaCoins } from "react-icons/fa";
 import { SiBrandfolder } from "react-icons/si";
-import { BiCategoryAlt, BiCategory } from "react-icons/bi";
-import { Layout, Menu, theme } from "antd";
+import { BiCategoryAlt } from "react-icons/bi";
+import { Layout, Menu, theme, Drawer } from "antd";
 import { useNavigate } from "react-router-dom";
 const { Header, Sider, Content } = Layout;
 
 const MainLayout = () => {
   const [collapsed, setCollapsed] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [selectedKeys, setSelectedKeys] = useState([""]);
   const {
     token: { colorBgContainer },
   } = theme.useToken();
   const navigate = useNavigate();
   const location = useLocation();
+
+  useEffect(() => {
+    const handleResize = () => {
+      const mobile = window.innerWidth < 768;
+      setIsMobile(mobile);
+      if (!mobile) setMobileOpen(false);
+    };
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
   // Update selected keys when URL changes
   useEffect(() => {
@@ -54,6 +66,16 @@ const MainLayout = () => {
     
     setSelectedKeys([key]);
   }, [location.pathname]);
+
+  const handleMenuClick = useCallback(({ key }) => {
+    if (key === "signout") {
+      localStorage.clear();
+      window.location.reload();
+    } else {
+      navigate(key);
+      if (isMobile) setMobileOpen(false);
+    }
+  }, [navigate, isMobile]);
 
   const menuItems = [
     {
@@ -226,69 +248,83 @@ const MainLayout = () => {
     },
   ];
 
+  const sidebarContent = (
+    <>
+      <div className="logo-container">
+        <div className="logo-content">
+          <span className="sm-logo">
+            <FaChartLine className="fs-4 text-white" />
+          </span>
+          <span className="lg-logo">
+            <span className="logo-icon"><FaChartLine /></span>
+            <span className="logo-text">Cart Corner</span>
+          </span>
+        </div>
+      </div>
+      <Menu
+        theme="dark"
+        mode="inline"
+        selectedKeys={selectedKeys}
+        onClick={handleMenuClick}
+        items={menuItems}
+        className="main-menu"
+      />
+    </>
+  );
+
   return (
     <Layout className="main-layout">
-      <Sider 
-        trigger={null} 
-        collapsible 
-        collapsed={collapsed}
-        className="main-sider"
-        width={260}
-        collapsedWidth={80}
-      >
-        <div className="logo-container">
-          <div className="logo-content">
-            <span className="sm-logo">
-              <FaChartLine className="fs-4 text-white" />
-            </span>
-            <span className="lg-logo">
-              <span className="logo-icon">
-                <FaChartLine />
-              </span>
-              <span className="logo-text">Cart Corner</span>
-            </span>
-          </div>
-        </div>
-        <Menu
-          theme="dark"
-          mode="inline"
-          selectedKeys={selectedKeys}
-          onClick={({ key }) => {
-            if (key === "signout") {
-              localStorage.clear();
-              window.location.reload();
-            } else {
-              navigate(key);
-            }
-          }}
-          items={menuItems}
-          className="main-menu"
-        />
-      </Sider>
+      {/* Desktop Sidebar */}
+      {!isMobile && (
+        <Sider
+          trigger={null}
+          collapsible
+          collapsed={collapsed}
+          className="main-sider"
+          width={260}
+          collapsedWidth={80}
+        >
+          {sidebarContent}
+        </Sider>
+      )}
+
+      {/* Mobile Drawer */}
+      {isMobile && (
+        <Drawer
+          placement="left"
+          open={mobileOpen}
+          onClose={() => setMobileOpen(false)}
+          width={260}
+          bodyStyle={{ padding: 0, background: "linear-gradient(180deg, #1a1a2e 0%, #16213e 100%)" }}
+          headerStyle={{ display: "none" }}
+          className="mobile-drawer"
+        >
+          {sidebarContent}
+        </Drawer>
+      )}
+
       <Layout className="site-layout">
         <Header className="main-header">
           <div className="header-left">
-            <div 
+            <div
               className="trigger-btn"
-              onClick={() => setCollapsed(!collapsed)}
+              onClick={() => isMobile ? setMobileOpen(!mobileOpen) : setCollapsed(!collapsed)}
             >
               {React.createElement(
-                collapsed ? MenuUnfoldOutlined : MenuFoldOutlined,
-                {
-                  className: "trigger-icon",
-                }
+                (!isMobile && collapsed) ? MenuUnfoldOutlined : MenuFoldOutlined,
+                { className: "trigger-icon" }
               )}
             </div>
           </div>
           <div className="header-right">
             <div className="header-action-btns">
-              <button className="action-btn">
+              <button className="action-btn notification-btn">
                 <IoIosNotifications className="fs-5" />
                 <span className="notification-badge">3</span>
               </button>
               <Link to="/admin/settings" className="action-btn">
-    <AiOutlineSetting className="fs-5" />
-  </Link>
+                <AiOutlineSetting className="fs-5" />
+              </Link>
             </div>
             <div className="user-profile dropdown">
               <div className="user-avatar">
@@ -634,29 +670,57 @@ const MainLayout = () => {
           to { opacity: 1; transform: translateY(0); }
         }
         
+        /* Mobile Drawer Sidebar */
+        .mobile-drawer .ant-drawer-body {
+          display: flex;
+          flex-direction: column;
+          height: 100%;
+          overflow-y: auto;
+          overflow-x: hidden;
+        }
+
+        .mobile-drawer .main-menu {
+          flex: 1;
+        }
+
         /* Responsive Styles */
         @media (max-width: 768px) {
           .main-header {
-            padding: 0 16px !important;
+            padding: 0 12px !important;
+            height: 60px;
           }
-          
+
           .user-info {
             display: none;
           }
-          
+
           .content-wrapper {
-            padding: 16px;
+            padding: 12px;
           }
-          
+
           .trigger-btn {
             width: 38px;
             height: 38px;
           }
+
+          .user-profile {
+            padding: 4px 8px 4px 4px;
+            gap: 8px;
+          }
+
+          .main-content {
+            min-height: calc(100vh - 60px);
+          }
         }
-        
+
         @media (max-width: 576px) {
-          .header-action-btns {
+          .header-action-btns .notification-btn {
             display: none;
+          }
+
+          .user-avatar img {
+            width: 34px !important;
+            height: 34px !important;
           }
         }
       `}</style>

@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from "react";
-import { Table, Modal, Form, Input, Avatar, Tooltip } from "antd";
+import { Table, Modal, Form, Input, Avatar, Tooltip, Badge } from "antd";
 import { useDispatch, useSelector } from "react-redux";
 import { getCustomers, createCustomer, updateCustomer, deleteCustomer } from "../features/customers/customerSlice";
-import { FaSearch, FaEdit, FaTrash, FaUser, FaEnvelope, FaPhone, FaMapMarkerAlt, FaUserPlus, FaEye } from "react-icons/fa";
+import { FaSearch, FaEdit, FaTrash, FaUser, FaEnvelope, FaPhone, FaMapMarkerAlt, FaUserPlus, FaEye, FaUsers } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
 import CustomModal from "../components/CustomModal";
 
@@ -16,24 +16,18 @@ const Customers = () => {
   const [form] = Form.useForm();
   const [editingCustomer, setEditingCustomer] = useState(null);
 
-  useEffect(() => {
-    dispatch(getCustomers());
-  }, [dispatch]);
+  useEffect(() => { dispatch(getCustomers()); }, [dispatch]);
 
   const customerState = useSelector((state) => state.customer.customers);
 
-  // Filter customers based on search
-  const filteredCustomers = customerState?.filter((customer) =>
-    customer.firstname?.toLowerCase().includes(searchText.toLowerCase()) ||
-    customer.lastname?.toLowerCase().includes(searchText.toLowerCase()) ||
-    customer.email?.toLowerCase().includes(searchText.toLowerCase()) ||
-    customer.mobile?.includes(searchText)
+  const filteredCustomers = customerState?.filter((c) =>
+    c.firstname?.toLowerCase().includes(searchText.toLowerCase()) ||
+    c.lastname?.toLowerCase().includes(searchText.toLowerCase()) ||
+    c.email?.toLowerCase().includes(searchText.toLowerCase()) ||
+    c.mobile?.includes(searchText)
   );
 
-  const showDeleteModal = (customer) => {
-    setCustomerToDelete(customer);
-    setDeleteModalOpen(true);
-  };
+  const showDeleteModal = (customer) => { setCustomerToDelete(customer); setDeleteModalOpen(true); };
 
   const handleDelete = () => {
     if (customerToDelete) {
@@ -48,66 +42,55 @@ const Customers = () => {
   const handleSubmit = (values) => {
     if (editingCustomer) {
       dispatch(updateCustomer({ id: editingCustomer._id, customerData: values })).then(() => {
-        dispatch(getCustomers());
-        setOpen(false);
-        form.resetFields();
-        setEditingCustomer(null);
+        dispatch(getCustomers()); setOpen(false); form.resetFields(); setEditingCustomer(null);
       });
     } else {
       dispatch(createCustomer(values)).then(() => {
-        dispatch(getCustomers());
-        setOpen(false);
-        form.resetFields();
+        dispatch(getCustomers()); setOpen(false); form.resetFields();
       });
     }
   };
 
   const handleEdit = (customer) => {
     setEditingCustomer(customer);
-    form.setFieldsValue({
-      firstname: customer.firstname,
-      lastname: customer.lastname,
-      email: customer.email,
-      mobile: customer.mobile,
-      address: customer.address,
-    });
+    form.setFieldsValue({ firstname: customer.firstname, lastname: customer.lastname, email: customer.email, mobile: customer.mobile, address: customer.address });
     setOpen(true);
   };
 
-  const handleCancel = () => {
-    setOpen(false);
-    form.resetFields();
-    setEditingCustomer(null);
-  };
+  const handleCancel = () => { setOpen(false); form.resetFields(); setEditingCustomer(null); };
+
+  const getInitials = (first, last) => `${first?.[0] || ""}${last?.[0] || ""}`.toUpperCase();
+
+  const avatarColors = ["#667eea", "#f093fb", "#4facfe", "#43e97b", "#fa709a", "#a18cd1", "#fda085", "#84fab0"];
+  const getAvatarColor = (name) => avatarColors[(name?.charCodeAt(0) || 0) % avatarColors.length];
 
   const columns = [
     {
-      title: "S.No",
+      title: "#",
       dataIndex: "key",
       key: "key",
-      width: 70,
-      render: (text, record, index) => (
-        <span className="text-gray-500 font-medium">{index + 1}</span>
+      width: 60,
+      render: (_, __, index) => (
+        <span className="text-gray-400 font-medium text-sm">{index + 1}</span>
       ),
     },
     {
       title: "Customer",
-      dataIndex: "name",
       key: "name",
-      sorter: (a, b) => a.firstname.localeCompare(b.firstname),
+      sorter: (a, b) => a.firstname?.localeCompare(b.firstname),
       render: (_, record) => (
         <div className="flex items-center gap-3">
-          <Avatar
-            shape="square"
-            size={48}
-            className="rounded-lg bg-blue-50 text-blue-600"
-            icon={<FaUser />}
-          />
-          <div>
-            <div className="font-semibold text-gray-900">
+          <div
+            className="w-10 h-10 rounded-xl flex items-center justify-center text-white font-bold text-sm flex-shrink-0"
+            style={{ background: `linear-gradient(135deg, ${getAvatarColor(record.firstname)}, ${getAvatarColor(record.lastname)})` }}
+          >
+            {getInitials(record.firstname, record.lastname) || <FaUser size={14} />}
+          </div>
+          <div className="min-w-0">
+            <div className="font-semibold text-gray-800 text-sm leading-tight">
               {record.firstname} {record.lastname}
             </div>
-            <div className="text-gray-500 text-sm">{record.email}</div>
+            <div className="text-gray-400 text-xs truncate">{record.email}</div>
           </div>
         </div>
       ),
@@ -118,8 +101,10 @@ const Customers = () => {
       key: "mobile",
       render: (mobile) => (
         <div className="flex items-center gap-2">
-          <FaPhone className="text-gray-400 text-xs" />
-          <span className="font-mono text-sm">{mobile || '-'}</span>
+          <div className="w-6 h-6 rounded-md bg-green-50 flex items-center justify-center">
+            <FaPhone className="text-green-500" size={10} />
+          </div>
+          <span className="font-mono text-sm text-gray-600">{mobile || <span className="text-gray-300">—</span>}</span>
         </div>
       ),
     },
@@ -127,14 +112,14 @@ const Customers = () => {
       title: "Address",
       dataIndex: "address",
       key: "address",
+      responsive: ["md"],
       render: (address) => (
         <Tooltip title={address}>
-          <div className="truncate max-w-[200px]">
-            {address ? (
-              <span className="text-gray-500">{address}</span>
-            ) : (
-              <span className="text-gray-400">-</span>
-            )}
+          <div className="flex items-center gap-2 max-w-[180px]">
+            <div className="w-6 h-6 rounded-md bg-purple-50 flex items-center justify-center flex-shrink-0">
+              <FaMapMarkerAlt className="text-purple-400" size={10} />
+            </div>
+            <span className="text-gray-500 text-sm truncate">{address || <span className="text-gray-300">—</span>}</span>
           </div>
         </Tooltip>
       ),
@@ -143,41 +128,41 @@ const Customers = () => {
       title: "Joined",
       dataIndex: "createdAt",
       key: "createdAt",
+      responsive: ["lg"],
       render: (date) => (
-        <span className="text-gray-500">
-          {date ? new Date(date).toLocaleDateString('en-IN') : '-'}
+        <span className="text-gray-400 text-xs bg-gray-50 px-2 py-1 rounded-md">
+          {date ? new Date(date).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "—"}
         </span>
       ),
     },
     {
       title: "Actions",
-      dataIndex: "action",
       key: "action",
-      width: 150,
+      width: 120,
       render: (_, record) => (
-        <div className="flex gap-2">
+        <div className="flex gap-1.5">
           <Tooltip title="View Details">
             <button
-              className="flex items-center justify-center w-9 h-9 rounded-lg bg-green-50 text-green-600 border-none cursor-pointer hover:bg-green-100 transition-colors"
               onClick={() => navigate(`/admin/customer/${record._id}`)}
+              className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 hover:bg-emerald-500 hover:text-white flex items-center justify-center transition-all duration-200 border-0 cursor-pointer"
             >
-              <FaEye size={14} />
+              <FaEye size={12} />
             </button>
           </Tooltip>
-          <Tooltip title="Edit Customer">
+          <Tooltip title="Edit">
             <button
-              className="flex items-center justify-center w-9 h-9 rounded-lg bg-blue-50 text-blue-600 border-none cursor-pointer hover:bg-blue-100 transition-colors"
               onClick={() => handleEdit(record)}
+              className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-500 hover:text-white flex items-center justify-center transition-all duration-200 border-0 cursor-pointer"
             >
-              <FaEdit size={14} />
+              <FaEdit size={12} />
             </button>
           </Tooltip>
-          <Tooltip title="Delete Customer">
+          <Tooltip title="Delete">
             <button
-              className="flex items-center justify-center w-9 h-9 rounded-lg bg-red-50 text-red-600 border-none cursor-pointer hover:bg-red-100 transition-colors"
               onClick={() => showDeleteModal(record)}
+              className="w-8 h-8 rounded-lg bg-red-50 text-red-500 hover:bg-red-500 hover:text-white flex items-center justify-center transition-all duration-200 border-0 cursor-pointer"
             >
-              <FaTrash size={14} />
+              <FaTrash size={12} />
             </button>
           </Tooltip>
         </div>
@@ -186,231 +171,137 @@ const Customers = () => {
   ];
 
   const data1 = filteredCustomers?.map((item, index) => ({
-    key: index + 1,
-    _id: item._id,
-    firstname: item.firstname,
-    lastname: item.lastname,
-    email: item.email,
-    mobile: item.mobile,
-    address: item.address,
-    createdAt: item.createdAt,
+    key: index + 1, _id: item._id, firstname: item.firstname, lastname: item.lastname,
+    email: item.email, mobile: item.mobile, address: item.address, createdAt: item.createdAt,
   })) || [];
 
-  // Calculate stats
   const totalCustomers = customerState?.length || 0;
-  const customersWithMobile = customerState?.filter(c => c.mobile).length || 0;
-  const customersWithAddress = customerState?.filter(c => c.address).length || 0;
+  const customersWithMobile = customerState?.filter((c) => c.mobile).length || 0;
+  const customersWithAddress = customerState?.filter((c) => c.address).length || 0;
+
+  const stats = [
+    { label: "Total Customers", value: totalCustomers, icon: <FaUsers size={18} />, color: "blue", bg: "from-blue-500 to-blue-600" },
+    { label: "With Mobile", value: customersWithMobile, icon: <FaPhone size={18} />, color: "emerald", bg: "from-emerald-500 to-emerald-600" },
+    { label: "With Address", value: customersWithAddress, icon: <FaMapMarkerAlt size={18} />, color: "purple", bg: "from-purple-500 to-purple-600" },
+  ];
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      {/* Header Section */}
-      <div className="bg-white rounded-xl shadow-sm mb-6">
-        <div className="p-5">
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-            <div>
-              <h2 className="text-2xl font-semibold text-gray-800 mb-1">
-                Customers
-              </h2>
-              <p className="text-gray-500 text-sm mb-0">
-                Manage your customer database and information
-              </p>
-            </div>
-            <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
-              <div className="relative">
-                <input
-                  type="text"
-                  placeholder="Search customers..."
-                  value={searchText}
-                  onChange={(e) => setSearchText(e.target.value)}
-                  className="w-full sm:w-64 h-10 pl-10 pr-4 rounded-lg border border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 focus:outline-none transition-all"
-                />
-                <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-              </div>
-              <button
-                onClick={() => setOpen(true)}
-                className="h-10 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium flex items-center justify-center gap-2 transition-colors"
-              >
-                <FaUserPlus />
-                Add Customer
-              </button>
-            </div>
+    <div className="min-h-screen bg-gray-50/80">
+      {/* Page Header */}
+      <div className="mb-6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-800 mb-0.5">Customers</h1>
+            <p className="text-gray-400 text-sm">Manage and track your customer base</p>
           </div>
+          <button
+            onClick={() => setOpen(true)}
+            className="inline-flex items-center gap-2 h-10 px-5 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-xl font-medium text-sm transition-all duration-200 shadow-md shadow-blue-200 hover:shadow-lg hover:shadow-blue-300 border-0 cursor-pointer self-start sm:self-auto"
+          >
+            <FaUserPlus size={14} />
+            Add Customer
+          </button>
         </div>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-        <div className="bg-white rounded-xl shadow-sm p-5">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-gray-500 text-sm mb-1">Total Customers</p>
-              <h3 className="text-2xl font-semibold text-gray-800">{totalCustomers}</h3>
+      {/* Stats */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+        {stats.map((stat) => (
+          <div key={stat.label} className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 flex items-center gap-4 hover:shadow-md transition-shadow duration-200">
+            <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${stat.bg} flex items-center justify-center text-white shadow-md flex-shrink-0`}>
+              {stat.icon}
             </div>
-            <div className="w-12 h-12 rounded-xl bg-blue-50 flex items-center justify-center text-blue-600">
-              <FaUser size={20} />
+            <div>
+              <p className="text-gray-400 text-xs font-medium mb-0.5">{stat.label}</p>
+              <h3 className="text-2xl font-bold text-gray-800 leading-none">{stat.value}</h3>
             </div>
           </div>
-        </div>
-        <div className="bg-white rounded-xl shadow-sm p-5">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-gray-500 text-sm mb-1">With Mobile</p>
-              <h3 className="text-2xl font-semibold text-gray-800">{customersWithMobile}</h3>
-            </div>
-            <div className="w-12 h-12 rounded-xl bg-green-50 flex items-center justify-center text-green-600">
-              <FaPhone size={20} />
-            </div>
-          </div>
-        </div>
-        <div className="bg-white rounded-xl shadow-sm p-5">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-gray-500 text-sm mb-1">With Address</p>
-              <h3 className="text-2xl font-semibold text-gray-800">{customersWithAddress}</h3>
-            </div>
-            <div className="w-12 h-12 rounded-xl bg-purple-50 flex items-center justify-center text-purple-600">
-              <FaMapMarkerAlt size={20} />
-            </div>
-          </div>
-        </div>
+        ))}
       </div>
 
-      {/* Customers Table */}
-      <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+      {/* Table Card */}
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+        {/* Table Toolbar */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-5 py-4 border-b border-gray-100">
+          <div className="flex items-center gap-2">
+            <span className="text-gray-700 font-semibold text-sm">All Customers</span>
+            <span className="bg-blue-50 text-blue-600 text-xs font-semibold px-2 py-0.5 rounded-full">{data1.length}</span>
+          </div>
+          <div className="relative w-full sm:w-64">
+            <input
+              type="text"
+              placeholder="Search by name, email, mobile..."
+              value={searchText}
+              onChange={(e) => setSearchText(e.target.value)}
+              className="w-full h-9 pl-9 pr-4 text-sm rounded-xl border border-gray-200 focus:border-blue-400 focus:ring-2 focus:ring-blue-100 focus:outline-none bg-gray-50 transition-all"
+            />
+            <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={12} />
+          </div>
+        </div>
+
         <Table
           columns={columns}
           dataSource={data1}
+          rowKey="_id"
           pagination={{
             pageSize: 10,
             showSizeChanger: true,
-            showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} customers`,
-            pageSizeOptions: ["10", "20", "50", "100"],
+            showTotal: (total, range) => `${range[0]}–${range[1]} of ${total}`,
+            pageSizeOptions: ["10", "20", "50"],
           }}
           className="customers-table"
+          scroll={{ x: 600 }}
         />
       </div>
 
-      {/* Add/Edit Customer Modal */}
+      {/* Add/Edit Modal */}
       <Modal
         title={
-          <span className="text-lg font-semibold">
-            {editingCustomer ? "Edit Customer" : "Add New Customer"}
-          </span>
+          <div className="flex items-center gap-3 pb-3 border-b border-gray-100">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white">
+              <FaUserPlus size={14} />
+            </div>
+            <span className="text-base font-semibold text-gray-800">
+              {editingCustomer ? "Edit Customer" : "Add New Customer"}
+            </span>
+          </div>
         }
         open={open}
         onCancel={handleCancel}
         footer={null}
-        width={500}
+        width={520}
         className="customer-modal"
+        centered
       >
-        <Form
-          form={form}
-          layout="vertical"
-          onFinish={handleSubmit}
-          className="mt-4"
-        >
-          <div className="grid grid-cols-2 gap-4">
-            <Form.Item
-              name="firstname"
-              label="First Name"
-              rules={[
-                { required: true, message: "First name is required" },
-                { min: 2, message: "Minimum 2 characters" },
-              ]}
-              className="mb-4"
-            >
-              <Input 
-                prefix={<FaUser className="text-gray-400" />}
-                placeholder="Enter first name"
-                size="large"
-                className="rounded-lg"
-              />
+        <Form form={form} layout="vertical" onFinish={handleSubmit} className="pt-4">
+          <div className="grid grid-cols-2 gap-x-4">
+            <Form.Item name="firstname" label={<span className="text-gray-600 text-sm font-medium">First Name</span>} rules={[{ required: true, message: "Required" }, { min: 2, message: "Min 2 chars" }]}>
+              <Input prefix={<FaUser className="text-gray-300" size={12} />} placeholder="First name" size="large" className="rounded-xl" />
             </Form.Item>
-
-            <Form.Item
-              name="lastname"
-              label="Last Name"
-              rules={[
-                { required: true, message: "Last name is required" },
-                { min: 2, message: "Minimum 2 characters" },
-              ]}
-              className="mb-4"
-            >
-              <Input 
-                prefix={<FaUser className="text-gray-400" />}
-                placeholder="Enter last name"
-                size="large"
-                className="rounded-lg"
-              />
+            <Form.Item name="lastname" label={<span className="text-gray-600 text-sm font-medium">Last Name</span>} rules={[{ required: true, message: "Required" }, { min: 2, message: "Min 2 chars" }]}>
+              <Input prefix={<FaUser className="text-gray-300" size={12} />} placeholder="Last name" size="large" className="rounded-xl" />
             </Form.Item>
           </div>
-
-          <Form.Item
-            name="email"
-            label="Email"
-            rules={[
-              { required: true, message: "Email is required" },
-              { type: "email", message: "Enter valid email" },
-            ]}
-            className="mb-4"
-          >
-            <Input 
-              prefix={<FaEnvelope className="text-gray-400" />}
-              placeholder="Enter email address"
-              size="large"
-              className="rounded-lg"
-            />
+          <Form.Item name="email" label={<span className="text-gray-600 text-sm font-medium">Email Address</span>} rules={[{ required: true, message: "Required" }, { type: "email", message: "Invalid email" }]}>
+            <Input prefix={<FaEnvelope className="text-gray-300" size={12} />} placeholder="email@example.com" size="large" className="rounded-xl" />
           </Form.Item>
-
-          <Form.Item
-            name="mobile"
-            label="Mobile Number"
-            rules={[
-              { required: true, message: "Mobile number is required" },
-              { pattern: /^[0-9]{10}$/, message: "Must be 10 digits" },
-            ]}
-            className="mb-4"
-          >
-            <Input 
-              prefix={<FaPhone className="text-gray-400" />}
-              placeholder="Enter mobile number"
-              size="large"
-              maxLength={10}
-              className="rounded-lg"
-            />
+          <Form.Item name="mobile" label={<span className="text-gray-600 text-sm font-medium">Mobile Number</span>} rules={[{ required: true, message: "Required" }, { pattern: /^[0-9]{10}$/, message: "Must be 10 digits" }]}>
+            <Input prefix={<FaPhone className="text-gray-300" size={12} />} placeholder="10-digit mobile" size="large" maxLength={10} className="rounded-xl" />
           </Form.Item>
-
-          <Form.Item
-            name="address"
-            label="Address"
-            className="mb-4"
-          >
-            <Input.TextArea 
-              placeholder="Enter address (optional)"
-              rows={3}
-              className="rounded-lg"
-            />
+          <Form.Item name="address" label={<span className="text-gray-600 text-sm font-medium">Address <span className="text-gray-400 font-normal">(optional)</span></span>}>
+            <Input.TextArea placeholder="Enter address" rows={3} className="rounded-xl" />
           </Form.Item>
-
-          <div className="flex gap-3 mt-6">
-            <button
-              type="button"
-              onClick={handleCancel}
-              className="flex-1 h-11 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium transition-colors"
-            >
+          <div className="flex gap-3 pt-2">
+            <button type="button" onClick={handleCancel} className="flex-1 h-11 border border-gray-200 text-gray-600 rounded-xl hover:bg-gray-50 font-medium text-sm transition-colors cursor-pointer bg-white">
               Cancel
             </button>
-            <button
-              type="submit"
-              className="flex-1 h-11 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors"
-            >
+            <button type="submit" className="flex-1 h-11 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-xl font-medium text-sm transition-all shadow-md shadow-blue-200 cursor-pointer border-0">
               {editingCustomer ? "Update Customer" : "Add Customer"}
             </button>
           </div>
         </Form>
       </Modal>
 
-      {/* Delete Confirmation Modal */}
       <CustomModal
         hideModal={() => setDeleteModalOpen(false)}
         open={deleteModalOpen}
@@ -419,36 +310,62 @@ const Customers = () => {
       />
 
       <style>{`
-        .ant-table-thead > tr > th {
-          background-color: #fafafa !important;
+        .customers-table .ant-table-thead > tr > th {
+          background: #f8fafc !important;
           font-weight: 600 !important;
-          color: #1a1a1a !important;
-          border-bottom: 2px solid #f0f0f0 !important;
+          font-size: 12px !important;
+          color: #64748b !important;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+          border-bottom: 1px solid #f1f5f9 !important;
+          padding: 12px 16px !important;
         }
-        .ant-table-tbody > tr:hover > td {
-          background-color: #f5f5f5 !important;
+        .customers-table .ant-table-tbody > tr > td {
+          border-bottom: 1px solid #f8fafc !important;
+          padding: 14px 16px !important;
         }
-        .ant-table-tbody > tr > td {
-          border-bottom: 1px solid #f0f0f0 !important;
-          padding: 16px !important;
+        .customers-table .ant-table-tbody > tr:hover > td {
+          background: #f8faff !important;
         }
-        .ant-pagination {
-          padding: 16px 24px !important;
+        .customers-table .ant-table-tbody > tr:last-child > td {
+          border-bottom: none !important;
+        }
+        .customers-table .ant-pagination {
+          padding: 14px 20px !important;
           margin: 0 !important;
           background: #fafafa;
-          border-top: 1px solid #f0f0f0;
+          border-top: 1px solid #f1f5f9;
         }
-        .ant-pagination-item-active {
-          border-color: #1890ff !important;
+        .customers-table .ant-pagination-item-active {
+          border-color: #3b82f6 !important;
+          background: #3b82f6 !important;
         }
-        .ant-pagination-item-active a {
-          color: #1890ff !important;
+        .customers-table .ant-pagination-item-active a {
+          color: white !important;
         }
-        .ant-modal-content {
+        .customer-modal .ant-modal-content {
+          border-radius: 20px !important;
+          padding: 24px !important;
+        }
+        .customer-modal .ant-modal-header {
+          padding: 0 0 0 0 !important;
+          border: none !important;
+          margin-bottom: 0 !important;
+        }
+        .customer-modal .ant-modal-body {
+          padding: 0 !important;
+        }
+        .customer-modal .ant-form-item-label > label {
+          height: auto !important;
+        }
+        .customer-modal .ant-input-affix-wrapper,
+        .customer-modal .ant-input {
           border-radius: 12px !important;
         }
-        .ant-modal-header {
-          border-radius: 12px 12px 0 0 !important;
+        .customer-modal .ant-input-affix-wrapper:focus,
+        .customer-modal .ant-input-affix-wrapper-focused {
+          border-color: #3b82f6 !important;
+          box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1) !important;
         }
       `}</style>
     </div>
@@ -456,4 +373,3 @@ const Customers = () => {
 };
 
 export default Customers;
-

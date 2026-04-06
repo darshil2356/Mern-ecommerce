@@ -1044,6 +1044,7 @@ const addBundleToCart = asyncHandler(async (req, res) => {
     if (!product) continue;
 
     const productId = product._id.toString();
+    const requiredQty = item.quantity || 1;
     const normalizedSelection = selectedOptions?.[productId] || {
       color: selectedColors?.[productId] || null,
       size: selectedSizes?.[productId] || null,
@@ -1080,9 +1081,9 @@ const addBundleToCart = asyncHandler(async (req, res) => {
       }
 
       const sizeEntry = (variant.sizeStock || []).find((s) => s.size === chosenSize);
-      if (!sizeEntry || sizeEntry.quantity < 1) {
+      if (!sizeEntry || sizeEntry.quantity < requiredQty) {
         res.status(400);
-        throw new Error(`Selected size is out of stock for ${product.title}`);
+        throw new Error(`Insufficient stock for ${product.title} (Size: ${chosenSize}). Available: ${sizeEntry?.quantity || 0}, Required: ${requiredQty}`);
       }
 
       resolvedSelections[productId] = {
@@ -1100,9 +1101,9 @@ const addBundleToCart = asyncHandler(async (req, res) => {
       }
 
       const sizeEntry = product.sizeStock.find((s) => s.size === chosenSize);
-      if (!sizeEntry || sizeEntry.quantity < 1) {
+      if (!sizeEntry || sizeEntry.quantity < requiredQty) {
         res.status(400);
-        throw new Error(`Size ${chosenSize} is out of stock for ${product.title}`);
+        throw new Error(`Insufficient stock for ${product.title} (Size: ${chosenSize}). Available: ${sizeEntry?.quantity || 0}, Required: ${requiredQty}`);
       }
     }
 
@@ -1246,16 +1247,28 @@ const createOrder = asyncHandler(async (req, res) => {
         // Deduct stock for each product in the bundle
         for (const bundleItem of item.bundleProducts) {
           if (!bundleItem.productId) continue;
-          const product = await Product.findById(bundleItem.productId);
+          const product = await Product.findById(bundleItem.productId).populate("variants.color");
           if (!product) continue;
-          const deductionResult = await deductStockFromProduct(product, {
+
+          const deductItem = {
             quantity: bundleItem.quantity || 1,
             color: bundleItem.selectedColor || bundleItem.color || null,
             size: bundleItem.selectedSize || null,
-            barcode: bundleItem.barcode || null
-          });
+            barcode: bundleItem.barcode || null,
+          };
+
+          let deductionResult = await deductStockFromProduct(product, deductItem);
+
+          // Fallback: if color+size match failed, try size-only across all variants/sizeStock
+          if (!deductionResult.deducted && deductItem.size) {
+            deductionResult = await deductStockFromProduct(product, { ...deductItem, color: null });
+          }
+
           if (!deductionResult.deducted) {
-            throw new Error(`Insufficient stock for bundle product: ${product.title}${bundleItem.selectedSize ? ` (Size: ${bundleItem.selectedSize})` : ''}`);
+            throw new Error(
+              `Insufficient stock for bundle product: ${product.title}` +
+              `${bundleItem.selectedSize ? ` (Size: ${bundleItem.selectedSize})` : ''}`
+            );
           }
           product.sold = (product.sold || 0) + (bundleItem.quantity || 1);
           product.quantity = normalizeProductQuantity(product);

@@ -269,13 +269,14 @@ const Bundles = () => {
                   .filter(Boolean);
                 const hasVariantColors = variantColors.length > 0;
                 const selectedColor = bundleSelections[pid]?.color || null;
+                const requiredQty = item.quantity || 1;
                 const sizes = hasVariantColors
                   ? ((product.variants || []).find((variant) => {
                       const variantColorId = variant.color?._id || variant.color;
                       return variantColorId?.toString() === selectedColor;
                     })?.sizeStock || [])
                   : (product.sizeStock || []);
-                const availableSizes = sizes.filter((s) => s.quantity > 0);
+                const availableSizes = sizes.filter((s) => s.quantity >= requiredQty);
                 const needsAnySelection = hasVariantColors || sizes.length > 0;
                 if (!needsAnySelection) return null;
 
@@ -360,13 +361,15 @@ const Bundles = () => {
                         <div className="d-flex gap-2 flex-wrap">
                           {sizes.map((s) => {
                             const isSelected = bundleSelections[pid]?.size === s.size;
-                            const isDisabled = s.quantity === 0 || (hasVariantColors && !selectedColor);
+                            const insufficientStock = s.quantity < requiredQty;
+                            const isDisabled = insufficientStock || (hasVariantColors && !selectedColor);
                             return (
                               <motion.button
                                 key={s.size}
                                 whileTap={isDisabled ? {} : { scale: 0.95 }}
                                 disabled={isDisabled}
                                 onClick={() => !isDisabled && updateSelection({ size: s.size })}
+                                title={insufficientStock ? `Only ${s.quantity} in stock, bundle needs ${requiredQty}` : ""}
                                 style={{
                                   minWidth: "48px",
                                   padding: "12px 16px",
@@ -377,20 +380,20 @@ const Bundles = () => {
                                   border: isSelected ? "2px solid #1e293b" : "1px solid #cbd5e1",
                                   background: isSelected ? "#1e293b" : isDisabled ? "#f8fafc" : "#fff",
                                   color: isSelected ? "#fff" : isDisabled ? "#94a3b8" : "#334155",
-                                  opacity: isDisabled ? 0.6 : 1,
+                                  opacity: isDisabled ? 0.5 : 1,
                                   transition: "all 0.2s ease",
                                   position: "relative",
                                 }}
                               >
                                 {s.size}
-                                {s.quantity > 0 && !isDisabled && (
+                                {!insufficientStock && !isDisabled && (
                                   <span style={{ display: "block", fontSize: "10px", fontWeight: 600, color: isSelected ? "#e2e8f0" : "#059669", marginTop: "2px" }}>
                                     {s.quantity} left
                                   </span>
                                 )}
-                                {s.quantity === 0 && (
+                                {insufficientStock && (
                                   <span style={{ display: "block", fontSize: "10px", fontWeight: 600, color: "#ef4444", marginTop: "2px" }}>
-                                    Out of stock
+                                    {s.quantity === 0 ? "Out of stock" : `Only ${s.quantity}`}
                                   </span>
                                 )}
                               </motion.button>

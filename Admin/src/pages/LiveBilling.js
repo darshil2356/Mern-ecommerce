@@ -34,7 +34,11 @@ const LiveBilling = () => {
 
   const [cgstPercent, setCgstPercent] = useState(0);
   const [sgstPercent, setSgstPercent] = useState(0);
+  const [igstPercent, setIgstPercent] = useState(0);
   const [discountPercent, setDiscountPercent] = useState(0);
+  // GST type: "CGST_SGST" for intra-state, "IGST" for inter-state, "NONE" for no tax
+  const [gstType, setGstType] = useState("CGST_SGST");
+  const [storeState, setStoreState] = useState("Gujarat");
 
   const [contactSearch, setContactSearch] = useState("");
   const [showContactDropdown, setShowContactDropdown] = useState(false);
@@ -80,6 +84,10 @@ const LiveBilling = () => {
   const [taxIncluded, setTaxIncluded]           = useState(false);
   const [defaultCgst, setDefaultCgst]           = useState(0);
   const [defaultSgst, setDefaultSgst]           = useState(0);
+  const [defaultIgst, setDefaultIgst]           = useState(0);
+  const [defaultStoreState, setDefaultStoreState] = useState("Gujarat");
+  // Customer shipping state for GST determination
+  const [customerState, setCustomerState]       = useState("");
 
   // Coins state
   const [customerCoins, setCustomerCoins] = useState(0);
@@ -153,6 +161,22 @@ const LiveBilling = () => {
     return (grandTotal * sgstPercent) / 100;
   }, [grandTotal, sgstPercent, cgstPercent, taxIncluded]);
 
+  const igstAmount = useMemo(() => {
+    if (gstType !== "IGST") return 0;
+    if (taxIncluded) {
+      const totalRate = igstPercent / 100;
+      if (totalRate === 0) return 0;
+      const baseAmount = grandTotal / (1 + totalRate);
+      return baseAmount * totalRate;
+    }
+    return (grandTotal * igstPercent) / 100;
+  }, [grandTotal, igstPercent, gstType, taxIncluded]);
+
+  // Total tax amount (either CGST+SGST or IGST)
+  const totalTaxAmount = useMemo(() => {
+    return gstType === "IGST" ? igstAmount : cgstAmount + sgstAmount;
+  }, [gstType, igstAmount, cgstAmount, sgstAmount]);
+
   // Discount is always on grandTotal (subtotal)
   const discountAmount = useMemo(
     () => (grandTotal * discountPercent) / 100 + appliedOfferAmount,
@@ -162,20 +186,18 @@ const LiveBilling = () => {
   const coinDiscountAmount = useMemo(() => {
     if (!useCoins || coinAmount <= 0) return 0;
     const amountBeforeCoins = taxIncluded
-      ? grandTotal - discountAmount                          // tax-included: no extra tax added
-      : grandTotal + cgstAmount + sgstAmount - discountAmount; // tax-excluded: tax added on top
+      ? grandTotal - discountAmount
+      : grandTotal + totalTaxAmount - discountAmount;
     const maxCoins = Math.min(customerCoins, Math.floor(amountBeforeCoins));
     return Math.min(coinAmount, maxCoins);
-  }, [useCoins, coinAmount, customerCoins, grandTotal, cgstAmount, sgstAmount, discountAmount, taxIncluded]);
+  }, [useCoins, coinAmount, customerCoins, grandTotal, totalTaxAmount, discountAmount, taxIncluded]);
 
   const payableAmount = useMemo(() => {
     if (taxIncluded) {
-      // Tax is inside price, so: payable = grandTotal - discount - coinDiscount
       return Math.max(0, grandTotal - discountAmount - coinDiscountAmount);
     }
-    // Tax excluded: payable = grandTotal + tax - discount - coinDiscount
-    return Math.max(0, grandTotal + cgstAmount + sgstAmount - discountAmount - coinDiscountAmount);
-  }, [grandTotal, cgstAmount, sgstAmount, discountAmount, coinDiscountAmount, taxIncluded]);
+    return Math.max(0, grandTotal + totalTaxAmount - discountAmount - coinDiscountAmount);
+  }, [grandTotal, totalTaxAmount, discountAmount, coinDiscountAmount, taxIncluded]);
 
   // The amount coins are calculated on = final payable (after ALL discounts)
   // This is what gets passed to awardCoinsOnOrder on the backend
@@ -443,6 +465,31 @@ const LiveBilling = () => {
     return () => window.removeEventListener("keydown", handleScanKeyDown);
   }, [cart]);
 
+  // Auto-detect GST type based on customer state vs store state
+  useEffect(() => {
+    if (!customerState) {
+      // No state selected — default to intra-state (CGST+SGST)
+      setGstType("CGST_SGST");
+      setCgstPercent(defaultCgst);
+      setSgstPercent(defaultSgst);
+      setIgstPercent(0);
+      return;
+    }
+    if (customerState === defaultStoreState) {
+      // Intra-state: CGST + SGST
+      setGstType("CGST_SGST");
+      setCgstPercent(defaultCgst);
+      setSgstPercent(defaultSgst);
+      setIgstPercent(0);
+    } else {
+      // Inter-state: IGST only
+      setGstType("IGST");
+      setCgstPercent(0);
+      setSgstPercent(0);
+      setIgstPercent(defaultIgst);
+    }
+  }, [customerState, defaultStoreState, defaultCgst, defaultSgst, defaultIgst]);
+
   // Fetch GSTIN on mount
   useEffect(() => {
     const fetchGstin = async () => {
@@ -463,10 +510,17 @@ const LiveBilling = () => {
         const res = await axios.get(`${base_url}user/settings`, config);
         const cgst = res.data.cgst || 0;
         const sgst = res.data.sgst || 0;
+        const igst = res.data.igst || 0;
+        const sState = res.data.storeState || "Gujarat";
         setCgstPercent(cgst);
         setSgstPercent(sgst);
-        setDefaultCgst(cgst);   // remember defaults so reset after sale works
+        setIgstPercent(igst);
+        setDefaultCgst(cgst);
         setDefaultSgst(sgst);
+        setDefaultIgst(igst);
+        setDefaultStoreState(sState);
+        setStoreState(sState);
+        setGstType("CGST_SGST"); // default intra-state
         setTaxIncluded(res.data.taxIncluded === true);
         setShowSpinner(res.data.showSpinner === true);
         setShowReferralOffer(res.data.showReferralOffer === true);
@@ -563,7 +617,7 @@ const LiveBilling = () => {
     } else {
       const amountBeforeCoins = taxIncluded
         ? grandTotal - discountAmount
-        : grandTotal + cgstAmount + sgstAmount - discountAmount;
+        : grandTotal + totalTaxAmount - discountAmount;
       const maxCoins = Math.min(customerCoins, Math.floor(amountBeforeCoins));
       setCoinAmount(maxCoins);
       triggerCoinCelebration(maxCoins);
@@ -574,7 +628,7 @@ const LiveBilling = () => {
     const val = parseInt(value) || 0;
     const amountBeforeCoins = taxIncluded
       ? grandTotal - discountAmount
-      : grandTotal + cgstAmount + sgstAmount - discountAmount;
+      : grandTotal + totalTaxAmount - discountAmount;
     const maxCoins = Math.min(customerCoins, Math.floor(amountBeforeCoins));
     setCoinAmount(Math.min(val, maxCoins));
   };
@@ -766,8 +820,12 @@ const validateReferralContact = async (mobile) => {
     
     whatsAppMessage += `\n─────────────\n`;
     whatsAppMessage += `Subtotal: ₹${grandTotal.toFixed(2)}\n`;
-    if (cgstPercent > 0) whatsAppMessage += `CGST (${cgstPercent}%): ₹${cgstAmount.toFixed(2)}\n`;
-    if (sgstPercent > 0) whatsAppMessage += `SGST (${sgstPercent}%): ₹${sgstAmount.toFixed(2)}\n`;
+    if (gstType === "IGST" && igstPercent > 0) {
+      whatsAppMessage += `IGST (${igstPercent}%): ₹${igstAmount.toFixed(2)}\n`;
+    } else {
+      if (cgstPercent > 0) whatsAppMessage += `CGST (${cgstPercent}%): ₹${cgstAmount.toFixed(2)}\n`;
+      if (sgstPercent > 0) whatsAppMessage += `SGST (${sgstPercent}%): ₹${sgstAmount.toFixed(2)}\n`;
+    }
     if (discountPercent > 0) whatsAppMessage += `Additional Discount: -₹${((grandTotal * discountPercent) / 100).toFixed(2)}\n`;
     if (activeAppliedAmount > 0) whatsAppMessage += `Customer Offer: -₹${activeAppliedAmount.toFixed(2)}\n`;
     whatsAppMessage += `*Total: ₹${payableAmount.toFixed(2)}*\n`;
@@ -845,14 +903,24 @@ const validateReferralContact = async (mobile) => {
         {
           customer,
           items,
-          taxPercent: cgstPercent + sgstPercent,
+          taxPercent: cgstPercent + sgstPercent + igstPercent,
           discount: discountAmount,
           offerDiscount: appliedOfferAmount,
           total: payableAmount,
           paymentMethod: "CASH",
           referralContact: customer.referralContact || null,
           coinsUsed: useCoins ? coinAmount : 0,
-          coinAmount: useCoins ? coinDiscountAmount : 0
+          coinAmount: useCoins ? coinDiscountAmount : 0,
+          gstBreakdown: {
+            cgst: cgstAmount,
+            sgst: sgstAmount,
+            igst: igstAmount,
+            cgstRate: cgstPercent,
+            sgstRate: sgstPercent,
+            igstRate: igstPercent,
+            gstType,
+            taxableAmount: grandTotal,
+          },
         },
         config
       );
@@ -900,12 +968,15 @@ const validateReferralContact = async (mobile) => {
 
       setCart({});
       setCustomer({ name: "", address: "", contact: "", referralContact: "" });
+      setCustomerState("");
       setReferrerName("");
       setReferrerError("");
       setReferrerCode("");
       // Restore tax to saved defaults, NOT to 0
       setCgstPercent(defaultCgst);
       setSgstPercent(defaultSgst);
+      setIgstPercent(0);
+      setGstType("CGST_SGST");
       setDiscountPercent(0);
       setAppliedOfferAmount(0);
       setCustomerOffer({ hasOffer: false, offerDiscount: 0, offerType: "" });
@@ -936,6 +1007,8 @@ const validateReferralContact = async (mobile) => {
     gstinData = gstin,
     cgstAmt = cgstAmount,
     sgstAmt = sgstAmount,
+    igstAmt = igstAmount,
+    gstTypeData = gstType,
     discountAmt = discountAmount,
     subtotalAmt = grandTotal,
     coinDiscountAmt = coinDiscountAmount,
@@ -947,6 +1020,8 @@ const validateReferralContact = async (mobile) => {
     const activeGstin = gstinData;
     const activeCgst = cgstAmt;
     const activeSgst = sgstAmt;
+    const activeIgst = igstAmt;
+    const activeGstType = gstTypeData;
     const activeDiscount = discountAmt;
     const activeSubtotal = subtotalAmt;
     const activeCoinDiscount = coinDiscountAmt;
@@ -1094,14 +1169,20 @@ const validateReferralContact = async (mobile) => {
                     </div>
                     ${activeCgst > 0 ? `
                     <div class="flex justify-between text-sm">
-                      <span class="text-gray-600">CGST</span>
+                      <span class="text-gray-600">CGST (${cgstPercent}%)</span>
                       <span class="text-green-600">+₹${activeCgst.toFixed(2)}</span>
                     </div>
                     ` : ''}
                     ${activeSgst > 0 ? `
                     <div class="flex justify-between text-sm">
-                      <span class="text-gray-600">SGST</span>
+                      <span class="text-gray-600">SGST (${sgstPercent}%)</span>
                       <span class="text-green-600">+₹${activeSgst.toFixed(2)}</span>
+                    </div>
+                    ` : ''}
+                    ${activeIgst > 0 ? `
+                    <div class="flex justify-between text-sm">
+                      <span class="text-gray-600">IGST (${igstPercent}%)</span>
+                      <span class="text-green-600">+₹${activeIgst.toFixed(2)}</span>
                     </div>
                     ` : ''}
                     ${activeDiscount > 0 ? `
@@ -1313,6 +1394,40 @@ const validateReferralContact = async (mobile) => {
                       onChange={(e) => setCustomer({ ...customer, address: e.target.value })}
                     />
                   </div>
+                </div>
+
+                {/* Customer State for GST */}
+                <div className="md:col-span-2">
+                  <label className="block text-xs font-medium text-gray-500 mb-1">
+                    Customer State <span className="text-indigo-500">(for GST calculation)</span>
+                  </label>
+                  <div className="flex items-center gap-3">
+                    <select
+                      className="flex-1 px-3 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:border-indigo-500 outline-none"
+                      value={customerState}
+                      onChange={(e) => setCustomerState(e.target.value)}
+                    >
+                      <option value="">-- Select State --</option>
+                      {["Gujarat","Maharashtra","Delhi","Karnataka","Tamil Nadu","Rajasthan","Uttar Pradesh","West Bengal","Telangana","Punjab","Madhya Pradesh","Bihar","Haryana","Odisha","Kerala"].map(s => (
+                        <option key={s} value={s}>{s}</option>
+                      ))}
+                    </select>
+                    <div className={`px-3 py-2 rounded-lg text-xs font-bold ${
+                      gstType === "IGST" ? "bg-orange-100 text-orange-700 border border-orange-300" :
+                      gstType === "CGST_SGST" ? "bg-green-100 text-green-700 border border-green-300" :
+                      "bg-gray-100 text-gray-500"
+                    }`}>
+                      {gstType === "IGST" ? `IGST ${igstPercent}%` :
+                       gstType === "CGST_SGST" ? `CGST ${cgstPercent}% + SGST ${sgstPercent}%` :
+                       "No Tax"}
+                    </div>
+                  </div>
+                  {customerState && customerState !== defaultStoreState && (
+                    <p className="text-xs text-orange-600 mt-1">⚠️ Inter-state order → IGST {igstPercent}% applied</p>
+                  )}
+                  {customerState && customerState === defaultStoreState && (
+                    <p className="text-xs text-green-600 mt-1">✅ Intra-state order → CGST {cgstPercent}% + SGST {sgstPercent}% applied</p>
+                  )}
                 </div>
 
                 {/* Referral Contact Number - Only show if enabled in settings */}
@@ -1649,10 +1764,27 @@ const validateReferralContact = async (mobile) => {
                   <span className="text-indigo-200">Grand Total</span>
                   <span className="text-sm">₹{grandTotal.toFixed(2)}</span>
                 </div>
-                <div className="flex justify-between items-center mb-2">
-                  <span className="text-indigo-200">Tax</span>
-                  <span className="text-sm">+₹{(cgstAmount + sgstAmount).toFixed(2)}</span>
-                </div>
+                {gstType === "IGST" ? (
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="text-indigo-200">IGST ({igstPercent}%)</span>
+                    <span className="text-sm">+₹{igstAmount.toFixed(2)}</span>
+                  </div>
+                ) : (
+                  <>
+                    {cgstPercent > 0 && (
+                      <div className="flex justify-between items-center mb-2">
+                        <span className="text-indigo-200">CGST ({cgstPercent}%)</span>
+                        <span className="text-sm">+₹{cgstAmount.toFixed(2)}</span>
+                      </div>
+                    )}
+                    {sgstPercent > 0 && (
+                      <div className="flex justify-between items-center mb-2">
+                        <span className="text-indigo-200">SGST ({sgstPercent}%)</span>
+                        <span className="text-sm">+₹{sgstAmount.toFixed(2)}</span>
+                      </div>
+                    )}
+                  </>
+                )}
                 <div className="flex justify-between items-center mb-2">
                   <span className="text-indigo-200">Discount</span>
                   <span className="text-sm text-green-400">-₹{discountAmount.toFixed(2)}</span>
@@ -1684,6 +1816,11 @@ const validateReferralContact = async (mobile) => {
                   subtotal={grandTotal}
                   cgstAmount={cgstAmount}
                   sgstAmount={sgstAmount}
+                  igstAmount={igstAmount}
+                  gstType={gstType}
+                  cgstPercent={cgstPercent}
+                  sgstPercent={sgstPercent}
+                  igstPercent={igstPercent}
                   discountAmount={discountAmount}
                   coinDiscountAmount={coinDiscountAmount}
                   coinsUsed={coinAmount}

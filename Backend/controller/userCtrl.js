@@ -228,7 +228,7 @@ const deductStockFromProduct = async (product, item) => {
 const createOfflineOrder = asyncHandler(async (req, res) => {
 
   
-  const { items, paymentMethod, customer, discount, offerDiscount: offerDiscountAmt, coinsUsed, coinAmount } = req.body;
+  const { items, paymentMethod, customer, discount, offerDiscount: offerDiscountAmt, coinsUsed, coinAmount, gstBreakdown } = req.body;
   const adminId = req.user._id;
 
 
@@ -345,6 +345,11 @@ const createOfflineOrder = asyncHandler(async (req, res) => {
       directDiscount: directDiscountAmount,
       offerDiscount: offerDiscountAmount,
       coinDiscount: coinDiscountAmount,
+    },
+    gstBreakdown: gstBreakdown || {
+      cgst: 0, sgst: 0, igst: 0,
+      cgstRate: 0, sgstRate: 0, igstRate: 0,
+      gstType: "NONE", taxableAmount: totalPrice,
     },
     coinsUsed: coinsUsed || 0,
     coinAmount: coinAmount || 0,
@@ -1230,6 +1235,7 @@ const createOrder = asyncHandler(async (req, res) => {
     coinsUsed,
     coinAmount,
     discountBreakdown,
+    gstBreakdown,
   } = req.body;
   const { _id } = req.user;
   try {
@@ -1325,6 +1331,11 @@ const createOrder = asyncHandler(async (req, res) => {
           ? (totalPrice - totalPriceAfterDiscount - (coinAmount || 0))
           : 0,
         coinDiscount: coinAmount || 0,
+      },
+      gstBreakdown: gstBreakdown || {
+        cgst: 0, sgst: 0, igst: 0,
+        cgstRate: 0, sgstRate: 0, igstRate: 0,
+        gstType: "NONE", taxableAmount: totalPrice,
       },
       coinsUsed: coinsUsed || 0,
       coinAmount: coinAmount || 0,
@@ -2024,7 +2035,7 @@ const getSettings = asyncHandler(async (req, res) => {
 
   try {
     const user = await User.findById(_id).select(
-      "gstin email showSpinner showReferralOffer referralCoinPercent storeName storeTagline storeAddress storePhone cgst sgst taxIncluded"
+      "gstin email showSpinner showReferralOffer referralCoinPercent storeName storeTagline storeAddress storePhone cgst sgst igst storeState taxIncluded"
     );
     res.json({
       gstin: user.gstin || "",
@@ -2038,6 +2049,8 @@ const getSettings = asyncHandler(async (req, res) => {
       storePhone: user.storePhone || "",
       cgst: user.cgst || 0,
       sgst: user.sgst || 0,
+      igst: user.igst || 0,
+      storeState: user.storeState || "Gujarat",
       taxIncluded: user.taxIncluded === true,
     });
   } catch (error) {
@@ -2051,7 +2064,7 @@ const updateSettings = asyncHandler(async (req, res) => {
 
   const {
     showSpinner, showReferralOffer, referralCoinPercent,
-    cgst, sgst, taxIncluded,
+    cgst, sgst, igst, storeState, taxIncluded,
     storeName, storeTagline, storeAddress, storePhone,
   } = req.body;
 
@@ -2061,8 +2074,10 @@ const updateSettings = asyncHandler(async (req, res) => {
       showSpinner: Boolean(showSpinner),
       showReferralOffer: Boolean(showReferralOffer),
       referralCoinPercent: Number(referralCoinPercent) || 10,
-      cgst: Number(cgst) || 0,
-      sgst: Number(sgst) || 0,
+      cgst: parseFloat(cgst) >= 0 ? parseFloat(cgst) : 0,
+      sgst: parseFloat(sgst) >= 0 ? parseFloat(sgst) : 0,
+      igst: parseFloat(igst) >= 0 ? parseFloat(igst) : 0,
+      storeState: storeState || "Gujarat",
       taxIncluded: Boolean(taxIncluded),
       ...(storeName    !== undefined && { storeName }),
       ...(storeTagline !== undefined && { storeTagline }),
@@ -2079,6 +2094,8 @@ const updateSettings = asyncHandler(async (req, res) => {
     referralCoinPercent: updatedUser.referralCoinPercent,
     cgst: updatedUser.cgst,
     sgst: updatedUser.sgst,
+    igst: updatedUser.igst,
+    storeState: updatedUser.storeState,
     taxIncluded: updatedUser.taxIncluded,
     storeName: updatedUser.storeName,
     storeTagline: updatedUser.storeTagline,

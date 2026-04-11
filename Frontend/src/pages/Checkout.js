@@ -47,14 +47,14 @@ const Field = ({ formik, label, name, type = "text", placeholder, half }) => (
   </div>
 );
 
-const SelectField = ({ formik, label, name, options }) => (
+const SelectField = ({ formik, label, name, options, onChange }) => (
   <div className="co-field co-field-half">
     <label className="co-label">{label}</label>
     <select
       className={`co-input co-select${formik.touched[name] && formik.errors[name] ? " co-input-err" : ""}`}
       name={name}
       value={formik.values[name]}
-      onChange={formik.handleChange(name)}
+      onChange={(e) => { formik.handleChange(name)(e); onChange && onChange(e.target.value); }}
       onBlur={formik.handleBlur(name)}
     >
       <option value="">Select {label}</option>
@@ -80,8 +80,27 @@ const Checkout = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [cartProductState, setCartProductState] = useState([]);
   const [summaryOpen, setSummaryOpen] = useState(false);
+  // GST settings from backend
+  const [gstSettings, setGstSettings] = useState({ cgst: 0, sgst: 0, igst: 0, storeState: "Gujarat", taxIncluded: false });
+  const [gstType, setGstType] = useState("CGST_SGST");
+  const [cgstAmt, setCgstAmt] = useState(0);
+  const [sgstAmt, setSgstAmt] = useState(0);
+  const [igstAmt, setIgstAmt] = useState(0);
+  const [selectedState, setSelectedState] = useState("");
 
-  useEffect(() => { dispatch(getUserCart(getConfig())); }, [dispatch]);
+  useEffect(() => {
+    dispatch(getUserCart(getConfig()));
+    // Fetch GST settings from public endpoint (no auth needed)
+    axios.get(`${base_url}user/public-settings`).then(res => {
+      setGstSettings({
+        cgst: res.data.cgst || 0,
+        sgst: res.data.sgst || 0,
+        igst: res.data.igst || 0,
+        storeState: res.data.storeState || "Gujarat",
+        taxIncluded: res.data.taxIncluded === true,
+      });
+    }).catch(() => {});
+  }, [dispatch]);
 
   useEffect(() => {
     if (!cartState?.length) { setTotalAmount(0); return; }
@@ -96,9 +115,42 @@ const Checkout = () => {
     ));
   }, [cartState]);
 
-  const maxCoinDiscount = Math.min(userCoins, totalAmount + 100);
+  // Recalculate GST when state or totalAmount changes
+  useEffect(() => {
+    if (!selectedState || !totalAmount) {
+      setCgstAmt(0); setSgstAmt(0); setIgstAmt(0);
+      setGstType("NONE");
+      return;
+    }
+    if (selectedState === gstSettings.storeState) {
+      setGstType("CGST_SGST");
+      if (gstSettings.taxIncluded) {
+        const totalRate = (gstSettings.cgst + gstSettings.sgst) / 100;
+        const base = totalRate > 0 ? totalAmount / (1 + totalRate) : totalAmount;
+        setCgstAmt(base * gstSettings.cgst / 100);
+        setSgstAmt(base * gstSettings.sgst / 100);
+      } else {
+        setCgstAmt(totalAmount * gstSettings.cgst / 100);
+        setSgstAmt(totalAmount * gstSettings.sgst / 100);
+      }
+      setIgstAmt(0);
+    } else {
+      setGstType("IGST");
+      if (gstSettings.taxIncluded) {
+        const totalRate = gstSettings.igst / 100;
+        const base = totalRate > 0 ? totalAmount / (1 + totalRate) : totalAmount;
+        setIgstAmt(base * totalRate);
+      } else {
+        setIgstAmt(totalAmount * gstSettings.igst / 100);
+      }
+      setCgstAmt(0); setSgstAmt(0);
+    }
+  }, [selectedState, totalAmount, gstSettings]);
+
+  const taxAmount = gstType === "IGST" ? igstAmt : cgstAmt + sgstAmt;
+  const maxCoinDiscount = Math.min(userCoins, totalAmount + 100 + (gstSettings.taxIncluded ? 0 : taxAmount));
   const coinDiscount = useCoins ? Math.min(coinAmount, maxCoinDiscount) : 0;
-  const finalAmount = Math.max(0, totalAmount + 100 - coinDiscount);
+  const finalAmount = Math.max(0, totalAmount + 100 + (gstSettings.taxIncluded ? 0 : taxAmount) - coinDiscount);
 
   const formik = useFormik({
     initialValues: { firstname: "", lastname: "", address: "", state: "", city: "", country: "", pincode: "", other: "" },
@@ -157,6 +209,16 @@ const Checkout = () => {
               coinsUsed: useCoins ? coinAmount : 0,
               coinAmount: coinDiscount,
               discountBreakdown: { directDiscount: 0, offerDiscount: 0, coinDiscount },
+              gstBreakdown: {
+                cgst: cgstAmt,
+                sgst: sgstAmt,
+                igst: igstAmt,
+                cgstRate: gstSettings.cgst,
+                sgstRate: gstSettings.sgst,
+                igstRate: gstSettings.igst,
+                gstType,
+                taxableAmount: totalAmount,
+              },
             }));
             await dispatch(deleteUserCart(getConfig()));
             localStorage.removeItem("address");
@@ -235,7 +297,7 @@ const Checkout = () => {
                   <form onSubmit={formik.handleSubmit} className="co-form">
                     <div className="co-row">
                       <SelectField formik={formik} label="Country" name="country" options={["India"]} />
-                      <SelectField formik={formik} label="State" name="state" options={["Gujarat", "Maharashtra", "Delhi", "Karnataka", "Tamil Nadu", "Rajasthan", "Uttar Pradesh", "West Bengal", "Telangana", "Punjab"]} />
+                      <SelectField formik={formik} label="State" name="state" options={["Gujarat", "Maharashtra", "Delhi", "Karnataka", "Tamil Nadu", "Rajasthan", "Uttar Pradesh", "West Bengal", "Telangana", "Punjab"]} onChange={setSelectedState} />
                     </div>
                     <div className="co-row">
                       <Field formik={formik} label="First Name" name="firstname" placeholder="First name" half />
@@ -389,6 +451,24 @@ const Checkout = () => {
                       <span>Shipping</span>
                       <span style={{ color: "#6b7280" }}>₹100</span>
                     </div>
+                    {gstType === "CGST_SGST" && cgstAmt > 0 && (
+                      <div className="co-total-row" style={{ color: "#16a34a" }}>
+                        <span>CGST ({gstSettings.cgst}%)</span>
+                        <span>+₹{cgstAmt.toFixed(2)}</span>
+                      </div>
+                    )}
+                    {gstType === "CGST_SGST" && sgstAmt > 0 && (
+                      <div className="co-total-row" style={{ color: "#16a34a" }}>
+                        <span>SGST ({gstSettings.sgst}%)</span>
+                        <span>+₹{sgstAmt.toFixed(2)}</span>
+                      </div>
+                    )}
+                    {gstType === "IGST" && igstAmt > 0 && (
+                      <div className="co-total-row" style={{ color: "#ea580c" }}>
+                        <span>IGST ({gstSettings.igst}%) — Inter-state</span>
+                        <span>+₹{igstAmt.toFixed(2)}</span>
+                      </div>
+                    )}
                     {coinDiscount > 0 && (
                       <div className="co-total-row co-discount-row">
                         <span>Coin Discount</span>

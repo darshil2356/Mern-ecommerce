@@ -56,6 +56,15 @@ var userSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
+    igst: {
+      type: Number,
+      default: 0,
+    },
+    // State where the store is located (for CGST/SGST vs IGST logic)
+    storeState: {
+      type: String,
+      default: "Gujarat",
+    },
     // Tax mode: true = prices already include tax (extract), false = add tax on top
     taxIncluded: {
       type: Boolean,

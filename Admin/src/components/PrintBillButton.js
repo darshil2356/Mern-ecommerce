@@ -9,6 +9,11 @@ const PrintBillButton = ({
   payableAmount,
   cgstAmount = 0,
   sgstAmount = 0,
+  igstAmount = 0,
+  gstType = "CGST_SGST",
+  cgstPercent = 0,
+  sgstPercent = 0,
+  igstPercent = 0,
   discountAmount = 0,
   coinDiscountAmount = 0,
   coinsUsed = 0,
@@ -42,7 +47,7 @@ const PrintBillButton = ({
     const now = new Date();
     const dateStr = now.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
     const timeStr = now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
-    const effectiveSubtotal = subtotal || payableAmount + discountAmount + coinDiscountAmount - cgstAmount - sgstAmount;
+    const effectiveSubtotal = subtotal || payableAmount + discountAmount + coinDiscountAmount - cgstAmount - sgstAmount - igstAmount;
     const totalDiscount = discountAmount + coinDiscountAmount;
     const displayCoinsUsed = coinsUsed || coinDiscountAmount;
 
@@ -146,14 +151,20 @@ const PrintBillButton = ({
                     </div>
                     ${cgstAmount > 0 ? `
                     <div class="flex justify-between text-sm">
-                      <span class="text-gray-600">CGST</span>
+                      <span class="text-gray-600">CGST (${cgstPercent}%)</span>
                       <span class="text-green-600">+₹${cgstAmount.toFixed(2)}</span>
                     </div>
                     ` : ''}
                     ${sgstAmount > 0 ? `
                     <div class="flex justify-between text-sm">
-                      <span class="text-gray-600">SGST</span>
+                      <span class="text-gray-600">SGST (${sgstPercent}%)</span>
                       <span class="text-green-600">+₹${sgstAmount.toFixed(2)}</span>
+                    </div>
+                    ` : ''}
+                    ${igstAmount > 0 ? `
+                    <div class="flex justify-between text-sm">
+                      <span class="text-gray-600">IGST (${igstPercent}%)</span>
+                      <span class="text-green-600">+₹${igstAmount.toFixed(2)}</span>
                     </div>
                     ` : ''}
                     ${discountAmount > 0 ? `

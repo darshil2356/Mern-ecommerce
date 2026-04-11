@@ -482,28 +482,29 @@ const Reports = () => {
       XLSX.utils.book_append_sheet(wb, wsMonthly, "Monthly Breakdown");
     }
 
-    // Create GST Invoices Sheet - Meesho/Flipkart style
+    // Create GST Invoices Sheet - with CGST/SGST/IGST split
     if (reportData.invoices && reportData.invoices.length > 0) {
       const invoicesData = reportData.invoices.map(inv => ({
         "Invoice Number": inv.invoiceNumber || "",
         "Invoice Date": dayjs(inv.invoiceDate).format('DD-MM-YYYY'),
         "Customer Name": inv.customerName || "Walk-in",
         "GSTIN": inv.gstin || "N/A",
-        "Taxable Value (₹)": inv.taxableValue?.toFixed(2) || "0.00",
-        "CGST Rate (%)": inv.cgstRate || 0,
-        "CGST Amount (₹)": inv.cgst?.toFixed(2) || "0.00",
-        "SGST Rate (%)": inv.sgstRate || 0,
-        "SGST Amount (₹)": inv.sgst?.toFixed(2) || "0.00",
-        "IGST Rate (%)": inv.igstRate || 0,
-        "IGST Amount (₹)": inv.igst?.toFixed(2) || "0.00",
-        "Total Tax (₹)": inv.totalTax?.toFixed(2) || "0.00",
-        "Invoice Value (₹)": inv.invoiceValue?.toFixed(2) || "0.00"
+        "GST Type": inv.gstType === 'IGST' ? 'Inter-state (IGST)' : inv.gstType === 'CGST_SGST' ? 'Intra-state (CGST+SGST)' : 'None',
+        "Taxable Value (₹)": inv.taxableValue || "0.00",
+        "CGST Rate (%)": inv.gstType === 'CGST_SGST' ? (inv.cgstRate || 0) : 0,
+        "CGST Amount (₹)": inv.gstType === 'CGST_SGST' ? (inv.cgst || "0.00") : "0.00",
+        "SGST Rate (%)": inv.gstType === 'CGST_SGST' ? (inv.sgstRate || 0) : 0,
+        "SGST Amount (₹)": inv.gstType === 'CGST_SGST' ? (inv.sgst || "0.00") : "0.00",
+        "IGST Rate (%)": inv.gstType === 'IGST' ? (inv.igstRate || 0) : 0,
+        "IGST Amount (₹)": inv.gstType === 'IGST' ? (inv.igst || "0.00") : "0.00",
+        "Total Tax (₹)": inv.totalTax || "0.00",
+        "Invoice Value (₹)": inv.invoiceValue || "0.00"
       }));
       const wsInvoices = XLSX.utils.json_to_sheet(invoicesData);
       wsInvoices['!cols'] = [
-        { wch: 15 }, { wch: 12 }, { wch: 20 }, { wch: 15 },
-        { wch: 15 }, { wch: 12 }, { wch: 12 }, { wch: 12 },
-        { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 15 }, { wch: 15 }
+        { wch: 15 }, { wch: 12 }, { wch: 20 }, { wch: 18 }, { wch: 22 },
+        { wch: 15 }, { wch: 12 }, { wch: 14 }, { wch: 12 },
+        { wch: 14 }, { wch: 12 }, { wch: 14 }, { wch: 14 }, { wch: 15 }
       ];
       XLSX.utils.book_append_sheet(wb, wsInvoices, "GST Invoices");
     }
@@ -972,110 +973,79 @@ const Reports = () => {
       children: (
         <div>
           <div className="flex gap-4 mb-6">
-            <Select 
-              value={selectedMonth} 
-              onChange={setSelectedMonth}
-              style={{ width: 150 }}
-            >
-              {monthNames.map((month, index) => (
-                <Option key={index + 1} value={index + 1}>{month}</Option>
-              ))}
+            <Select value={selectedMonth} onChange={setSelectedMonth} style={{ width: 150 }}>
+              {monthNames.map((month, index) => (<Option key={index + 1} value={index + 1}>{month}</Option>))}
             </Select>
-            <Select 
-              value={selectedYear} 
-              onChange={setSelectedYear}
-              style={{ width: 100 }}
-            >
-              {years.map(year => (
-                <Option key={year} value={year}>{year}</Option>
-              ))}
+            <Select value={selectedYear} onChange={setSelectedYear} style={{ width: 100 }}>
+              {years.map(year => (<Option key={year} value={year}>{year}</Option>))}
             </Select>
           </div>
 
           {gstReport && (
             <>
-              <Row gutter={16} className="mb-6">
-                <Col span={8}>
-                  <Card>
-                    <Statistic 
-                      title="Total Invoices" 
-                      value={gstReport.summary?.totalInvoices || 0} 
-                    />
-                  </Card>
+              {/* Summary Cards */}
+              <Row gutter={16} className="mb-4">
+                <Col span={6}>
+                  <Card><Statistic title="Total Invoices" value={gstReport.summary?.totalInvoices || 0} /></Card>
                 </Col>
-                <Col span={8}>
-                  <Card>
-                    <Statistic 
-                      title="Taxable Value" 
-                      value={gstReport.summary?.totalTaxableValue || 0}
-                      prefix="₹"
-                      precision={2}
-                    />
-                  </Card>
+                <Col span={6}>
+                  <Card><Statistic title="Taxable Value" value={gstReport.summary?.totalTaxableValue || 0} prefix="₹" precision={2} /></Card>
                 </Col>
-                <Col span={8}>
-                  <Card>
-                    <Statistic 
-                      title="Total Tax" 
-                      value={gstReport.summary?.totalTax || 0}
-                      prefix="₹"
-                      precision={2}
-                    />
-                  </Card>
+                <Col span={6}>
+                  <Card><Statistic title="Total Tax" value={gstReport.summary?.totalTax || 0} prefix="₹" precision={2} valueStyle={{ color: '#fa541c' }} /></Card>
+                </Col>
+                <Col span={6}>
+                  <Card><Statistic title="Invoice Value" value={gstReport.summary?.totalInvoiceValue || 0} prefix="₹" precision={2} valueStyle={{ color: '#52c41a' }} /></Card>
                 </Col>
               </Row>
 
+              {/* CGST / SGST / IGST Split */}
               <Row gutter={16} className="mb-6">
-                <Col span={8}>
-                  <Card>
-                    <Statistic 
-                      title="CGST" 
-                      value={gstReport.summary?.totalCGST || 0}
-                      prefix="₹"
-                      precision={2}
-                      suffix={`(@ ${gstReport.gstRates?.cgst}%)`}
-                    />
+                <Col span={6}>
+                  <Card className="border-green-200 bg-green-50">
+                    <Statistic title="CGST (Intra-state)" value={gstReport.summary?.totalCGST || 0} prefix="₹" precision={2} valueStyle={{ color: '#16a34a' }} />
+                    <p className="text-xs text-gray-500 mt-1">{gstReport.summary?.cgstSgstOrders || 0} intra-state orders</p>
                   </Card>
                 </Col>
-                <Col span={8}>
-                  <Card>
-                    <Statistic 
-                      title="SGST" 
-                      value={gstReport.summary?.totalSGST || 0}
-                      prefix="₹"
-                      precision={2}
-                      suffix={`(@ ${gstReport.gstRates?.sgst}%)`}
-                    />
+                <Col span={6}>
+                  <Card className="border-green-200 bg-green-50">
+                    <Statistic title="SGST (Intra-state)" value={gstReport.summary?.totalSGST || 0} prefix="₹" precision={2} valueStyle={{ color: '#16a34a' }} />
                   </Card>
                 </Col>
-                <Col span={8}>
-                  <Card>
-                    <Statistic 
-                      title="Total Invoice Value" 
-                      value={gstReport.summary?.totalInvoiceValue || 0}
-                      valueStyle={{ color: '#52c41a' }}
-                      prefix="₹"
-                      precision={2}
-                    />
+                <Col span={6}>
+                  <Card className="border-orange-200 bg-orange-50">
+                    <Statistic title="IGST (Inter-state)" value={gstReport.summary?.totalIGST || 0} prefix="₹" precision={2} valueStyle={{ color: '#ea580c' }} />
+                    <p className="text-xs text-gray-500 mt-1">{gstReport.summary?.igstOrders || 0} inter-state orders</p>
+                  </Card>
+                </Col>
+                <Col span={6}>
+                  <Card className="border-blue-200 bg-blue-50">
+                    <Statistic title="CGST + SGST + IGST" value={gstReport.summary?.totalTax || 0} prefix="₹" precision={2} valueStyle={{ color: '#2563eb' }} />
                   </Card>
                 </Col>
               </Row>
 
               <Card title="Invoice Details" size="small">
                 <Table
-                  dataSource={gstReport.invoices?.slice(0, 20).map((inv, i) => ({ ...inv, key: i }))}
+                  dataSource={gstReport.invoices?.slice(0, 50).map((inv, i) => ({ ...inv, key: i }))}
                   columns={[
-                    { title: 'Invoice #', dataIndex: 'invoiceNumber' },
-                    { title: 'Date', dataIndex: 'invoiceDate', render: (d) => dayjs(d).format('DD/MM/YYYY') },
+                    { title: 'Invoice #', dataIndex: 'invoiceNumber', width: 110 },
+                    { title: 'Date', dataIndex: 'invoiceDate', render: (d) => dayjs(d).format('DD/MM/YYYY'), width: 100 },
                     { title: 'Customer', dataIndex: 'customerName', ellipsis: true },
-                    { title: 'Taxable', dataIndex: 'taxableValue', align: 'right' },
-                    { title: 'CGST', dataIndex: 'cgst', align: 'right' },
-                    { title: 'SGST', dataIndex: 'sgst', align: 'right' },
-                    { title: 'Total', dataIndex: 'invoiceValue', align: 'right', render: (v) => <b>₹{v}</b> }
+                    { title: 'Type', dataIndex: 'gstType', width: 100, render: (v) => (
+                      <Tag color={v === 'IGST' ? 'orange' : v === 'CGST_SGST' ? 'green' : 'default'}>
+                        {v === 'IGST' ? 'IGST' : v === 'CGST_SGST' ? 'CGST+SGST' : 'None'}
+                      </Tag>
+                    )},
+                    { title: 'Taxable', dataIndex: 'taxableValue', align: 'right', width: 90 },
+                    { title: 'CGST', dataIndex: 'cgst', align: 'right', width: 80, render: (v, r) => r.gstType === 'CGST_SGST' ? `₹${v}` : '-' },
+                    { title: 'SGST', dataIndex: 'sgst', align: 'right', width: 80, render: (v, r) => r.gstType === 'CGST_SGST' ? `₹${v}` : '-' },
+                    { title: 'IGST', dataIndex: 'igst', align: 'right', width: 80, render: (v, r) => r.gstType === 'IGST' ? `₹${v}` : '-' },
+                    { title: 'Total', dataIndex: 'invoiceValue', align: 'right', width: 90, render: (v) => <b>₹{v}</b> }
                   ]}
                   pagination={{ pageSize: 20 }}
                   size="small"
-                  scroll={{ x: 800 }}
+                  scroll={{ x: 900 }}
                 />
               </Card>
             </>

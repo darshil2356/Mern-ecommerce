@@ -153,11 +153,22 @@ paymentInfo: {
       type: Number,
       default: 0,
     },
+    // GST breakdown stored on each order
+    gstBreakdown: {
+      cgst:     { type: Number, default: 0 },
+      sgst:     { type: Number, default: 0 },
+      igst:     { type: Number, default: 0 },
+      cgstRate: { type: Number, default: 0 },
+      sgstRate: { type: Number, default: 0 },
+      igstRate: { type: Number, default: 0 },
+      gstType:  { type: String, enum: ["CGST_SGST", "IGST", "NONE"], default: "NONE" },
+      taxableAmount: { type: Number, default: 0 },
+    },
     // Breakdown of how the discount was applied
     discountBreakdown: {
-      directDiscount: { type: Number, default: 0 },   // % discount applied by admin at billing
-      offerDiscount:  { type: Number, default: 0 },   // spin-wheel / user offer discount
-      coinDiscount:   { type: Number, default: 0 },   // coins redeemed as cash
+      directDiscount: { type: Number, default: 0 },
+      offerDiscount:  { type: Number, default: 0 },
+      coinDiscount:   { type: Number, default: 0 },
     },
     coinsUsed: {
       type: Number,

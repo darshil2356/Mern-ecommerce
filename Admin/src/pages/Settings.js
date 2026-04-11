@@ -18,6 +18,7 @@ const Settings = () => {
   const [referralCoinPercent,  setReferralCoinPercent]  = useState(10);
   // Tax mode: false = prices EXCLUDE tax (add on top), true = prices INCLUDE tax (extract)
   const [taxIncluded, setTaxIncluded] = useState(false);
+  const [storeState, setStoreState] = useState("Gujarat");
 
   useEffect(() => { fetchSettings(); }, []);
 
@@ -30,6 +31,7 @@ const Settings = () => {
         email:        res.data.email        || "",
         cgst:         res.data.cgst         || 0,
         sgst:         res.data.sgst         || 0,
+        igst:         res.data.igst         || 0,
         storeName:    res.data.storeName    || "Cart Corner",
         storeTagline: res.data.storeTagline || "Your One-Stop Shopping Destination",
         storeAddress: res.data.storeAddress || "",
@@ -39,6 +41,7 @@ const Settings = () => {
       setReferralOfferEnabled(res.data.showReferralOffer === true);
       setReferralCoinPercent(res.data.referralCoinPercent || 10);
       setTaxIncluded(res.data.taxIncluded === true);
+      setStoreState(res.data.storeState || "Gujarat");
     } catch {
       message.error("Failed to load settings");
     } finally {
@@ -51,10 +54,14 @@ const Settings = () => {
       setSaving(true);
       const payload = {
         ...values,
+        cgst: parseFloat(values.cgst) || 0,
+        sgst: parseFloat(values.sgst) || 0,
+        igst: parseFloat(values.igst) || 0,
         showSpinner:         spinnerEnabled,
         showReferralOffer:   referralOfferEnabled,
         referralCoinPercent: referralOfferEnabled ? referralCoinPercent : 0,
         taxIncluded,
+        storeState,
       };
       await axios.put(`${base_url}user/settings`, payload, config);
       if (values.gstin !== undefined) {
@@ -97,12 +104,44 @@ const Settings = () => {
 
           {/* Tax rates */}
           <div className="flex gap-4">
-            <Form.Item className="flex-1" label="CGST (%)" name="cgst" rules={[{ required: true, message: "Please enter CGST" }]}>
-              <Input type="number" min={0} placeholder="Enter CGST" prefix={<FaPercentage className="text-gray-400" />} />
+            <Form.Item
+              className="flex-1" label="CGST (%)"
+              name="cgst"
+              rules={[{ validator: (_, v) => (v === '' || v === null || v === undefined) ? Promise.reject('Enter CGST') : isNaN(Number(v)) || Number(v) < 0 ? Promise.reject('Invalid') : Promise.resolve() }]}
+            >
+              <Input type="number" min={0} step={0.01} placeholder="e.g. 2.5" prefix={<FaPercentage className="text-gray-400" />} />
             </Form.Item>
-            <Form.Item className="flex-1" label="SGST (%)" name="sgst" rules={[{ required: true, message: "Please enter SGST" }]}>
-              <Input type="number" min={0} placeholder="Enter SGST" prefix={<FaPercentage className="text-gray-400" />} />
+            <Form.Item
+              className="flex-1" label="SGST (%)"
+              name="sgst"
+              rules={[{ validator: (_, v) => (v === '' || v === null || v === undefined) ? Promise.reject('Enter SGST') : isNaN(Number(v)) || Number(v) < 0 ? Promise.reject('Invalid') : Promise.resolve() }]}
+            >
+              <Input type="number" min={0} step={0.01} placeholder="e.g. 2.5" prefix={<FaPercentage className="text-gray-400" />} />
             </Form.Item>
+            <Form.Item
+              className="flex-1" label="IGST (%)"
+              name="igst"
+              rules={[{ validator: (_, v) => (v === '' || v === null || v === undefined) ? Promise.reject('Enter IGST') : isNaN(Number(v)) || Number(v) < 0 ? Promise.reject('Invalid') : Promise.resolve() }]}
+            >
+              <Input type="number" min={0} step={0.01} placeholder="e.g. 5" prefix={<FaPercentage className="text-gray-400" />} />
+            </Form.Item>
+          </div>
+
+          {/* Store State for GST logic */}
+          <div className="p-4 bg-green-50 rounded-xl border border-green-200 mb-4">
+            <p className="font-medium text-gray-800 mb-1">Store Location (State)</p>
+            <p className="text-xs text-gray-500 mb-3">
+              Orders from <strong>{storeState}</strong> → CGST + SGST applied. Orders from other states → IGST applied.
+            </p>
+            <select
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-700"
+              value={storeState}
+              onChange={(e) => setStoreState(e.target.value)}
+            >
+              {["Gujarat","Maharashtra","Delhi","Karnataka","Tamil Nadu","Rajasthan","Uttar Pradesh","West Bengal","Telangana","Punjab","Madhya Pradesh","Bihar","Haryana","Odisha","Kerala"].map(s => (
+                <option key={s} value={s}>{s}</option>
+              ))}
+            </select>
           </div>
 
           {/* Tax mode toggle */}

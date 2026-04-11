@@ -4,25 +4,39 @@ const instance = new Razorpay({
   key_secret: "sRO0YkBxvgMg0PvWHJN16Uf7",
 });
 
-const checkout = async (req, res) => {
-  const { amount } = req.body;
-  const option = {
-    amount: amount * 100,
-    currency: "INR",
-  };
-  const order = await instance.orders.create(option);
-  res.json({
-    success: true,
-    order,
-  });
+const checkout = async (req, res, next) => {
+  try {
+    const { amount } = req.body;
+
+    if (!amount || typeof amount !== "number" || amount <= 0) {
+      res.status(400);
+      throw new Error("Invalid amount for checkout");
+    }
+
+    const option = {
+      amount: amount * 100,
+      currency: "INR",
+    };
+    const order = await instance.orders.create(option);
+    res.json({
+      success: true,
+      order,
+    });
+  } catch (error) {
+    next(error);
+  }
 };
 
-const paymentVerification = async (req, res) => {
-  const { razorpayOrderId, razorpayPaymentId } = req.body;
-  res.json({
-    razorpayOrderId,
-    razorpayPaymentId,
-  });
+const paymentVerification = async (req, res, next) => {
+  try {
+    const { razorpayOrderId, razorpayPaymentId } = req.body;
+    res.json({
+      razorpayOrderId,
+      razorpayPaymentId,
+    });
+  } catch (error) {
+    next(error);
+  }
 };
 
 module.exports = {

@@ -1,6 +1,16 @@
-import React, { useEffect, useMemo, useState } from "react";
-import { Table, Button, Popover, DatePicker, Radio, Tag, Tooltip } from "antd";
-import { FilterOutlined, EyeOutlined, PrinterOutlined } from "@ant-design/icons";
+import React, { useEffect, useState, useMemo } from "react";
+import {
+  Table, Button, Select, Tag, message, Card, Row, Col, Statistic,
+  Space, Tooltip, Input, DatePicker, Badge, Avatar, Dropdown, Progress,
+  Divider, Typography
+} from "antd";
+import {
+  FilterOutlined, EyeOutlined, PrinterOutlined, RocketOutlined,
+  SearchOutlined, CalendarOutlined, DollarOutlined, ShoppingOutlined,
+  CarOutlined, CheckCircleOutlined, ClockCircleOutlined, CloseCircleOutlined,
+  SyncOutlined, DownloadOutlined, MoreOutlined, UserOutlined, PhoneOutlined,
+  MailOutlined, EnvironmentOutlined, CreditCardOutlined, ThunderboltOutlined
+} from "@ant-design/icons";
 import { useDispatch, useSelector } from "react-redux";
 import { Link } from "react-router-dom";
 import dayjs from "dayjs";
@@ -9,561 +19,1122 @@ import { base_url } from "../utils/baseUrl";
 import { config } from "../utils/axiosconfig";
 import axios from "axios";
 
-// Helper function to convert number to words
-const numberToWords = (num) => {
-  const a = ['','One ','Two ','Three ','Four ','Five ','Six ','Seven ','Eight ','Nine ','Ten ','Eleven ','Twelve ','Thirteen ','Fourteen ','Fifteen ','Sixteen ','Seventeen ','Eighteen ','Nineteen '];
-  const b = ['', '', 'Twenty','Thirty','Forty','Fifty','Sixty','Seventy','Eighty','Ninety'];
+const { RangePicker } = DatePicker;
+const { Option } = Select;
+const { Title, Text } = Typography;
 
-  const numToWords = (n) => {
-    if ((n = n.toString()).length > 9) return 'overflow';
-    let n_zero = ('000000000' + n).substr(-9);
-    let n1 = n_zero.substr(0, 2), n2 = n_zero.substr(2, 2), n3 = n_zero.substr(4, 2), n4 = n_zero.substr(6, 2), n5 = n_zero.substr(8, 2);
-    let n6 = n_zero.substr(0, 3), n7 = n_zero.substr(3, 3), n8 = n_zero.substr(6, 3);
-    let res = '';
-    res += (n1 != 0) ? (a[Number(n1)] || b[n1[0]] + ' ' + a[n1[1]]) + 'Crore ' : '';
-    res += (n2 != 0) ? (a[Number(n2)] || b[n2[0]] + ' ' + a[n2[1]]) + 'Lakh ' : '';
-    res += (n3 != 0) ? (a[Number(n3)] || b[n3[0]] + ' ' + a[n3[1]]) + 'Thousand ' : '';
-    res += (n4 != 0) ? (a[Number(n4)] || b[n4[0]] + ' ' + a[n4[1]]) + 'Hundred ' : '';
-    res += (n5 != 0) ? ((res != '') ? 'and ' : '') + (a[Number(n5)] || b[n5[0]] + ' ' + a[n5[1]]) : '';
-    return res;
-  };
-
-  if (num <= 0) return 'Zero';
-  return numToWords(Math.floor(num));
-};
-
-// Function to print bill from order
-const printOrderBill = async (orderId) => {
-  try {
-    // Fetch order details with product info
-    const res = await axios.get(`${base_url}user/getaOrder/${orderId}`, config);
-    const order = res.data.orders;
-    
-    const invoiceNum = order._id.slice(-8).toUpperCase();
-    const now = new Date(order.createdAt);
-    const dateStr = now.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
-    const timeStr = now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
-    
-    const customerName = order.user ? `${order.user.firstname || ''} ${order.user.lastname || ''}`.trim() : "Walk-in Customer";
-    const customerMobile = order.user ? order.user.mobile : "";
-    const customerAddress = order.user ? order.user.address || "N/A" : "N/A";
-    const gstin = order.user ? order.user.gstin || "" : "";
-    
-    const subtotal = order.totalPrice;
-    const discountAmount = order.discountAmount || 0;
-    const totalAmount = order.totalPriceAfterDiscount;
-
-    const win = window.open("", "_blank");
-    if (!win) return;
-
-    win.document.write(`
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <title>Invoice - ${invoiceNum}</title>
-          <script src="https://cdn.tailwindcss.com"></script>
-          <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-          <style>
-            * { font-family: 'Inter', 'Segoe UI', sans-serif; }
-            @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
-          </style>
-        </head>
-        <body class="bg-gray-50 p-4">
-          <div class="max-w-3xl mx-auto bg-white rounded-xl shadow-lg overflow-hidden">
-            
-            <!-- Premium Header -->
-            <div class="bg-gradient-to-r from-blue-900 via-blue-800 to-blue-700 text-white p-6">
-              <div class="flex justify-between items-start">
-                <div>
-                  <div class="flex items-center gap-3 mb-2">
-                    <div class="w-12 h-12 bg-white/20 rounded-lg flex items-center justify-center">
-                      <svg xmlns="http://www.w3.org/2000/svg" class="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-                      </svg>
-                    </div>
-                    <div>
-                      <h1 class="text-2xl font-bold tracking-tight">PREMIUM STORE</h1>
-                      <p class="text-blue-200 text-xs">Wholesale & Retail</p>
-                    </div>
-                  </div>
-                  <p class="text-blue-100 text-sm mt-3">
-                    123 Business Street, Tech Park<br>
-                    City Center, State - 123456<br>
-                    📞 +91 98765 43210 | ✉️ info@premiumstore.com
-                  </p>
-                </div>
-                <div class="text-right">
-                  <div class="bg-white/20 px-4 py-2 rounded-lg inline-block">
-                    <span class="text-xs text-blue-200 block">INVOICE</span>
-                    <span class="text-xl font-bold">${invoiceNum}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <!-- Invoice Meta Info -->
-            <div class="bg-gray-50 px-6 py-4 flex justify-between items-center border-b">
-              <div>
-                <p class="text-xs text-gray-500 uppercase tracking-wide">Bill To</p>
-                <p class="font-semibold text-gray-800">${customerName}</p>
-                <p class="text-sm text-gray-600">${customerAddress}</p>
-                ${customerMobile ? `<p class="text-sm text-gray-600">📞 ${customerMobile}</p>` : ''}
-                ${gstin ? `<p class="text-sm text-gray-600 font-medium">GSTIN: ${gstin}</p>` : ''}
-              </div>
-              <div class="text-right">
-                <p class="text-sm text-gray-600"><span class="text-gray-500">Date:</span> ${dateStr}</p>
-                <p class="text-sm text-gray-600"><span class="text-gray-500">Time:</span> ${timeStr}</p>
-                <p class="text-sm text-gray-600"><span class="text-gray-500">Payment:</span> <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">${order.mode === 'OFFLINE' ? 'CASH' : 'ONLINE'}</span></p>
-              </div>
-            </div>
-
-            <!-- Items Table -->
-            <div class="p-6">
-              <table class="w-full text-sm">
-                <thead>
-                  <tr class="text-left">
-                    <th class="py-3 px-2 bg-blue-50 text-blue-800 font-semibold rounded-l-lg">#</th>
-                    <th class="py-3 px-2 bg-blue-50 text-blue-800 font-semibold">Item Description</th>
-                    <th class="py-3 px-2 bg-blue-50 text-blue-800 font-semibold text-center">Qty</th>
-                    <th class="py-3 px-2 bg-blue-50 text-blue-800 font-semibold text-right">Rate</th>
-                    <th class="py-3 px-2 bg-blue-50 text-blue-800 font-semibold text-right rounded-r-lg">Amount</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  ${order.orderItems.map((item, index) => `
-                    <tr class="border-b border-gray-100 hover:bg-gray-50">
-                      <td class="py-3 px-2 text-gray-500">${index + 1}</td>
-                      <td class="py-3 px-2 font-medium text-gray-800">${item.product ? item.product.title : 'Product'}</td>
-                      <td class="py-3 px-2 text-center text-gray-600">${item.quantity}</td>
-                      <td class="py-3 px-2 text-right text-gray-600">₹${item.price.toFixed(2)}</td>
-                      <td class="py-3 px-2 text-right font-medium text-gray-800">₹${(item.quantity * item.price).toFixed(2)}</td>
-                    </tr>
-                  `).join('')}
-                </tbody>
-              </table>
-
-              <!-- Summary Section -->
-              <div class="mt-6 flex justify-end">
-                <div class="w-72">
-                  <div class="bg-gray-50 rounded-lg p-4 space-y-2">
-                    <div class="flex justify-between text-sm">
-                      <span class="text-gray-600">Subtotal</span>
-                      <span class="font-medium">₹${subtotal.toFixed(2)}</span>
-                    </div>
-                    ${discountAmount > 0 ? `
-                    <div class="flex justify-between text-sm">
-                      <span class="text-gray-600">Discount</span>
-                      <span class="text-red-600">-₹${discountAmount.toFixed(2)}</span>
-                    </div>
-                    ` : ''}
-                    <div class="border-t border-gray-200 pt-2 mt-2">
-                      <div class="flex justify-between items-center">
-                        <span class="text-lg font-bold text-gray-800">Total Payable</span>
-                        <span class="text-2xl font-bold text-blue-600">₹${totalAmount.toFixed(2)}</span>
-                      </div>
-                    </div>
-                    <div class="text-center pt-2">
-                      <span class="text-xs text-gray-400">Amount in Words</span>
-                      <p class="text-sm font-medium text-gray-700">${numberToWords(totalAmount)} Rupees Only</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <!-- Footer -->
-            <div class="bg-gray-900 text-white p-6">
-              <div class="flex justify-between items-start">
-                <div class="text-sm">
-                  <p class="font-semibold mb-1">Terms & Conditions</p>
-                  <p class="text-gray-400 text-xs">• Goods once sold cannot be returned<br>• Warranty as per manufacturer policy<br>• Please retain this invoice for future reference</p>
-                </div>
-                <div class="text-center">
-                  <div class="w-32 h-16 border-b border-gray-600 mb-2"></div>
-                  <p class="text-xs text-gray-400">Authorized Signature</p>
-                </div>
-              </div>
-              <div class="border-t border-gray-700 mt-4 pt-4 text-center">
-                <p class="text-blue-400 font-semibold text-sm">Thank You for Shopping with Us! 🙏</p>
-                <p class="text-gray-500 text-xs mt-1">Visit Again | Quality Guaranteed | Best Prices</p>
-              </div>
-            </div>
-
-            <!-- Footer Bar -->
-            <div class="bg-blue-600 text-white text-center py-2">
-              <p class="text-xs">www.premiumstore.com | Powered by Premium Store Billing System</p>
-            </div>
-
-          </div>
-        </body>
-      </html>
-    `);
-
-    win.document.close();
-    setTimeout(() => win.print(), 500);
-  } catch (error) {
-    console.error("Error printing bill:", error);
-  }
-};
-
-const getStatusColor = (status) => {
-  const colors = {
-    "Ordered": "default",
-    "Processed": "blue",
-    "Shipped": "purple",
-    "Out for Delivery": "cyan",
-    "Delivered": "green",
-    "Cancelled": "red",
-  };
-  return colors[status] || "default";
-};
-
-const getPaymentStatus = (paymentInfo) => {
-  if (!paymentInfo) return { status: "Unknown", color: "default" };
-  if (paymentInfo.razorpayPaymentId) {
-    return { status: "Paid", color: "green" };
-  }
-  if (paymentInfo.razorpayOrderId === "OFFLINE") {
-    return { status: "Offline Paid", color: "blue" };
-  }
-  return { status: "Pending", color: "orange" };
-};
-
-const columns = [
-  { 
-    title: "SNo", 
-    dataIndex: "key",
-    width: 60,
+// Premium Enterprise Color Palette
+const COLORS = {
+  // Primary Brand Colors
+  primary: {
+    main: '#0F172A',        // Rich charcoal black
+    light: '#1E293B',       // Dark slate
+    lighter: '#334155',     // Medium slate
+    dark: '#020617',        // Deep black
+    gradient: 'linear-gradient(135deg, #0F172A 0%, #1E293B 50%, #334155 100%)',
+    glow: '0 0 20px rgba(15, 23, 42, 0.3)'
   },
-  { 
-    title: "Order ID", 
-    dataIndex: "orderId",
-    render: (id) => <span style={{ fontFamily: "monospace", fontSize: 12 }}>{id?.slice(-8).toUpperCase()}</span>,
+
+  // Secondary Success Colors
+  secondary: {
+    main: '#059669',        // Emerald green
+    light: '#10B981',       // Light emerald
+    lighter: '#34D399',     // Bright emerald
+    dark: '#047857',        // Dark emerald
+    gradient: 'linear-gradient(135deg, #059669 0%, #10B981 50%, #34D399 100%)',
+    glow: '0 0 20px rgba(5, 150, 105, 0.3)'
   },
-  { 
-    title: "Name", 
-    dataIndex: "name",
-    ellipsis: true,
+
+  // Accent Colors
+  accent: {
+    blue: '#2563EB',        // Professional blue
+    purple: '#7C3AED',      // Deep purple
+    orange: '#EA580C',      // Burnt orange
+    red: '#DC2626',         // Crimson red
+    teal: '#0D9488',        // Teal
+    indigo: '#4338CA',      // Indigo
+    pink: '#DB2777',        // Magenta pink
+    cyan: '#0891B2'         // Cyan blue
   },
-  { 
-    title: "Items", 
-    dataIndex: "items",
-    align: "center",
-    width: 70,
+
+  // Neutral Professional Grays
+  neutral: {
+    50: '#F8FAFC',          // Off-white
+    100: '#F1F5F9',         // Very light gray
+    200: '#E2E8F0',         // Light gray
+    300: '#CBD5E1',         // Light medium gray
+    400: '#94A3B8',         // Medium gray
+    500: '#64748B',         // Medium dark gray
+    600: '#475569',         // Dark gray
+    700: '#334155',         // Darker gray
+    800: '#1E293B',         // Very dark gray
+    900: '#0F172A'          // Almost black
   },
-  { 
-    title: "Amount", 
-    dataIndex: "amount",
-    render: (amount) => <span style={{ fontWeight: 600 }}>₹{amount?.toFixed(2)}</span>,
-  },
-  { 
-    title: "Discount", 
-    dataIndex: "discount",
-    render: (discount, record) => {
-      if (discount <= 0) return "-";
-      const b = record.discountBreakdown || {};
-      const hasBreakdown = b.directDiscount > 0 || b.offerDiscount > 0 || b.coinDiscount > 0;
-      const tip = hasBreakdown ? (
-        <div style={{ fontSize: 12 }}>
-          {b.directDiscount > 0 && <div>🏷️ Direct: -₹{b.directDiscount.toFixed(2)}</div>}
-          {b.offerDiscount  > 0 && <div>🎁 Offer: -₹{b.offerDiscount.toFixed(2)}</div>}
-          {b.coinDiscount   > 0 && <div>🪙 Coins: -₹{b.coinDiscount.toFixed(2)}</div>}
-        </div>
-      ) : null;
-      return (
-        <Tooltip title={tip}>
-          <span style={{ color: "#52c41a", cursor: hasBreakdown ? "help" : "default" }}>
-            -₹{discount.toFixed(2)}{hasBreakdown ? " ℹ️" : ""}
-          </span>
-        </Tooltip>
-      );
+
+  // Status-Specific Colors with Premium Feel
+  status: {
+    ordered: {
+      bg: '#FFFBEB',         // Warm cream
+      text: '#92400E',       // Dark brown
+      border: '#F59E0B',     // Golden yellow
+      gradient: 'linear-gradient(135deg, #FFFBEB 0%, #FEF3C7 50%, #FDE68A 100%)',
+      glow: '0 0 15px rgba(245, 158, 11, 0.2)'
     },
+    processed: {
+      bg: '#EFF6FF',         // Light blue
+      text: '#1E40AF',       // Dark blue
+      border: '#3B82F6',     // Blue
+      gradient: 'linear-gradient(135deg, #EFF6FF 0%, #DBEAFE 50%, #BFDBFE 100%)',
+      glow: '0 0 15px rgba(59, 130, 246, 0.2)'
+    },
+    packed: {
+      bg: '#F3E8FF',         // Light purple
+      text: '#6B21A8',       // Dark purple
+      border: '#8B5CF6',     // Purple
+      gradient: 'linear-gradient(135deg, #F3E8FF 0%, #E9D5FF 50%, #D8B4FE 100%)',
+      glow: '0 0 15px rgba(139, 92, 246, 0.2)'
+    },
+    shipped: {
+      bg: '#ECFDF5',         // Light green
+      text: '#065F46',       // Dark green
+      border: '#10B981',     // Green
+      gradient: 'linear-gradient(135deg, #ECFDF5 0%, #D1FAE5 50%, #A7F3D0 100%)',
+      glow: '0 0 15px rgba(16, 185, 129, 0.2)'
+    },
+    outForDelivery: {
+      bg: '#FDF4FF',         // Light magenta
+      text: '#831843',       // Dark magenta
+      border: '#EC4899',     // Magenta
+      gradient: 'linear-gradient(135deg, #FDF4FF 0%, #FAE8FF 50%, #F5D0FE 100%)',
+      glow: '0 0 15px rgba(236, 72, 153, 0.2)'
+    },
+    delivered: {
+      bg: '#F0FDF4',         // Mint green
+      text: '#14532D',       // Dark green
+      border: '#22C55E',     // Bright green
+      gradient: 'linear-gradient(135deg, #F0FDF4 0%, #DCFCE7 50%, #BBF7D0 100%)',
+      glow: '0 0 15px rgba(34, 197, 94, 0.2)'
+    },
+    cancelled: {
+      bg: '#FEF2F2',         // Light red
+      text: '#991B1B',       // Dark red
+      border: '#EF4444',     // Red
+      gradient: 'linear-gradient(135deg, #FEF2F2 0%, #FEE2E2 50%, #FECACA 100%)',
+      glow: '0 0 15px rgba(239, 68, 68, 0.2)'
+    }
   },
-  { 
-    title: "Final", 
-    dataIndex: "finalAmount",
-    render: (amount) => <span style={{ fontWeight: 700, color: "#1890ff" }}>₹{amount?.toFixed(2)}</span>,
+
+  // Glassmorphism Effects
+  glass: {
+    light: 'rgba(255, 255, 255, 0.85)',
+    medium: 'rgba(255, 255, 255, 0.75)',
+    dark: 'rgba(255, 255, 255, 0.65)',
+    backdrop: 'blur(20px)',
+    border: 'rgba(255, 255, 255, 0.2)',
+    shadow: '0 8px 32px rgba(0, 0, 0, 0.12)'
+  }
+};
+
+// Enhanced status configuration with premium styling
+const STATUS_CONFIG = {
+  "All": {
+    color: "default",
+    icon: null,
+    bgColor: COLORS.neutral[100],
+    textColor: COLORS.neutral[600],
+    gradient: `linear-gradient(135deg, ${COLORS.neutral[100]} 0%, ${COLORS.neutral[200]} 100%)`,
+    borderColor: COLORS.neutral[300],
+    glow: 'none',
+    count: 0
   },
-  { 
-    title: "Status", 
-    dataIndex: "status",
-    render: (status) => <Tag color={getStatusColor(status)}>{status}</Tag>,
-    width: 130,
+  "Ordered": {
+    color: "orange",
+    icon: <ClockCircleOutlined />,
+    bgColor: COLORS.status.ordered.bg,
+    textColor: COLORS.status.ordered.text,
+    gradient: COLORS.status.ordered.gradient,
+    borderColor: COLORS.status.ordered.border,
+    glow: COLORS.status.ordered.glow,
+    count: 0
   },
-  { 
-    title: "Payment", 
-    dataIndex: "payment",
-    render: (payment) => <Tag color={payment.color}>{payment.status}</Tag>,
+  "Processed": {
+    color: "blue",
+    icon: <SyncOutlined />,
+    bgColor: COLORS.status.processed.bg,
+    textColor: COLORS.status.processed.text,
+    gradient: COLORS.status.processed.gradient,
+    borderColor: COLORS.status.processed.border,
+    glow: COLORS.status.processed.glow,
+    count: 0
   },
-  { 
-    title: "Mode", 
-    dataIndex: "mode",
-    render: (mode) => (
-      <span
-        style={{
-          padding: "2px 8px",
-          borderRadius: 4,
-          fontSize: 11,
-          color: "#fff",
-          background: mode === "OFFLINE" ? "#fa541c" : "#52c41a",
-        }}
-      >
-        {mode}
-      </span>
-    ),
-    width: 90,
+  "Packed": {
+    color: "purple",
+    icon: <ShoppingOutlined />,
+    bgColor: COLORS.status.packed.bg,
+    textColor: COLORS.status.packed.text,
+    gradient: COLORS.status.packed.gradient,
+    borderColor: COLORS.status.packed.border,
+    glow: COLORS.status.packed.glow,
+    count: 0
   },
-  { 
-    title: "Date", 
-    dataIndex: "date",
-    sorter: (a, b) => new Date(a.rawDate) - new Date(b.rawDate),
+  "Shipped": {
+    color: "cyan",
+    icon: <CarOutlined />,
+    bgColor: COLORS.status.shipped.bg,
+    textColor: COLORS.status.shipped.text,
+    gradient: COLORS.status.shipped.gradient,
+    borderColor: COLORS.status.shipped.border,
+    glow: COLORS.status.shipped.glow,
+    count: 0
   },
-  { 
-    title: "Action", 
-    dataIndex: "action",
-    width: 200,
+  "Out for Delivery": {
+    color: "geekblue",
+    icon: <RocketOutlined />,
+    bgColor: COLORS.status.outForDelivery.bg,
+    textColor: COLORS.status.outForDelivery.text,
+    gradient: COLORS.status.outForDelivery.gradient,
+    borderColor: COLORS.status.outForDelivery.border,
+    glow: COLORS.status.outForDelivery.glow,
+    count: 0
   },
-];
+  "Delivered": {
+    color: "green",
+    icon: <CheckCircleOutlined />,
+    bgColor: COLORS.status.delivered.bg,
+    textColor: COLORS.status.delivered.text,
+    gradient: COLORS.status.delivered.gradient,
+    borderColor: COLORS.status.delivered.border,
+    glow: COLORS.status.delivered.glow,
+    count: 0
+  },
+  "Cancelled": {
+    color: "red",
+    icon: <CloseCircleOutlined />,
+    bgColor: COLORS.status.cancelled.bg,
+    textColor: COLORS.status.cancelled.text,
+    gradient: COLORS.status.cancelled.gradient,
+    borderColor: COLORS.status.cancelled.border,
+    glow: COLORS.status.cancelled.glow,
+    count: 0
+  },
+};
+
+const LOCKED_STATUSES = ["Shipped", "Out for Delivery", "Delivered"];
 
 const Orders = () => {
   const dispatch = useDispatch();
   const orderState = useSelector((state) => state?.auth?.orders?.orders);
 
-  const [activeFilter, setActiveFilter] = useState(null);
-  const [filters, setFilters] = useState({
-    dateRange: null,
-    mode: null,
-    status: null,
-  });
+  // State management
+  const [activeStatus, setActiveStatus] = useState("All");
+  const [selectedRowKeys, setSelectedRowKeys] = useState([]);
+  const [bulkLoading, setBulkLoading] = useState(false);
+  const [searchText, setSearchText] = useState("");
+  const [dateRange, setDateRange] = useState(null);
+  const [paymentFilter, setPaymentFilter] = useState("All");
+  const [modeFilter, setModeFilter] = useState("All");
 
   useEffect(() => {
     dispatch(getOrders());
   }, [dispatch]);
 
-  const updateOrderStatus = (id, status) => {
-    dispatch(updateAOrder({ id, status }));
+  // Update order status
+  const updateOrderStatus = async (orderId, newStatus) => {
+    try {
+      await dispatch(updateAOrder({ id: orderId, status: newStatus })).unwrap();
+      message.success(`Order status updated to ${newStatus}`);
+      dispatch(getOrders()); // Refresh data
+    } catch (error) {
+      message.error("Failed to update order status");
+    }
   };
 
-  const dataSource = useMemo(() => {
+  // Bulk shipment creation
+  const handleBulkShipment = async () => {
+    if (selectedRowKeys.length === 0) {
+      message.warning("Please select orders to create shipments");
+      return;
+    }
+
+    setBulkLoading(true);
+    try {
+      const response = await axios.put(`${base_url}orders/bulk-create-shipment`, {
+        orderIds: selectedRowKeys
+      }, config);
+
+      const { results } = response.data;
+      const successCount = results.filter(r => r.success).length;
+      const failCount = results.filter(r => !r.success).length;
+
+      if (successCount > 0) {
+        message.success(`${successCount} shipment(s) created successfully${failCount > 0 ? `, ${failCount} failed` : ''}`);
+      }
+
+      setSelectedRowKeys([]);
+      dispatch(getOrders());
+    } catch (error) {
+      message.error("Bulk shipment creation failed");
+    } finally {
+      setBulkLoading(false);
+    }
+  };
+
+  // Print order bill
+  const printOrderBill = async (orderId) => {
+    try {
+      const response = await axios.get(`${base_url}user/getaOrder/${orderId}`, config);
+      const order = response.data.orders;
+
+      const invoiceNum = order._id.slice(-8).toUpperCase();
+      const now = new Date(order.createdAt);
+      const dateStr = now.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+      const timeStr = now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+
+      const customerName = order.user ? `${order.user.firstname || ''} ${order.user.lastname || ''}`.trim() : "Walk-in Customer";
+      const customerMobile = order.user ? order.user.mobile : "";
+      const subtotal = order.totalPrice;
+      const discountAmount = order.discountAmount || 0;
+      const totalAmount = order.totalPriceAfterDiscount;
+
+      const win = window.open("", "_blank");
+      if (!win) return;
+
+      win.document.write(`<!DOCTYPE html><html><head><title>Invoice - ${invoiceNum}</title>
+        <script src="https://cdn.tailwindcss.com"></script>
+        <style>* { font-family: 'Segoe UI', sans-serif; } @media print { body { -webkit-print-color-adjust: exact; } }</style>
+        </head><body class="bg-gray-50 p-4">
+        <div class="max-w-3xl mx-auto bg-white rounded-xl shadow-lg overflow-hidden">
+        <div class="bg-gradient-to-r from-blue-900 to-blue-700 text-white p-6">
+          <h1 class="text-2xl font-bold">PREMIUM STORE</h1>
+          <p class="text-blue-200 text-sm">Invoice: ${invoiceNum} | Date: ${dateStr} ${timeStr}</p>
+        </div>
+        <div class="p-6">
+          <p><strong>Bill To:</strong> ${customerName} ${customerMobile ? `| ${customerMobile}` : ''}</p>
+          <table class="w-full text-sm mt-4 border-collapse">
+            <thead><tr class="bg-blue-50"><th class="p-2 text-left">#</th><th class="p-2 text-left">Item</th><th class="p-2 text-center">Qty</th><th class="p-2 text-right">Rate</th><th class="p-2 text-right">Amount</th></tr></thead>
+            <tbody>${order.orderItems.map((item, i) => `<tr class="border-b"><td class="p-2">${i+1}</td><td class="p-2">${item.product ? item.product.title : 'Product'}</td><td class="p-2 text-center">${item.quantity}</td><td class="p-2 text-right">₹${item.price.toFixed(2)}</td><td class="p-2 text-right">₹${(item.quantity * item.price).toFixed(2)}</td></tr>`).join('')}</tbody>
+          </table>
+          <div class="mt-4 text-right">
+            ${discountAmount > 0 ? `<p>Discount: -₹${discountAmount.toFixed(2)}</p>` : ''}
+            <p class="text-xl font-bold text-blue-600">Total: ₹${totalAmount.toFixed(2)}</p>
+          </div>
+        </div></div></body></html>`);
+      win.document.close();
+      setTimeout(() => win.print(), 500);
+    } catch (error) {
+      message.error("Failed to print bill");
+    }
+  };
+
+  // Process data for display
+  const processedData = useMemo(() => {
     if (!orderState) return [];
 
     return orderState.map((order, index) => {
-      // Use discountAmount if available, otherwise calculate from difference
       const discount = order.discountAmount || ((order.totalPrice || 0) - (order.totalPriceAfterDiscount || 0));
-      const payment = getPaymentStatus(order.paymentInfo);
-      
+      const payment = order.paymentInfo?.razorpayPaymentId ? "Paid" : (order.paymentInfo?.razorpayOrderId === "OFFLINE" ? "Offline Paid" : "Pending");
+      const isLocked = LOCKED_STATUSES.includes(order.orderStatus);
+
       return {
-        key: index + 1,
+        key: order._id,
+        sno: index + 1,
         orderId: order._id,
         name: order?.user?.firstname || "N/A",
+        email: order?.user?.email || "N/A",
+        mobile: order?.user?.mobile || "N/A",
         items: order?.orderItems?.length || 0,
         amount: order?.totalPrice,
-        discount: discount,
-        discountBreakdown: order?.discountBreakdown || {},
+        discount,
         finalAmount: order?.totalPriceAfterDiscount,
         status: order?.orderStatus || "Ordered",
-        payment: payment,
+        payment,
         mode: order?.mode || "ONLINE",
         date: dayjs(order?.createdAt).format("DD-MM-YYYY HH:mm"),
         rawDate: order?.createdAt,
-        action: (
-          <div style={{ display: "flex", gap: 8 }}>
-            <Tooltip title="Print Bill">
-              <Button 
-                size="small" 
-                icon={<PrinterOutlined />} 
-                onClick={() => printOrderBill(order?._id)}
-                style={{ backgroundColor: '#52c41a', borderColor: '#52c41a', color: '#fff' }}
-              />
-            </Tooltip>
-            <Tooltip title="View Order">
-              <Link to={`/admin/order/${order?._id}`}>
-                <Button size="small" icon={<EyeOutlined />} />
-              </Link>
-            </Tooltip>
-            <select
-              defaultValue={order?.orderStatus}
-              onChange={(e) => updateOrderStatus(order?._id, e.target.value)}
-              className="form-control form-select"
-              style={{ fontSize: 12, padding: "4px 8px" }}
-            >
-              <option value="Ordered" disabled>Ordered</option>
-              <option value="Processed">Processed</option>
-              <option value="Shipped">Shipped</option>
-              <option value="Out for Delivery">Out for Delivery</option>
-              <option value="Delivered">Delivered</option>
-            </select>
-          </div>
-        ),
+        courierName: order?.courierName || "—",
+        trackingId: order?.trackingId || "—",
+        trackingUrl: order?.trackingUrl || null,
+        isLocked,
+        rawOrder: order,
       };
     });
   }, [orderState]);
 
+  // Filter data based on current filters
   const filteredData = useMemo(() => {
-    return dataSource.filter((item) => {
-      let ok = true;
+    return processedData.filter((item) => {
+      // Status filter
+      if (activeStatus !== "All" && item.status !== activeStatus) return false;
 
-      if (filters.mode) {
-        ok = ok && item.mode === filters.mode;
+      // Search filter
+      if (searchText) {
+        const searchLower = searchText.toLowerCase();
+        const matchesSearch =
+          item.orderId.toLowerCase().includes(searchLower) ||
+          item.name.toLowerCase().includes(searchLower) ||
+          item.email.toLowerCase().includes(searchLower) ||
+          item.mobile.includes(searchLower);
+        if (!matchesSearch) return false;
       }
 
-      if (filters.status) {
-        ok = ok && item.status === filters.status;
+      // Date range filter
+      if (dateRange) {
+        const [start, end] = dateRange;
+        const itemDate = dayjs(item.rawDate);
+        if (!itemDate.isAfter(start.startOf("day")) || !itemDate.isBefore(end.endOf("day"))) {
+          return false;
+        }
       }
 
-      if (filters.dateRange) {
-        const [start, end] = filters.dateRange;
-        const d = dayjs(item.rawDate);
-        ok =
-          ok &&
-          d.isAfter(start.startOf("day")) &&
-          d.isBefore(end.endOf("day"));
-      }
+      // Payment filter
+      if (paymentFilter !== "All" && item.payment !== paymentFilter) return false;
 
-      return ok;
+      // Mode filter
+      if (modeFilter !== "All" && item.mode !== modeFilter) return false;
+
+      return true;
     });
-  }, [filters, dataSource]);
+  }, [processedData, activeStatus, searchText, dateRange, paymentFilter, modeFilter]);
 
-  const filterContent = (
-    <div style={{ width: 280 }}>
-      <Radio.Group
-        size="small"
-        value={activeFilter}
-        onChange={(e) => setActiveFilter(e.target.value)}
-        style={{ marginBottom: 12 }}
-      >
-        <Radio.Button value="date">Date</Radio.Button>
-        <Radio.Button value="mode">Mode</Radio.Button>
-        <Radio.Button value="status">Status</Radio.Button>
-      </Radio.Group>
+  // Calculate status counts
+  const statusCounts = useMemo(() => {
+    const counts = { ...STATUS_CONFIG };
+    processedData.forEach((item) => {
+      if (counts[item.orderStatus]) {
+        counts[item.orderStatus].count++;
+      }
+    });
+    counts.All.count = processedData.length;
+    return counts;
+  }, [processedData]);
 
-      {activeFilter === "date" && (
-        <>
-          <div style={{ fontSize: 12, marginBottom: 6 }}>
-            Date Range
-          </div>
-          <DatePicker.RangePicker
-            size="small"
-            className="w-full"
-            popupClassName="single-calendar-range"
-            onChange={(dates) =>
-              setFilters((prev) => ({
-                ...prev,
-                dateRange: dates,
-              }))
-            }
-          />
-        </>
-      )}
-
-      {activeFilter === "mode" && (
-        <>
-          <div style={{ fontSize: 12, marginBottom: 6 }}>
-            Order Mode
-          </div>
-          <Radio.Group
-            size="small"
-            value={filters.mode}
-            onChange={(e) =>
-              setFilters((prev) => ({
-                ...prev,
-                mode: e.target.value,
-              }))
-            }
+  // Enhanced Table columns with modern styling
+  const columns = [
+    {
+      title: "#",
+      dataIndex: "sno",
+      width: 60,
+      align: "center",
+      render: (sno) => (
+        <div style={{
+          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+          color: 'white',
+          borderRadius: '50%',
+          width: '32px',
+          height: '32px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontWeight: 'bold',
+          fontSize: '12px'
+        }}>
+          {sno}
+        </div>
+      )
+    },
+    {
+      title: "Order Details",
+      key: "orderDetails",
+      render: (_, record) => (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <Avatar
+            size={48}
+            style={{
+              background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
+              fontWeight: 'bold'
+            }}
           >
-            <Radio value="ONLINE">Online</Radio>
-            <Radio value="OFFLINE">Offline (POS)</Radio>
-          </Radio.Group>
-        </>
-      )}
-
-      {activeFilter === "status" && (
-        <>
-          <div style={{ fontSize: 12, marginBottom: 6 }}>
-            Order Status
+            {record.name.charAt(0).toUpperCase()}
+          </Avatar>
+          <div>
+            <div style={{
+              fontWeight: 600,
+              color: '#1a1a1a',
+              fontSize: '14px',
+              marginBottom: '4px'
+            }}>
+              #{record.orderId.slice(-8).toUpperCase()}
+            </div>
+            <div style={{
+              color: '#666',
+              fontSize: '12px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px'
+            }}>
+              <UserOutlined /> {record.name} • {record.items} item{record.items !== 1 ? 's' : ''}
+            </div>
+            <div style={{
+              color: '#999',
+              fontSize: '11px',
+              marginTop: '2px'
+            }}>
+              📅 {record.date}
+            </div>
           </div>
-          <Radio.Group
-            size="small"
-            value={filters.status}
-            onChange={(e) =>
-              setFilters((prev) => ({
-                ...prev,
-                status: e.target.value,
-              }))
-            }
-          >
-            <Radio value="Ordered">Ordered</Radio>
-            <Radio value="Processed">Processed</Radio>
-            <Radio value="Shipped">Shipped</Radio>
-            <Radio value="Out for Delivery">Out for Delivery</Radio>
-            <Radio value="Delivered">Delivered</Radio>
-            <Radio value="Cancelled">Cancelled</Radio>
-          </Radio.Group>
-        </>
-      )}
-
-      <div
-        style={{
-          marginTop: 14,
-          display: "flex",
-          justifyContent: "flex-end",
-          gap: 8,
-        }}
-      >
-        <Button
-          size="small"
-          onClick={() => {
-            setFilters({ dateRange: null, mode: null, status: null });
-            setActiveFilter(null);
+        </div>
+      ),
+      width: 250,
+    },
+    {
+      title: "Amount",
+      dataIndex: "finalAmount",
+      render: (amount, record) => (
+        <div style={{ textAlign: 'right' }}>
+          <div style={{
+            fontSize: '16px',
+            fontWeight: 700,
+            color: '#52c41a',
+            marginBottom: '4px'
+          }}>
+            ₹{amount?.toFixed(2)}
+          </div>
+          {record.amount !== amount && (
+            <div style={{
+              fontSize: '12px',
+              color: '#ff4d4f',
+              textDecoration: 'line-through'
+            }}>
+              ₹{record.amount?.toFixed(2)}
+            </div>
+          )}
+        </div>
+      ),
+      width: 140,
+      align: "right",
+    },
+    {
+      title: "Status",
+      dataIndex: "status",
+      render: (status) => {
+        const config = STATUS_CONFIG[status] || STATUS_CONFIG.All;
+        return (
+          <div style={{
+            background: config.gradient,
+            padding: '8px 12px',
+            borderRadius: '20px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            fontWeight: 600,
+            fontSize: '12px',
+            color: config.textColor,
+            boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+          }}>
+            {config.icon}
+            {status}
+          </div>
+        );
+      },
+      width: 160,
+      align: "center",
+    },
+    {
+      title: "Payment",
+      dataIndex: "payment",
+      render: (payment) => (
+        <Tag
+          color={payment === "Paid" ? "success" : payment === "Offline Paid" ? "warning" : "error"}
+          style={{
+            borderRadius: '12px',
+            padding: '4px 12px',
+            fontWeight: 600,
+            fontSize: '11px'
           }}
         >
-          Clear
-        </Button>
-        <Button size="small" type="primary">
-          Apply
-        </Button>
-      </div>
-    </div>
-  );
+          {payment}
+         </Tag>
+       ),
+       width: 120,
+       align: "center",
+     },
+     {
+       title: "Shipping",
+       key: "shipping",
+       render: (_, record) => (
+         <div>
+           <div style={{
+             fontWeight: 600,
+             color: '#1a1a1a',
+             marginBottom: '4px'
+           }}>
+             🚚 {record.courierName}
+           </div>
+           {record.trackingId !== "—" && (
+             <div style={{
+               fontSize: '11px',
+               fontFamily: 'monospace',
+               background: '#f5f5f5',
+               padding: '4px 8px',
+               borderRadius: '6px',
+               display: 'inline-block'
+             }}>
+               {record.trackingUrl ? (
+                 <a
+                   href={record.trackingUrl}
+                   target="_blank"
+                   rel="noopener noreferrer"
+                   style={{
+                     color: '#667eea',
+                     textDecoration: 'none',
+                     fontWeight: 600
+                   }}
+                 >
+                   🔗 {record.trackingId}
+                 </a>
+               ) : (
+                 <span style={{ color: '#666' }}>{record.trackingId}</span>
+               )}
+             </div>
+           )}
+           {record.courierName === "—" && record.trackingId === "—" && (
+             <span style={{
+               color: '#999',
+               fontSize: '11px',
+               fontStyle: 'italic'
+             }}>
+               Not shipped
+             </span>
+           )}
+         </div>
+       ),
+       width: 180,
+     },
+    {
+      title: "Actions",
+      key: "actions",
+      render: (_, record) => (
+        <Space size="small">
+          <Tooltip title="View Details">
+            <Link to={`/admin/order/${record.orderId}`}>
+              <Button
+                size="small"
+                icon={<EyeOutlined />}
+                style={{
+                  borderRadius: '8px',
+                  border: '2px solid #667eea',
+                  color: '#667eea'
+                }}
+              />
+            </Link>
+          </Tooltip>
+
+          <Tooltip title="Print Bill">
+            <Button
+              size="small"
+              icon={<PrinterOutlined />}
+              onClick={() => printOrderBill(record.orderId)}
+              style={{
+                borderRadius: '8px',
+                border: '2px solid #52c41a',
+                color: '#52c41a'
+              }}
+            />
+          </Tooltip>
+
+          {!record.isLocked ? (
+            <Select
+              size="small"
+              value={record.status}
+              onChange={(value) => updateOrderStatus(record.orderId, value)}
+              style={{
+                width: 120,
+                borderRadius: '8px',
+                fontWeight: 600
+              }}
+              disabled={record.isLocked}
+            >
+              <Option value="Ordered">Ordered</Option>
+              <Option value="Processed">Processed</Option>
+              <Option value="Packed">Packed</Option>
+              <Option value="Shipped" disabled>Shipped (Auto)</Option>
+              <Option value="Out for Delivery" disabled>Out for Delivery</Option>
+              <Option value="Delivered" disabled>Delivered</Option>
+              <Option value="Cancelled">Cancelled</Option>
+            </Select>
+          ) : (
+            <Tooltip title="Managed by Shiprocket">
+              <div style={{
+                background: 'linear-gradient(135deg, #fa709a 0%, #fee140 100%)',
+                color: 'white',
+                padding: '6px 12px',
+                borderRadius: '20px',
+                fontSize: '11px',
+                fontWeight: 600,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+                boxShadow: '0 2px 8px rgba(250, 112, 154, 0.3)'
+              }}>
+                <RocketOutlined />
+                Auto-managed
+              </div>
+            </Tooltip>
+          )}
+        </Space>
+      ),
+      width: 220,
+      align: "center",
+    },
+  ];
+
+  // Clear all filters
+  const clearFilters = () => {
+    setActiveStatus("All");
+    setSearchText("");
+    setDateRange(null);
+    setPaymentFilter("All");
+    setModeFilter("All");
+  };
 
   return (
-    <div>
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          marginBottom: 16,
-        }}
-      >
-        <div>
-          <h3 className="title" style={{ margin: 0 }}>Orders</h3>
-          <span style={{ fontSize: 12, color: "#8c8c8c" }}>
-            Total: {filteredData.length} orders
-          </span>
-        </div>
-
-        <Popover
-          content={filterContent}
-          trigger="click"
-          placement="bottomRight"
-        >
-          <Button size="small" icon={<FilterOutlined />}>
-            Filters
-          </Button>
-        </Popover>
+    <div style={{
+      background: 'linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)',
+      minHeight: '100vh',
+      padding: '24px'
+    }}>
+      {/* Modern Header with Glassmorphism */}
+      <div style={{
+        background: 'rgba(255, 255, 255, 0.95)',
+        backdropFilter: 'blur(20px)',
+        borderRadius: '20px',
+        padding: '32px',
+        marginBottom: '32px',
+        boxShadow: '0 20px 40px rgba(0,0,0,0.1)',
+        border: '1px solid rgba(255,255,255,0.2)'
+      }}>
+        <Row align="middle" justify="space-between">
+          <Col>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+              <div style={{
+                width: '60px',
+                height: '60px',
+                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                borderRadius: '16px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                boxShadow: '0 8px 25px rgba(102, 126, 234, 0.3)'
+              }}>
+                <ShoppingOutlined style={{ fontSize: '28px', color: 'white' }} />
+              </div>
+              <div>
+                <Title level={2} style={{
+                  margin: 0,
+                    background: COLORS.primary.gradient,
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                  fontWeight: 700
+                }}>
+                  Orders Management
+                </Title>
+                <Text style={{ color: COLORS.neutral[600], fontSize: '16px' }}>
+                  Track and manage all customer orders efficiently
+                </Text>
+              </div>
+            </div>
+          </Col>
+          <Col>
+            <Row gutter={24}>
+              <Col>
+                <div style={{
+                    background: COLORS.primary.gradient,
+                  padding: '20px',
+                  borderRadius: '16px',
+                  textAlign: 'center',
+                    boxShadow: COLORS.primary.glow,
+                  minWidth: '120px'
+                }}>
+                  <div style={{ color: 'white', fontSize: '24px', fontWeight: 'bold' }}>
+                    {processedData.length}
+                  </div>
+                  <div style={{ color: 'rgba(255,255,255,0.9)', fontSize: '12px' }}>
+                    Total Orders
+                  </div>
+                </div>
+              </Col>
+              <Col>
+                <div style={{
+                    background: COLORS.secondary.gradient,
+                    padding: '20px',
+                    borderRadius: '16px',
+                    textAlign: 'center',
+                    boxShadow: COLORS.secondary.glow,
+                    minWidth: '120px'
+                }}>
+                  <div style={{ color: 'white', fontSize: '24px', fontWeight: 'bold' }}>
+                    {statusCounts.Delivered.count}
+                  </div>
+                  <div style={{ color: 'rgba(255,255,255,0.9)', fontSize: '12px' }}>
+                    Delivered
+                  </div>
+                </div>
+              </Col>
+              <Col>
+                <div style={{
+                      background: COLORS.accent.orange,
+                  padding: '20px',
+                  borderRadius: '16px',
+                  textAlign: 'center',
+                    boxShadow: '0 8px 25px rgba(234, 88, 12, 0.3)',
+                  minWidth: '120px'
+                }}>
+                  <div style={{ color: 'white', fontSize: '24px', fontWeight: 'bold' }}>
+                    ₹{processedData.reduce((sum, order) => sum + (order.finalAmount || 0), 0).toLocaleString()}
+                  </div>
+                  <div style={{ color: 'rgba(255,255,255,0.9)', fontSize: '12px' }}>
+                    Total Revenue
+                  </div>
+                </div>
+              </Col>
+            </Row>
+          </Col>
+        </Row>
       </div>
 
-      <Table 
-        columns={columns} 
-        dataSource={filteredData} 
-        pagination={{ pageSize: 10 }}
-        scroll={{ x: 1200 }}
-        size="small"
-      />
+      {/* Premium Status Tabs */}
+      <Card style={{
+        marginBottom: '24px',
+        background: 'linear-gradient(135deg, rgba(255,255,255,0.95) 0%, rgba(248,250,252,0.95) 100%)',
+        backdropFilter: 'blur(20px)',
+        borderRadius: '16px',
+        boxShadow: '0 8px 32px rgba(0,0,0,0.08)',
+        border: '1px solid rgba(255,255,255,0.2)',
+        position: 'relative',
+        overflow: 'hidden'
+      }}>
+        <div style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'radial-gradient(circle at 20% 80%, rgba(15,23,42,0.03) 0%, transparent 50%), radial-gradient(circle at 80% 20%, rgba(5,150,105,0.03) 0%, transparent 50%)',
+          opacity: 0.5
+        }} />
+        <div style={{ position: 'relative', zIndex: 1, padding: '20px' }}>
+          <div style={{
+            display: 'flex',
+            flexWrap: 'wrap',
+            gap: '12px',
+            justifyContent: 'center',
+            alignItems: 'center'
+          }}>
+            {Object.entries(statusCounts).map(([status, config]) => (
+              <Button
+                key={status}
+                type="text"
+                size="large"
+                icon={config.icon}
+                onClick={() => setActiveStatus(status)}
+                style={{
+                  borderRadius: '25px',
+                  padding: '12px 20px',
+                  fontWeight: 600,
+                  fontSize: '13px',
+                  letterSpacing: '0.3px',
+                  background: activeStatus === status
+                    ? STATUS_CONFIG[status].gradient
+                    : 'rgba(255,255,255,0.8)',
+                  border: activeStatus === status
+                    ? `1px solid ${STATUS_CONFIG[status].borderColor}`
+                    : '1px solid rgba(148,163,184,0.3)',
+                  color: activeStatus === status
+                    ? STATUS_CONFIG[status].textColor
+                    : COLORS.neutral[600],
+                  boxShadow: activeStatus === status
+                    ? STATUS_CONFIG[status].glow
+                    : '0 2px 8px rgba(0,0,0,0.04)',
+                  backdropFilter: 'blur(10px)',
+                  transition: 'all 0.3s ease',
+                  position: 'relative',
+                  overflow: 'hidden',
+                  minWidth: '140px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                  transform: activeStatus === status ? 'translateY(-1px)' : 'translateY(0)',
+                  '&:hover': {
+                    transform: 'translateY(-2px)',
+                    boxShadow: activeStatus === status
+                      ? STATUS_CONFIG[status].glow
+                      : '0 4px 16px rgba(0,0,0,0.08)',
+                    background: activeStatus === status
+                      ? STATUS_CONFIG[status].gradient
+                      : 'rgba(255,255,255,0.9)'
+                  }
+                }}
+              >
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  position: 'relative',
+                  zIndex: 2
+                }}>
+                  <span>{status}</span>
+                  <Badge
+                    count={config.count}
+                    style={{
+                      background: activeStatus === status
+                        ? 'rgba(255,255,255,0.95)'
+                        : COLORS.neutral[300],
+                      color: activeStatus === status
+                        ? STATUS_CONFIG[status].textColor
+                        : COLORS.neutral[700],
+                      border: 'none',
+                      fontSize: '11px',
+                      fontWeight: 700,
+                      borderRadius: '12px',
+                      minWidth: '20px',
+                      height: '20px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+                    }}
+                  />
+                </div>
+                {activeStatus === status && (
+                  <div style={{
+                    position: 'absolute',
+                    bottom: 0,
+                    left: '50%',
+                    transform: 'translateX(-50%)',
+                    width: '60%',
+                    height: '2px',
+                    background: `linear-gradient(90deg, ${STATUS_CONFIG[status].borderColor}, ${STATUS_CONFIG[status].borderColor}60)`,
+                    borderRadius: '1px'
+                  }} />
+                )}
+              </Button>
+            ))}
+          </div>
+        </div>
+      </Card>
+
+      {/* Advanced Filters */}
+      <Card style={{
+        marginBottom: '24px',
+        background: COLORS.glass.medium,
+        backdropFilter: COLORS.glass.backdrop,
+        borderRadius: '20px',
+        boxShadow: COLORS.glass.shadow,
+        border: `1px solid ${COLORS.glass.border}`,
+        position: 'relative',
+        overflow: 'hidden'
+      }}>
+        <div style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'url("data:image/svg+xml,%3Csvg width="80" height="80" viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg"%3E%3Cg fill-rule="evenodd"%3E%3Cg fill="%230F172A" fill-opacity="0.03"%3E%3Cpath d="m0 0h80v80H0V0zm20 20c5.523 0 10-4.477 10-10S25.523 0 20 0 10 4.477 10 10s4.477 10 10 10zm30 10c5.523 0 10-4.477 10-10S55.523 10 50 10s-10 4.477-10 10 4.477 10 10 10zm-40 10c3.314 0 6-2.686 6-6s-2.686-6-6-6-6 2.686-6 6 2.686 6 6 6zm50-10c3.314 0 6-2.686 6-6s-2.686-6-6-6-6 2.686-6 6 2.686 6 6 6zM30 60c3.314 0 6-2.686 6-6s-2.686-6-6-6-6 2.686-6 6 2.686 6 6 6z"/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")',
+          opacity: 0.05
+        }} />
+        <div style={{ position: 'relative', zIndex: 1, padding: '24px' }}>
+          <Row gutter={[16, 16]} align="middle">
+            <Col xs={24} sm={12} md={6}>
+              <Input
+                placeholder="Search by Order ID, Name, Email, Mobile"
+                prefix={<SearchOutlined style={{ color: COLORS.primary.main }} />}
+                value={searchText}
+                onChange={(e) => setSearchText(e.target.value)}
+                allowClear
+                size="large"
+                style={{
+                  borderRadius: '14px',
+                  border: `1px solid ${COLORS.neutral[300]}`,
+                  padding: '12px 16px',
+                  background: COLORS.glass.light,
+                  color: COLORS.neutral[700],
+                  width: '100%'
+                }}
+              />
+            </Col>
+            <Col xs={24} sm={12} md={6}>
+              <RangePicker
+                placeholder={["Start Date", "End Date"]}
+                value={dateRange}
+                onChange={(values) => setDateRange(values)}
+                size="large"
+                style={{
+                  width: '100%',
+                  borderRadius: '14px',
+                  border: `1px solid ${COLORS.neutral[300]}`
+                }}
+              />
+            </Col>
+            <Col xs={12} sm={6} md={3}>
+              <Select
+                placeholder="Payment"
+                value={paymentFilter}
+                onChange={setPaymentFilter}
+                size="large"
+                style={{
+                  borderRadius: '14px',
+                  border: `1px solid ${COLORS.neutral[300]}`,
+                  width: '100%',
+                  background: COLORS.glass.light
+                }}
+              >
+                <Option value="All">All Payments</Option>
+                <Option value="Paid">Paid</Option>
+                <Option value="Offline Paid">Offline Paid</Option>
+                <Option value="Pending">Pending</Option>
+              </Select>
+            </Col>
+            <Col xs={12} sm={6} md={3}>
+              <Select
+                placeholder="Mode"
+                value={modeFilter}
+                onChange={setModeFilter}
+                size="large"
+                style={{
+                  borderRadius: '14px',
+                  border: `1px solid ${COLORS.neutral[300]}`,
+                  width: '100%',
+                  background: COLORS.glass.light
+                }}
+              >
+                <Option value="All">All Modes</Option>
+                <Option value="ONLINE">Online</Option>
+                <Option value="OFFLINE">Offline</Option>
+              </Select>
+            </Col>
+            <Col xs={24}>
+              <Space size="middle" wrap>
+                <Button
+                  onClick={clearFilters}
+                  icon={<FilterOutlined />}
+                  size="large"
+                  style={{
+                    borderRadius: '14px',
+                    border: `1px solid ${COLORS.primary.main}`,
+                    color: COLORS.primary.main,
+                    fontWeight: 700,
+                    background: COLORS.glass.light,
+                    boxShadow: COLORS.glass.shadow,
+                    padding: '12px 24px',
+                    fontSize: '14px',
+                    letterSpacing: '0.5px',
+                    textTransform: 'uppercase'
+                  }}
+                >
+                  Clear Filters
+                </Button>
+                {(selectedRowKeys.length > 0 && activeStatus === "Packed") && (
+                  <Button
+                    type="primary"
+                    icon={<ThunderboltOutlined />}
+                    loading={bulkLoading}
+                    onClick={handleBulkShipment}
+                    size="large"
+                    style={{
+                      borderRadius: '14px',
+                      background: COLORS.secondary.gradient,
+                      border: `1px solid ${COLORS.secondary.main}`,
+                      fontWeight: 700,
+                      boxShadow: COLORS.secondary.glow,
+                      color: '#fff',
+                      padding: '12px 24px',
+                      fontSize: '14px',
+                      letterSpacing: '0.5px',
+                      textTransform: 'uppercase'
+                    }}
+                  >
+                    Create Shipment ({selectedRowKeys.length})
+                  </Button>
+                )}
+              </Space>
+            </Col>
+          </Row>
+        </div>
+      </Card>
+
+      {/* Premium Results Summary */}
+      <div style={{
+        marginBottom: '24px',
+        padding: '20px 32px',
+        background: COLORS.primary.gradient,
+        borderRadius: '20px',
+        color: 'white',
+        fontWeight: 700,
+        textAlign: 'center',
+        boxShadow: COLORS.primary.glow,
+        border: `1px solid ${COLORS.glass.border}`,
+        backdropFilter: COLORS.glass.backdrop,
+        position: 'relative',
+        overflow: 'hidden'
+      }}>
+        <div style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'url("data:image/svg+xml,%3Csvg width="60" height="60" viewBox="0 0 60 60" xmlns="http://www.w3.org/2000/svg"%3E%3Cg fill="none" fill-rule="evenodd"%3E%3Cg fill="%23ffffff" fill-opacity="0.05"%3E%3Ccircle cx="30" cy="30" r="4"/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")',
+          opacity: 0.1
+        }} />
+        <div style={{ position: 'relative', zIndex: 1 }}>
+          <div style={{ fontSize: '18px', marginBottom: '8px' }}>📊 Order Analytics Dashboard</div>
+          <div style={{ fontSize: '14px', opacity: 0.9 }}>
+            Showing <span style={{ color: COLORS.secondary.lighter, fontWeight: 800 }}>{filteredData.length}</span> of{' '}
+            <span style={{ color: COLORS.secondary.lighter, fontWeight: 800 }}>{processedData.length}</span> orders
+            {activeStatus !== "All" && (
+              <span> in <span style={{ color: COLORS.accent.blue, fontWeight: 800 }}>{activeStatus}</span> status</span>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Premium Orders Table */}
+      <Card style={{
+        background: COLORS.glass.dark,
+        backdropFilter: COLORS.glass.backdrop,
+        borderRadius: '20px',
+        boxShadow: COLORS.glass.shadow,
+        border: `1px solid ${COLORS.glass.border}`,
+        position: 'relative',
+        overflow: 'hidden'
+      }}>
+        <div style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'url("data:image/svg+xml,%3Csvg width="120" height="120" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg"%3E%3Cg fill-rule="evenodd"%3E%3Cg fill="%230F172A" fill-opacity="0.02"%3E%3Cpath d="M20 20c5.523 0 10-4.477 10-10S25.523 0 20 0 10 4.477 10 10s4.477 10 10 10zm40 20c5.523 0 10-4.477 10-10S65.523 20 50 20s-10 4.477-10 10 4.477 10 10 10zm40 20c5.523 0 10-4.477 10-10S105.523 40 90 40s-10 4.477-10 10 4.477 10 10 10zm-80 20c3.314 0 6-2.686 6-6s-2.686-6-6-6-6 2.686-6 6 2.686 6 6 6zm60-10c3.314 0 6-2.686 6-6s-2.686-6-6-6-6 2.686-6 6 2.686 6 6 6zm40 20c3.314 0 6-2.686 6-6s-2.686-6-6-6-6 2.686-6 6 2.686 6 6 6zM40 100c3.314 0 6-2.686 6-6s-2.686-6-6-6-6 2.686-6 6 2.686 6 6 6zm60-20c3.314 0 6-2.686 6-6s-2.686-6-6-6-6 2.686-6 6 2.686 6 6 6z"/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")',
+          opacity: 0.03
+        }} />
+        <div style={{ position: 'relative', zIndex: 1 }}>
+        <Table
+          columns={columns}
+          dataSource={filteredData}
+          pagination={{
+            pageSize: 20,
+            showSizeChanger: true,
+            showQuickJumper: true,
+            showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} orders`,
+            style: { marginTop: '20px' }
+          }}
+          rowSelection={{
+            selectedRowKeys,
+            onChange: setSelectedRowKeys,
+            getCheckboxProps: (record) => ({
+              disabled: record.isLocked || record.rawOrder?.shipmentId,
+            }),
+          }}
+          scroll={{ x: 1200 }}
+          size="middle"
+          style={{ borderRadius: '12px' }}
+        />
+        </div>
+      </Card>
     </div>
   );
 };
 
 export default Orders;
-

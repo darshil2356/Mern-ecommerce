@@ -1446,12 +1446,46 @@ const getsingleOrder = asyncHandler(async (req, res) => {
 const updateOrder = asyncHandler(async (req, res) => {
   const { id } = req.params;
   try {
-    const orders = await Order.findById(id);
-    orders.orderStatus = req.body.status;
+    const orders = await Order.findById(id).populate("user").populate("orderItems.product");
+    const newStatus = req.body.status;
+
+    // Block manual status change after Packed (Shiprocket takes over)
+    const lockedStatuses = ["Shipped", "Out for Delivery", "Delivered"];
+    if (lockedStatuses.includes(orders.orderStatus) && lockedStatuses.includes(newStatus)) {
+      return res.status(400).json({ message: "Status is managed by Shiprocket after Packed" });
+    }
+
+    orders.orderStatus = newStatus;
+    orders.statusHistory = orders.statusHistory || [];
+    orders.statusHistory.push({ status: newStatus, date: new Date() });
     await orders.save();
-    res.json({
-      orders,
-    });
+
+    // Auto-trigger Shiprocket when status becomes Packed
+    if (newStatus === "Packed" && !orders.shipmentId) {
+      setImmediate(async () => {
+        try {
+          const shiprocket = require("../services/shiprocket.service");
+          const user = orders.user;
+          const result = await shiprocket.createShipment(orders, user);
+
+          await Order.findByIdAndUpdate(id, {
+            shippingProvider: "Shiprocket",
+            shipmentId: result.shipmentId,
+            trackingId: result.trackingId,
+            trackingUrl: result.trackingUrl,
+            courierName: result.courierName,
+            orderStatus: "Shipped",
+            shippedAt: new Date(),
+            $push: { statusHistory: { status: "Shipped", date: new Date() } },
+          });
+          console.log(`[Shiprocket] Auto-shipment created for order ${id}`);
+        } catch (err) {
+          console.error(`[Shiprocket] Auto-shipment FAILED for order ${id}:`, err.message);
+        }
+      });
+    }
+
+    res.json({ orders });
   } catch (error) {
     throw new Error(error);
   }

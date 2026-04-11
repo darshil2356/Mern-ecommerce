@@ -59,6 +59,43 @@ const Orders = () => {
     return m[s] || { bg: "#f3f4f6", color: "#374151" };
   };
 
+  const TIMELINE_STEPS = ["Ordered", "Processed", "Packed", "Shipped", "Out for Delivery", "Delivered"];
+
+  const renderTimeline = (order) => {
+    const currentIdx = TIMELINE_STEPS.indexOf(order.orderStatus);
+    return (
+      <div style={{ display: "flex", alignItems: "center", gap: 0, overflowX: "auto", padding: "12px 0 4px" }}>
+        {TIMELINE_STEPS.map((step, idx) => {
+          const done = idx <= currentIdx;
+          const active = idx === currentIdx;
+          return (
+            <React.Fragment key={step}>
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", minWidth: 72 }}>
+                <div style={{
+                  width: 28, height: 28, borderRadius: "50%",
+                  background: done ? "#16a34a" : "#e5e7eb",
+                  border: active ? "3px solid #16a34a" : "2px solid transparent",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  color: done ? "#fff" : "#9ca3af", fontSize: 13, fontWeight: 700,
+                  boxShadow: active ? "0 0 0 4px #bbf7d0" : "none",
+                  transition: "all 0.3s",
+                }}>
+                  {done ? "✓" : idx + 1}
+                </div>
+                <span style={{ fontSize: 10, marginTop: 4, color: done ? "#16a34a" : "#9ca3af", fontWeight: active ? 700 : 400, textAlign: "center", lineHeight: 1.2 }}>
+                  {step}
+                </span>
+              </div>
+              {idx < TIMELINE_STEPS.length - 1 && (
+                <div style={{ flex: 1, height: 3, background: idx < currentIdx ? "#16a34a" : "#e5e7eb", minWidth: 16, marginBottom: 18 }} />
+              )}
+            </React.Fragment>
+          );
+        })}
+      </div>
+    );
+  };
+
   // ── render one order card ──
   const renderOrder = (order) => {
     const subtotal     = order.totalPrice || 0;
@@ -99,6 +136,41 @@ const Orders = () => {
             {order.orderStatus}
           </span>
         </div>
+
+        {/* Tracking Timeline */}
+        <div className="px-4 pt-3 pb-0">
+          {renderTimeline(order)}
+        </div>
+
+        {/* Shiprocket Tracking Info */}
+        {(order.trackingId || order.courierName) && (
+          <div className="px-4 pb-3 pt-2 d-flex align-items-center gap-3 flex-wrap"
+            style={{ background: "#f0fdf4", borderTop: "1px solid #dcfce7" }}>
+            {order.courierName && (
+              <span style={{ fontSize: 13, color: "#166534" }}>
+                🚚 <strong>{order.courierName}</strong>
+              </span>
+            )}
+            {order.trackingId && order.trackingId !== "—" && (
+              <span style={{ fontSize: 12, color: "#555", fontFamily: "monospace" }}>
+                Tracking: {order.trackingId}
+              </span>
+            )}
+            {order.trackingUrl && (
+              <a
+                href={order.trackingUrl}
+                target="_blank"
+                rel="noreferrer"
+                style={{
+                  background: "#16a34a", color: "#fff", padding: "5px 14px",
+                  borderRadius: 20, fontSize: 12, fontWeight: 700, textDecoration: "none",
+                }}
+              >
+                📦 Track Order
+              </a>
+            )}
+          </div>
+        )}
 
         {/* Items */}
         <div className="card-body px-4 py-3">

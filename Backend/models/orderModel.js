@@ -183,11 +183,25 @@ paymentInfo: {
       default: "Ordered",
     },
     mode: {
-  type: String,
-  enum: ["ONLINE", "OFFLINE"],
-  default: "ONLINE",
-},
+      type: String,
+      enum: ["ONLINE", "OFFLINE"],
+      default: "ONLINE",
+    },
 
+    // ── Shiprocket shipping fields ──────────────────────────────────────
+    shippingProvider: { type: String, default: null },
+    shipmentId:       { type: String, default: null },
+    trackingId:       { type: String, default: null },
+    trackingUrl:      { type: String, default: null },
+    courierName:      { type: String, default: null },
+    shippedAt:        { type: Date,   default: null },
+    deliveredAt:      { type: Date,   default: null },
+    statusHistory: [
+      {
+        status: { type: String },
+        date:   { type: Date, default: Date.now },
+      },
+    ],
   },
   {
     timestamps: true,

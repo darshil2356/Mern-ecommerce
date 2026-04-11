@@ -25,6 +25,8 @@ const reportRouter = require("./routes/reportRoute");
 const bundleRouter = require("./routes/bundleRoute");
 const spinRouter = require("./routes/spinRoute");
 const rewardRouter = require("./routes/rewardRoute");
+const shiprocketRouter = require("./routes/shiprocketRoute");
+const { startTrackingCron } = require("./jobs/trackingCron");
 
 
      
@@ -54,6 +56,7 @@ app.use("/api/reports", reportRouter);
 app.use("/api/bundles", bundleRouter);
 app.use("/api/spin", spinRouter);
 app.use("/api/rewards", rewardRouter);
+app.use("/api", shiprocketRouter);
 
    
 
@@ -70,4 +73,5 @@ app.use(notFound);
 app.use(errorHandler);
 app.listen(PORT, () => {
   console.log(`Server is running  at PORT ${PORT}`);
+  startTrackingCron();
 });

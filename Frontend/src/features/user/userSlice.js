@@ -231,8 +231,16 @@ export const authSlice = createSlice({
         state.isError = false;
         state.isSuccess = true;
         state.createdUser = action.payload;
+        // Auto-login: set user in Redux state so PrivateRoutes work immediately
+        state.user = action.payload;
+        if (action.payload?.referralCode) {
+          state.referralCode = action.payload.referralCode;
+        }
+        if (action.payload?.coins !== undefined) {
+          state.coins = action.payload.coins;
+        }
         if (state.isSuccess === true) {
-          toast.info("User Created Successfully");
+          toast.success("Account created successfully! Welcome aboard 🎉");
         }
       })
       .addCase(registerUser.rejected, (state, action) => {

@@ -4,8 +4,13 @@ import { base_url, config, getConfig } from "../../utils/axiosConfig";
 const register = async (userData) => {
   const response = await axios.post(`${base_url}user/register`, userData);
   if (response.data) {
-    return response.data;
+    // Auto-login: save user data to localStorage just like login does
+    localStorage.setItem("customer", JSON.stringify(response.data));
+    if (response.data.token) {
+      localStorage.setItem("token", response.data.token);
+    }
   }
+  return response.data;
 };
 
 const login = async (userData) => {

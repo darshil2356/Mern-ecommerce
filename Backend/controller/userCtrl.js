@@ -559,7 +559,17 @@ const registerUser = asyncHandler(async (req, res) => {
         await ReferralService.processSignupReferralReward(referredByUser._id);
       } catch (e) { console.error("Signup referral reward error:", e.message); }
     }
-    return res.json(newUser);
+    // Return user with token so frontend can auto-login
+    return res.json({
+      _id: newUser._id,
+      firstname: newUser.firstname,
+      lastname: newUser.lastname,
+      email: newUser.email,
+      mobile: newUser.mobile,
+      referralCode: newUser.referralCode || "",
+      coins: newUser.coins || 0,
+      token: generateToken(newUser._id),
+    });
   }
 
   // Case 2: Offline user activating account

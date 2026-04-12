@@ -57,6 +57,13 @@ const Signup = () => {
     }
   }, [referralCode]);
 
+  // Auto-navigate to home after successful registration
+  useEffect(() => {
+    if (authState.isSuccess && authState.user) {
+      navigate("/");
+    }
+  }, [authState.isSuccess, authState.user, navigate]);
+
   return (
     <>
       <Meta title={"Sign Up"} />

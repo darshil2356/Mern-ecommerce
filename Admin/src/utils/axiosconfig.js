@@ -15,8 +15,11 @@ export const getConfig = () => ({
 });
 
 export const config = {
-  headers: {
-    Accept: "application/json",
+  get headers() {
+    return {
+      Authorization: `Bearer ${getTokenFromLocalStorage()}`,
+      Accept: "application/json",
+    };
   },
 };
 

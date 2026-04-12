@@ -52,13 +52,17 @@ const LiveBilling = () => {
     name: "",
     address: "",
     contact: "",
-    referralContact: ""  // New field for referral contact number
+    referralContact: "",
+    referralCode: ""
   });
 
   // Referral validation state
   const [referrerName, setReferrerName] = useState("");
   const [referrerError, setReferrerError] = useState("");
   const [referrerCode, setReferrerCode] = useState("");
+  const [referralSearch, setReferralSearch] = useState("");
+  const [referralResults, setReferralResults] = useState([]);
+  const [showReferralDropdown, setShowReferralDropdown] = useState(false);
 
   const [customers, setCustomers] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
@@ -87,7 +91,7 @@ const LiveBilling = () => {
   const [defaultIgst, setDefaultIgst]           = useState(0);
   const [defaultStoreState, setDefaultStoreState] = useState("Gujarat");
   // Customer shipping state for GST determination
-  const [customerState, setCustomerState]       = useState("");
+  const [customerState, setCustomerState]       = useState("Gujarat");
 
   // Coins state
   const [customerCoins, setCustomerCoins] = useState(0);
@@ -639,57 +643,44 @@ const LiveBilling = () => {
     setCoinAmount(Math.min(val, maxCoins));
   };
 
-  // Validate referral contact and get referrer name
-const validateReferralContact = async (mobile) => {
-  if (!mobile || mobile.length < 10) {
-    setReferrerName("");
-    setReferrerError("");
-    setReferrerCode("");
-    return;
-  }
-
-  try {
-    const res = await axios.get(
-      `${base_url}user/search?query=${mobile}`,
-      config
-    );
-
-    if (res.data && res.data.length > 0) {
-      const foundUser = res.data.find(
-        (u) => u.mobile === mobile
-      );
-
-      if (foundUser) {
-        setReferrerName(foundUser.firstname + " " + foundUser.lastname);
-        setReferrerCode(foundUser.referralCode || "N/A");
-        setReferrerError("");
-      } else {
-        setReferrerName("");
-        setReferrerCode("");
-        setReferrerError("Incorrect referral number");
-      }
-    } else {
-      setReferrerName("");
-      setReferrerCode("");
-      setReferrerError("Incorrect referral number");
+  // Search referrals by name, phone, or referral code
+  const searchReferrals = async (query) => {
+    if (!query || query.trim().length < 2) {
+      setReferralResults([]);
+      return;
     }
-  } catch (err) {
-    console.error("Referral validation failed:", err);
+    try {
+      const res = await axios.get(`${base_url}user/search?query=${query}`, config);
+      setReferralResults(res.data || []);
+    } catch (err) {
+      setReferralResults([]);
+    }
+  };
+
+  const selectReferrer = (user) => {
+    setReferrerName(user.firstname + " " + user.lastname);
+    setReferrerCode(user.referralCode || "N/A");
+    setReferrerError("");
+    setReferralSearch(user.mobile);
+    setCustomer(prev => ({ ...prev, referralContact: user.mobile, referralCode: user.referralCode || "" }));
+    setReferralResults([]);
+    setShowReferralDropdown(false);
+  };
+
+  const clearReferrer = () => {
     setReferrerName("");
     setReferrerCode("");
-    setReferrerError("Incorrect referral number");
-  }
-};
+    setReferrerError("");
+    setReferralSearch("");
+    setReferralResults([]);
+    setCustomer(prev => ({ ...prev, referralContact: "", referralCode: "" }));
+  };
 
   // Clear referral when customer contact changes (to prevent self-referral)
   useEffect(() => {
     if (customer.contact && customer.referralContact) {
-      // If referral contact is same as customer contact, clear it
       if (customer.contact === customer.referralContact) {
-        setCustomer(prev => ({ ...prev, referralContact: "" }));
-        setReferrerName("");
-        setReferrerError("");
-        setReferrerCode("");
+        clearReferrer();
       }
     }
   }, [customer.contact]);
@@ -794,15 +785,45 @@ const validateReferralContact = async (mobile) => {
     return () => clearTimeout(delay);
   }, [contactSearch]);
 
-  // Fetch customer offer when customer contact changes
+  // Search referrals with debounce
+  useEffect(() => {
+    if (!referralSearch.trim()) {
+      setReferralResults([]);
+      return;
+    }
+    const delay = setTimeout(() => searchReferrals(referralSearch), 400);
+    return () => clearTimeout(delay);
+  }, [referralSearch]);
+
+  // Fetch customer offer + auto-fill referral when customer is selected
   useEffect(() => {
     if (customer.contact) {
       fetchCustomerOffer(customer.contact);
       fetchCustomerCoins(customer.contact);
+      // Auto-fill referral if customer already has a referrer in DB
+      const autoFillReferral = async () => {
+        try {
+          const res = await axios.get(`${base_url}user/search?query=${customer.contact}`, config);
+          if (res.data && res.data.length > 0) {
+            const found = res.data.find(u => u.mobile === customer.contact);
+            if (found && found.referredBy && !referrerName) {
+              const ref = found.referredBy;
+              setReferrerName((ref.firstname || "") + " " + (ref.lastname || ""));
+              setReferrerCode(ref.referralCode || "N/A");
+              setReferralSearch(ref.mobile || "");
+              setCustomer(prev => ({
+                ...prev,
+                referralContact: ref.mobile || "",
+                referralCode: ref.referralCode || ""
+              }));
+            }
+          }
+        } catch (err) { /* silent */ }
+      };
+      autoFillReferral();
     } else {
       setCustomerOffer({ hasOffer: false, offerDiscount: 0, offerType: "" });
       setAppliedOfferAmount(0);
-      // setCustomerCoins(0);
       setUseCoins(false);
       setCoinAmount(0);
     }
@@ -974,11 +995,15 @@ const validateReferralContact = async (mobile) => {
       }
 
       setCart({});
-      setCustomer({ name: "", address: "", contact: "", referralContact: "" });
-      setCustomerState("");
+      setCustomer({ name: "", address: "", contact: "", referralContact: "", referralCode: "" });
+      setCustomerState("Gujarat");
+      setReferralSearch("");
+      setReferralResults([]);
       setReferrerName("");
       setReferrerError("");
       setReferrerCode("");
+      setReferralSearch("");
+      setReferralResults([]);
       // Restore tax to saved defaults, NOT to 0
       setCgstPercent(defaultCgst);
       setSgstPercent(defaultSgst);
@@ -1272,7 +1297,7 @@ const validateReferralContact = async (mobile) => {
         {/* LEFT COLUMN - 2/3 */}
         <div className="xl:col-span-2 space-y-6">
           {/* CUSTOMER DETAILS CARD */}
-          <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
+          <div className="bg-white rounded-2xl shadow-lg border border-gray-100">
             <div className="bg-gradient-to-r from-gray-50 to-white px-6 py-4 border-b border-gray-100">
               <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2">
                 <FaUser className="text-indigo-600" />
@@ -1309,7 +1334,7 @@ const validateReferralContact = async (mobile) => {
                     />
                   </div>
                   {showDropdown && customers.length > 0 && (
-                    <div className="absolute top-full left-0 w-full bg-white border border-gray-200 rounded-xl shadow-xl max-h-48 overflow-y-auto z-50 mt-1">
+                    <div className="absolute top-full left-0 w-full bg-white border border-gray-200 rounded-xl shadow-xl max-h-48 overflow-y-auto mt-1" style={{zIndex:9999}}>
                       {customers.map((cust) => (
                         <div
                           key={cust._id}
@@ -1319,6 +1344,8 @@ const validateReferralContact = async (mobile) => {
                               name: cust.firstname + " " + cust.lastname,
                               address: cust.address || "",
                               contact: cust.mobile || "",
+                              referralContact: customer.referralContact || "",
+                              referralCode: customer.referralCode || "",
                             });
                             setCustomerCoins(cust.coins || 0);
                             setSearchTerm(cust.firstname + " " + cust.lastname);
@@ -1362,7 +1389,7 @@ const validateReferralContact = async (mobile) => {
                     />
                   </div>
                   {showContactDropdown && customers.length > 0 && (
-                    <div className="absolute top-full left-0 w-full bg-white border border-gray-200 rounded-xl shadow-xl max-h-48 overflow-y-auto z-50 mt-1">
+                    <div className="absolute top-full left-0 w-full bg-white border border-gray-200 rounded-xl shadow-xl max-h-48 overflow-y-auto mt-1" style={{zIndex:9999}}>
                       {customers.map((cust) => (
                         <div
                           key={cust._id}
@@ -1372,6 +1399,8 @@ const validateReferralContact = async (mobile) => {
                               name: cust.firstname + " " + cust.lastname,
                               address: cust.address || "",
                               contact: cust.mobile || "",
+                              referralContact: customer.referralContact || "",
+                              referralCode: customer.referralCode || "",
                             });
                             setCustomerCoins(cust.coins || 0);
                             setContactSearch(cust.mobile);
@@ -1417,7 +1446,8 @@ const validateReferralContact = async (mobile) => {
                       onChange={(e) => setCustomerState(e.target.value)}
                     >
                       <option value="">-- Select State --</option>
-                      {["Gujarat","Maharashtra","Delhi","Karnataka","Tamil Nadu","Rajasthan","Uttar Pradesh","West Bengal","Telangana","Punjab","Madhya Pradesh","Bihar","Haryana","Odisha","Kerala"].map(s => (
+                      <option value="Gujarat">Gujarat</option>
+                      {["Maharashtra","Delhi","Karnataka","Tamil Nadu","Rajasthan","Uttar Pradesh","West Bengal","Telangana","Punjab","Madhya Pradesh","Bihar","Haryana","Odisha","Kerala","Andhra Pradesh","Assam","Chhattisgarh","Goa","Himachal Pradesh","Jharkhand","Jammu & Kashmir","Uttarakhand"].map(s => (
                         <option key={s} value={s}>{s}</option>
                       ))}
                     </select>
@@ -1439,83 +1469,84 @@ const validateReferralContact = async (mobile) => {
                   )}
                 </div>
 
-                {/* Referral Contact Number - Only show if enabled in settings */}
+                {/* Referral Section */}
                 {showReferralOffer && (
-                <div className="md:col-span-2">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {/* Left: Referral Contact Input */}
-                    <div>
-                      <label className="block text-xs font-medium text-gray-500 mb-1">
-                        Referral Contact Number (Optional)
-                      </label>
-                      <div className="relative">
-                        <FaPhone className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                        <input
-                          className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none transition-all"
-                          value={customer.referralContact || ""}
-                          placeholder="Enter referrer's contact number..."
-                          onChange={(e) => {
-                            const value = e.target.value;
-                            setCustomer({ ...customer, referralContact: value });
-                            // Clear previous timeout
-                            if (window.referralTimeout) {
-                              clearTimeout(window.referralTimeout);
-                            }
-                            // Validate after user stops typing (debounced - 500ms)
-                            if (value.length >= 10) {
-                              window.referralTimeout = setTimeout(() => {
-                                validateReferralContact(value);
-                              }, 500);
-                            } else {
-                              setReferrerName("");
-                              setReferrerError("");
-                              setReferrerCode("");
-                            }
-                          }}
-                        />
-                      </div>
-                      {/* Error Message */}
-                      {referrerError && (
-                        <p className="text-xs text-red-500 mt-1 font-medium">
-                          {referrerError}
-                        </p>
+                <div className="md:col-span-2 mt-1">
+                  <label className="block text-xs font-medium text-gray-500 mb-1">
+                    Referrer &nbsp;<span className="text-indigo-400 font-normal">(search by name, phone or code)</span>
+                  </label>
+                  <div className="flex gap-3 items-start">
+
+                    {/* Search Input + Dropdown */}
+                    <div className="relative flex-1">
+                      <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm pointer-events-none" />
+                      <input
+                        className="w-full pl-9 pr-8 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none transition-all text-sm"
+                        value={referralSearch}
+                        placeholder="Search referrer..."
+                        onChange={(e) => {
+                          setReferralSearch(e.target.value);
+                          setShowReferralDropdown(true);
+                          if (!e.target.value) clearReferrer();
+                        }}
+                        onFocus={() => referralSearch && setShowReferralDropdown(true)}
+                        onBlur={() => setTimeout(() => setShowReferralDropdown(false), 150)}
+                      />
+                      {referrerName && (
+                        <button
+                          type="button"
+                          className="absolute right-2.5 top-1/2 -translate-y-1/2 w-5 h-5 flex items-center justify-center rounded-full bg-gray-200 hover:bg-red-100 hover:text-red-500 text-gray-500 text-xs"
+                          onMouseDown={(e) => { e.preventDefault(); clearReferrer(); }}
+                        >✕</button>
                       )}
-                      <p className="text-xs text-gray-400 mt-1">
-                        If someone referred this customer, enter their mobile number
-                      </p>
+                      {showReferralDropdown && referralResults.length > 0 && (
+                        <div className="absolute top-full left-0 w-full bg-white border border-gray-200 rounded-xl shadow-2xl max-h-44 overflow-y-auto mt-1" style={{zIndex:9999}}>
+                          {referralResults
+                            .filter(u => u.mobile !== customer.contact)
+                            .map(u => (
+                              <div
+                                key={u._id}
+                                className="px-3 py-2.5 hover:bg-indigo-50 cursor-pointer border-b border-gray-100 last:border-0 transition-colors"
+                                onMouseDown={(e) => { e.preventDefault(); selectReferrer(u); }}
+                              >
+                                <div className="font-medium text-gray-800 text-sm">{u.firstname} {u.lastname}</div>
+                                <div className="flex items-center gap-2 mt-0.5">
+                                  <span className="text-xs text-gray-500">{u.mobile}</span>
+                                  {u.referralCode && (
+                                    <span className="text-xs text-indigo-600 font-mono bg-indigo-50 border border-indigo-100 px-1.5 py-0.5 rounded">{u.referralCode}</span>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                        </div>
+                      )}
                     </div>
 
-                    {/* Right: Referrer Info (Non-editable) */}
-                    <div>
-                      <label className="block text-xs font-medium text-gray-500 mb-1">
-                        Referrer Details
-                      </label>
-                      {referrerName ? (
-                        <div className="p-3 bg-green-50 border border-green-200 rounded-xl">
-                          <div className="flex items-center gap-2 mb-1">
-                            <FaUser className="text-green-600" />
-                            <span className="text-sm font-medium text-green-700">
-                              {referrerName}
-                            </span>
-                          </div>
-                          {referrerCode && (
-                            <div className="flex items-center gap-2">
-                              <span className="text-xs text-green-600">Referral Code:</span>
-                              <span className="text-sm font-bold text-green-700">{referrerCode}</span>
-                            </div>
+                    {/* Referrer Info Badge */}
+                    {referrerName ? (
+                      <div className="flex items-center gap-2 px-3 py-2.5 bg-green-50 border border-green-200 rounded-xl min-w-0 flex-shrink-0 max-w-[220px]">
+                        <div className="w-7 h-7 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
+                          <FaUser className="text-green-600 text-xs" />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold text-green-700 truncate leading-tight">{referrerName}</p>
+                          <p className="text-xs text-green-500 truncate leading-tight">{customer.referralContact}</p>
+                          {referrerCode && referrerCode !== "N/A" && (
+                            <span className="inline-block text-xs font-mono font-bold text-indigo-600 bg-indigo-50 border border-indigo-100 px-1.5 py-0.5 rounded mt-0.5">{referrerCode}</span>
                           )}
                         </div>
-                      ) : (
-                        <div className="p-3 bg-gray-50 border border-gray-200 rounded-xl">
-                          <p className="text-sm text-gray-400">Enter referrer's contact number</p>
-                        </div>
-                      )}
-                    </div>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2 px-3 py-2.5 bg-gray-50 border border-dashed border-gray-300 rounded-xl flex-shrink-0">
+                        <FaUser className="text-gray-300 text-sm" />
+                        <span className="text-xs text-gray-400 whitespace-nowrap">No referrer</span>
+                      </div>
+                    )}
+
                   </div>
                 </div>
                 )}
 
-                
               </div>
             </div>
           </div>

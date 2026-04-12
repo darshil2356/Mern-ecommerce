@@ -2022,12 +2022,14 @@ const searchUsers = asyncHandler(async (req, res) => {
     $or: [
       { firstname: { $regex: query, $options: "i" } },
       { lastname: { $regex: query, $options: "i" } },
-      { mobile: { $regex: cleanQuery } }, // Clean mobile search
-      { mobile: { $regex: query } } // Original mobile search
+      { mobile: { $regex: cleanQuery } },
+      { mobile: { $regex: query } },
+      { referralCode: { $regex: query, $options: "i" } }
     ]
   })
     .limit(10)
-    .select("firstname lastname mobile  address coins referralCode offerDiscount offerType totalOrders lastOrderDate ");
+    .select("firstname lastname mobile address coins referralCode referredBy offerDiscount offerType totalOrders lastOrderDate")
+    .populate("referredBy", "firstname lastname mobile referralCode");
 
   // Ensure coins field is always present (default to 0 if undefined)
   const usersWithCoins = users.map(user => ({

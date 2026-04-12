@@ -113,6 +113,10 @@ paymentInfo: {
       type: Number,
       required: true,
     },
+    hsnCode: {
+      type: String,
+      default: null,
+    },
     // Bundle fields
     isBundle: { type: Boolean, default: false },
     bundleId: { type: mongoose.Schema.Types.ObjectId, ref: "Bundle", default: null },
@@ -127,6 +131,7 @@ paymentInfo: {
         selectedColor: { type: mongoose.Schema.Types.ObjectId, ref: "Color", default: null },
         selectedColorLabel: { type: String, default: null },
         selectedSize: { type: String, default: null },
+        hsnCode: { type: String, default: null },
       },
     ],
   },

@@ -514,6 +514,7 @@ const Reports = () => {
       const productsData = reportData.products.map((p, index) => ({
         "Sr No": index + 1,
         "Product Name": p.name || "",
+        "HSN Code": p.hsnCode || "",
         "Brand": p.brand || "N/A",
         "Category": p.category || "N/A",
         "Barcode/SKU": p.barcode || "N/A",
@@ -524,6 +525,8 @@ const Reports = () => {
       }));
       const wsProducts = XLSX.utils.json_to_sheet(productsData);
       wsProducts['!cols'] = [
+        { wch: 8 }, { wch: 30 }, { wch: 15 },
+        { wch: 15 }, { wch: 15 }, { wch: 12 },
         { wch: 8 }, { wch: 30 }, { wch: 15 }, { wch: 15 },
         { wch: 15 }, { wch: 12 }, { wch: 18 }, { wch: 15 }, { wch: 15 }
       ];
@@ -1082,6 +1085,7 @@ const Reports = () => {
                 columns={[
                   { title: '#', dataIndex: 'key', width: 50, render: (r) => r + 1 },
                   { title: 'Product', dataIndex: 'name', ellipsis: true },
+                  { title: 'HSN', dataIndex: 'hsnCode' },
                   { title: 'Brand', dataIndex: 'brand' },
                   { title: 'Barcode', dataIndex: 'barcode' },
                   { title: 'Qty Sold', dataIndex: 'quantitySold', align: 'right' },

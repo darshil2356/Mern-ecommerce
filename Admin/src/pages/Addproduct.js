@@ -39,6 +39,7 @@ let schema = yup.object().shape({
   brand: yup.string().required("Brand is Required"),
   category: yup.string().required("Category is Required"),
   tags: yup.string().required("Tag is Required"),
+  hsnCode: yup.string().matches(/^[0-9]{4,8}$/, "HSN must be 4-8 digits").optional(),
   color: yup.string().when("variants", function(variants) {
     return !Array.isArray(variants) || variants.length === 0
       ? yup.string().required("Color is Required when no variants are set")
@@ -200,6 +201,7 @@ const Addproduct = () => {
       brand: productBrand || "",
       category: productCategory || "",
       tags: productTag || "",
+      hsnCode: newProduct?.hsnCode || newProduct?.productHsn || "",
       color: productColors?._id || productColors || undefined,
       sizeStock: newProduct?.sizeStock?.map((s) => ({
         size: s.size,
@@ -528,6 +530,27 @@ const Addproduct = () => {
                 />
                 {formik.touched.price && formik.errors.price && (
                   <span className="text-danger" style={{ fontSize: "12px" }}>{formik.errors.price}</span>
+                )}
+              </div>
+
+              <div className="mb-4">
+                <label className="fw-medium mb-2 d-block" style={{ color: "#1a1a1a" }}>
+                  HSN Code
+                </label>
+                <Input
+                  size="large"
+                  placeholder="Enter HSN code (4-8 digits)"
+                  name="hsnCode"
+                  value={formik.values.hsnCode}
+                  onChange={formik.handleChange("hsnCode")}
+                  onBlur={formik.handleBlur("hsnCode")}
+                  style={{
+                    borderRadius: "8px",
+                    border: formik.touched.hsnCode && formik.errors.hsnCode ? "1px solid #ff4d4f" : "1px solid #d9d9d9",
+                  }}
+                />
+                {formik.touched.hsnCode && formik.errors.hsnCode && (
+                  <span className="text-danger" style={{ fontSize: "12px" }}>{formik.errors.hsnCode}</span>
                 )}
               </div>
             </form>

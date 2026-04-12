@@ -27,6 +27,7 @@ const updateProduct = async (product) => {
       description: product.productData.description,
       price: product.productData.price,
       brand: product.productData.brand,
+      hsnCode: product.productData.hsnCode,
       // quantity: product.productData.quantity,
       category: product.productData.category,
       tags: product.productData.tags,
@@ -38,6 +39,7 @@ const updateProduct = async (product) => {
       videos: product.productData.videos,               // ✅ ALSO ADD (you use videos)
 
       sizeStock: product.productData.sizeStock,
+      hsnCode: product.productData.hsnCode,
 
     },
     config

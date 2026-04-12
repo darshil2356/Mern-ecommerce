@@ -376,6 +376,11 @@ const OrderDetails = () => {
                                 </span>
                               </div>
                             )}
+                            {(item?.hsnCode || item?.product?.hsnCode) && (
+                              <span style={{ fontSize: 14, color: "#64748b" }}>
+                                HSN: {item.hsnCode || item.product?.hsnCode}
+                              </span>
+                            )}
                             <span style={{ fontSize: 14, color: "#64748b" }}>
                               Qty: {item.quantity}
                             </span>

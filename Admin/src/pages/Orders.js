@@ -84,8 +84,8 @@ const Orders = () => {
         <div class="p-8">
           <p class="text-gray-600 mb-6"><span class="font-semibold text-gray-900">Bill To:</span> ${customerName}</p>
           <table class="w-full text-sm border-collapse">
-            <thead><tr class="bg-indigo-50 text-indigo-700"><th class="p-3 text-left rounded-l-lg">#</th><th class="p-3 text-left">Item</th><th class="p-3 text-center">Qty</th><th class="p-3 text-right">Rate</th><th class="p-3 text-right rounded-r-lg">Amount</th></tr></thead>
-            <tbody>${order.orderItems.map((item, i) => `<tr class="border-b border-gray-100"><td class="p-3 text-gray-500">${i+1}</td><td class="p-3 font-medium">${item.product?.title || "Product"}</td><td class="p-3 text-center">${item.quantity}</td><td class="p-3 text-right">₹${item.price.toFixed(2)}</td><td class="p-3 text-right font-semibold">₹${(item.quantity*item.price).toFixed(2)}</td></tr>`).join("")}</tbody>
+            <thead><tr class="bg-indigo-50 text-indigo-700"><th class="p-3 text-left rounded-l-lg">#</th><th class="p-3 text-left">Item</th><th class="p-3 text-left">HSN</th><th class="p-3 text-center">Qty</th><th class="p-3 text-right">Rate</th><th class="p-3 text-right rounded-r-lg">Amount</th></tr></thead>
+            <tbody>${order.orderItems.map((item, i) => `<tr class="border-b border-gray-100"><td class="p-3 text-gray-500">${i+1}</td><td class="p-3 font-medium">${item.product?.title || "Product"}</td><td class="p-3 text-left">${item.hsnCode || item.product?.hsnCode || "-"}</td><td class="p-3 text-center">${item.quantity}</td><td class="p-3 text-right">₹${item.price.toFixed(2)}</td><td class="p-3 text-right font-semibold">₹${(item.quantity*item.price).toFixed(2)}</td></tr>`).join("")}</tbody>
           </table>
           <div class="mt-6 text-right border-t pt-4">
             ${order.discountAmount > 0 ? `<p class="text-green-600 mb-1">Discount: -₹${order.discountAmount.toFixed(2)}</p>` : ""}

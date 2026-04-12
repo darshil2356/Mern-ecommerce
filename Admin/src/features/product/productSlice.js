@@ -59,6 +59,8 @@ export const resetState = createAction("Reset_all");
 const initialState = {
   products: [],
   variants: [],
+  productHsn: "",
+  hsnCode: "",
 
   isError: false,
   isLoading: false,
@@ -114,6 +116,8 @@ export const productSlice = createSlice({
         state.productBrand = action.payload.brand;
         state.productCategory = action.payload.category;
         state.productTag = action.payload.tags;
+        state.productHsn = action.payload.hsnCode || "";
+        state.hsnCode = action.payload.hsnCode || "";
 //         state.productColors = action.payload.color?._id || "";
 //         // state.productSize = action.payload.size;
 //         state.productSize = action.payload.size || [];

@@ -51,6 +51,14 @@ var productSchema = new mongoose.Schema(
       trim: true,
     },
 
+    hsnCode: {
+      type: String,
+      trim: true,
+      uppercase: true,
+      sparse: true,
+      index: true,
+    },
+
     quantity: {
       type: Number,
       required: true,

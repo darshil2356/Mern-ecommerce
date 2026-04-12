@@ -195,6 +195,15 @@ const Productlist = () => {
       },
     },
     {
+      title: "HSN",
+      dataIndex: "hsnCode",
+      key: "hsnCode",
+      width: 120,
+      render: (hsnCode) => (
+        <span className="text-muted fw-medium">{hsnCode || "-"}</span>
+      ),
+    },
+    {
       title: "Brand",
       dataIndex: "brand",
       key: "brand",
@@ -382,6 +391,7 @@ const Productlist = () => {
       title: filteredProducts[i].title,
       brand: filteredProducts[i].brand,
       barcode: filteredProducts[i].barcode,
+        hsnCode: filteredProducts[i].hsnCode || filteredProducts[i].productHsn || "",
       sizeStock: filteredProducts[i].sizeStock || [],
       category: filteredProducts[i].category,
       color: filteredProducts[i].color || null,

@@ -19,7 +19,7 @@ const getMonthlyReport = asyncHandler(async (req, res) => {
 
   const orders = await Order.find({ createdAt: { $gte: startDate, $lte: endDate } })
     .populate("user", "firstname lastname mobile email")
-    .populate({ path: "orderItems.product", select: "title brand price barcode" });
+    .populate({ path: "orderItems.product", select: "title brand price barcode hsnCode" });
 
   const totalOrders = orders.length;
   const totalSales = orders.reduce((sum, o) => sum + (o.totalPrice || 0), 0);
@@ -42,7 +42,7 @@ const getMonthlyReport = asyncHandler(async (req, res) => {
     order.orderItems.forEach(item => {
       const productId = item.product?._id?.toString() || "Unknown";
       if (!productStats[productId]) {
-        productStats[productId] = { name: item.product?.title || "Unknown Product", brand: item.product?.brand || "", quantity: 0, revenue: 0 };
+        productStats[productId] = { name: item.product?.title || "Unknown Product", brand: item.product?.brand || "", hsnCode: item.product?.hsnCode || item.hsnCode || "", quantity: 0, revenue: 0 };
       }
       productStats[productId].quantity += item.quantity || 0;
       productStats[productId].revenue += (item.quantity || 0) * (item.price || 0);
@@ -109,7 +109,7 @@ const getYearlyReport = asyncHandler(async (req, res) => {
 
   const orders = await Order.find({ createdAt: { $gte: startDate, $lte: endDate } })
     .populate("user", "firstname lastname mobile email")
-    .populate({ path: "orderItems.product", select: "title brand price barcode" });
+    .populate({ path: "orderItems.product", select: "title brand price barcode hsnCode" });
 
   const monthlyData = await Order.aggregate([
     { $match: { createdAt: { $gte: startDate, $lte: endDate } } },
@@ -177,7 +177,7 @@ const getDateRangeReport = asyncHandler(async (req, res) => {
 
   const orders = await Order.find({ createdAt: { $gte: start, $lte: end } })
     .populate("user", "firstname lastname mobile email")
-    .populate({ path: "orderItems.product", select: "title brand price barcode" });
+    .populate({ path: "orderItems.product", select: "title brand price barcode hsnCode" });
 
   const totalOrders = orders.length;
   const totalSales = orders.reduce((sum, o) => sum + (o.totalPrice || 0), 0);
@@ -301,14 +301,14 @@ const getProductWiseReport = asyncHandler(async (req, res) => {
   }
 
   const orders = await Order.find({ createdAt: { $gte: start, $lte: end } })
-    .populate({ path: "orderItems.product", select: "title brand price barcode category" });
+    .populate({ path: "orderItems.product", select: "title brand price barcode category hsnCode" });
 
   const productStats = {};
   orders.forEach(order => {
     order.orderItems.forEach(item => {
       const productId = item.product?._id?.toString() || "Unknown";
       if (!productStats[productId]) {
-        productStats[productId] = { productId, name: item.product?.title || "Unknown", brand: item.product?.brand || "", category: item.product?.category || "", barcode: item.product?.barcode || "", quantitySold: 0, totalRevenue: 0 };
+        productStats[productId] = { productId, name: item.product?.title || "Unknown", brand: item.product?.brand || "", hsnCode: item.product?.hsnCode || item.hsnCode || "", category: item.product?.category || "", barcode: item.product?.barcode || "", quantitySold: 0, totalRevenue: 0 };
       }
       const qty = item.quantity || 0;
       productStats[productId].quantitySold += qty;

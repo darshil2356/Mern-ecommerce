@@ -96,7 +96,7 @@ const createOrder = async (order, user) => {
     selling_price: String(item.price || 0),
     discount: "0",
     tax: "0",
-    hsn: 0,
+    hsn: item.hsnCode || item.product?.hsnCode || 0,
   }));
 
   const payload = {

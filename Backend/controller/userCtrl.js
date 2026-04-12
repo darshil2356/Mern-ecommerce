@@ -1294,6 +1294,7 @@ const createOrder = asyncHandler(async (req, res) => {
           product.sold = (product.sold || 0) + (bundleItem.quantity || 1);
           product.quantity = normalizeProductQuantity(product);
           await product.save();
+          bundleItem.hsnCode = bundleItem.hsnCode || product.hsnCode || product.hsn;
           bundleItem.barcode = deductionResult.barcode || bundleItem.barcode;
         }
         continue;
@@ -1318,6 +1319,7 @@ const createOrder = asyncHandler(async (req, res) => {
         if (deducted) {
           product.sold = (product.sold || 0) + item.quantity;
           item.barcode = barcode || item.barcode;
+          item.hsnCode = item.hsnCode || product.hsnCode || product.hsn;
           product.quantity = normalizeProductQuantity(product);
           await product.save();
           console.log(`Stock deducted successfully for ${product.title}. New stock:`, {
@@ -1408,7 +1410,7 @@ const getMyOrders = asyncHandler(async (req, res) => {
       .skip(skip)
       .limit(limit)
       .populate("user")
-      .populate({ path: "orderItems.product", select: "title brand price images barcode" })
+      .populate({ path: "orderItems.product", select: "title brand price images barcode hsnCode" })
       .populate("orderItems.color");
     res.json({
       orders,
@@ -1446,7 +1448,7 @@ const getsingleOrder = asyncHandler(async (req, res) => {
       .select("+discountAmount") // Include discountAmount field
       .populate({
         path: "orderItems.product",
-        select: "title brand price images barcode"
+        select: "title brand price images barcode hsnCode"
       })
       .populate("orderItems.color")
       .populate("user", "firstname lastname email mobile");
@@ -1466,7 +1468,7 @@ const getMySingleOrder = asyncHandler(async (req, res) => {
       .select("+discountAmount") // Include discountAmount field
       .populate({
         path: "orderItems.product",
-        select: "title brand price images barcode"
+        select: "title brand price images barcode hsnCode"
       })
       .populate("orderItems.color")
       .populate("user", "firstname lastname email mobile");
@@ -2213,7 +2215,7 @@ const getCustomerDetails = asyncHandler(async (req, res) => {
     const orders = await Order.find({ user: id })
       .populate({
         path: "orderItems.product",
-        select: "title brand price images barcode"
+        select: "title brand price images barcode hsnCode"
       })
       .populate("orderItems.color")
       .sort({ createdAt: -1 });

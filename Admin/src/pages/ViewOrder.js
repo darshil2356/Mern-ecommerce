@@ -362,6 +362,11 @@ const ViewOrder = () => {
       render: (barcode) => <span style={{ fontFamily: "monospace", fontSize: 11 }}>{barcode}</span>,
     },
     {
+      title: "HSN",
+      dataIndex: "hsnCode",
+      render: (hsnCode) => <span style={{ fontFamily: "monospace", fontSize: 11 }}>{hsnCode || "-"}</span>,
+    },
+    {
       title: "Color",
       dataIndex: "color",
       render: (color) => color ? (
@@ -413,6 +418,7 @@ const ViewOrder = () => {
         image: null,
         isBundle: true,
         bundleProducts: item?.bundleProducts || [],
+        hsnCode: item?.hsnCode || "-",
       });
     } else {
       data1.push({
@@ -420,6 +426,7 @@ const ViewOrder = () => {
         product: product?.title || "N/A",
         brand: product?.brand || "N/A",
         barcode: product?.barcode || "N/A",
+          hsnCode: item?.hsnCode || product?.hsnCode || "-",
         color: item?.color,
         count: item?.quantity,
         amount: item?.price,

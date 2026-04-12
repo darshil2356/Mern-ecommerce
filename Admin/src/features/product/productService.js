@@ -1,27 +1,25 @@
-import axios from "axios";
-import { config } from "../../utils/axiosconfig";
-import { base_url } from "../../utils/baseUrl";
+import api from "../../utils/axiosconfig";
 
 const getProducts = async () => {
-  const response = await axios.get(`${base_url}product/`);
+  const response = await api.get("product/");
 
   return response.data;
 };
 const createProduct = async (product) => {
-  const response = await axios.post(`${base_url}product/`, product, config);
+  const response = await api.post("product/", product);
 
   return response.data;
 };
 
 const getProduct = async (id) => {
-  const response = await axios.get(`${base_url}product/${id}`, config);
+  const response = await api.get(`product/${id}`);
 
   return response.data;
 };
 
 const updateProduct = async (product) => {
-  const response = await axios.put(
-    `${base_url}product/${product.id}`,
+  const response = await api.put(
+    `product/${product.id}`,
     {
       title: product.productData.title,
       description: product.productData.description,
@@ -42,14 +40,14 @@ const updateProduct = async (product) => {
       hsnCode: product.productData.hsnCode,
 
     },
-    config
+    
   );
 
   return response.data;
 };
 
 const deleteproduct = async (id) => {
-  const response = await axios.delete(`${base_url}product/${id}`, config);
+  const response = await api.delete(`product/${id}`);
 
   return response.data;
 };

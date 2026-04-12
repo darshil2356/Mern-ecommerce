@@ -1,135 +1,95 @@
-import axios from "axios";
-import { config } from "../../utils/axiosconfig";
-import { base_url } from "../../utils/baseUrl";
-
-// const getTokenFromLocalStorage = localStorage.get("user")
-//   ? JSON.parse(localStorage.getItem("user"))
-//   : null;
+import api from "../../utils/axiosconfig";
 
 const login = async (user) => {
-  const response = await axios.post(`${base_url}user/admin-login`, user);
+  const response = await api.post("user/admin-login", user);
   if (response.data) {
     localStorage.setItem("user", JSON.stringify(response.data));
   }
   return response.data;
 };
-// const getOrders = async (data) => {
-//   const response = await axios.get(`${base_url}user/getallorders`, data);
-
-//   return response.data;
-// };
 
 const getOrders = async () => {
-  const response = await axios.get(
-    `${base_url}user/getallorders`,
-    config   // ✅ token goes here
-  );
-
+  const response = await api.get("user/getallorders");
   return response.data;
 };
 
-
 const getOrder = async (id) => {
-  const response = await axios.get(
-    `${base_url}user/getaOrder/${id}`,
-
-    config
-  );
-
+  const response = await api.get(`user/getaOrder/${id}`);
   return response.data;
 };
 
 const updateOrder = async (data) => {
-  const response = await axios.put(
-    `${base_url}user/updateOrder/${data.id}`,
-    { status: data.status },
-    config
-  );
-
+  const response = await api.put(`user/updateOrder/${data.id}`, { status: data.status });
   return response.data;
 };
 
-const getMonthlyOrders = async (data) => {
-  const response = await axios.get(
-    `${base_url}user/getMonthWiseOrderIncome`,
-
-    data
-  );
-
+const getMonthlyOrders = async () => {
+  const response = await api.get("user/getMonthWiseOrderIncome");
   return response.data;
 };
 
 const getDailySales = async (data) => {
-  // Build URL with query params if data contains params
-  let url = `${base_url}user/getDailySales`;
+  let url = "user/getDailySales";
   if (data && data.params) {
     url += `?${data.params}`;
   }
-  
-  const response = await axios.get(url, data?.config || config);
+  const response = await api.get(url);
   return response.data;
 };
 
 const getDashboardStats = async (data) => {
-  // Build URL with query params if data contains params
-  let url = `${base_url}user/getDashboardStats`;
+  let url = "user/getDashboardStats";
   if (data && data.params) {
     url += `?${data.params}`;
   }
-  
-  const response = await axios.get(url, data?.config || config);
+  const response = await api.get(url);
   return response.data;
 };
 
-const getYearlyStats = async (data) => {
-  const response = await axios.get(
-    `${base_url}user/getyearlyorders`,
-
-    data
-  );
-
+const getYearlyStats = async () => {
+  const response = await api.get("user/getyearlyorders");
   return response.data;
 };
 
 const getMonthlyReport = async (month, year, paymentFilter) => {
-  let url = `${base_url}reports/monthly?month=${month}&year=${year}`;
+  let url = `reports/monthly?month=${month}&year=${year}`;
   if (paymentFilter) url += `&paymentFilter=${paymentFilter}`;
-  const response = await axios.get(url, config);
+  const response = await api.get(url);
   return response.data;
 };
 
 const getYearlyReport = async (year, paymentFilter) => {
-  let url = `${base_url}reports/yearly?year=${year}`;
+  let url = `reports/yearly?year=${year}`;
   if (paymentFilter) url += `&paymentFilter=${paymentFilter}`;
-  const response = await axios.get(url, config);
+  const response = await api.get(url);
   return response.data;
 };
 
 const getDateRangeReport = async (startDate, endDate, paymentFilter) => {
-  let url = `${base_url}reports/date-range?startDate=${startDate}&endDate=${endDate}`;
+  let url = `reports/date-range?startDate=${startDate}&endDate=${endDate}`;
   if (paymentFilter) url += `&paymentFilter=${paymentFilter}`;
-  const response = await axios.get(url, config);
+  const response = await api.get(url);
   return response.data;
 };
 
 const getGSTReport = async (month, year, paymentFilter) => {
-  let url = `${base_url}reports/gst?month=${month}&year=${year}`;
+  let url = `reports/gst?month=${month}&year=${year}`;
   if (paymentFilter) url += `&paymentFilter=${paymentFilter}`;
-  const response = await axios.get(url, config);
+  const response = await api.get(url);
   return response.data;
 };
 
 const getProductWiseReport = async (startDate, endDate, paymentFilter) => {
-  let url = `${base_url}reports/product-wise?startDate=${startDate}&endDate=${endDate}`;
+  let url = `reports/product-wise?startDate=${startDate}&endDate=${endDate}`;
   if (paymentFilter) url += `&paymentFilter=${paymentFilter}`;
-  const response = await axios.get(url, config);
+  const response = await api.get(url);
   return response.data;
 };
 
 const getCustomerWiseReport = async (startDate, endDate, paymentFilter) => {
-  let url = `${base_url}reports/customer-wise?startDate=${startDate}&endDate=${endDate}`;
+  let url = `reports/customer-wise?startDate=${startDate}&endDate=${endDate}`;
   if (paymentFilter) url += `&paymentFilter=${paymentFilter}`;
-  const response = await axios.get(url, config);
+  const response = await api.get(url);
   return response.data;
 };
 

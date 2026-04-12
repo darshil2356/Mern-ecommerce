@@ -1,15 +1,50 @@
-export const getTokenFromLocalStorage = () => localStorage.getItem("user")
-  ? JSON.parse(localStorage.getItem("user"))
-  : null;
+import axios from "axios";
+
+export const base_url = process.env.REACT_APP_API_URL || "http://localhost:8000/api/";
+
+export const getTokenFromLocalStorage = () => {
+  const persisted = localStorage.getItem("user");
+  return persisted ? JSON.parse(persisted).token : "";
+};
+
+export const getConfig = () => ({
+  headers: {
+    Authorization: `Bearer ${getTokenFromLocalStorage()}`,
+    Accept: "application/json",
+  },
+});
 
 export const config = {
   headers: {
-    Authorization: `Bearer ${
-      getTokenFromLocalStorage() !== null ? getTokenFromLocalStorage()?.token : ""
-    }`,
     Accept: "application/json",
   },
 };
+
+const api = axios.create({
+  baseURL: base_url,
+  headers: {
+    Accept: "application/json",
+  },
+});
+
+api.interceptors.request.use((req) => {
+  const token = getTokenFromLocalStorage();
+  if (token) req.headers.Authorization = `Bearer ${token}`;
+  return req;
+});
+
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      localStorage.removeItem("user");
+      window.location.replace("/login");
+    }
+    return Promise.reject(error);
+  }
+);
+
+export default api;
 
 
 // import axios from "axios";

@@ -28,38 +28,27 @@ const createBundle = asyncHandler(async (req, res) => {
 // Get all bundles
 const getAllBundles = asyncHandler(async (req, res) => {
   try {
-    const queryObj = { ...req.query };
-    const excludeFields = ["page", "sort", "limit", "fields"];
-    excludeFields.forEach((el) => delete queryObj[el]);
+    const { buildQueryObject, applySorting, applyPagination } = require("../utils/apiFeatures");
+    const filter = buildQueryObject(req.query);
+    let query = Bundle.find(filter).populate(bundleProductPopulate);
 
-    let queryStr = JSON.stringify(queryObj);
-    queryStr = queryStr.replace(/\b(gte|gt|lte|lt)\b/g, (match) => `$${match}`);
-
-    let query = Bundle.find(JSON.parse(queryStr)).populate(bundleProductPopulate);
-
-    if (req.query.sort) {
-      const sortBy = req.query.sort.split(",").join(" ");
-      query = query.sort(sortBy);
-    } else {
-      query = query.sort("-createdAt");
-    }
+    query = applySorting(query, req.query.sort);
 
     if (req.query.fields) {
       const fields = req.query.fields.split(",").join(" ");
       query = query.select(fields);
     }
 
-    const page = req.query.page;
-    const limit = req.query.limit;
-    const skip = (page - 1) * limit;
-    query = query.skip(skip).limit(limit);
+    if (req.query.page || req.query.limit) {
+      query = applyPagination(query, req.query.page, req.query.limit);
+    }
 
     if (req.query.page) {
       const bundleCount = await Bundle.countDocuments();
       if (skip >= bundleCount) throw new Error("This Page does not exists");
     }
 
-    const bundles = await query;
+    const bundles = await query.lean();
     res.json(bundles);
   } catch (error) {
     throw new Error(error);

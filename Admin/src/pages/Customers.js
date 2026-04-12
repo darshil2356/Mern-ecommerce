@@ -1,10 +1,12 @@
 import React, { useEffect, useState } from "react";
-import { Table, Modal, Form, Input, Avatar, Tooltip, Badge } from "antd";
+import { Modal, Form, Input, Avatar, Tooltip, Badge } from "antd";
 import { useDispatch, useSelector } from "react-redux";
 import { getCustomers, createCustomer, updateCustomer, deleteCustomer } from "../features/customers/customerSlice";
 import { FaSearch, FaEdit, FaTrash, FaUser, FaEnvelope, FaPhone, FaMapMarkerAlt, FaUserPlus, FaEye, FaUsers } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
 import CustomModal from "../components/CustomModal";
+import AdminPageHeader from "../components/AdminPageHeader";
+import AdminDataTable from "../components/AdminDataTable";
 
 const Customers = () => {
   const dispatch = useDispatch();
@@ -187,22 +189,19 @@ const Customers = () => {
 
   return (
     <div className="min-h-screen bg-gray-50/80">
-      {/* Page Header */}
-      <div className="mb-6">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-800 mb-0.5">Customers</h1>
-            <p className="text-gray-400 text-sm">Manage and track your customer base</p>
-          </div>
+      <AdminPageHeader
+        title="Customers"
+        description="Manage and track your customer base"
+        actionButton={
           <button
             onClick={() => setOpen(true)}
-            className="inline-flex items-center gap-2 h-10 px-5 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-xl font-medium text-sm transition-all duration-200 shadow-md shadow-blue-200 hover:shadow-lg hover:shadow-blue-300 border-0 cursor-pointer self-start sm:self-auto"
+            className="inline-flex items-center gap-2 h-10 px-5 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-xl font-medium text-sm transition-all duration-200 shadow-md shadow-blue-200 hover:shadow-lg hover:shadow-blue-300 border-0 cursor-pointer"
           >
             <FaUserPlus size={14} />
             Add Customer
           </button>
-        </div>
-      </div>
+        }
+      />
 
       {/* Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
@@ -239,18 +238,16 @@ const Customers = () => {
           </div>
         </div>
 
-        <Table
+        <AdminDataTable
           columns={columns}
           dataSource={data1}
           rowKey="_id"
-          pagination={{
+          paginationOptions={{
             pageSize: 10,
             showSizeChanger: true,
             showTotal: (total, range) => `${range[0]}–${range[1]} of ${total}`,
             pageSizeOptions: ["10", "20", "50"],
           }}
-          className="customers-table"
-          scroll={{ x: 600 }}
         />
       </div>
 
@@ -310,7 +307,7 @@ const Customers = () => {
       />
 
       <style>{`
-        .customers-table .ant-table-thead > tr > th {
+        .admin-data-table .ant-table-thead > tr > th {
           background: #f8fafc !important;
           font-weight: 600 !important;
           font-size: 12px !important;
@@ -320,27 +317,27 @@ const Customers = () => {
           border-bottom: 1px solid #f1f5f9 !important;
           padding: 12px 16px !important;
         }
-        .customers-table .ant-table-tbody > tr > td {
+        .admin-data-table .ant-table-tbody > tr > td {
           border-bottom: 1px solid #f8fafc !important;
           padding: 14px 16px !important;
         }
-        .customers-table .ant-table-tbody > tr:hover > td {
+        .admin-data-table .ant-table-tbody > tr:hover > td {
           background: #f8faff !important;
         }
-        .customers-table .ant-table-tbody > tr:last-child > td {
+        .admin-data-table .ant-table-tbody > tr:last-child > td {
           border-bottom: none !important;
         }
-        .customers-table .ant-pagination {
+        .admin-data-table .ant-pagination {
           padding: 14px 20px !important;
           margin: 0 !important;
           background: #fafafa;
           border-top: 1px solid #f1f5f9;
         }
-        .customers-table .ant-pagination-item-active {
+        .admin-data-table .ant-pagination-item-active {
           border-color: #3b82f6 !important;
           background: #3b82f6 !important;
         }
-        .customers-table .ant-pagination-item-active a {
+        .admin-data-table .ant-pagination-item-active a {
           color: white !important;
         }
         .customer-modal .ant-modal-content {

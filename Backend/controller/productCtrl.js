@@ -435,18 +435,17 @@ const getAllProduct = asyncHandler(async (req, res) => {
     }
 
     // 👇 everything below is ADMIN / INTERNAL (no store=true)
-    let queryStr = JSON.stringify(queryObj);
-    queryStr = queryStr.replace(/\b(gte|gt|lte|lt)\b/g, (m) => `$${m}`);
+    const { buildQueryObject, applySorting, applyPagination } = require("../utils/apiFeatures");
+    const filter = buildQueryObject(req.query);
+    let query = Product.find(filter).populate("color").populate("variants.color");
 
-    let query = Product.find(JSON.parse(queryStr)).populate("color").populate("variants.color");
+    query = applySorting(query, req.query.sort);
 
-    if (req.query.sort) {
-      query = query.sort(req.query.sort.split(",").join(" "));
-    } else {
-      query = query.sort("-createdAt");
+    if (req.query.page || req.query.limit) {
+      query = applyPagination(query, req.query.page, req.query.limit);
     }
 
-    const product = await query;
+    const product = await query.lean();
     // Ensure quantity is normalized for old products with sizeStock / variants
     const normalizedProducts = product.map((prod) => {
       const calcQuantity = () => {

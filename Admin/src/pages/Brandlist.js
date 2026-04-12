@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from "react";
-import { Table } from "antd";
 import { BiEdit } from "react-icons/bi";
 import { AiFillDelete } from "react-icons/ai";
 import { Link } from "react-router-dom";
@@ -11,6 +10,8 @@ import {
 } from "../features/brand/brandSlice";
 import CustomModal from "../components/CustomModal";
 import { FaPlus, FaShieldAlt } from "react-icons/fa";
+import AdminPageHeader from "../components/AdminPageHeader";
+import AdminDataTable from "../components/AdminDataTable";
 
 const Brandlist = () => {
   const [open, setOpen] = useState(false);
@@ -33,6 +34,7 @@ const Brandlist = () => {
   for (let i = 0; i < brandState.length; i++) {
     data1.push({
       key: i + 1,
+      _id: brandState[i]._id,
       name: brandState[i].title,
       action: (
         <div className="flex gap-3">
@@ -87,45 +89,28 @@ const Brandlist = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-6">
       {/* Header Section */}
-      <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden mb-6">
-        <div className="bg-gradient-to-r from-indigo-600 to-indigo-700 px-6 py-5">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
-                <FaShieldAlt className="text-white text-xl" />
-              </div>
-              <div>
-                <h2 className="text-xl font-bold text-white">Brands</h2>
-                <p className="text-indigo-200 text-sm">Manage your product brands</p>
-              </div>
-            </div>
-            <Link
-              to="/admin/brand"
-              className="flex items-center gap-2 px-5 py-2.5 bg-white text-indigo-600 rounded-xl font-semibold hover:bg-indigo-50 transition-all duration-200 shadow-md"
-            >
-              <FaPlus className="text-sm" />
-              Add Brand
-            </Link>
-          </div>
-        </div>
-      </div>
+      <AdminPageHeader
+        title="Brands"
+        description="Manage your product brands"
+        actionButton={
+          <Link
+            to="/admin/brand"
+            className="inline-flex items-center gap-2 px-5 py-2.5 bg-white text-indigo-600 rounded-xl font-semibold hover:bg-indigo-50 transition-all duration-200 shadow-md"
+          >
+            <FaPlus className="text-sm" />
+            Add Brand
+          </Link>
+        }
+      />
 
       {/* Table Section */}
-      <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
-        <div className="overflow-x-auto">
-          <Table 
-            columns={columns} 
-            dataSource={data1} 
-            pagination={{
-              pageSize: 10,
-              showSizeChanger: true,
-              showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} brands`,
-            }}
-            className="brand-table"
-            rowClassName="hover:bg-gray-50 transition-colors"
-          />
-        </div>
-      </div>
+      <AdminDataTable
+        columns={columns}
+        dataSource={data1}
+        paginationOptions={{
+          showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} brands`,
+        }}
+      />
 
       <CustomModal
         hideModal={hideModal}
@@ -137,20 +122,20 @@ const Brandlist = () => {
       />
 
       <style>{`
-        .brand-table .ant-table-thead > tr > th {
+        .admin-data-table .ant-table-thead > tr > th {
           background: linear-gradient(to right, #f9fafb, #ffffff);
           border-bottom: 2px solid #e5e7eb;
           font-weight: 600;
           color: #4b5563;
         }
-        .brand-table .ant-table-tbody > tr > td {
+        .admin-data-table .ant-table-tbody > tr > td {
           border-bottom: 1px solid #f3f4f6;
           padding: 16px;
         }
-        .brand-table .ant-table-tbody > tr:hover > td {
+        .admin-data-table .ant-table-tbody > tr:hover > td {
           background: #f9fafb;
         }
-        .brand-table .ant-pagination {
+        .admin-data-table .ant-pagination {
           padding: 16px;
           border-top: 1px solid #e5e7eb;
         }

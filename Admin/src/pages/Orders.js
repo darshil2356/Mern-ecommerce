@@ -265,20 +265,18 @@ const Orders = () => {
   ];
 
   return (
-    <div style={{ background: "linear-gradient(135deg,#f8fafc 0%,#e2e8f0 50%,#f1f5f9 100%)", minHeight: "100vh", padding: 28 }}>
+    <div style={{ background: "#f4f6f8", minHeight: "100vh", padding: 28 }}>
 
       {/* ── Header ── */}
-      <div style={{ background: "linear-gradient(135deg,#0f172a 0%,#1e293b 60%,#334155 100%)", borderRadius: 24, padding: "32px 36px", marginBottom: 28, boxShadow: "0 20px 60px rgba(15,23,42,0.35)", position: "relative", overflow: "hidden" }}>
-        <div style={{ position: "absolute", top: -60, right: -60, width: 220, height: 220, borderRadius: "50%", background: "rgba(99,102,241,0.15)" }} />
-        <div style={{ position: "absolute", bottom: -40, left: 200, width: 160, height: 160, borderRadius: "50%", background: "rgba(16,185,129,0.1)" }} />
+      <div style={{ background: "#ffffff", borderRadius: 24, padding: "32px 36px", marginBottom: 28, boxShadow: "0 10px 30px rgba(15,23,42,0.08)", position: "relative", overflow: "hidden" }}>
         <div style={{ position: "relative", zIndex: 1, display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 20 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 18 }}>
             <div style={{ width: 64, height: 64, borderRadius: 18, background: "linear-gradient(135deg,#6366f1,#8b5cf6)", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 8px 24px rgba(99,102,241,0.4)" }}>
               <ShoppingOutlined style={{ fontSize: 30, color: "#fff" }} />
             </div>
             <div>
-              <div style={{ fontSize: 28, fontWeight: 900, color: "#fff", letterSpacing: -0.5 }}>Orders Management</div>
-              <div style={{ color: "#94a3b8", fontSize: 14, marginTop: 4 }}>Track and manage all customer orders</div>
+              <div style={{ fontSize: 28, fontWeight: 900, letterSpacing: -0.5 }}>Orders Management</div>
+              <div style={{ color: "#64748b", fontSize: 14, marginTop: 4 }}>Track and manage all customer orders with clear status and fast actions</div>
             </div>
           </div>
           <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
@@ -288,10 +286,10 @@ const Orders = () => {
               { label: "Pending", value: pendingCount, icon: <ClockCircleOutlined />, grad: "linear-gradient(135deg,#f59e0b,#fbbf24)", glow: "rgba(245,158,11,0.4)" },
               { label: "Revenue", value: `₹${(totalRevenue/1000).toFixed(1)}K`, icon: <TrophyOutlined />, grad: "linear-gradient(135deg,#ec4899,#f472b6)", glow: "rgba(236,72,153,0.4)" },
             ].map((s) => (
-              <div key={s.label} style={{ background: s.grad, borderRadius: 16, padding: "16px 20px", minWidth: 110, textAlign: "center", boxShadow: `0 8px 24px ${s.glow}` }}>
-                <div style={{ color: "rgba(255,255,255,0.8)", fontSize: 20, marginBottom: 4 }}>{s.icon}</div>
-                <div style={{ color: "#fff", fontSize: 22, fontWeight: 900 }}>{s.value}</div>
-                <div style={{ color: "rgba(255,255,255,0.75)", fontSize: 11, fontWeight: 600 }}>{s.label}</div>
+              <div key={s.label} style={{ background: "#f8fafc", borderRadius: 16, padding: "18px 20px", minWidth: 140, textAlign: "center", boxShadow: "0 8px 20px rgba(15,23,42,0.08)" }}>
+                <div style={{ color: "#4f46e5", fontSize: 20, marginBottom: 4 }}>{s.icon}</div>
+                <div style={{ color: "#111827", fontSize: 22, fontWeight: 800 }}>{s.value}</div>
+                <div style={{ color: "#6b7280", fontSize: 12, fontWeight: 600 }}>{s.label}</div>
               </div>
             ))}
           </div>
@@ -299,7 +297,7 @@ const Orders = () => {
       </div>
 
       {/* ── Status Tabs ── */}
-      <div style={{ background: "rgba(255,255,255,0.9)", backdropFilter: "blur(20px)", borderRadius: 20, padding: "20px 24px", marginBottom: 20, boxShadow: "0 4px 24px rgba(0,0,0,0.07)", border: "1px solid rgba(255,255,255,0.6)" }}>
+      <div style={{ background: "#ffffff", borderRadius: 20, padding: "20px 24px", marginBottom: 20, boxShadow: "0 12px 28px rgba(15,23,42,0.06)", border: "1px solid #e5e7eb" }}>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
           {Object.entries(STATUS_CONFIG).map(([status, cfg]) => {
             const isActive = activeStatus === status;
@@ -327,7 +325,7 @@ const Orders = () => {
       </div>
 
       {/* ── Filters ── */}
-      <div style={{ background: "rgba(255,255,255,0.9)", backdropFilter: "blur(20px)", borderRadius: 20, padding: "20px 24px", marginBottom: 20, boxShadow: "0 4px 24px rgba(0,0,0,0.07)", border: "1px solid rgba(255,255,255,0.6)" }}>
+      <div style={{ background: "#ffffff", borderRadius: 20, padding: "20px 24px", marginBottom: 20, boxShadow: "0 12px 28px rgba(15,23,42,0.06)", border: "1px solid #e5e7eb" }}>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 12, alignItems: "center" }}>
           <Input
             placeholder="Search order ID, name, email, mobile…"
@@ -365,7 +363,7 @@ const Orders = () => {
       </div>
 
       {/* ── Table ── */}
-      <div style={{ background: "rgba(255,255,255,0.95)", borderRadius: 20, boxShadow: "0 4px 24px rgba(0,0,0,0.08)", border: "1px solid rgba(255,255,255,0.6)", overflow: "hidden" }}>
+      <div style={{ background: "#ffffff", borderRadius: 20, boxShadow: "0 12px 28px rgba(15,23,42,0.08)", border: "1px solid #e5e7eb", overflow: "hidden" }}>
         <Table
           columns={columns}
           dataSource={filteredData}

@@ -680,53 +680,6 @@ const Profile = () => {
     );
   };
 
-  // Render My Orders Tab
-  const renderMyOrders = () => (
-    <div className="row">
-      <div className="col-12">
-        <div className="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
-          <h3 className="fw-bold mb-0" style={{ fontFamily: "'Playfair Display', serif" }}>My Orders</h3>
-          {ordersData?.total > 0 && (
-            <span style={{ fontSize: 13, color: "#999" }}>Showing {orders.length} of {ordersData.total} orders</span>
-          )}
-        </div>
-
-        {isOrdersLoading && orders.length === 0 && (
-          <div className="text-center py-5">
-            <div className="spinner-border text-warning" role="status" />
-            <p className="mt-3" style={{ color: "#999" }}>Loading your orders...</p>
-          </div>
-        )}
-
-        {!isOrdersLoading && orders.length === 0 && (
-          <div className="text-center py-5">
-            <FiShoppingBag style={{ fontSize: 64, color: "#ddd", marginBottom: 16 }} />
-            <h5 style={{ color: "#999", marginBottom: 8 }}>No Orders Found</h5>
-            <p style={{ color: "#bbb", marginBottom: 24 }}>You haven't placed any orders yet.</p>
-            <Link to="/product" className="button">Start Shopping</Link>
-          </div>
-        )}
-
-        {orders.map(renderOrderCard)}
-
-        <div ref={sentinelRef} style={{ height: 1 }} />
-
-        {isOrdersLoading && orders.length > 0 && (
-          <div className="text-center py-4">
-            <div className="spinner-border text-warning spinner-border-sm" role="status" />
-            <span className="ms-2" style={{ color: "#999", fontSize: 14 }}>Loading more orders...</span>
-          </div>
-        )}
-
-        {!hasMore && orders.length > 0 && (
-          <div className="text-center py-3">
-            <span style={{ fontSize: 13, color: "#bbb" }}>— You've seen all your orders —</span>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-
   // Render Referrals Tab - Premium Design
   const renderReferrals = () => (
     <div className="row">
@@ -1509,21 +1462,6 @@ const Profile = () => {
               </li>
               <li className="nav-item">
                 <button
-                  className={`nav-link ${activeTab === "orders" ? "active" : ""}`}
-                  onClick={() => setActiveTab("orders")}
-                  style={{ 
-                    borderRadius: "8px",
-                    marginRight: "8px",
-                    backgroundColor: activeTab === "orders" ? "#febd69" : "transparent",
-                    color: activeTab === "orders" ? "#1a1a1a" : "#1a1a1a",
-                    border: activeTab === "orders" ? "none" : "1px solid #ddd"
-                  }}
-                >
-                  My Orders
-                </button>
-              </li>
-              <li className="nav-item">
-                <button
                   className={`nav-link ${activeTab === "referrals" ? "active" : ""}`}
                   onClick={() => setActiveTab("referrals")}
                   style={{ 
@@ -1542,7 +1480,6 @@ const Profile = () => {
 
         {/* Tab Content */}
         {activeTab === "profile" && renderProfileInfo()}
-        {activeTab === "orders" && renderMyOrders()}
         {activeTab === "referrals" && renderReferrals()}
       </Container>
     </>

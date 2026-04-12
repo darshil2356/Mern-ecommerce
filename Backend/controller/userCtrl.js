@@ -1458,6 +1458,29 @@ const getsingleOrder = asyncHandler(async (req, res) => {
   }
 });
 
+const getMySingleOrder = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { _id: userId } = req.user;
+  try {
+    const order = await Order.findOne({ _id: id, user: userId })
+      .select("+discountAmount") // Include discountAmount field
+      .populate({
+        path: "orderItems.product",
+        select: "title brand price images barcode"
+      })
+      .populate("orderItems.color")
+      .populate("user", "firstname lastname email mobile");
+    if (!order) {
+      return res.status(404).json({ message: "Order not found" });
+    }
+    res.json({
+      orders: order,
+    });
+  } catch (error) {
+    throw new Error(error);
+  }
+});
+
 const updateOrder = asyncHandler(async (req, res) => {
   const { id } = req.params;
   try {
@@ -2778,6 +2801,7 @@ module.exports = {
   getDashboardStats,
   getAllOrders,
   getsingleOrder,
+  getMySingleOrder,
   updateOrder,
   getYearlyTotalOrder,
 

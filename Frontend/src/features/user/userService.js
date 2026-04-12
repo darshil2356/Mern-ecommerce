@@ -92,6 +92,16 @@ const getUserOrders = async ({ page = 1, limit = 10 } = {}) => {
   }
 };
 
+const getUserSingleOrder = async (id) => {
+  const response = await axios.get(
+    `${base_url}user/getmyorder/${id}`,
+    getConfig()
+  );
+  if (response.data) {
+    return response.data;
+  }
+};
+
 const updateUser = async (data) => {
   const response = await axios.put(
     `${base_url}user/edit-user`,
@@ -181,6 +191,7 @@ export const authService = {
   updateProductFromCart,
   createOrder,
   getUserOrders,
+  getUserSingleOrder,
   updateUser,
   forgotPasswordToken,
   resetPass,

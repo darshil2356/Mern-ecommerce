@@ -459,7 +459,7 @@ const ViewOrder = () => {
 
   return (
     <div style={{
-        background: `linear-gradient(135deg, ${COLORS.neutral[50]} 0%, ${COLORS.neutral[100]} 50%, ${COLORS.neutral[200]} 100%)`,
+        background: `linear-gradient(135deg, ${COLORS.neutral[50]} 0%, ${COLORS.neutral[50]} 100%)`,
         minHeight: '100vh',
         padding: '32px',
         position: 'relative',
@@ -479,13 +479,12 @@ const ViewOrder = () => {
         <div style={{ position: 'relative', zIndex: 1 }}>
       {/* Modern Header */}
       <div style={{
-        background: COLORS.glass.light,
-        backdropFilter: COLORS.glass.backdrop,
+        background: '#ffffff',
         borderRadius: '24px',
         padding: '32px',
         marginBottom: '32px',
-        boxShadow: COLORS.primary.glow,
-        border: `1px solid ${COLORS.glass.border}`,
+        boxShadow: '0 18px 45px rgba(15,23,42,0.08)',
+        border: '1px solid #e5e7eb',
         position: 'relative',
         overflow: 'hidden'
       }}>
@@ -495,8 +494,8 @@ const ViewOrder = () => {
           left: 0,
           right: 0,
           bottom: 0,
-          background: 'url("data:image/svg+xml,%3Csvg width="60" height="60" viewBox="0 0 60 60" xmlns="http://www.w3.org/2000/svg"%3E%3Cg fill="none" fill-rule="evenodd"%3E%3Cg fill="%230F172A" fill-opacity="0.03"%3E%3Ccircle cx="30" cy="30" r="4"/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")',
-          opacity: 0.5
+          background: 'radial-gradient(circle at top left, rgba(99,102,241,0.08), transparent 35%)',
+          opacity: 0.7
         }} />
         <div style={{ position: 'relative', zIndex: 1 }}>
         <Row align="middle" justify="space-between">
@@ -539,8 +538,8 @@ const ViewOrder = () => {
           <Col>
             <Space>
               <div style={{
-                background: STATUS_CONFIG[orderState?.orderStatus]?.gradient || STATUS_CONFIG.All.gradient,
-                color: 'white',
+                background: STATUS_CONFIG[orderState?.orderStatus]?.bg || '#f1f5f9',
+                color: STATUS_CONFIG[orderState?.orderStatus]?.color || '#374151',
                 padding: '12px 20px',
                 borderRadius: '25px',
                 fontWeight: 700,
@@ -548,7 +547,8 @@ const ViewOrder = () => {
                 display: 'flex',
                 alignItems: 'center',
                 gap: '8px',
-                boxShadow: '0 4px 15px rgba(0,0,0,0.2)'
+                boxShadow: '0 10px 20px rgba(15,23,42,0.08)',
+                border: `1px solid ${STATUS_CONFIG[orderState?.orderStatus]?.border || '#e5e7eb'}`
               }}>
                 {STATUS_CONFIG[orderState?.orderStatus]?.icon || <ClockCircleOutlined />}
                 {orderState?.orderStatus}
@@ -594,10 +594,10 @@ const ViewOrder = () => {
               border: '1px solid rgba(255,255,255,0.2)'
             }}
             headStyle={{
-              background: COLORS.primary.gradient,
-              color: 'white',
-              borderRadius: '16px 16px 0 0'
-            }}
+                background: '#111827',
+                color: 'white',
+                borderRadius: '16px 16px 0 0'
+              }}
           >
             <div style={{ padding: '16px 0' }}>
               <div style={{
@@ -677,10 +677,10 @@ const ViewOrder = () => {
               border: '1px solid rgba(255,255,255,0.2)'
             }}
             headStyle={{
-              background: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
-              color: 'white',
-              borderRadius: '16px 16px 0 0'
-            }}
+                background: '#1d4ed8',
+                color: 'white',
+                borderRadius: '16px 16px 0 0'
+              }}
           >
             <div style={{ padding: '20px' }}>
               <Steps
@@ -789,10 +789,10 @@ const ViewOrder = () => {
               border: '1px solid rgba(255,255,255,0.2)'
             }}
             headStyle={{
-              background: COLORS.accent.orange,
-              color: 'white',
-              borderRadius: '16px 16px 0 0'
-            }}
+                background: '#d97706',
+                color: 'white',
+                borderRadius: '16px 16px 0 0'
+              }}
           >
             {orderState?.shippingInfo ? (
               <div style={{ padding: '16px 0' }}>
@@ -851,10 +851,10 @@ const ViewOrder = () => {
               border: '1px solid rgba(255,255,255,0.2)'
             }}
             headStyle={{
-              background: 'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)',
-              color: 'white',
-              borderRadius: '16px 16px 0 0'
-            }}
+                background: '#059669',
+                color: 'white',
+                borderRadius: '16px 16px 0 0'
+              }}
           >
             <div style={{ padding: '16px 0' }}>
               <Row gutter={[16, 16]}>

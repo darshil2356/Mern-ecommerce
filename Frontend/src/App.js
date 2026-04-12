@@ -26,6 +26,7 @@ import Checkout from "./pages/Checkout";
 import { PrivateRoutes } from "./routing/PrivateRoutes";
 import { OpenRoutes } from "./routing/OpenRoutes";
 import Orders from "./pages/Orders";
+import OrderDetails from "./pages/OrderDetails";
 import Profile from "./pages/Profile";
 import Reels from "./pages/Reels";
 import Bundles from "./pages/Bundles";
@@ -62,6 +63,14 @@ function App() {
               element={
                 <PrivateRoutes>
                   <Orders />
+                </PrivateRoutes>
+              }
+            />
+            <Route
+              path="my-orders/:id"
+              element={
+                <PrivateRoutes>
+                  <OrderDetails />
                 </PrivateRoutes>
               }
             />

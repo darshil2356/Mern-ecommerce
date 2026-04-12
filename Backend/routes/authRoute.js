@@ -35,6 +35,7 @@ const {
   getYearlyTotalOrder,
   getAllOrders,
   getsingleOrder,
+  getMySingleOrder,
   updateOrder,
   createOfflineOrder,
   getCustomerOffer,
@@ -93,6 +94,7 @@ router.get("/all-users", getallUser);
 router.get("/getmyorders", authMiddleware, getMyOrders);
 router.get("/getallorders", authMiddleware, isAdmin, getAllOrders);
 router.get("/getaOrder/:id", authMiddleware, isAdmin, getsingleOrder);
+router.get("/getmyorder/:id", authMiddleware, getMySingleOrder);
 router.put("/updateOrder/:id", authMiddleware, isAdmin, updateOrder);
 
 router.get("/getMonthWiseOrderIncome", authMiddleware, isAdmin, getMonthWiseOrderIncome);

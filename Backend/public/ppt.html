@@ -216,6 +216,10 @@
             cursor: pointer;
             transition: all 0.3s ease;
             box-shadow: 0 4px 15px rgba(212, 175, 55, 0.3);
+            min-height: 44px; /* iOS touch target minimum */
+            display: flex;
+            align-items: center;
+            gap: 8px;
         }
 
         .nav-btn:hover {
@@ -304,12 +308,112 @@
             }
             .features-grid {
                 grid-template-columns: 1fr;
+                gap: 1rem;
             }
             .stats-grid {
                 grid-template-columns: 1fr;
+                gap: 1rem;
             }
             .module-showcase {
                 grid-template-columns: 1fr;
+                gap: 1rem;
+            }
+            .slide {
+                padding: 1rem;
+            }
+            .feature-card {
+                padding: 1.5rem;
+            }
+            .stat-card {
+                padding: 1.5rem;
+            }
+            .module-card {
+                padding: 1rem;
+            }
+            .tech-stack {
+                flex-wrap: wrap;
+                gap: 1rem;
+                justify-content: center;
+            }
+            .tech-item {
+                padding: 0.75rem 1.5rem;
+                font-size: 0.9rem;
+            }
+            .navigation {
+                bottom: 20px;
+                gap: 15px;
+            }
+            .nav-btn {
+                padding: 12px 25px;
+                font-size: 0.9rem;
+            }
+            .slide-counter {
+                top: 20px;
+                right: 20px;
+                padding: 8px 15px;
+                font-size: 0.8rem;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .title-slide h1 {
+                font-size: 2rem;
+            }
+            .title-slide h2 {
+                font-size: 1.5rem;
+            }
+            .slide h2 {
+                font-size: 1.8rem;
+            }
+            .slide h3 {
+                font-size: 1.5rem;
+            }
+            .slide p {
+                font-size: 1.1rem;
+                line-height: 1.6;
+            }
+            .feature-card {
+                padding: 1rem;
+            }
+            .feature-icon {
+                font-size: 2.5rem;
+                margin-bottom: 0.75rem;
+            }
+            .feature-title {
+                font-size: 1.2rem;
+            }
+            .feature-desc {
+                font-size: 0.9rem;
+            }
+            .stat-card {
+                padding: 1rem;
+            }
+            .stat-number {
+                font-size: 2.5rem;
+            }
+            .stat-label {
+                font-size: 1rem;
+            }
+            .module-card {
+                padding: 0.75rem;
+            }
+            .module-title {
+                font-size: 1.1rem;
+            }
+            .module-features li {
+                font-size: 0.8rem;
+            }
+            .tech-item {
+                padding: 0.5rem 1rem;
+                font-size: 0.8rem;
+            }
+            .nav-btn {
+                padding: 10px 20px;
+                font-size: 0.8rem;
+            }
+            .slide-counter {
+                padding: 6px 12px;
+                font-size: 0.7rem;
             }
         }
     </style>
@@ -651,9 +755,129 @@
         </div>
     </div>
 
-    </div>
+        @media (max-width: 768px) {
+            .title-slide h1 {
+                font-size: 2.5rem;
+            }
+            .slide h2 {
+                font-size: 2rem;
+            }
+            .features-grid {
+                grid-template-columns: 1fr;
+                gap: 1rem;
+            }
+            .stats-grid {
+                grid-template-columns: 1fr;
+                gap: 1rem;
+            }
+            .module-showcase {
+                grid-template-columns: 1fr;
+                gap: 1rem;
+            }
+            .slide {
+                padding: 1rem;
+            }
+            .feature-card {
+                padding: 1.5rem;
+            }
+            .stat-card {
+                padding: 1.5rem;
+            }
+            .module-card {
+                padding: 1rem;
+            }
+            .tech-stack {
+                flex-wrap: wrap;
+                gap: 1rem;
+                justify-content: center;
+            }
+            .tech-item {
+                padding: 0.75rem 1.5rem;
+                font-size: 0.9rem;
+            }
+            .navigation {
+                bottom: 20px;
+                gap: 15px;
+            }
+            .nav-btn {
+                padding: 12px 25px;
+                font-size: 0.9rem;
+                min-height: 48px;
+                min-width: 120px;
+            }
+            .slide-counter {
+                top: 20px;
+                right: 20px;
+                padding: 8px 15px;
+                font-size: 0.8rem;
+            }
+        }
 
-    <div class="navigation">
+        @media (max-width: 480px) {
+            .title-slide h1 {
+                font-size: 2rem;
+            }
+            .title-slide h2 {
+                font-size: 1.5rem;
+            }
+            .slide h2 {
+                font-size: 1.8rem;
+            }
+            .slide h3 {
+                font-size: 1.5rem;
+            }
+            .slide p {
+                font-size: 1.1rem;
+                line-height: 1.6;
+            }
+            .feature-card {
+                padding: 1rem;
+            }
+            .feature-icon {
+                font-size: 2.5rem;
+                margin-bottom: 0.75rem;
+            }
+            .feature-title {
+                font-size: 1.2rem;
+            }
+            .feature-desc {
+                font-size: 0.9rem;
+            }
+            .stat-card {
+                padding: 1rem;
+            }
+            .stat-number {
+                font-size: 2.5rem;
+            }
+            .stat-label {
+                font-size: 1rem;
+            }
+            .module-card {
+                padding: 0.75rem;
+            }
+            .module-title {
+                font-size: 1.1rem;
+            }
+            .module-features li {
+                font-size: 0.8rem;
+            }
+            .tech-item {
+                padding: 0.5rem 1rem;
+                font-size: 0.8rem;
+            }
+            .nav-btn {
+                padding: 10px 20px;
+                font-size: 0.8rem;
+                min-height: 44px;
+                min-width: 100px;
+            }
+            .slide-counter {
+                padding: 6px 12px;
+                font-size: 0.7rem;
+            }
+        }
+    </style>
+</head>
         <button class="nav-btn" onclick="prevSlide()"><i class="fas fa-chevron-left"></i> Previous</button>
         <button class="nav-btn" onclick="nextSlide()">Next <i class="fas fa-chevron-right"></i></button>
     </div>

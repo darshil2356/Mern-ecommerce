@@ -636,6 +636,203 @@
       .nav-button.next {
         right: 20px;
       }
+
+      /* Enhanced Mobile CSS */
+      @media (max-width: 768px) {
+        .slide-container {
+          padding: 10px;
+        }
+
+        .slide {
+          padding: 15px;
+          min-height: calc(100vh - 20px);
+        }
+
+        .slide-header {
+          flex-direction: column;
+          gap: 10px;
+          text-align: center;
+        }
+
+        .slide-header h1 {
+          font-size: 24px;
+          margin: 0;
+        }
+
+        .icon-badge {
+          font-size: 20px;
+        }
+
+        .slide-num {
+          font-size: 12px;
+        }
+
+        .three-col, .two-col {
+          grid-template-columns: 1fr !important;
+          gap: 15px;
+        }
+
+        .panel {
+          padding: 15px;
+        }
+
+        .panel-title {
+          font-size: 14px;
+        }
+
+        .field-grid {
+          grid-template-columns: 1fr !important;
+          gap: 8px;
+        }
+
+        .field-item {
+          padding: 8px 12px;
+          font-size: 12px;
+        }
+
+        .fname {
+          font-size: 11px;
+        }
+
+        .ftype {
+          font-size: 10px;
+        }
+
+        .fdesc {
+          font-size: 11px;
+        }
+
+        .code-box {
+          font-size: 10px;
+          padding: 10px 12px;
+          margin: 6px 0;
+        }
+
+        .api-route {
+          font-size: 10px;
+          gap: 6px;
+        }
+
+        .api-route .method {
+          padding: 2px 6px;
+          font-size: 9px;
+          min-width: 40px;
+        }
+
+        .nav-bar {
+          height: 50px;
+          padding: 0 15px;
+        }
+
+        .nav-button {
+          width: 45px;
+          height: 45px;
+          font-size: 16px;
+          bottom: 15px;
+        }
+
+        .nav-button.prev {
+          left: 15px;
+        }
+
+        .nav-button.next {
+          right: 15px;
+        }
+
+        .mini-toc {
+          right: 8px;
+          gap: 2px;
+        }
+
+        .mini-toc .dot {
+          width: 5px;
+          height: 5px;
+        }
+
+        .mini-toc .dot.active {
+          height: 12px;
+        }
+
+        .title-slide h1 {
+          font-size: 28px;
+          line-height: 1.2;
+        }
+
+        .subtitle {
+          font-size: 14px;
+        }
+
+        .tech-badges {
+          flex-wrap: wrap;
+          gap: 6px;
+        }
+
+        .tbadge {
+          font-size: 10px;
+          padding: 4px 8px;
+        }
+
+        h2 {
+          font-size: 18px;
+        }
+
+        h3 {
+          font-size: 16px;
+        }
+
+        p, li {
+          font-size: 12px;
+        }
+
+        .conclusion-grid {
+          grid-template-columns: 1fr !important;
+        }
+      }
+
+      @media (max-width: 480px) {
+        .slide {
+          padding: 10px;
+        }
+
+        .slide-header h1 {
+          font-size: 20px;
+        }
+
+        .title-slide h1 {
+          font-size: 24px;
+        }
+
+        .panel {
+          padding: 12px;
+        }
+
+        .code-box {
+          font-size: 9px;
+          padding: 8px 10px;
+        }
+
+        .field-item {
+          padding: 6px 10px;
+        }
+
+        .nav-button {
+          width: 40px;
+          height: 40px;
+          font-size: 14px;
+        }
+
+        h2 {
+          font-size: 16px;
+        }
+
+        h3 {
+          font-size: 14px;
+        }
+
+        p, li {
+          font-size: 11px;
+        }
+      }
     </style>
   </head>
   <body>

@@ -99,6 +99,11 @@ var userSchema = new mongoose.Schema(
       type: String,
       default: "",
     },
+    onlinePaymentDestination: {
+      type: String,
+      enum: ["CURRENT_ACCOUNT", "OTHER_ACCOUNT"],
+      default: "CURRENT_ACCOUNT",
+    },
     wishlist: [{ type: mongoose.Schema.Types.ObjectId, ref: "Product" }],
     refreshToken: {
       type: String,

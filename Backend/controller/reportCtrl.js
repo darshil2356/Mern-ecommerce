@@ -8,6 +8,30 @@ const monthNames = [
   "July","August","September","October","November","December"
 ];
 
+const buildPaymentFilter = (query) => {
+  const paymentFilter = (query.paymentFilter || "all").toString().toLowerCase();
+  switch (paymentFilter) {
+    case "cash":
+      return { paymentDestination: "CASH" };
+    case "online_current":
+      return {
+        $and: [
+          { mode: "ONLINE" },
+          {
+            $or: [
+              { paymentDestination: "CURRENT_ACCOUNT" },
+              { paymentDestination: { $exists: false } }
+            ]
+          }
+        ]
+      };
+    case "online_other":
+      return { mode: "ONLINE", paymentDestination: "OTHER_ACCOUNT" };
+    default:
+      return {};
+  }
+};
+
 // Get comprehensive monthly report for CA
 const getMonthlyReport = asyncHandler(async (req, res) => {
   const { month, year } = req.query;
@@ -18,6 +42,7 @@ const getMonthlyReport = asyncHandler(async (req, res) => {
   const endDate = new Date(targetYear, targetMonth + 1, 0, 23, 59, 59, 999);
 
   const orders = await Order.find({ createdAt: { $gte: startDate, $lte: endDate } })
+    .where(buildPaymentFilter(req.query))
     .populate("user", "firstname lastname mobile email")
     .populate({ path: "orderItems.product", select: "title brand price barcode hsnCode" });
 
@@ -108,11 +133,12 @@ const getYearlyReport = asyncHandler(async (req, res) => {
   const endDate = new Date(targetYear, 11, 31, 23, 59, 59, 999);
 
   const orders = await Order.find({ createdAt: { $gte: startDate, $lte: endDate } })
+    .where(buildPaymentFilter(req.query))
     .populate("user", "firstname lastname mobile email")
     .populate({ path: "orderItems.product", select: "title brand price barcode hsnCode" });
 
   const monthlyData = await Order.aggregate([
-    { $match: { createdAt: { $gte: startDate, $lte: endDate } } },
+    { $match: { createdAt: { $gte: startDate, $lte: endDate }, ...buildPaymentFilter(req.query) } },
     { $group: { _id: { $month: "$createdAt" }, totalOrders: { $sum: 1 }, totalSales: { $sum: "$totalPrice" }, totalDiscount: { $sum: "$discountAmount" }, netRevenue: { $sum: "$totalPriceAfterDiscount" } } },
     { $sort: { _id: 1 } }
   ]);
@@ -176,6 +202,7 @@ const getDateRangeReport = asyncHandler(async (req, res) => {
   const end = new Date(endDate); end.setHours(23, 59, 59, 999);
 
   const orders = await Order.find({ createdAt: { $gte: start, $lte: end } })
+    .where(buildPaymentFilter(req.query))
     .populate("user", "firstname lastname mobile email")
     .populate({ path: "orderItems.product", select: "title brand price barcode hsnCode" });
 
@@ -224,6 +251,7 @@ const getGSTReport = asyncHandler(async (req, res) => {
   const endDate = new Date(targetYear, targetMonth + 1, 0, 23, 59, 59, 999);
 
   const orders = await Order.find({ createdAt: { $gte: startDate, $lte: endDate } })
+    .where(buildPaymentFilter(req.query))
     .populate("user", "firstname lastname gstin");
 
   let totalTaxableValue = 0;
@@ -301,6 +329,7 @@ const getProductWiseReport = asyncHandler(async (req, res) => {
   }
 
   const orders = await Order.find({ createdAt: { $gte: start, $lte: end } })
+    .where(buildPaymentFilter(req.query))
     .populate({ path: "orderItems.product", select: "title brand price barcode category hsnCode" });
 
   const productStats = {};
@@ -340,6 +369,7 @@ const getCustomerWiseReport = asyncHandler(async (req, res) => {
   }
 
   const orders = await Order.find({ createdAt: { $gte: start, $lte: end } })
+    .where(buildPaymentFilter(req.query))
     .populate("user", "firstname lastname mobile email createdAt");
 
   const customerStats = {};

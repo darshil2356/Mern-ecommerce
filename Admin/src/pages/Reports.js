@@ -40,6 +40,7 @@ const Reports = () => {
   const [selectedMonth, setSelectedMonth] = useState(dayjs().month() + 1);
   const [selectedYear, setSelectedYear] = useState(dayjs().year());
   const [dateRange, setDateRange] = useState([dayjs().startOf('month'), dayjs().endOf('month')]);
+  const [paymentFilter, setPaymentFilter] = useState("all");
 
   const currentUser = useSelector((state) => state?.auth?.user);
 
@@ -55,15 +56,33 @@ const Reports = () => {
 
   useEffect(() => {
     fetchReport();
-  }, [selectedMonth, selectedYear, activeTab]);
+  }, [selectedMonth, selectedYear, activeTab, paymentFilter]);
 
   const fetchReport = () => {
     if (activeTab === "monthly") {
-      dispatch(getMonthlyReportData({ month: selectedMonth, year: selectedYear }));
+      dispatch(getMonthlyReportData({ month: selectedMonth, year: selectedYear, paymentFilter }));
     } else if (activeTab === "yearly") {
-      dispatch(getYearlyReportData(selectedYear));
+      dispatch(getYearlyReportData({ year: selectedYear, paymentFilter }));
     } else if (activeTab === "gst") {
-      dispatch(getGSTReportData({ month: selectedMonth, year: selectedYear }));
+      dispatch(getGSTReportData({ month: selectedMonth, year: selectedYear, paymentFilter }));
+    } else if (activeTab === "dateRange" && dateRange && dateRange[0] && dateRange[1]) {
+      dispatch(getDateRangeReportData({
+        startDate: dateRange[0].format("YYYY-MM-DD"),
+        endDate: dateRange[1].format("YYYY-MM-DD"),
+        paymentFilter,
+      }));
+    } else if (activeTab === "products" && dateRange && dateRange[0] && dateRange[1]) {
+      dispatch(getProductWiseReportData({
+        startDate: dateRange[0].format("YYYY-MM-DD"),
+        endDate: dateRange[1].format("YYYY-MM-DD"),
+        paymentFilter,
+      }));
+    } else if (activeTab === "customers" && dateRange && dateRange[0] && dateRange[1]) {
+      dispatch(getCustomerWiseReportData({
+        startDate: dateRange[0].format("YYYY-MM-DD"),
+        endDate: dateRange[1].format("YYYY-MM-DD"),
+        paymentFilter,
+      }));
     }
   };
 
@@ -73,6 +92,7 @@ const Reports = () => {
       dispatch(getDateRangeReportData({
         startDate: dates[0].format("YYYY-MM-DD"),
         endDate: dates[1].format("YYYY-MM-DD")
+        , paymentFilter
       }));
     }
   };
@@ -82,6 +102,7 @@ const Reports = () => {
       dispatch(getProductWiseReportData({
         startDate: dateRange[0].format("YYYY-MM-DD"),
         endDate: dateRange[1].format("YYYY-MM-DD")
+        , paymentFilter
       }));
     }
   };
@@ -91,6 +112,7 @@ const Reports = () => {
       dispatch(getCustomerWiseReportData({
         startDate: dateRange[0].format("YYYY-MM-DD"),
         endDate: dateRange[1].format("YYYY-MM-DD")
+        , paymentFilter
       }));
     }
   };
@@ -833,7 +855,7 @@ const Reports = () => {
             <Button 
               type="primary" 
               icon={<ClockCircleOutlined />}
-              onClick={() => dispatch(getYearlyReportData(selectedYear))}
+              onClick={() => dispatch(getYearlyReportData({ year: selectedYear, paymentFilter }))}
             >
               Fetch Report
             </Button>
@@ -1194,6 +1216,20 @@ const Reports = () => {
         <div>
           <h3 className="title" style={{ margin: 0 }}>Reports</h3>
           <p className="text-gray-500 text-sm">Generate reports for CA / Accountant</p>
+        </div>
+        <div className="flex items-center gap-3">
+          <span className="text-gray-700 font-medium">Payment filter:</span>
+          <Select
+            value={paymentFilter}
+            onChange={setPaymentFilter}
+            style={{ width: 240 }}
+            options={[
+              { label: 'All', value: 'all' },
+              { label: 'Cash', value: 'cash' },
+              { label: 'Online - Current Account', value: 'online_current' },
+              { label: 'Online - Other Account', value: 'online_other' },
+            ]}
+          />
         </div>
         <Space>
           <Button 

@@ -102,9 +102,9 @@ export const getYearlyData = createAsyncThunk(
 
 export const getMonthlyReportData = createAsyncThunk(
   "reports/monthly",
-  async ({ month, year }, thunkAPI) => {
+  async ({ month, year, paymentFilter }, thunkAPI) => {
     try {
-      return await authService.getMonthlyReport(month, year);
+      return await authService.getMonthlyReport(month, year, paymentFilter);
     } catch (error) {
       return thunkAPI.rejectWithValue(error);
     }
@@ -113,9 +113,9 @@ export const getMonthlyReportData = createAsyncThunk(
 
 export const getYearlyReportData = createAsyncThunk(
   "reports/yearly",
-  async (year, thunkAPI) => {
+  async ({ year, paymentFilter }, thunkAPI) => {
     try {
-      return await authService.getYearlyReport(year);
+      return await authService.getYearlyReport(year, paymentFilter);
     } catch (error) {
       return thunkAPI.rejectWithValue(error);
     }
@@ -124,9 +124,9 @@ export const getYearlyReportData = createAsyncThunk(
 
 export const getDateRangeReportData = createAsyncThunk(
   "reports/daterange",
-  async ({ startDate, endDate }, thunkAPI) => {
+  async ({ startDate, endDate, paymentFilter }, thunkAPI) => {
     try {
-      return await authService.getDateRangeReport(startDate, endDate);
+      return await authService.getDateRangeReport(startDate, endDate, paymentFilter);
     } catch (error) {
       return thunkAPI.rejectWithValue(error);
     }
@@ -135,9 +135,9 @@ export const getDateRangeReportData = createAsyncThunk(
 
 export const getGSTReportData = createAsyncThunk(
   "reports/gst",
-  async ({ month, year }, thunkAPI) => {
+  async ({ month, year, paymentFilter }, thunkAPI) => {
     try {
-      return await authService.getGSTReport(month, year);
+      return await authService.getGSTReport(month, year, paymentFilter);
     } catch (error) {
       return thunkAPI.rejectWithValue(error);
     }
@@ -146,9 +146,9 @@ export const getGSTReportData = createAsyncThunk(
 
 export const getProductWiseReportData = createAsyncThunk(
   "reports/productwise",
-  async ({ startDate, endDate }, thunkAPI) => {
+  async ({ startDate, endDate, paymentFilter }, thunkAPI) => {
     try {
-      return await authService.getProductWiseReport(startDate, endDate);
+      return await authService.getProductWiseReport(startDate, endDate, paymentFilter);
     } catch (error) {
       return thunkAPI.rejectWithValue(error);
     }
@@ -157,9 +157,9 @@ export const getProductWiseReportData = createAsyncThunk(
 
 export const getCustomerWiseReportData = createAsyncThunk(
   "reports/customerwise",
-  async ({ startDate, endDate }, thunkAPI) => {
+  async ({ startDate, endDate, paymentFilter }, thunkAPI) => {
     try {
-      return await authService.getCustomerWiseReport(startDate, endDate);
+      return await authService.getCustomerWiseReport(startDate, endDate, paymentFilter);
     } catch (error) {
       return thunkAPI.rejectWithValue(error);
     }

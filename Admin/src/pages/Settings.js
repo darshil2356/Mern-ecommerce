@@ -19,6 +19,7 @@ const Settings = () => {
   // Tax mode: false = prices EXCLUDE tax (add on top), true = prices INCLUDE tax (extract)
   const [taxIncluded, setTaxIncluded] = useState(false);
   const [storeState, setStoreState] = useState("Gujarat");
+  const [onlinePaymentDestination, setOnlinePaymentDestination] = useState("CURRENT_ACCOUNT");
 
   useEffect(() => { fetchSettings(); }, []);
 
@@ -42,6 +43,7 @@ const Settings = () => {
       setReferralCoinPercent(res.data.referralCoinPercent || 10);
       setTaxIncluded(res.data.taxIncluded === true);
       setStoreState(res.data.storeState || "Gujarat");
+      setOnlinePaymentDestination(res.data.onlinePaymentDestination || "CURRENT_ACCOUNT");
     } catch {
       message.error("Failed to load settings");
     } finally {
@@ -62,6 +64,7 @@ const Settings = () => {
         referralCoinPercent: referralOfferEnabled ? referralCoinPercent : 0,
         taxIncluded,
         storeState,
+        onlinePaymentDestination,
       };
       await axios.put(`${base_url}user/settings`, payload, config);
       if (values.gstin !== undefined) {
@@ -209,6 +212,21 @@ const Settings = () => {
           <div className="flex items-center gap-4">
             <Switch checked={referralOfferEnabled} onChange={setReferralOfferEnabled} checkedChildren="Enabled" unCheckedChildren="Disabled" />
             <span className="text-gray-500 text-sm">Show referral offer while live billing</span>
+          </div>
+
+          <div className="mt-6">
+            <label className="block text-sm font-medium text-gray-700 mb-2">Online Payment Account</label>
+            <select
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-700"
+              value={onlinePaymentDestination}
+              onChange={(e) => setOnlinePaymentDestination(e.target.value)}
+            >
+              <option value="CURRENT_ACCOUNT">Current Account</option>
+              <option value="OTHER_ACCOUNT">Other Account</option>
+            </select>
+            <p className="text-xs text-gray-500 mt-2">
+              Choose where new online payments are recorded. This is used by reports to split online orders into current or other account.
+            </p>
           </div>
 
           {referralOfferEnabled && (

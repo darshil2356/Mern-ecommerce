@@ -364,6 +364,7 @@ const createOfflineOrder = asyncHandler(async (req, res) => {
     },
     orderStatus: "Delivered",
     mode: "OFFLINE",
+    paymentDestination: "CASH",
   });
 
   // Step 4: If customer does NOT exist → create AFTER order success
@@ -1253,6 +1254,8 @@ const createOrder = asyncHandler(async (req, res) => {
     gstBreakdown,
   } = req.body;
   const { _id } = req.user;
+  const adminConfig = await User.findOne({ role: "admin" }).select("onlinePaymentDestination");
+  const onlinePaymentDestination = adminConfig?.onlinePaymentDestination || "CURRENT_ACCOUNT";
   try {
     // Decrease stock for each ordered item (skip bundle items - stock handled separately)
     for (const item of orderItems) {
@@ -1357,6 +1360,8 @@ const createOrder = asyncHandler(async (req, res) => {
       coinsUsed: coinsUsed || 0,
       coinAmount: coinAmount || 0,
       paymentInfo,
+      mode: paymentInfo?.razorpayPaymentId ? "ONLINE" : "OFFLINE",
+      paymentDestination: paymentInfo?.razorpayPaymentId ? onlinePaymentDestination : "CASH",
       user: _id,
     });
 
@@ -2126,6 +2131,7 @@ const getSettings = asyncHandler(async (req, res) => {
       igst: user.igst || 0,
       storeState: user.storeState || "Gujarat",
       taxIncluded: user.taxIncluded === true,
+      onlinePaymentDestination: user.onlinePaymentDestination || "CURRENT_ACCOUNT",
     });
   } catch (error) {
     throw new Error(error);
@@ -2140,6 +2146,7 @@ const updateSettings = asyncHandler(async (req, res) => {
     showSpinner, showReferralOffer, referralCoinPercent,
     cgst, sgst, igst, storeState, taxIncluded,
     storeName, storeTagline, storeAddress, storePhone,
+    onlinePaymentDestination,
   } = req.body;
 
   const updatedUser = await User.findByIdAndUpdate(
@@ -2157,6 +2164,7 @@ const updateSettings = asyncHandler(async (req, res) => {
       ...(storeTagline !== undefined && { storeTagline }),
       ...(storeAddress !== undefined && { storeAddress }),
       ...(storePhone   !== undefined && { storePhone }),
+      ...(onlinePaymentDestination !== undefined && { onlinePaymentDestination }),
     },
     { new: true }
   );

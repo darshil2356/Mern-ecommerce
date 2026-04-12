@@ -1,0 +1,3351 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Full Stack MERN E-Commerce Platform — Technical Deep Dive</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700;800;900&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"
+    />
+    <style>
+      :root {
+        --bg: #1a1a1a;
+        --bg2: #222222;
+        --bg3: #2a2a2a;
+        --bg4: #333333;
+        --gold: #d4af37;
+        --gold-dim: rgba(212, 175, 55, 0.15);
+        --gold-glow: rgba(212, 175, 55, 0.3);
+        --white: #f0f0f0;
+        --gray: #999999;
+        --light-gray: #cccccc;
+        --green: #4ade80;
+        --red: #f87171;
+        --blue: #60a5fa;
+        --orange: #fb923c;
+        --cyan: #22d3ee;
+        --purple: #c084fc;
+        --pink: #f472b6;
+        --yellow: #facc15;
+        --code-bg: #0d0d0d;
+        --border: #3a3a3a;
+      }
+
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        background: #000;
+        font-family: "Inter", sans-serif;
+        color: var(--white);
+        overflow: hidden;
+        height: 100vh;
+        width: 100vw;
+        user-select: none;
+      }
+
+      .slide-container {
+        width: 100vw;
+        height: 100vh;
+        position: relative;
+        overflow: hidden;
+      }
+
+      .slide {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        padding: 40px 60px;
+        overflow-y: auto;
+        overflow-x: hidden;
+        display: none;
+        opacity: 0;
+        transition: opacity 0.4s ease;
+        scrollbar-width: thin;
+        scrollbar-color: var(--gold) var(--bg);
+      }
+
+      .slide.active {
+        display: block;
+        opacity: 1;
+      }
+
+      .slide::-webkit-scrollbar {
+        width: 6px;
+      }
+      .slide::-webkit-scrollbar-track {
+        background: var(--bg);
+      }
+      .slide::-webkit-scrollbar-thumb {
+        background: var(--gold);
+        border-radius: 3px;
+      }
+
+      .slide-header {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        margin-bottom: 24px;
+        padding-bottom: 16px;
+        border-bottom: 2px solid var(--gold);
+      }
+
+      .slide-header .icon-badge {
+        width: 48px;
+        height: 48px;
+        background: var(--gold-dim);
+        border: 1.5px solid var(--gold);
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 20px;
+        color: var(--gold);
+        flex-shrink: 0;
+      }
+
+      .slide-header h1 {
+        font-family: "Playfair Display", serif;
+        font-size: 28px;
+        font-weight: 800;
+        color: var(--gold);
+        letter-spacing: -0.5px;
+        line-height: 1.2;
+      }
+
+      .slide-header .slide-num {
+        margin-left: auto;
+        font-family: "JetBrains Mono", monospace;
+        font-size: 13px;
+        color: var(--gray);
+        background: var(--bg3);
+        padding: 4px 12px;
+        border-radius: 6px;
+        border: 1px solid var(--border);
+      }
+
+      h2 {
+        font-family: "Playfair Display", serif;
+        font-size: 18px;
+        font-weight: 700;
+        color: var(--gold);
+        margin: 18px 0 10px 0;
+      }
+
+      h3 {
+        font-size: 14px;
+        font-weight: 700;
+        color: var(--light-gray);
+        margin: 12px 0 6px 0;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+
+      p,
+      li {
+        font-size: 13px;
+        line-height: 1.65;
+        color: var(--gray);
+      }
+
+      .code-box {
+        background: var(--code-bg);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 14px 18px;
+        font-family: "JetBrains Mono", monospace;
+        font-size: 11.5px;
+        line-height: 1.7;
+        color: var(--light-gray);
+        overflow-x: auto;
+        margin: 8px 0;
+        white-space: pre-wrap;
+        word-break: break-all;
+      }
+
+      .code-box .kw {
+        color: var(--purple);
+      }
+      .code-box .str {
+        color: var(--green);
+      }
+      .code-box .num {
+        color: var(--orange);
+      }
+      .code-box .cm {
+        color: #666;
+        font-style: italic;
+      }
+      .code-box .fn {
+        color: var(--blue);
+      }
+      .code-box .type {
+        color: var(--cyan);
+      }
+
+      .field-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+        gap: 6px;
+        margin: 8px 0;
+      }
+
+      .field-item {
+        display: flex;
+        align-items: baseline;
+        gap: 8px;
+        font-family: "JetBrains Mono", monospace;
+        font-size: 11.5px;
+        padding: 5px 10px;
+        background: var(--bg3);
+        border-radius: 5px;
+        border-left: 3px solid var(--gold);
+      }
+
+      .field-item .fname {
+        color: var(--gold);
+        font-weight: 600;
+        white-space: nowrap;
+      }
+      .field-item .ftype {
+        color: var(--cyan);
+        font-size: 10px;
+      }
+      .field-item .fdesc {
+        color: var(--gray);
+        font-size: 10.5px;
+      }
+
+      .flow-step {
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+        margin: 6px 0;
+        padding: 8px 12px;
+        background: var(--bg2);
+        border-radius: 8px;
+        border: 1px solid var(--border);
+      }
+
+      .flow-step .step-num {
+        width: 28px;
+        height: 28px;
+        background: var(--gold);
+        color: #000;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+        font-size: 12px;
+        flex-shrink: 0;
+      }
+
+      .flow-step .step-content {
+        font-size: 12.5px;
+        line-height: 1.6;
+        color: var(--light-gray);
+      }
+
+      .flow-step .step-content code {
+        background: var(--code-bg);
+        padding: 1px 6px;
+        border-radius: 3px;
+        font-family: "JetBrains Mono", monospace;
+        font-size: 11px;
+        color: var(--cyan);
+      }
+
+      .arrow-down {
+        text-align: center;
+        color: var(--gold);
+        font-size: 16px;
+        margin: 2px 0;
+        opacity: 0.6;
+      }
+
+      .tag {
+        display: inline-block;
+        padding: 2px 8px;
+        border-radius: 4px;
+        font-size: 10px;
+        font-weight: 600;
+        font-family: "JetBrains Mono", monospace;
+      }
+
+      .tag-gold {
+        background: var(--gold-dim);
+        color: var(--gold);
+        border: 1px solid var(--gold);
+      }
+      .tag-green {
+        background: rgba(74, 222, 128, 0.1);
+        color: var(--green);
+        border: 1px solid var(--green);
+      }
+      .tag-red {
+        background: rgba(248, 113, 113, 0.1);
+        color: var(--red);
+        border: 1px solid var(--red);
+      }
+      .tag-blue {
+        background: rgba(96, 165, 250, 0.1);
+        color: var(--blue);
+        border: 1px solid var(--blue);
+      }
+      .tag-orange {
+        background: rgba(251, 146, 60, 0.1);
+        color: var(--orange);
+        border: 1px solid var(--orange);
+      }
+      .tag-cyan {
+        background: rgba(34, 211, 238, 0.1);
+        color: var(--cyan);
+        border: 1px solid var(--cyan);
+      }
+      .tag-purple {
+        background: rgba(192, 132, 252, 0.1);
+        color: var(--purple);
+        border: 1px solid var(--purple);
+      }
+
+      .two-col {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 20px;
+      }
+
+      .three-col {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 16px;
+      }
+
+      .panel {
+        background: var(--bg2);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 16px;
+      }
+
+      .panel-title {
+        font-size: 12px;
+        font-weight: 700;
+        color: var(--gold);
+        text-transform: uppercase;
+        letter-spacing: 0.8px;
+        margin-bottom: 10px;
+        padding-bottom: 6px;
+        border-bottom: 1px solid var(--border);
+      }
+
+      .api-route {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin: 4px 0;
+        font-family: "JetBrains Mono", monospace;
+        font-size: 11.5px;
+      }
+
+      .api-route .method {
+        padding: 2px 8px;
+        border-radius: 4px;
+        font-weight: 700;
+        font-size: 10px;
+        min-width: 50px;
+        text-align: center;
+      }
+
+      .method-post {
+        background: rgba(74, 222, 128, 0.15);
+        color: var(--green);
+      }
+      .method-get {
+        background: rgba(96, 165, 250, 0.15);
+        color: var(--blue);
+      }
+      .method-put {
+        background: rgba(251, 146, 60, 0.15);
+        color: var(--orange);
+      }
+      .method-delete {
+        background: rgba(248, 113, 113, 0.15);
+        color: var(--red);
+      }
+
+      .api-route .path {
+        color: var(--light-gray);
+      }
+
+      .nav-bar {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        height: 56px;
+        background: rgba(10, 10, 10, 0.95);
+        backdrop-filter: blur(12px);
+        border-top: 1px solid var(--border);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 30px;
+        z-index: 100;
+      }
+
+      .nav-bar button {
+        background: var(--bg3);
+        border: 1px solid var(--border);
+        color: var(--white);
+        width: 40px;
+        height: 40px;
+        border-radius: 10px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 16px;
+        transition: all 0.2s;
+      }
+      .nav-bar button:hover {
+        background: var(--gold);
+        color: #000;
+        border-color: var(--gold);
+      }
+      .nav-bar button:disabled {
+        opacity: 0.3;
+        cursor: not-allowed;
+      }
+      .nav-bar button:disabled:hover {
+        background: var(--bg3);
+        color: var(--white);
+        border-color: var(--border);
+      }
+
+      .slide-indicator {
+        font-family: "JetBrains Mono", monospace;
+        font-size: 13px;
+        color: var(--gray);
+      }
+
+      .slide-indicator span {
+        color: var(--gold);
+        font-weight: 700;
+      }
+
+      .progress-bar {
+        position: fixed;
+        top: 0;
+        left: 0;
+        height: 3px;
+        background: linear-gradient(90deg, var(--gold), #f0d060);
+        transition: width 0.4s ease;
+        z-index: 100;
+      }
+
+      .mini-toc {
+        position: fixed;
+        right: 12px;
+        top: 50%;
+        transform: translateY(-50%);
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+        z-index: 90;
+      }
+
+      .mini-toc .dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: var(--border);
+        cursor: pointer;
+        transition: all 0.2s;
+      }
+      .mini-toc .dot.active {
+        background: var(--gold);
+        width: 6px;
+        height: 16px;
+        border-radius: 3px;
+      }
+      .mini-toc .dot:hover {
+        background: var(--gold-glow);
+      }
+
+      .title-slide {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        background:
+          radial-gradient(
+            ellipse at 50% 30%,
+            rgba(212, 175, 55, 0.08) 0%,
+            transparent 60%
+          ),
+          var(--bg);
+      }
+
+      .title-slide h1 {
+        font-family: "Playfair Display", serif;
+        font-size: 52px;
+        font-weight: 900;
+        color: var(--gold);
+        line-height: 1.15;
+        margin-bottom: 16px;
+        letter-spacing: -1px;
+      }
+
+      .title-slide .subtitle {
+        font-size: 18px;
+        color: var(--gray);
+        font-weight: 300;
+        margin-bottom: 30px;
+      }
+
+      .tech-badges {
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+        justify-content: center;
+      }
+
+      .tech-badges .tbadge {
+        padding: 8px 20px;
+        border: 1.5px solid var(--gold);
+        border-radius: 8px;
+        font-family: "JetBrains Mono", monospace;
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--gold);
+        background: var(--gold-dim);
+      }
+
+      .conclusion-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+        margin-top: 10px;
+      }
+
+      .conclusion-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 14px;
+        background: var(--bg2);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        font-size: 12.5px;
+        color: var(--light-gray);
+      }
+
+      .conclusion-item i {
+        color: var(--gold);
+        font-size: 14px;
+        flex-shrink: 0;
+      }
+
+      .arch-arrow {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--gold);
+        font-size: 20px;
+        padding: 4px 0;
+        opacity: 0.7;
+      }
+
+      .level-box {
+        padding: 10px 14px;
+        border-radius: 8px;
+        margin: 6px 0;
+        border: 1px solid var(--border);
+      }
+
+      .level-1 {
+        background: rgba(74, 222, 128, 0.06);
+        border-left: 3px solid var(--green);
+      }
+      .level-2 {
+        background: rgba(96, 165, 250, 0.06);
+        border-left: 3px solid var(--blue);
+      }
+      .level-3 {
+        background: rgba(192, 132, 252, 0.06);
+        border-left: 3px solid var(--purple);
+      }
+
+      @media (max-width: 900px) {
+        .slide {
+          padding: 24px 20px;
+        }
+        .slide-header h1 {
+          font-size: 22px;
+        }
+        .two-col,
+        .three-col {
+          grid-template-columns: 1fr;
+        }
+        .title-slide h1 {
+          font-size: 32px;
+        }
+        .field-grid {
+          grid-template-columns: 1fr;
+        }
+        .conclusion-grid {
+          grid-template-columns: 1fr;
+        }
+        .mini-toc {
+          display: none;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="progress-bar" id="progressBar"></div>
+
+    <div class="mini-toc" id="miniToc"></div>
+
+    <div class="slide-container">
+      <!-- SLIDE 1 — Title -->
+      <div class="slide active" data-slide="1">
+        <div class="title-slide" style="height: 100%; padding: 40px">
+          <div style="margin-bottom: 20px">
+            <i
+              class="fas fa-shopping-bag"
+              style="font-size: 48px; color: var(--gold); opacity: 0.5"
+            ></i>
+          </div>
+          <h1>Full Stack MERN<br />E-Commerce Platform</h1>
+          <div class="subtitle">
+            Deep Technical Presentation — All Modules Explained
+          </div>
+          <div class="tech-badges">
+            <div class="tbadge">MongoDB</div>
+            <div class="tbadge">Express.js</div>
+            <div class="tbadge">React.js</div>
+            <div class="tbadge">Node.js</div>
+            <div class="tbadge">Redux Toolkit</div>
+          </div>
+          <div
+            style="
+              margin-top: 40px;
+              color: var(--gray);
+              font-size: 12px;
+              font-family: &quot;JetBrains Mono&quot;, monospace;
+            "
+          >
+            Clothing Brand &mdash; Online + Offline + POS + Reels + Loyalty
+            System
+          </div>
+        </div>
+      </div>
+
+      <!-- SLIDE 2 — Architecture -->
+      <div class="slide" data-slide="2">
+        <div class="slide-header">
+          <div class="icon-badge"><i class="fas fa-sitemap"></i></div>
+          <h1>Complete Project Architecture</h1>
+          <div class="slide-num">02 / 23</div>
+        </div>
+        <div class="three-col">
+          <div class="panel" style="border-top: 3px solid var(--green)">
+            <div class="panel-title">
+              <i class="fas fa-globe"></i> &nbsp;Customer Frontend
+            </div>
+            <p style="font-size: 11.5px; margin-bottom: 8px">
+              React 18 + Redux Toolkit
+            </p>
+            <p style="font-size: 11px; color: var(--gray)">Deployed: Netlify</p>
+            <div style="margin-top: 10px">
+              <div class="field-item" style="border-left-color: var(--green)">
+                <span class="fname">/</span
+                ><span class="fdesc">Home + Product Listing</span>
+              </div>
+              <div class="field-item" style="border-left-color: var(--green)">
+                <span class="fname">/product/:id</span
+                ><span class="fdesc">Product Detail + Reviews</span>
+              </div>
+              <div class="field-item" style="border-left-color: var(--green)">
+                <span class="fname">/cart</span
+                ><span class="fdesc">Cart + Coupon + Coins</span>
+              </div>
+              <div class="field-item" style="border-left-color: var(--green)">
+                <span class="fname">/checkout</span
+                ><span class="fdesc">Razorpay Payment</span>
+              </div>
+              <div class="field-item" style="border-left-color: var(--green)">
+                <span class="fname">/reels</span
+                ><span class="fdesc">TikTok-style Shopping</span>
+              </div>
+              <div class="field-item" style="border-left-color: var(--green)">
+                <span class="fname">/orders</span
+                ><span class="fdesc">Order Tracking</span>
+              </div>
+              <div class="field-item" style="border-left-color: var(--green)">
+                <span class="fname">/spin</span
+                ><span class="fdesc">Spin Wheel Rewards</span>
+              </div>
+              <div class="field-item" style="border-left-color: var(--green)">
+                <span class="fname">/referral</span
+                ><span class="fdesc">Referral Dashboard</span>
+              </div>
+            </div>
+          </div>
+          <div class="panel" style="border-top: 3px solid var(--orange)">
+            <div class="panel-title">
+              <i class="fas fa-shield-halved"></i> &nbsp;Admin Dashboard
+            </div>
+            <p style="font-size: 11.5px; margin-bottom: 8px">
+              React + Redux Toolkit
+            </p>
+            <p style="font-size: 11px; color: var(--gray)">Deployed: Render</p>
+            <div style="margin-top: 10px">
+              <div class="field-item" style="border-left-color: var(--orange)">
+                <span class="fname">/dashboard</span
+                ><span class="fdesc">Sales Charts + Stats</span>
+              </div>
+              <div class="field-item" style="border-left-color: var(--orange)">
+                <span class="fname">/products</span
+                ><span class="fdesc">Product CRUD + Variants</span>
+              </div>
+              <div class="field-item" style="border-left-color: var(--orange)">
+                <span class="fname">/orders</span
+                ><span class="fdesc">Order Management</span>
+              </div>
+              <div class="field-item" style="border-left-color: var(--orange)">
+                <span class="fname">/live-billing</span
+                ><span class="fdesc">POS / Offline Orders</span>
+              </div>
+              <div class="field-item" style="border-left-color: var(--orange)">
+                <span class="fname">/customers</span
+                ><span class="fdesc">User Management</span>
+              </div>
+              <div class="field-item" style="border-left-color: var(--orange)">
+                <span class="fname">/spin-mgmt</span
+                ><span class="fdesc">Spin Config</span>
+              </div>
+              <div class="field-item" style="border-left-color: var(--orange)">
+                <span class="fname">/referral-set</span
+                ><span class="fdesc">Referral Config</span>
+              </div>
+              <div class="field-item" style="border-left-color: var(--orange)">
+                <span class="fname">/reports</span
+                ><span class="fdesc">Sales Reports</span>
+              </div>
+            </div>
+          </div>
+          <div class="panel" style="border-top: 3px solid var(--blue)">
+            <div class="panel-title">
+              <i class="fas fa-server"></i> &nbsp;Backend API
+            </div>
+            <p style="font-size: 11.5px; margin-bottom: 8px">
+              Node.js + Express.js
+            </p>
+            <p style="font-size: 11px; color: var(--gray)">
+              Deployed: Render (PORT 8000)
+            </p>
+            <div style="margin-top: 10px">
+              <div class="field-item" style="border-left-color: var(--blue)">
+                <span class="fname">/api/user</span
+                ><span class="fdesc">Auth + Cart + Wishlist</span>
+              </div>
+              <div class="field-item" style="border-left-color: var(--blue)">
+                <span class="fname">/api/product</span
+                ><span class="fdesc">Product CRUD + Filters</span>
+              </div>
+              <div class="field-item" style="border-left-color: var(--blue)">
+                <span class="fname">/api/payment</span
+                ><span class="fdesc">Razorpay Integration</span>
+              </div>
+              <div class="field-item" style="border-left-color: var(--blue)">
+                <span class="fname">/api/order</span
+                ><span class="fdesc">Order Processing</span>
+              </div>
+              <div class="field-item" style="border-left-color: var(--blue)">
+                <span class="fname">/api/shiprocket</span
+                ><span class="fdesc">Shipping + Tracking</span>
+              </div>
+              <div class="field-item" style="border-left-color: var(--blue)">
+                <span class="fname">/api/upload</span
+                ><span class="fdesc">Cloudinary Media</span>
+              </div>
+              <div class="field-item" style="border-left-color: var(--blue)">
+                <span class="fname">/api/blog</span
+                ><span class="fdesc">Blog + Categories</span>
+              </div>
+              <div class="field-item" style="border-left-color: var(--blue)">
+                <span class="fname">/api/spin</span
+                ><span class="fdesc">Spin Wheel Logic</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="arch-arrow">
+          <i class="fas fa-arrows-up-down"></i> &nbsp; All panels connect to
+          backend via REST API &nbsp; <i class="fas fa-arrows-up-down"></i>
+        </div>
+        <div class="three-col" style="margin-top: 4px">
+          <div class="panel" style="text-align: center; padding: 12px">
+            <div class="panel-title" style="border: none; margin: 0">
+              <i class="fas fa-database"></i> &nbsp;MongoDB Atlas
+            </div>
+            <p style="font-size: 11px">Cloud Cluster &bull; Auto-backup</p>
+          </div>
+          <div class="panel" style="text-align: center; padding: 12px">
+            <div class="panel-title" style="border: none; margin: 0">
+              <i class="fas fa-cloud"></i> &nbsp;Cloudinary
+            </div>
+            <p style="font-size: 11px">Images + Videos Hosting</p>
+          </div>
+          <div class="panel" style="text-align: center; padding: 12px">
+            <div class="panel-title" style="border: none; margin: 0">
+              <i class="fas fa-credit-card"></i> &nbsp;Razorpay
+            </div>
+            <p style="font-size: 11px">Payment Gateway (INR)</p>
+          </div>
+        </div>
+        <div class="three-col" style="margin-top: 4px">
+          <div class="panel" style="text-align: center; padding: 12px">
+            <div class="panel-title" style="border: none; margin: 0">
+              <i class="fas fa-truck"></i> &nbsp;Shiprocket API
+            </div>
+            <p style="font-size: 11px">Shipping + Tracking</p>
+          </div>
+          <div class="panel" style="text-align: center; padding: 12px">
+            <div class="panel-title" style="border: none; margin: 0">
+              <i class="fas fa-envelope"></i> &nbsp;Nodemailer
+            </div>
+            <p style="font-size: 11px">SMTP Email (Gmail)</p>
+          </div>
+          <div class="panel" style="text-align: center; padding: 12px">
+            <div class="panel-title" style="border: none; margin: 0">
+              <i class="fas fa-key"></i> &nbsp;JWT + bcrypt
+            </div>
+            <p style="font-size: 11px">Auth + Password Hashing</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- SLIDE 3 — User Model -->
+      <div class="slide" data-slide="3">
+        <div class="slide-header">
+          <div class="icon-badge"><i class="fas fa-user-shield"></i></div>
+          <h1>User Model — Deep Dive</h1>
+          <div class="slide-num">03 / 23</div>
+        </div>
+        <div class="code-box">
+          <span class="cm">// models/userModel.js</span>
+          <span class="kw">const</span> userSchema =
+          <span class="kw">new</span> mongoose.<span class="fn">Schema</span>({
+          <span class="fn">firstname</span>: { type:
+          <span class="type">String</span>, required:
+          <span class="num">true</span>, trim: <span class="num">true</span> },
+          <span class="fn">lastname</span>: { type:
+          <span class="type">String</span>, required:
+          <span class="num">true</span>, trim: <span class="num">true</span> },
+          <span class="fn">mobile</span>: { type:
+          <span class="type">String</span>, required:
+          <span class="num">true</span>, <span class="str">unique</span>:
+          <span class="num">true</span>, index: <span class="num">true</span> },
+          <span class="fn">email</span>: { type:
+          <span class="type">String</span>, <span class="str">sparse</span>:
+          <span class="num">true</span>, <span class="str">unique</span>:
+          <span class="num">true</span> }, <span class="fn">role</span>: { type:
+          <span class="type">String</span>, enum: [<span class="str"
+            >"user"</span
+          >, <span class="str">"admin"</span>], default:
+          <span class="str">"user"</span> }, <span class="fn">password</span>: {
+          type: <span class="type">String</span>, required:
+          <span class="num">true</span>, select:
+          <span class="num">false</span> }, <span class="fn">isBlocked</span>: {
+          type: <span class="type">Boolean</span>, default:
+          <span class="num">false</span> }, <span class="fn">cart</span>: [{
+          type: mongoose.Schema.Types.<span class="type">ObjectId</span>, ref:
+          <span class="str">"Product"</span> }],
+          <span class="fn">wishlist</span>: [{ type: mongoose.Schema.Types.<span
+            class="type"
+            >ObjectId</span
+          >, ref: <span class="str">"Product"</span> }],
+          <span class="fn">coins</span>: { type:
+          <span class="type">Number</span>, default:
+          <span class="num">0</span> }, <span class="fn">referralCode</span>: {
+          type: <span class="type">String</span>,
+          <span class="str">sparse</span>: <span class="num">true</span>,
+          <span class="str">unique</span>: <span class="num">true</span> },
+          <span class="fn">referredBy</span>: { type:
+          mongoose.Schema.Types.<span class="type">ObjectId</span>, ref:
+          <span class="str">"User"</span> },
+          <span class="fn">referralCount</span>: { type:
+          <span class="type">Number</span>, default:
+          <span class="num">0</span> },
+          <span class="fn">referralEarnings</span>:{ type:
+          <span class="type">Number</span>, default:
+          <span class="num">0</span> },
+          <span class="fn">coinTransactions</span>:[{ type: { type:
+          <span class="type">String</span>, enum: [<span class="str"
+            >"credit"</span
+          >,<span class="str">"debit"</span>] }, coins:
+          <span class="type">Number</span>, reason:
+          <span class="type">String</span>, source:
+          <span class="type">String</span>, description:
+          <span class="type">String</span>, metadata:
+          mongoose.Schema.Types.<span class="type">Mixed</span>, createdAt:
+          <span class="type">Date</span>
+          }],
+          <span class="fn">offerDiscount</span>: { type:
+          <span class="type">Number</span>, default:
+          <span class="num">0</span> }, <span class="fn">offerType</span>: {
+          type: <span class="type">String</span>, enum: [<span class="str"
+            >"percentage"</span
+          >,<span class="str">"flat"</span>,<span class="str"
+            >"free_product"</span
+          >] }, <span class="fn">cgst</span>: { type:
+          <span class="type">Number</span>, default:
+          <span class="num">0</span> }, <span class="fn">sgst</span>: { type:
+          <span class="type">Number</span>, default:
+          <span class="num">0</span> }, <span class="fn">igst</span>: { type:
+          <span class="type">Number</span>, default:
+          <span class="num">0</span> }, <span class="fn">storeState</span>: {
+          type: <span class="type">String</span>, default:
+          <span class="str">""</span> }, <span class="fn">taxIncluded</span>: {
+          type: <span class="type">Boolean</span>, default:
+          <span class="num">false</span> }, <span class="fn">storeName</span>: {
+          type: <span class="type">String</span>, default:
+          <span class="str">""</span> }, <span class="fn">storeTagline</span>: {
+          type: <span class="type">String</span>, default:
+          <span class="str">""</span> }, <span class="fn">storeAddress</span>: {
+          type: <span class="type">String</span>, default:
+          <span class="str">""</span> }, <span class="fn">storePhone</span>: {
+          type: <span class="type">String</span>, default:
+          <span class="str">""</span> }, <span class="fn">showSpinner</span>: {
+          type: <span class="type">Boolean</span>, default:
+          <span class="num">true</span> },
+          <span class="fn">showReferralOffer</span>: { type:
+          <span class="type">Boolean</span>, default:
+          <span class="num">true</span> },
+          <span class="fn">passwordResetToken</span>:
+          <span class="type">String</span>,
+          <span class="fn">passwordResetExpires</span>:
+          <span class="type">Date</span>, <span class="fn">refreshToken</span>:
+          <span class="type">String</span>, }, { timestamps:
+          <span class="num">true</span> });
+        </div>
+        <h2>Schema Methods</h2>
+        <div class="two-col">
+          <div class="code-box">
+            <span class="cm">// Password comparison</span>
+            userSchema.methods.<span class="fn">isPasswordMatched</span> =
+            <span class="kw">async</span>
+            <span class="kw">function</span>(enteredPassword) {
+            <span class="kw">return await</span> bcrypt.<span class="fn"
+              >compare</span
+            >(enteredPassword, <span class="kw">this</span>.password); };
+
+            <span class="cm">// Reset token generation</span>
+            userSchema.methods.<span class="fn">createPasswordResetToken</span>
+            = <span class="kw">function</span>() {
+            <span class="kw">const</span> resetToken = crypto .<span class="fn"
+              >randomBytes</span
+            >(<span class="num">32</span>).<span class="fn">toString</span
+            >(<span class="str">"hex"</span>);
+            <span class="kw">this</span>.passwordResetToken = crypto .<span
+              class="fn"
+              >createHash</span
+            >(<span class="str">"sha256"</span>) .<span class="fn">update</span
+            >(resetToken) .<span class="fn">digest</span>(<span class="str"
+              >"hex"</span
+            >); <span class="kw">this</span>.passwordResetExpires =
+            <span class="type">Date</span>.<span class="fn">now</span>() +
+            <span class="num">30</span> * <span class="num">60</span> *
+            <span class="num">1000</span>;
+            <span class="kw">return</span> resetToken; };
+          </div>
+          <div>
+            <h3>Key Design Decisions</h3>
+            <div class="field-grid">
+              <div class="field-item">
+                <span class="fname">select:false</span
+                ><span class="fdesc"
+                  >password excluded from queries by default</span
+                >
+              </div>
+              <div class="field-item">
+                <span class="fname">sparse:true</span
+                ><span class="fdesc"
+                  >email/referralCode allow null but unique when present</span
+                >
+              </div>
+              <div class="field-item">
+                <span class="fname">coinTransactions[]</span
+                ><span class="fdesc"
+                  >full ledger of all coin credits/debits with metadata</span
+                >
+              </div>
+              <div class="field-item">
+                <span class="fname">offerDiscount</span
+                ><span class="fdesc"
+                  >spin wheel reward stored directly on user for checkout
+                  use</span
+                >
+              </div>
+              <div class="field-item">
+                <span class="fname">GST fields</span
+                ><span class="fdesc"
+                  >per-store tax config — admin sets rates applicable to
+                  orders</span
+                >
+              </div>
+              <div class="field-item">
+                <span class="fname">refreshToken</span
+                ><span class="fdesc"
+                  >DB-stored token for JWT renewal without re-login</span
+                >
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SLIDE 4 — Auth Module -->
+      <div class="slide" data-slide="4">
+        <div class="slide-header">
+          <div class="icon-badge"><i class="fas fa-lock"></i></div>
+          <h1>Authentication Module — Deep Dive</h1>
+          <div class="slide-num">04 / 23</div>
+        </div>
+        <div class="flow-step">
+          <div class="step-num">1</div>
+          <div class="step-content">
+            <strong>POST /api/user/register</strong> — Validate mobile is unique
+            → <code>bcrypt.hash(password, 10)</code> → Save user → Auto-generate
+            referral code using <code>nanoid(8)</code> → If
+            <code>referralCode</code> query param present, find referrer and set
+            <code>referredBy</code>
+          </div>
+        </div>
+        <div class="arrow-down"><i class="fas fa-arrow-down"></i></div>
+        <div class="flow-step">
+          <div class="step-num">2</div>
+          <div class="step-content">
+            <strong>POST /api/user/login</strong> — Find user by mobile → Check
+            <code>isBlocked</code> →
+            <code>user.isPasswordMatched(password)</code> → Sign JWT:
+            <code>jwt.sign({id, role}, JWT_SECRET, {expiresIn:"24h"})</code> →
+            Generate refresh token → Store in DB → Return both tokens
+          </div>
+        </div>
+        <div class="arrow-down"><i class="fas fa-arrow-down"></i></div>
+        <div class="flow-step">
+          <div class="step-num">3</div>
+          <div class="step-content">
+            <strong>authMiddleware</strong> (every protected route) — Extract
+            <code>Bearer</code> token from <code>Authorization</code> header →
+            <code>jwt.verify(token, JWT_SECRET)</code> → Decode user id →
+            <code>User.findById(id).select("-password")</code> → Attach
+            <code>req.user</code> → Call <code>next()</code>
+          </div>
+        </div>
+        <div class="arrow-down"><i class="fas fa-arrow-down"></i></div>
+        <div class="flow-step">
+          <div class="step-num">4</div>
+          <div class="step-content">
+            <strong>isAdmin middleware</strong> — Check
+            <code>req.user.role === "admin"</code> → If false → throw
+            <code>new Error("Not authorized as admin")</code> with status 403 →
+            Chain: <code>route → authMiddleware → isAdmin → controller</code>
+          </div>
+        </div>
+        <div class="arrow-down"><i class="fas fa-arrow-down"></i></div>
+        <div class="flow-step">
+          <div class="step-num">5</div>
+          <div class="step-content">
+            <strong>POST /api/user/refresh-token</strong> — Receive refresh
+            token → Find user with matching <code>refreshToken</code> in DB →
+            Verify validity → Issue new JWT (24h) → Return new access token
+          </div>
+        </div>
+        <div class="arrow-down"><i class="fas fa-arrow-down"></i></div>
+        <div class="flow-step">
+          <div class="step-num">6</div>
+          <div class="step-content">
+            <strong>Forgot Password</strong> —
+            <code>crypto.randomBytes(32).toString("hex")</code> → SHA-256 hash
+            stored in DB → Raw token sent via Nodemailer email → Link:
+            <code>/reset-password/:token</code> → 30-minute expiry → On reset:
+            hash incoming token → compare with DB hash → verify expiry → update
+            password
+          </div>
+        </div>
+        <h2>Frontend Token Handling</h2>
+        <div class="code-box">
+          <span class="cm">// axiosSetup.js — Request Interceptor</span>
+          axios.interceptors.request.<span class="fn">use</span>((config) => {
+          <span class="kw">const</span> token = localStorage.<span class="fn"
+            >getItem</span
+          >(<span class="str">"authToken"</span>);
+          <span class="kw">if</span> (token) config.headers.<span class="fn"
+            >Authorization</span
+          >
+          = <span class="str">`Bearer ${token}`</span>;
+          <span class="kw">return</span> config; });
+
+          <span class="cm">// Response Interceptor — Auto logout on 401</span>
+          axios.interceptors.response.<span class="fn">use</span>( (res) => res,
+          (err) => { <span class="kw">if</span> (err.response?.status ===
+          <span class="num">401</span>) { localStorage.<span class="fn"
+            >removeItem</span
+          >(<span class="str">"authToken"</span>); window.location.href =
+          <span class="str">"/login"</span>; }
+          <span class="kw">return</span> Promise.<span class="fn">reject</span
+          >(err); } );
+        </div>
+      </div>
+
+      <!-- SLIDE 5 — Product Model -->
+      <div class="slide" data-slide="5">
+        <div class="slide-header">
+          <div class="icon-badge"><i class="fas fa-shirt"></i></div>
+          <h1>Product Model — Deep Dive</h1>
+          <div class="slide-num">05 / 23</div>
+        </div>
+        <div class="two-col">
+          <div>
+            <h3>Basic Fields</h3>
+            <div class="field-grid">
+              <div class="field-item">
+                <span class="fname">title</span><span class="ftype">String</span
+                ><span class="fdesc">Product name</span>
+              </div>
+              <div class="field-item">
+                <span class="fname">slug</span><span class="ftype">String</span
+                ><span class="fdesc">Auto from slugify(title)</span>
+              </div>
+              <div class="field-item">
+                <span class="fname">description</span
+                ><span class="ftype">String</span
+                ><span class="fdesc">Rich text desc</span>
+              </div>
+              <div class="field-item">
+                <span class="fname">price</span><span class="ftype">Number</span
+                ><span class="fdesc">Selling price (INR)</span>
+              </div>
+              <div class="field-item">
+                <span class="fname">category</span
+                ><span class="ftype">ObjectId</span
+                ><span class="fdesc">ref Category</span>
+              </div>
+              <div class="field-item">
+                <span class="fname">brand</span
+                ><span class="ftype">ObjectId</span
+                ><span class="fdesc">ref Brand</span>
+              </div>
+              <div class="field-item">
+                <span class="fname">tags</span
+                ><span class="ftype">[String]</span
+                ><span class="fdesc">Searchable tags</span>
+              </div>
+              <div class="field-item">
+                <span class="fname">hsnCode</span
+                ><span class="ftype">String</span
+                ><span class="fdesc">GST HSN code</span>
+              </div>
+            </div>
+            <h3>Inventory Control</h3>
+            <div class="field-grid">
+              <div class="field-item">
+                <span class="fname">inventory.offline</span
+                ><span class="ftype">Boolean</span
+                ><span class="fdesc">Always true (immutable)</span>
+              </div>
+              <div class="field-item">
+                <span class="fname">inventory.online</span
+                ><span class="ftype">Boolean</span
+                ><span class="fdesc">Admin toggles — shows in store</span>
+              </div>
+            </div>
+            <h3>Media</h3>
+            <div class="code-box">
+              images: [{ public_id: <span class="type">String</span>, url:
+              <span class="type">String</span> }] videos: [{ public_id:
+              <span class="type">String</span>, url:
+              <span class="type">String</span> }]
+              <span class="cm">// Both from Cloudinary</span>
+            </div>
+          </div>
+          <div>
+            <h3>3-Level Stock Structure</h3>
+            <div class="level-box level-1">
+              <strong style="color: var(--green); font-size: 12px"
+                >Level 1 — Simple</strong
+              >
+              <div class="code-box" style="margin: 4px 0">
+                quantity: <span class="type">Number</span>
+                <span class="cm">// single stock number</span>
+              </div>
+            </div>
+            <div class="level-box level-2">
+              <strong style="color: var(--blue); font-size: 12px"
+                >Level 2 — Size-Based</strong
+              >
+              <div class="code-box" style="margin: 4px 0">
+                sizeStock: [{ size: <span class="str">"S"</span>,
+                <span class="cm">// XS/S/M/L/XL/2XL/3XL</span> quantity:
+                <span class="num">10</span>, barcode:
+                <span class="str">"PRD-A3F8K2M1"</span> }]
+              </div>
+            </div>
+            <div class="level-box level-3">
+              <strong style="color: var(--purple); font-size: 12px"
+                >Level 3 — Color+Size Variants</strong
+              >
+              <div class="code-box" style="margin: 4px 0">
+                variants: [{ color: <span class="type">ObjectId</span>,
+                <span class="cm">// ref Color</span> sizeStock: [{ size:
+                <span class="str">"M"</span>, quantity:
+                <span class="num">5</span>, barcode:
+                <span class="str">"PRD-X7B2N9Q4"</span> }] }]
+              </div>
+            </div>
+            <h3>Barcode System</h3>
+            <p style="font-size: 11px">
+              Format:
+              <code
+                style="
+                  background: var(--code-bg);
+                  padding: 1px 4px;
+                  border-radius: 3px;
+                  color: var(--cyan);
+                  font-family: &quot;JetBrains Mono&quot;, monospace;
+                  font-size: 11px;
+                "
+                >PRD-XXXXXXXX</code
+              >
+              (UUID-based, 8 chars)
+            </p>
+            <p style="font-size: 11px">
+              Every product + every sizeStock entry + every variant.sizeStock
+              gets a unique barcode. Collision check loop with 100-retry limit
+              before error.
+            </p>
+          </div>
+        </div>
+        <h3>Rating System</h3>
+        <div class="code-box">
+          ratings: [{ star: <span class="type">Number</span>,
+          <span class="cm">// 1-5</span> comment:
+          <span class="type">String</span>, postedby: { type:
+          <span class="type">ObjectId</span>, ref:
+          <span class="str">"User"</span> }, images: [{ public_id:
+          <span class="type">String</span>, url:
+          <span class="type">String</span> }], isVerifiedPurchase:
+          <span class="type">Boolean</span>, helpful: [{ type:
+          <span class="type">ObjectId</span>, ref:
+          <span class="str">"User"</span> }], createdAt:
+          <span class="type">Date</span> }] ratingStats: {
+          <span class="num">1</span>:<span class="num">0</span>,
+          <span class="num">2</span>:<span class="num">0</span>,
+          <span class="num">3</span>:<span class="num">0</span>,
+          <span class="num">4</span>:<span class="num">0</span>,
+          <span class="num">5</span>:<span class="num">0</span> }
+          <span class="cm">// auto-calculated on each review</span>
+        </div>
+      </div>
+
+      <!-- SLIDE 6 — Product Management -->
+      <div class="slide" data-slide="6">
+        <div class="slide-header">
+          <div class="icon-badge"><i class="fas fa-boxes-stacked"></i></div>
+          <h1>Product Management Module (Admin)</h1>
+          <div class="slide-num">06 / 23</div>
+        </div>
+        <h2>createProduct Flow</h2>
+        <div class="flow-step">
+          <div class="step-num">1</div>
+          <div class="step-content">
+            Receive form data → auto-generate <code>slug</code> from title using
+            <code>slugify(title)</code>
+          </div>
+        </div>
+        <div class="flow-step">
+          <div class="step-num">2</div>
+          <div class="step-content">
+            Normalize inventory: <code>inventory.offline = true</code> (always),
+            <code>inventory.online</code> from admin toggle
+          </div>
+        </div>
+        <div class="flow-step">
+          <div class="step-num">3</div>
+          <div class="step-content">
+            If <code>variants[]</code> present → normalize each variant's
+            sizeStock quantities →
+            <code>totalQuantity = Σ all variant.sizeStock[].quantity</code>
+          </div>
+        </div>
+        <div class="flow-step">
+          <div class="step-num">4</div>
+          <div class="step-content">
+            If <code>sizeStock[]</code> present (no variants) → normalize
+            quantities → <code>totalQuantity = Σ sizeStock[].quantity</code>
+          </div>
+        </div>
+        <div class="flow-step">
+          <div class="step-num">5</div>
+          <div class="step-content">
+            Create product in DB → generate UUID barcode for main product:
+            <code>PRD-${uuid().substring(0,8).toUpperCase()}</code>
+          </div>
+        </div>
+        <div class="flow-step">
+          <div class="step-num">6</div>
+          <div class="step-content">
+            Loop through each <code>sizeStock</code> item → generate unique
+            barcode if missing → check collision across all products
+          </div>
+        </div>
+        <div class="flow-step">
+          <div class="step-num">7</div>
+          <div class="step-content">
+            Loop through each variant → each <code>variant.sizeStock[]</code> →
+            generate unique barcode per size entry
+          </div>
+        </div>
+        <div class="flow-step">
+          <div class="step-num">8</div>
+          <div class="step-content">Save final product with all barcodes</div>
+        </div>
+        <h2>updateProduct Flow</h2>
+        <div class="code-box">
+          <span class="cm"
+            >// Strip barcode from request body — prevent manual override</span
+          >
+          <span class="kw">const</span> { barcode, ...updateData } = req.body;
+
+          <span class="cm"
+            >// If variants sent → validate each has color ObjectId</span
+          >
+          <span class="kw">if</span> (updateData.variants?.length) {
+          <span class="kw">for</span> (<span class="kw">const</span> v
+          <span class="kw">of</span> updateData.variants) {
+          <span class="kw">if</span> (!v.color)
+          <span class="kw">throw new</span>
+          <span class="type">Error</span>(<span class="str"
+            >"Each variant must have a color"</span
+          >); <span class="kw">for</span> (<span class="kw">const</span> ss
+          <span class="kw">of</span> v.sizeStock) {
+          <span class="kw">if</span> (ss.barcode) {
+          <span class="kw">const</span> collision =
+          <span class="kw">await</span> Product.<span class="fn">findOne</span
+          >({ <span class="str">"sizeStock.barcode"</span>: ss.barcode, _id: {
+          $ne: productId } }); <span class="kw">if</span> (collision) ss.barcode
+          = <span class="fn">generateBarcode</span>();
+          <span class="cm">// regenerate on collision</span>
+          } } }
+          <span class="cm">// Recalculate total from all variant sizes</span>
+          updateData.quantity = updateData.variants.<span class="fn"
+            >reduce</span
+          >( (sum, v) => sum + v.sizeStock.<span class="fn">reduce</span>((s,
+          ss) => s + ss.quantity, <span class="num">0</span>),
+          <span class="num">0</span> ); }
+        </div>
+        <h2>getAllProduct — Store vs Admin Filter</h2>
+        <div class="code-box">
+          <span class="cm">// Customer store: only online products</span>
+          <span class="kw">if</span> (req.query.store ===
+          <span class="str">"true"</span>) { query = Product.<span class="fn"
+            >find</span
+          >({ <span class="str">"inventory.online"</span>:
+          <span class="num">true</span> }); }
+          <span class="cm">// Admin view: all products, no filter</span>
+          <span class="kw">const</span> products =
+          <span class="kw">await</span> query.<span class="fn">populate</span
+          >(<span class="str">"color"</span>) .<span class="fn">populate</span
+          >(<span class="str">"variants.color"</span>) .<span class="fn"
+            >populate</span
+          >(<span class="str">"category"</span>) .<span class="fn"
+            >populate</span
+          >(<span class="str">"brand"</span>);
+        </div>
+      </div>
+
+      <!-- SLIDE 7 — Order Model -->
+      <div class="slide" data-slide="7">
+        <div class="slide-header">
+          <div class="icon-badge"><i class="fas fa-receipt"></i></div>
+          <h1>Order Model — Deep Dive</h1>
+          <div class="slide-num">07 / 23</div>
+        </div>
+        <div class="two-col">
+          <div>
+            <h3>Core Fields</h3>
+            <div class="field-grid">
+              <div class="field-item">
+                <span class="fname">user</span
+                ><span class="ftype">ObjectId</span
+                ><span class="fdesc">ref User</span>
+              </div>
+              <div class="field-item">
+                <span class="fname">orderStatus</span
+                ><span class="ftype">Enum</span
+                ><span class="fdesc">Ordered→Processed→Shipped→Delivered</span>
+              </div>
+              <div class="field-item">
+                <span class="fname">mode</span><span class="ftype">Enum</span
+                ><span class="fdesc">ONLINE / OFFLINE</span>
+              </div>
+              <div class="field-item">
+                <span class="fname">paymentDestination</span
+                ><span class="ftype">Enum</span
+                ><span class="fdesc"
+                  >CURRENT_ACCOUNT / OTHER_ACCOUNT / CASH</span
+                >
+              </div>
+              <div class="field-item">
+                <span class="fname">totalPrice</span
+                ><span class="ftype">Number</span
+                ><span class="fdesc">Before discount</span>
+              </div>
+              <div class="field-item">
+                <span class="fname">totalPriceAfterDiscount</span
+                ><span class="ftype">Number</span
+                ><span class="fdesc">Final payable</span>
+              </div>
+              <div class="field-item">
+                <span class="fname">discountAmount</span
+                ><span class="ftype">Number</span
+                ><span class="fdesc">totalPrice - afterDiscount</span>
+              </div>
+              <div class="field-item">
+                <span class="fname">coinsUsed</span
+                ><span class="ftype">Number</span
+                ><span class="fdesc">Coins redeemed</span>
+              </div>
+              <div class="field-item">
+                <span class="fname">coinAmount</span
+                ><span class="ftype">Number</span
+                ><span class="fdesc">₹ value of coins used</span>
+              </div>
+            </div>
+            <h3>Shipping Info</h3>
+            <div class="code-box">
+              shippingInfo: { firstname, lastname, address, city, state,
+              pincode, other }
+            </div>
+          </div>
+          <div>
+            <h3>Order Items (per line item)</h3>
+            <div class="code-box">
+              orderItems: [{ product: <span class="type">ObjectId</span> ref
+              <span class="str">"Product"</span>, color:
+              <span class="type">ObjectId</span> ref
+              <span class="str">"Color"</span>, quantity:
+              <span class="type">Number</span>, price:
+              <span class="type">Number</span>, hsnCode:
+              <span class="type">String</span>, isBundle:
+              <span class="type">Boolean</span>, bundleId:
+              <span class="type">ObjectId</span>, bundleTitle:
+              <span class="type">String</span>, bundleProducts: [{ productId:
+              <span class="type">ObjectId</span>, title:
+              <span class="type">String</span>, quantity:
+              <span class="type">Number</span>, price:
+              <span class="type">Number</span>, image:
+              <span class="type">String</span>, selectedColor:
+              <span class="type">ObjectId</span>, selectedColorLabel:
+              <span class="type">String</span>, selectedSize:
+              <span class="type">String</span>, hsnCode:
+              <span class="type">String</span> }] }]
+            </div>
+          </div>
+        </div>
+        <h3>GST Breakdown (stored per order for audit)</h3>
+        <div class="code-box">
+          gstBreakdown: { cgst: <span class="type">Number</span>, sgst:
+          <span class="type">Number</span>, igst:
+          <span class="type">Number</span>, cgstRate:
+          <span class="type">Number</span>, sgstRate:
+          <span class="type">Number</span>, igstRate:
+          <span class="type">Number</span>, gstType:
+          <span class="str">"CGST_SGST"</span> |
+          <span class="str">"IGST"</span> | <span class="str">"NONE"</span>,
+          taxableAmount: <span class="type">Number</span> } discountBreakdown: {
+          directDiscount: <span class="type">Number</span>,
+          <span class="cm">// coupon</span> offerDiscount:
+          <span class="type">Number</span>,
+          <span class="cm">// spin wheel</span> coinDiscount:
+          <span class="type">Number</span>
+          <span class="cm">// coin redemption</span> }
+        </div>
+        <h3>Shiprocket + Status History</h3>
+        <div class="code-box">
+          shippingProvider: <span class="type">String</span>, shipmentId:
+          <span class="type">String</span>, trackingId:
+          <span class="type">String</span>, trackingUrl:
+          <span class="type">String</span>, courierName:
+          <span class="type">String</span>, shippedAt:
+          <span class="type">Date</span>, deliveredAt:
+          <span class="type">Date</span> statusHistory: [{ status:
+          <span class="type">String</span>, date:
+          <span class="type">Date</span> }]
+          <span class="cm">// full audit trail</span> paymentInfo: {
+          razorpayOrderId: <span class="type">String</span>, razorpayPaymentId:
+          <span class="type">String</span> }
+        </div>
+      </div>
+
+      <!-- SLIDE 8 — Payment & Checkout -->
+      <div class="slide" data-slide="8">
+        <div class="slide-header">
+          <div class="icon-badge"><i class="fas fa-credit-card"></i></div>
+          <h1>Payment & Checkout Module — Deep Dive</h1>
+          <div class="slide-num">08 / 23</div>
+        </div>
+        <div class="flow-step">
+          <div class="step-num">1</div>
+          <div class="step-content">
+            <strong>Frontend Checkout.js</strong> — User fills shipping form →
+            applies coupon code → applies coins → applies referral/spin offer →
+            calculates final amount
+          </div>
+        </div>
+        <div class="arrow-down"><i class="fas fa-arrow-down"></i></div>
+        <div class="flow-step">
+          <div class="step-num">2</div>
+          <div class="step-content">
+            <strong>POST /api/payment/checkout</strong> —
+            <code
+              >razorpayInstance.orders.create({amount: finalAmount*100,
+              currency: "INR", receipt: orderId})</code
+            >
+            → Returns <code>order_id</code> to frontend
+          </div>
+        </div>
+        <div class="arrow-down"><i class="fas fa-arrow-down"></i></div>
+        <div class="flow-step">
+          <div class="step-num">3</div>
+          <div class="step-content">
+            <strong>Razorpay Modal</strong> — Opens with
+            <code
+              >{key_id, order_id, amount, name, description, prefill: {contact,
+              email}}</code
+            >
+            → User completes payment
+          </div>
+        </div>
+        <div class="arrow-down"><i class="fas fa-arrow-down"></i></div>
+        <div class="flow-step">
+          <div class="step-num">4</div>
+          <div class="step-content">
+            <strong>paymentVerification</strong> — Razorpay returns
+            <code>razorpayOrderId + razorpayPaymentId + razorpaySignature</code>
+            → Verify signature with <code>HMAC-SHA256</code>
+          </div>
+        </div>
+        <div class="arrow-down"><i class="fas fa-arrow-down"></i></div>
+        <div class="flow-step">
+          <div class="step-num">5</div>
+          <div class="step-content">
+            <strong>POST /api/user/order</strong> — Create Order document with
+            all items, GST breakdown, discount breakdown → Store payment IDs
+          </div>
+        </div>
+        <div class="arrow-down"><i class="fas fa-arrow-down"></i></div>
+        <div class="flow-step">
+          <div class="step-num">6</div>
+          <div class="step-content">
+            <strong>Stock Deduction</strong> — For each orderItem → match
+            product by color + size → decrement
+            <code>sizeStock[].quantity</code> → Recalculate
+            <code>product.quantity</code>
+          </div>
+        </div>
+        <div class="arrow-down"><i class="fas fa-arrow-down"></i></div>
+        <div class="flow-step">
+          <div class="step-num">7</div>
+          <div class="step-content">
+            <strong>Post-Order</strong> —
+            <code
+              >ReferralService.processReferralReward(userId, orderAmount)</code
+            >
+            → Award coins → Clear user cart → Clear
+            <code>user.offerDiscount</code> → Send confirmation email via
+            Nodemailer
+          </div>
+        </div>
+        <h2>Discount Calculation (priority order)</h2>
+        <div class="code-box">
+          <span class="cm">// 1. Coupon discount (percentage or flat)</span>
+          couponDiscount = coupon.discountType ===
+          <span class="str">"percentage"</span> ? (cartTotal * coupon.discount)
+          / <span class="num">100</span>
+          : coupon.discount;
+
+          <span class="cm"
+            >// 2. Offer discount (from spin wheel stored in
+            user.offerDiscount)</span
+          >
+          offerDiscount = user.offerType ===
+          <span class="str">"percentage"</span> ? (cartTotal *
+          user.offerDiscount) / <span class="num">100</span>
+          : user.offerDiscount;
+
+          <span class="cm"
+            >// 3. Coin discount (coins × coinValue from CoinConfig)</span
+          >
+          coinDiscount = coinsToRedeem * coinConfig.coinValue;
+
+          <span class="cm">// Final calculation</span>
+          totalDiscount = couponDiscount + offerDiscount + coinDiscount;
+          finalAmount = cartTotal - totalDiscount + gstAmount;
+
+          <span class="cm"
+            >// All stored on order.discountBreakdown for audit</span
+          >
+        </div>
+      </div>
+
+      <!-- SLIDE 9 — Loyalty & Coin System -->
+      <div class="slide" data-slide="9">
+        <div class="slide-header">
+          <div class="icon-badge"><i class="fas fa-coins"></i></div>
+          <h1>Loyalty & Coin System — Deep Dive</h1>
+          <div class="slide-num">09 / 23</div>
+        </div>
+        <div class="two-col">
+          <div>
+            <h3>CoinConfig Model</h3>
+            <div class="code-box">
+              { isEnabled: <span class="type">Boolean</span>,
+              purchaseRewardEnabled: <span class="type">Boolean</span>,
+              buyerPurchaseRewardEnabled: <span class="type">Boolean</span>,
+              purchaseRewardType: <span class="str">"FIXED"</span> |
+              <span class="str">"PERCENTAGE"</span>, purchaseFixedCoins:
+              <span class="type">Number</span>,
+              <span class="cm">// e.g. 10 coins per order</span>
+              purchasePercentage: <span class="type">Number</span>,
+              <span class="cm">// e.g. 2% of order value</span>
+              purchaseMinOrderAmount: <span class="type">Number</span>,
+              <span class="cm">// min ₹ to qualify</span>
+              purchaseMaxCoinsPerOrder: <span class="type">Number</span>,
+              <span class="cm">// cap per order</span> referralRewardEnabled:
+              <span class="type">Boolean</span>, referrerPurchaseRewardEnabled:
+              <span class="type">Boolean</span>, coinValue:
+              <span class="type">Number</span>
+              <span class="cm">// ₹ per 1 coin (e.g. 0.25)</span> }
+            </div>
+            <h3>ReferralConfig Model</h3>
+            <div class="code-box">
+              { isEnabled: <span class="type">Boolean</span>, rewardTrigger:
+              <span class="str">"ON_SIGNUP"</span> |
+              <span class="str">"ON_FIRST_PURCHASE"</span> |
+              <span class="str">"ON_EVERY_PURCHASE"</span>, rewardType:
+              <span class="str">"FIXED_COINS"</span> |
+              <span class="str">"PERCENTAGE"</span>, fixedCoins:
+              <span class="type">Number</span>, percentage:
+              <span class="type">Number</span>, minPurchaseAmount:
+              <span class="type">Number</span>, maxRewardPerUserPerMonth:
+              <span class="type">Number</span>, enableFirstPurchaseReward:
+              <span class="type">Boolean</span>, enableEveryPurchaseReward:
+              <span class="type">Boolean</span> }
+            </div>
+          </div>
+          <div>
+            <h3>processReferralReward() Logic</h3>
+            <div class="flow-step">
+              <div class="step-num">1</div>
+              <div class="step-content">
+                Load <code>ReferralConfig</code> + <code>CoinConfig</code> from
+                DB
+              </div>
+            </div>
+            <div class="flow-step">
+              <div class="step-num">2</div>
+              <div class="step-content">
+                Check if buyer has <code>referredBy</code> → if yes, find
+                referrer user
+              </div>
+            </div>
+            <div class="flow-step">
+              <div class="step-num">3</div>
+              <div class="step-content">
+                Check <code>rewardTrigger</code> → ON_SIGNUP = already awarded
+                at registration → ON_FIRST_PURCHASE = check if this is buyer's
+                first order → ON_EVERY_PURCHASE = always
+              </div>
+            </div>
+            <div class="flow-step">
+              <div class="step-num">4</div>
+              <div class="step-content">
+                Calculate coins: <code>FIXED_COINS</code> = fixedCoins directly;
+                <code>PERCENTAGE</code> = (orderAmount × percentage) / 100
+              </div>
+            </div>
+            <div class="flow-step">
+              <div class="step-num">5</div>
+              <div class="step-content">
+                Monthly cap check: count <code>coinTransactions</code> where
+                <code>source="referral_purchase"</code> and
+                <code>createdAt</code> within current month → remaining =
+                maxReward - currentMonthTotal
+              </div>
+            </div>
+            <div class="flow-step">
+              <div class="step-num">6</div>
+              <div class="step-content">
+                Award <code>min(calculatedCoins, remaining)</code> to referrer →
+                push coinTransaction → increment <code>referralCount</code> and
+                <code>referralEarnings</code>
+              </div>
+            </div>
+            <div class="flow-step">
+              <div class="step-num">7</div>
+              <div class="step-content">
+                Also call <code>processPurchaseReward()</code> to award buyer
+                coins for their own purchase
+              </div>
+            </div>
+          </div>
+        </div>
+        <h2>awardCoins() Function</h2>
+        <div class="code-box">
+          <span class="kw">async function</span>
+          <span class="fn">awardCoins</span>(userId, coins, reason, source,
+          description, metadata = {}) { <span class="kw">const</span> user =
+          <span class="kw">await</span> User.<span class="fn">findById</span
+          >(userId); <span class="kw">const</span> config =
+          <span class="kw">await</span> CoinConfig.<span class="fn"
+            >findOne</span
+          >(); <span class="kw">if</span> (!config?.isEnabled)
+          <span class="kw">return</span> <span class="num">0</span>;
+
+          <span class="cm">// Monthly cap for purchase rewards</span>
+          <span class="kw">const</span> monthStart = <span class="kw">new</span>
+          <span class="type">Date</span>(<span class="kw">new</span>
+          <span class="type">Date</span>().<span class="fn">getFullYear</span
+          >(), <span class="kw">new</span>
+          <span class="type">Date</span>().<span class="fn">getMonth</span>(),
+          <span class="num">1</span>); <span class="kw">const</span> monthTotal
+          = user.coinTransactions .<span class="fn">filter</span>(t => t.source
+          === source && t.createdAt >= monthStart) .<span class="fn"
+            >reduce</span
+          >((s, t) => s + t.coins, <span class="num">0</span>);
+          <span class="kw">const</span> remaining =
+          config.purchaseMaxCoinsPerOrder - monthTotal;
+          <span class="kw">const</span> finalCoins = Math.<span class="fn"
+            >min</span
+          >(coins, Math.<span class="fn">max</span>(remaining,
+          <span class="num">0</span>)); user.coins += finalCoins;
+          user.coinTransactions.<span class="fn">push</span>({ type:
+          <span class="str">"credit"</span>, coins: finalCoins, reason, source,
+          description, metadata, createdAt: <span class="kw">new</span>
+          <span class="type">Date</span>() });
+          <span class="kw">await</span> user.<span class="fn">save</span>();
+          <span class="kw">return</span> finalCoins; }
+        </div>
+      </div>
+
+      <!-- SLIDE 10 — Spin Wheel -->
+      <div class="slide" data-slide="10">
+        <div class="slide-header">
+          <div class="icon-badge"><i class="fas fa-circle-notch"></i></div>
+          <h1>Spin Wheel Module — Deep Dive</h1>
+          <div class="slide-num">10 / 23</div>
+        </div>
+        <div class="two-col">
+          <div>
+            <h3>SpinConfig Model</h3>
+            <div class="code-box">
+              { isEnabled: <span class="type">Boolean</span>, expiryDate:
+              <span class="type">Date</span>, spinsPerDay:
+              <span class="num">1</span>, firstTimeBonusSpin:
+              <span class="num">true</span>, segments: [{ label:
+              <span class="str">"10% Off"</span>, rewardType:
+              <span class="str">"COINS"</span> |
+              <span class="str">"DISCOUNT"</span> |
+              <span class="str">"FREE_PRODUCT"</span> |
+              <span class="str">"NONE"</span>, rewardValue:
+              <span class="num">10</span>, probability:
+              <span class="num">15</span>,
+              <span class="cm">// weighted %</span> color:
+              <span class="str">"#d4af37"</span>, isActive:
+              <span class="num">true</span> }] }
+            </div>
+            <h3>SpinHistory Model</h3>
+            <div class="code-box">
+              { userId: <span class="type">ObjectId</span> ref
+              <span class="str">"User"</span>, segmentId:
+              <span class="type">ObjectId</span>, rewardType:
+              <span class="type">String</span>, rewardValue:
+              <span class="type">Number</span>, label:
+              <span class="type">String</span>, orderId:
+              <span class="type">ObjectId</span>,
+              <span class="cm">// if FREE_PRODUCT</span> createdAt:
+              <span class="type">Date</span> }
+            </div>
+          </div>
+          <div>
+            <h3>play() Function Logic</h3>
+            <div class="flow-step">
+              <div class="step-num">1</div>
+              <div class="step-content">
+                Load SpinConfig → check <code>isEnabled</code> → check
+                <code>expiryDate > now</code>
+              </div>
+            </div>
+            <div class="flow-step">
+              <div class="step-num">2</div>
+              <div class="step-content">
+                Count today's spins from SpinHistory where
+                <code>createdAt >= midnight today</code>
+              </div>
+            </div>
+            <div class="flow-step">
+              <div class="step-num">3</div>
+              <div class="step-content">
+                Check if user has ANY previous spin → if not, allow
+                <code>spinsPerDay + 1</code> (bonus spin)
+              </div>
+            </div>
+            <div class="flow-step">
+              <div class="step-num">4</div>
+              <div class="step-content">
+                <strong>pickSegment()</strong> → filter
+                <code>isActive: true</code> → weighted random: sum all
+                probabilities → generate random in [0, total] → find segment
+                where cumulative crosses threshold
+              </div>
+            </div>
+            <div class="flow-step">
+              <div class="step-num">5</div>
+              <div class="step-content">Create SpinHistory record</div>
+            </div>
+            <div class="flow-step">
+              <div class="step-num">6</div>
+              <div class="step-content">
+                Apply reward based on type (see right)
+              </div>
+            </div>
+            <div class="flow-step">
+              <div class="step-num">7</div>
+              <div class="step-content">
+                Return: <code>{segment, segmentIndex, spinsRemaining}</code> —
+                index used for frontend wheel animation
+              </div>
+            </div>
+          </div>
+        </div>
+        <h2>Reward Application Logic</h2>
+        <div class="code-box">
+          <span class="kw">switch</span> (segment.rewardType) {
+          <span class="kw">case</span> <span class="str">"COINS"</span>:
+          user.coins += segment.rewardValue; user.coinTransactions.<span
+            class="fn"
+            >push</span
+          >({ type: <span class="str">"credit"</span>, coins:
+          segment.rewardValue, reason:
+          <span class="str">"Spin Wheel Reward"</span>, source:
+          <span class="str">"spin_wheel"</span>, description: segment.label,
+          createdAt: <span class="kw">new</span>
+          <span class="type">Date</span>() }); <span class="kw">break</span>;
+
+          <span class="kw">case</span> <span class="str">"DISCOUNT"</span>:
+          user.offerDiscount = segment.rewardValue;
+          <span class="cm">// e.g. 10</span> user.offerType =
+          <span class="str">"percentage"</span>;
+          <span class="cm">// applied at checkout</span>
+          <span class="kw">break</span>;
+
+          <span class="kw">case</span> <span class="str">"FREE_PRODUCT"</span>:
+          user.offerType = <span class="str">"free_product"</span>;
+          <span class="cm">// admin fulfills manually</span>
+          <span class="kw">break</span>;
+
+          <span class="kw">case</span> <span class="str">"NONE"</span>:
+          <span class="kw">break</span>;
+          <span class="cm">// Better luck next time</span> }
+        </div>
+      </div>
+
+      <!-- SLIDE 11 — Admin Dashboard -->
+      <div class="slide" data-slide="11">
+        <div class="slide-header">
+          <div class="icon-badge"><i class="fas fa-gauge-high"></i></div>
+          <h1>Admin Dashboard Module — Deep Dive</h1>
+          <div class="slide-num">11 / 23</div>
+        </div>
+        <div class="three-col">
+          <div class="panel">
+            <div class="panel-title">
+              <i class="fas fa-chart-line"></i> Analytics
+            </div>
+            <div class="field-item">
+              <span class="fname">Dashboard.js</span
+              ><span class="fdesc"
+                >Total sales, order count, top products, revenue-by-month chart
+                (Chart.js)</span
+              >
+            </div>
+            <div class="field-item">
+              <span class="fname">Reports.js</span
+              ><span class="fdesc"
+                >Sales by date range, payment mode, ONLINE vs OFFLINE, top
+                products, customer analysis</span
+              >
+            </div>
+          </div>
+          <div class="panel">
+            <div class="panel-title"><i class="fas fa-box"></i> Products</div>
+            <div class="field-item">
+              <span class="fname">Productlist.js</span
+              ><span class="fdesc"
+                >All products with stock levels, online/offline toggle per
+                product</span
+              >
+            </div>
+            <div class="field-item">
+              <span class="fname">Addproduct.js</span
+              ><span class="fdesc"
+                >Full form: variants builder, size/color picker, Cloudinary
+                image upload, barcode auto-gen</span
+              >
+            </div>
+          </div>
+          <div class="panel">
+            <div class="panel-title">
+              <i class="fas fa-truck-fast"></i> Orders
+            </div>
+            <div class="field-item">
+              <span class="fname">Orders.js</span
+              ><span class="fdesc"
+                >List all orders with status filter, search by order ID</span
+              >
+            </div>
+            <div class="field-item">
+              <span class="fname">ViewOrder.js</span
+              ><span class="fdesc"
+                >Full detail, update status, print invoice, trigger Shiprocket
+                shipment</span
+              >
+            </div>
+          </div>
+        </div>
+        <div class="three-col" style="margin-top: 10px">
+          <div class="panel">
+            <div class="panel-title">
+              <i class="fas fa-users"></i> Customers
+            </div>
+            <div class="field-item">
+              <span class="fname">Customers.js</span
+              ><span class="fdesc"
+                >List all users, search, view profile, block/unblock
+                toggle</span
+              >
+            </div>
+            <div class="field-item">
+              <span class="fname">CustomerDetail.js</span
+              ><span class="fdesc"
+                >Full profile: coin balance, order history, referral tree, coin
+                transactions ledger</span
+              >
+            </div>
+          </div>
+          <div class="panel">
+            <div class="panel-title">
+              <i class="fas fa-cash-register"></i> POS
+            </div>
+            <div class="field-item">
+              <span class="fname">LiveBilling.js</span
+              ><span class="fdesc"
+                >Offline POS: search by barcode/name, add to bill, apply
+                offer/coins, create OFFLINE order, print invoice</span
+              >
+            </div>
+          </div>
+          <div class="panel">
+            <div class="panel-title">
+              <i class="fas fa-gamepad"></i> Gamification
+            </div>
+            <div class="field-item">
+              <span class="fname">SpinManagement.js</span
+              ><span class="fdesc"
+                >Configure segments, probabilities, enable/disable, set expiry
+                date</span
+              >
+            </div>
+            <div class="field-item">
+              <span class="fname">ReferralSettings.js</span
+              ><span class="fdesc"
+                >Trigger mode, reward type, min purchase, monthly cap</span
+              >
+            </div>
+            <div class="field-item">
+              <span class="fname">CoinSettings.js</span
+              ><span class="fdesc"
+                >Coin earn/redeem rates, purchase rewards, max per order</span
+              >
+            </div>
+          </div>
+        </div>
+        <div class="three-col" style="margin-top: 10px">
+          <div class="panel">
+            <div class="panel-title"><i class="fas fa-tags"></i> Content</div>
+            <div class="field-item">
+              <span class="fname">BlogList.js</span
+              ><span class="fdesc">Manage blog posts + categories</span>
+            </div>
+            <div class="field-item">
+              <span class="fname">CouponList.js</span
+              ><span class="fdesc">Create/edit/delete coupons</span>
+            </div>
+            <div class="field-item">
+              <span class="fname">BundleList.js</span
+              ><span class="fdesc">Create product bundles</span>
+            </div>
+          </div>
+          <div class="panel">
+            <div class="panel-title">
+              <i class="fas fa-palette"></i> Catalog
+            </div>
+            <div class="field-item">
+              <span class="fname">CategoryList.js</span
+              ><span class="fdesc">CRUD product categories</span>
+            </div>
+            <div class="field-item">
+              <span class="fname">BrandList.js</span
+              ><span class="fdesc">CRUD brands</span>
+            </div>
+            <div class="field-item">
+              <span class="fname">ColorList.js</span
+              ><span class="fdesc">CRUD color variants (name + hex)</span>
+            </div>
+          </div>
+          <div class="panel">
+            <div class="panel-title"><i class="fas fa-gear"></i> Settings</div>
+            <div class="field-item">
+              <span class="fname">Settings.js</span
+              ><span class="fdesc"
+                >Store name, address, phone, GST rates (CGST/SGST/IGST), tax
+                mode, payment destination, showSpinner, showReferralOffer
+                toggles</span
+              >
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SLIDE 12 — Live Billing / POS -->
+      <div class="slide" data-slide="12">
+        <div class="slide-header">
+          <div class="icon-badge"><i class="fas fa-cash-register"></i></div>
+          <h1>Live Billing / POS Module — Deep Dive</h1>
+          <div class="slide-num">12 / 23</div>
+        </div>
+        <div class="two-col">
+          <div>
+            <h2>Complete POS Flow</h2>
+            <div class="flow-step">
+              <div class="step-num">1</div>
+              <div class="step-content">
+                Admin searches customer by <code>mobile number</code> → loads
+                profile with coin balance + active offer
+              </div>
+            </div>
+            <div class="flow-step">
+              <div class="step-num">2</div>
+              <div class="step-content">
+                Admin scans/searches product by <code>barcode</code> or name →
+                system finds product + available sizes/colors
+              </div>
+            </div>
+            <div class="flow-step">
+              <div class="step-num">3</div>
+              <div class="step-content">
+                Select size + color → add to bill → quantity increment/decrement
+              </div>
+            </div>
+            <div class="flow-step">
+              <div class="step-num">4</div>
+              <div class="step-content">
+                System calculates: Subtotal → GST (see logic below) → Offer
+                discount → Coin redemption → Final total
+              </div>
+            </div>
+            <div class="flow-step">
+              <div class="step-num">5</div>
+              <div class="step-content">
+                Admin selects payment mode: <code>CASH</code> /
+                <code>CURRENT_ACCOUNT</code> / <code>OTHER_ACCOUNT</code>
+              </div>
+            </div>
+            <div class="flow-step">
+              <div class="step-num">6</div>
+              <div class="step-content">
+                <code>POST /api/user/offline-order</code> → creates Order with
+                <code>mode: "OFFLINE"</code>
+              </div>
+            </div>
+            <div class="flow-step">
+              <div class="step-num">7</div>
+              <div class="step-content">
+                Stock deducted → coins awarded →
+                <code>user.offerDiscount</code> cleared → invoice generated
+              </div>
+            </div>
+          </div>
+          <div>
+            <h2>GST Calculation Logic</h2>
+            <div class="code-box">
+              <span class="cm">// Load store settings from admin user</span>
+              <span class="kw">const</span> admin =
+              <span class="kw">await</span> User.<span class="fn">findOne</span
+              >({ role: <span class="str">"admin"</span> });
+              <span class="kw">const</span> storeState = admin.storeState;
+              <span class="kw">const</span> orderState = shippingInfo.state;
+
+              <span class="kw">let</span> gstType, cgst, sgst, igst;
+              <span class="kw">if</span> (storeState === orderState) {
+              <span class="cm">// Same state → CGST + SGST</span>
+              gstType = <span class="str">"CGST_SGST"</span>; cgst =
+              taxableAmount * (admin.cgst / <span class="num">100</span>); sgst
+              = taxableAmount * (admin.sgst / <span class="num">100</span>);
+              igst = <span class="num">0</span>; }
+              <span class="kw">else</span> {
+              <span class="cm">// Different state → IGST</span>
+              gstType = <span class="str">"IGST"</span>; igst = taxableAmount *
+              (admin.igst / <span class="num">100</span>); cgst =
+              <span class="num">0</span>; sgst = <span class="num">0</span>; }
+            </div>
+            <h2>Offer + Coin Application</h2>
+            <div class="code-box">
+              <span class="cm">// Spin wheel offer</span>
+              <span class="kw">let</span> offerDiscount =
+              <span class="num">0</span>;
+              <span class="kw">if</span> (customer.offerDiscount >
+              <span class="num">0</span>) { offerDiscount = customer.offerType
+              === <span class="str">"percentage"</span> ? (subtotal *
+              customer.offerDiscount) / <span class="num">100</span>
+              : customer.offerDiscount; }
+
+              <span class="cm">// Coin redemption</span>
+              <span class="kw">const</span> coinConfig =
+              <span class="kw">await</span> CoinConfig.<span class="fn"
+                >findOne</span
+              >(); <span class="kw">const</span> maxCoinDiscount =
+              customer.coins * coinConfig.coinValue;
+              <span class="kw">const</span> coinDiscount = Math.<span class="fn"
+                >min</span
+              >(maxCoinDiscount, subtotal - offerDiscount);
+
+              <span class="cm">// After order: clear offer</span>
+              customer.offerDiscount = <span class="num">0</span>;
+              customer.offerType = <span class="kw">null</span>;
+              <span class="kw">await</span> customer.<span class="fn">save</span
+              >();
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SLIDE 13 — Inventory Management -->
+      <div class="slide" data-slide="13">
+        <div class="slide-header">
+          <div class="icon-badge"><i class="fas fa-warehouse"></i></div>
+          <h1>Inventory Management Module — Deep Dive</h1>
+          <div class="slide-num">13 / 23</div>
+        </div>
+        <h2>3-Level Stock Tracking</h2>
+        <div class="level-box level-1">
+          <strong style="color: var(--green)">Level 1 — Simple Product</strong>
+          <div class="code-box">
+            product.quantity = <span class="num">50</span>
+            <span class="cm">// single number, no sizes</span>
+          </div>
+        </div>
+        <div class="level-box level-2">
+          <strong style="color: var(--blue)"
+            >Level 2 — Size-Based (no color variants)</strong
+          >
+          <div class="code-box">
+            product.sizeStock = [ { size: <span class="str">"S"</span>,
+            quantity: <span class="num">10</span>, barcode:
+            <span class="str">"PRD-A1B2C3D4"</span> }, { size:
+            <span class="str">"M"</span>, quantity: <span class="num">15</span>,
+            barcode: <span class="str">"PRD-E5F6G7H8"</span> }, { size:
+            <span class="str">"L"</span>, quantity: <span class="num">12</span>,
+            barcode: <span class="str">"PRD-I9J0K1L2"</span> } ]
+            product.quantity = <span class="num">37</span>
+            <span class="cm">// sum of all sizes</span>
+          </div>
+        </div>
+        <div class="level-box level-3">
+          <strong style="color: var(--purple)"
+            >Level 3 — Color + Size Variants</strong
+          >
+          <div class="code-box">
+            product.variants = [ { color: ObjectId(<span class="str">"Red"</span
+            >), sizeStock: [ { size: <span class="str">"S"</span>, quantity:
+            <span class="num">5</span>, barcode:
+            <span class="str">"PRD-M3N4O5P6"</span> }, { size:
+            <span class="str">"M"</span>, quantity: <span class="num">8</span>,
+            barcode: <span class="str">"PRD-Q7R8S9T0"</span> } ] }, { color:
+            ObjectId(<span class="str">"Blue"</span>), sizeStock: [ { size:
+            <span class="str">"S"</span>, quantity: <span class="num">4</span>,
+            barcode: <span class="str">"PRD-U1V2W3X4"</span> }, { size:
+            <span class="str">"L"</span>, quantity: <span class="num">6</span>,
+            barcode: <span class="str">"PRD-Y5Z6A7B8"</span> } ] } ]
+            product.quantity = <span class="num">23</span>
+            <span class="cm">// sum of ALL variant sizes</span>
+          </div>
+        </div>
+        <h2>Stock Deduction on Order</h2>
+        <div class="code-box">
+          <span class="kw">async function</span>
+          <span class="fn">deductStock</span>(orderItems) {
+          <span class="kw">for</span> (<span class="kw">const</span> item
+          <span class="kw">of</span> orderItems) {
+          <span class="kw">const</span> product =
+          <span class="kw">await</span> Product.<span class="fn">findById</span
+          >(item.product);
+
+          <span class="kw">if</span> (product.variants?.length >
+          <span class="num">0</span>) {
+          <span class="cm"
+            >// Level 3: Find variant by color → find size → deduct</span
+          >
+          <span class="kw">const</span> variant = product.variants.<span
+            class="fn"
+            >find</span
+          >( v => v.color.<span class="fn">toString</span>() ===
+          item.color.<span class="fn">toString</span>() );
+          <span class="kw">const</span> sizeEntry = variant.sizeStock.<span
+            class="fn"
+            >find</span
+          >( s => s.size === item.selectedSize ); sizeEntry.quantity -=
+          item.quantity; }
+          <span class="kw">else if</span> (product.sizeStock?.length >
+          <span class="num">0</span>) {
+          <span class="cm">// Level 2: Find size → deduct</span>
+          <span class="kw">const</span> sizeEntry = product.sizeStock.<span
+            class="fn"
+            >find</span
+          >( s => s.size === item.selectedSize ); sizeEntry.quantity -=
+          item.quantity; } <span class="kw">else</span> {
+          <span class="cm">// Level 1: Simple deduction</span>
+          product.quantity -= item.quantity; }
+
+          <span class="cm">// Recalculate total quantity</span>
+          product.quantity = <span class="fn">recalcTotal</span>(product);
+          <span class="kw">await</span> product.<span class="fn">save</span>();
+          } }
+        </div>
+        <h3>Online/Offline Toggle</h3>
+        <div class="code-box">
+          inventory: { offline: <span class="num">true</span>, online:
+          <span class="num">false</span> }
+          <span class="cm">// offline always true (immutable)</span>
+          <span class="cm"
+            >// Customer store query: Product.find({"inventory.online":
+            true})</span
+          >
+          <span class="cm">// Admin view: no filter → sees all products</span>
+          <span class="cm"
+            >// Admin can toggle online field via Productlist.js</span
+          >
+        </div>
+      </div>
+
+      <!-- SLIDE 14 — Reel Shopping -->
+      <div class="slide" data-slide="14">
+        <div class="slide-header">
+          <div class="icon-badge"><i class="fas fa-film"></i></div>
+          <h1>Reel-Based Shopping Module — Deep Dive</h1>
+          <div class="slide-num">14 / 23</div>
+        </div>
+        <div class="two-col">
+          <div>
+            <h2>Frontend: Reels.js</h2>
+            <h3>Core Features</h3>
+            <div class="field-grid">
+              <div class="field-item">
+                <span class="fname">Auto-play</span
+                ><span class="fdesc"
+                  >HTML5 Video API with muted autoplay (browser policy)</span
+                >
+              </div>
+              <div class="field-item">
+                <span class="fname">Viewport detect</span
+                ><span class="fdesc"
+                  >Intersection Observer API → play when visible, pause when
+                  out</span
+                >
+              </div>
+              <div class="field-item">
+                <span class="fname">Swipe nav</span
+                ><span class="fdesc"
+                  >Touch events + wheel events for up/down navigation</span
+                >
+              </div>
+              <div class="field-item">
+                <span class="fname">Product overlay</span
+                ><span class="fdesc"
+                  >Card with title, price, "Shop Now" CTA over video</span
+                >
+              </div>
+              <div class="field-item">
+                <span class="fname">Like + Save</span
+                ><span class="fdesc"
+                  >Local state toggle with heart animation</span
+                >
+              </div>
+              <div class="field-item">
+                <span class="fname">Mute toggle</span
+                ><span class="fdesc"
+                  >Tap to unmute/mute with icon indicator</span
+                >
+              </div>
+            </div>
+            <h3>Intersection Observer Logic</h3>
+            <div class="code-box">
+              <span class="kw">const</span> observer =
+              <span class="kw">new</span> IntersectionObserver( (entries) => {
+              entries.<span class="fn">forEach</span>(entry => {
+              <span class="kw">const</span> video = entry.target.<span
+                class="fn"
+                >querySelector</span
+              >(<span class="str">"video"</span>);
+              <span class="kw">if</span> (entry.isIntersecting) { video.<span
+                class="fn"
+                >play</span
+              >().<span class="fn">catch</span>(() => {}); }
+              <span class="kw">else</span> { video.<span class="fn">pause</span
+              >(); } }); }, { threshold: <span class="num">0.7</span> } );
+            </div>
+          </div>
+          <div>
+            <h2>ShopTheLook.js Integration</h2>
+            <div class="code-box">
+              <span class="cm"
+                >// Homepage horizontal scrollable reel cards</span
+              >
+              <span class="cm"
+                >// Thumbnail preview with play icon overlay</span
+              >
+              <span class="cm"
+                >// Click → navigate to /reels with start index</span
+              >
+
+              <span class="kw">const</span>
+              <span class="fn">navigateToReel</span> = (index) => {
+              <span class="fn">navigate</span>(<span class="str"
+                >`/reels?start=${index}`</span
+              >); };
+            </div>
+            <h2>Backend: Video Upload</h2>
+            <div class="code-box">
+              <span class="cm">// routes/uploadRoute.js</span> router.<span
+                class="fn"
+                >post</span
+              >( <span class="str">"/video"</span>, uploadMedia,
+              <span class="cm">// Multer middleware for video files</span>
+              videoUploadCtrl );
+
+              <span class="cm">// controllers/videoUploadCtrl.js</span>
+              <span class="kw">const</span> result =
+              <span class="kw">await</span> cloudinary.uploader .<span
+                class="fn"
+                >upload</span
+              >(req.file.path, { resource_type:
+              <span class="str">"video"</span>, folder:
+              <span class="str">"products/videos"</span> }); res.<span
+                class="fn"
+                >json</span
+              >({ public_id: result.public_id, url: result.secure_url });
+            </div>
+            <h3>Product Model Video Field</h3>
+            <div class="code-box">
+              videos: [{ public_id: <span class="type">String</span>,
+              <span class="cm">// for deletion</span> url:
+              <span class="type">String</span>
+              <span class="cm">// Cloudinary CDN URL</span>
+              }]
+              <span class="cm"
+                >// Products with videos[] length > 0 appear in Reels feed</span
+              >
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SLIDE 15 — Shiprocket -->
+      <div class="slide" data-slide="15">
+        <div class="slide-header">
+          <div class="icon-badge"><i class="fas fa-truck"></i></div>
+          <h1>Shiprocket Integration Module — Deep Dive</h1>
+          <div class="slide-num">15 / 23</div>
+        </div>
+        <div class="two-col">
+          <div>
+            <h2>Shipment Creation Flow</h2>
+            <div class="flow-step">
+              <div class="step-num">1</div>
+              <div class="step-content">
+                Admin opens <code>ViewOrder.js</code> → clicks "Ship Order" →
+                enters weight + dimensions
+              </div>
+            </div>
+            <div class="flow-step">
+              <div class="step-num">2</div>
+              <div class="step-content">
+                <code>POST /api/shiprocket/create-shipment</code> → calls
+                <code>shiprocket.service.js</code>
+              </div>
+            </div>
+            <div class="flow-step">
+              <div class="step-num">3</div>
+              <div class="step-content">
+                Authenticate:
+                <code
+                  >POST https://apiv2.shiprocket.in/v1/external/auth/login</code
+                >
+                with email + password → get token
+              </div>
+            </div>
+            <div class="flow-step">
+              <div class="step-num">4</div>
+              <div class="step-content">
+                Create shipment:
+                <code>POST /v1/external/shipments/create/forward-shipment</code>
+                with order_id, weight, dimensions, pickup/delivery address
+              </div>
+            </div>
+            <div class="flow-step">
+              <div class="step-num">5</div>
+              <div class="step-content">
+                Shiprocket assigns courier → returns <code>shipmentId</code>,
+                <code>trackingId</code>, <code>courierName</code>
+              </div>
+            </div>
+            <div class="flow-step">
+              <div class="step-num">6</div>
+              <div class="step-content">
+                Store on Order document + push to <code>statusHistory[]</code>
+              </div>
+            </div>
+          </div>
+          <div>
+            <h2>Auto-Tracking Cron Job</h2>
+            <div class="code-box">
+              <span class="cm">// trackingCron.js</span>
+              <span class="kw">const</span> cron =
+              <span class="fn">require</span>(<span class="str"
+                >"node-cron"</span
+              >);
+
+              <span class="cm">// Run every 4 hours</span>
+              cron.<span class="fn">schedule</span>(<span class="str"
+                >"0 */4 * * *"</span
+              >, <span class="kw">async</span> () => {
+              <span class="kw">const</span> shippedOrders =
+              <span class="kw">await</span> Order.<span class="fn">find</span>({
+              orderStatus: { $in: [<span class="str">"Shipped"</span>,
+              <span class="str">"Processed"</span>] }, trackingId: { $exists:
+              <span class="num">true</span>, $ne:
+              <span class="num">null</span> } });
+
+              <span class="kw">for</span> (<span class="kw">const</span> order
+              <span class="kw">of</span> shippedOrders) {
+              <span class="kw">const</span> res = <span class="kw">await</span>
+              <span class="fn">fetchTracking</span>(order.trackingId);
+              <span class="kw">const</span> status =
+              res.tracking_data.current_status;
+
+              <span class="kw">if</span> (status ===
+              <span class="str">"Delivered"</span>) { order.orderStatus =
+              <span class="str">"Delivered"</span>; order.deliveredAt =
+              <span class="kw">new</span> <span class="type">Date</span>(); }
+              order.statusHistory.<span class="fn">push</span>({ status, date:
+              <span class="kw">new</span> <span class="type">Date</span>() });
+              <span class="kw">await</span> order.<span class="fn">save</span
+              >(); } });
+            </div>
+            <h3>Order Shipping Fields</h3>
+            <div class="code-box">
+              shippingProvider: <span class="type">String</span> shipmentId:
+              <span class="type">String</span>
+              <span class="cm">// Shiprocket internal ID</span> trackingId:
+              <span class="type">String</span>
+              <span class="cm">// AWB number</span> trackingUrl:
+              <span class="type">String</span>
+              <span class="cm">// Customer-facing tracking page</span>
+              courierName: <span class="type">String</span>
+              <span class="cm">// e.g. "Delhivery"</span> shippedAt:
+              <span class="type">Date</span> deliveredAt:
+              <span class="type">Date</span> statusHistory: [{ status:
+              <span class="type">String</span>,
+              <span class="cm"
+                >// "Picked Up", "In Transit", "Out for Delivery",
+                "Delivered"</span
+              >
+              date: <span class="type">Date</span> }]
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SLIDE 16 — Blog Module -->
+      <div class="slide" data-slide="16">
+        <div class="slide-header">
+          <div class="icon-badge"><i class="fas fa-newspaper"></i></div>
+          <h1>Blog & Content Module — Deep Dive</h1>
+          <div class="slide-num">16 / 23</div>
+        </div>
+        <div class="two-col">
+          <div>
+            <h3>BlogCategory Model</h3>
+            <div class="code-box">
+              { title: { type: <span class="type">String</span>, required:
+              <span class="num">true</span>, unique:
+              <span class="num">true</span> }, slug: { type:
+              <span class="type">String</span> }
+              <span class="cm">// auto from slugify</span> }
+            </div>
+            <h3>Blog Model</h3>
+            <div class="code-box">
+              { title: { type: <span class="type">String</span>, required:
+              <span class="num">true</span> }, slug: { type:
+              <span class="type">String</span>, unique:
+              <span class="num">true</span> }, description: { type:
+              <span class="type">String</span>, required:
+              <span class="num">true</span> }, category: { type:
+              <span class="type">ObjectId</span>, ref:
+              <span class="str">"BlogCategory"</span> }, numViews: { type:
+              <span class="type">Number</span>, default:
+              <span class="num">0</span> }, isLiked: { type:
+              <span class="type">Boolean</span>, default:
+              <span class="num">false</span> }, isDisliked: { type:
+              <span class="type">Boolean</span>, default:
+              <span class="num">false</span> }, likes: [{ type:
+              <span class="type">ObjectId</span>, ref:
+              <span class="str">"User"</span> }], dislikes: [{ type:
+              <span class="type">ObjectId</span>, ref:
+              <span class="str">"User"</span> }], image: { public_id:
+              <span class="type">String</span>, url:
+              <span class="type">String</span> }, author: { type:
+              <span class="type">String</span>, default:
+              <span class="str">"Admin"</span> } }
+            </div>
+          </div>
+          <div>
+            <h2>API Routes & Logic</h2>
+            <div class="api-route">
+              <span class="method method-get">GET</span
+              ><span class="path">/api/blog</span>
+            </div>
+            <p style="font-size: 11px; margin-left: 60px; color: var(--gray)">
+              List all blogs with category populated, sorted by createdAt desc
+            </p>
+            <div class="api-route">
+              <span class="method method-get">GET</span
+              ><span class="path">/api/blog/:id</span>
+            </div>
+            <p style="font-size: 11px; margin-left: 60px; color: var(--gray)">
+              Find by id/slug → increment <code>numViews++</code> → return blog
+            </p>
+            <div class="api-route">
+              <span class="method method-post">POST</span
+              ><span class="path">/api/blog/:id/like</span>
+            </div>
+            <p style="font-size: 11px; margin-left: 60px; color: var(--gray)">
+              Toggle like: if already liked → remove from likes[]; if in
+              dislikes[] → remove; else push to likes[]
+            </p>
+            <div class="api-route">
+              <span class="method method-post">POST</span
+              ><span class="path">/api/blog/:id/dislike</span>
+            </div>
+            <p style="font-size: 11px; margin-left: 60px; color: var(--gray)">
+              Toggle dislike: if already disliked → remove; if in likes[] →
+              remove; else push to dislikes[]
+            </p>
+            <div class="api-route">
+              <span class="method method-post">POST</span
+              ><span class="path">/api/blog</span
+              ><span class="tag tag-red" style="margin-left: 8px">ADMIN</span>
+            </div>
+            <p style="font-size: 11px; margin-left: 60px; color: var(--gray)">
+              Create blog with image upload to Cloudinary
+            </p>
+            <div class="api-route">
+              <span class="method method-put">PUT</span
+              ><span class="path">/api/blog/:id</span
+              ><span class="tag tag-red" style="margin-left: 8px">ADMIN</span>
+            </div>
+            <div class="api-route">
+              <span class="method method-delete">DEL</span
+              ><span class="path">/api/blog/:id</span
+              ><span class="tag tag-red" style="margin-left: 8px">ADMIN</span>
+            </div>
+            <h3>Frontend Pages</h3>
+            <div class="field-grid">
+              <div class="field-item">
+                <span class="fname">Blog.js</span
+                ><span class="fdesc"
+                  >Grid of blog cards with image, title, views, category</span
+                >
+              </div>
+              <div class="field-item">
+                <span class="fname">SingleBlog.js</span
+                ><span class="fdesc"
+                  >Full article with like/dislike buttons, related posts</span
+                >
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SLIDE 17 — Coupon & Bundle -->
+      <div class="slide" data-slide="17">
+        <div class="slide-header">
+          <div class="icon-badge"><i class="fas fa-tags"></i></div>
+          <h1>Coupon & Bundle Module — Deep Dive</h1>
+          <div class="slide-num">17 / 23</div>
+        </div>
+        <div class="two-col">
+          <div>
+            <h3>Coupon Model</h3>
+            <div class="code-box">
+              { name: { type: <span class="type">String</span>, required:
+              <span class="num">true</span>, <span class="str">unique</span>:
+              <span class="num">true</span>, <span class="fn">set</span>: v =>
+              v.<span class="fn">toUpperCase</span>() }, expiry: { type:
+              <span class="type">Date</span>, required:
+              <span class="num">true</span> }, discount: { type:
+              <span class="type">Number</span>, required:
+              <span class="num">true</span> }, discountType:{ type:
+              <span class="type">String</span>, enum: [<span class="str"
+                >"percentage"</span
+              >, <span class="str">"flat"</span>] } }
+            </div>
+            <h2>Coupon Validation Flow</h2>
+            <div class="code-box">
+              <span class="kw">async function</span>
+              <span class="fn">validateCoupon</span>(code, userId, cartTotal) {
+              <span class="kw">const</span> coupon =
+              <span class="kw">await</span> Coupon.<span class="fn"
+                >findOne</span
+              >({ name: code.<span class="fn">toUpperCase</span>() });
+              <span class="kw">if</span> (!coupon)
+              <span class="kw">throw new</span>
+              <span class="type">Error</span>(<span class="str"
+                >"Invalid coupon"</span
+              >); <span class="kw">if</span> (<span class="kw">new</span>
+              <span class="type">Date</span>() > coupon.expiry)
+              <span class="kw">throw new</span>
+              <span class="type">Error</span>(<span class="str"
+                >"Coupon expired"</span
+              >);
+
+              <span class="cm">// Check if user already used this coupon</span>
+              <span class="kw">const</span> used =
+              <span class="kw">await</span> Order.<span class="fn">findOne</span
+              >({ user: userId,
+              <span class="str">"discountBreakdown.coupon"</span>: coupon.name
+              }); <span class="kw">if</span> (used)
+              <span class="kw">throw new</span>
+              <span class="type">Error</span>(<span class="str"
+                >"Already used"</span
+              >);
+
+              <span class="kw">const</span> discountAmt = coupon.discountType
+              === <span class="str">"percentage"</span> ? (cartTotal *
+              coupon.discount) / <span class="num">100</span>
+              : coupon.discount;
+
+              <span class="kw">return</span> { discountAmt, coupon }; }
+            </div>
+          </div>
+          <div>
+            <h3>Bundle Model</h3>
+            <div class="code-box">
+              { title: { type: <span class="type">String</span>, required:
+              <span class="num">true</span> }, description: { type:
+              <span class="type">String</span> }, products: [{ productId: {
+              type: <span class="type">ObjectId</span>, ref:
+              <span class="str">"Product"</span> }, quantity:
+              <span class="type">Number</span> }], bundlePrice: { type:
+              <span class="type">Number</span>, required:
+              <span class="num">true</span> }, images: [{ public_id:
+              <span class="type">String</span>, url:
+              <span class="type">String</span> }] }
+            </div>
+            <h2>Bundle Order Logic</h2>
+            <div class="code-box">
+              <span class="cm"
+                >// When a bundle is ordered, the orderItem looks like:</span
+              >
+              { product: bundle._id, isBundle: <span class="num">true</span>,
+              bundleId: bundle._id, bundleTitle: bundle.title, quantity:
+              <span class="num">1</span>, price: bundle.bundlePrice,
+              bundleProducts: bundle.products.<span class="fn">map</span>(p =>
+              ({ productId: p.productId, title: p.productId.title, quantity:
+              p.quantity, price: p.productId.price, image:
+              p.productId.images[0]?.url, selectedColor:
+              <span class="kw">null</span>, selectedSize:
+              <span class="kw">null</span>, hsnCode: p.productId.hsnCode })) }
+
+              <span class="cm"
+                >// Stock deduction: each product in bundle deducted
+                individually</span
+              >
+              <span class="cm"
+                >// HSN codes tracked per bundle product for GST
+                compliance</span
+              >
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SLIDE 18 — Reports -->
+      <div class="slide" data-slide="18">
+        <div class="slide-header">
+          <div class="icon-badge"><i class="fas fa-chart-bar"></i></div>
+          <h1>Reports Module — Deep Dive</h1>
+          <div class="slide-num">18 / 23</div>
+        </div>
+        <div class="two-col">
+          <div>
+            <h2>Backend: reportCtrl.js</h2>
+            <h3>1. Sales by Date Range</h3>
+            <div class="code-box">
+              <span class="kw">const</span> orders =
+              <span class="kw">await</span> Order.<span class="fn">find</span>({
+              createdAt: { $gte: <span class="kw">new</span>
+              <span class="type">Date</span>(startDate), $lte:
+              <span class="kw">new</span>
+              <span class="type">Date</span>(endDate) } });
+              <span class="kw">const</span> totalRevenue = orders.<span
+                class="fn"
+                >reduce</span
+              >( (s, o) => s + o.totalPriceAfterDiscount,
+              <span class="num">0</span> );
+            </div>
+            <h3>2. Sales by Payment Mode</h3>
+            <div class="code-box">
+              <span class="kw">const</span> byPayment =
+              <span class="kw">await</span> Order.<span class="fn"
+                >aggregate</span
+              >([ { $group: { _id:
+              <span class="str">"$paymentDestination"</span>, total: { $sum:
+              <span class="str">"$totalPriceAfterDiscount"</span> }, count: {
+              $sum: <span class="num">1</span> } }} ]);
+              <span class="cm"
+                >// Result: [{_id:"CASH", total:45000, count:32}, ...]</span
+              >
+            </div>
+            <h3>3. Online vs Offline</h3>
+            <div class="code-box">
+              <span class="kw">const</span> byMode =
+              <span class="kw">await</span> Order.<span class="fn"
+                >aggregate</span
+              >([ { $group: { _id: <span class="str">"$mode"</span>, total: {
+              $sum: <span class="str">"$totalPriceAfterDiscount"</span> },
+              count: { $sum: <span class="num">1</span> } }} ]);
+            </div>
+          </div>
+          <div>
+            <h3>4. Top Selling Products</h3>
+            <div class="code-box">
+              <span class="kw">const</span> topProducts =
+              <span class="kw">await</span> Order.<span class="fn"
+                >aggregate</span
+              >([ { $unwind: <span class="str">"$orderItems"</span> }, { $group:
+              { _id: <span class="str">"$orderItems.product"</span>, totalQty: {
+              $sum: <span class="str">"$orderItems.quantity"</span> }, revenue:
+              { $sum: { $multiply: [
+              <span class="str">"$orderItems.quantity"</span>,
+              <span class="str">"$orderItems.price"</span> ]}} }}, { $sort: {
+              totalQty: -<span class="num">1</span> } }, { $limit:
+              <span class="num">10</span> }, { $lookup: { from:
+              <span class="str">"products"</span>, localField:
+              <span class="str">"_id"</span>, foreignField:
+              <span class="str">"_id"</span>, as:
+              <span class="str">"product"</span> }} ]);
+            </div>
+            <h3>5. Monthly Revenue Chart</h3>
+            <div class="code-box">
+              <span class="kw">const</span> monthly =
+              <span class="kw">await</span> Order.<span class="fn"
+                >aggregate</span
+              >([ { $group: { _id: { year: { $year:
+              <span class="str">"$createdAt"</span> }, month: { $month:
+              <span class="str">"$createdAt"</span> } }, revenue: { $sum:
+              <span class="str">"$totalPriceAfterDiscount"</span> }, orders: {
+              $sum: <span class="num">1</span> } }}, { $sort: {
+              <span class="str">"_id.year"</span>: <span class="num">1</span>,
+              <span class="str">"_id.month"</span>: <span class="num">1</span> }
+              } ]);
+            </div>
+            <h3>Frontend Reports.js</h3>
+            <p style="font-size: 11.5px">
+              Date range picker → Revenue cards (total/online/offline/cash) →
+              Bar chart (Chart.js) → Top products table → Payment mode breakdown
+              table
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- SLIDE 19 — Security -->
+      <div class="slide" data-slide="19">
+        <div class="slide-header">
+          <div class="icon-badge"><i class="fas fa-shield-halved"></i></div>
+          <h1>Security Architecture — Deep Dive</h1>
+          <div class="slide-num">19 / 23</div>
+        </div>
+        <div class="two-col">
+          <div>
+            <h2>Authentication Layer</h2>
+            <div class="flow-step">
+              <div class="step-num">JWT</div>
+              <div class="step-content">
+                Signed with <code>JWT_SECRET</code> (env var) → 24h expiry →
+                payload: <code>{id, role}</code> → stored in localStorage on
+                frontend
+              </div>
+            </div>
+            <div class="flow-step">
+              <div class="step-num">RT</div>
+              <div class="step-content">
+                Refresh Token stored in DB → issued at login → verified on
+                <code>/refresh-token</code> → issues new JWT without re-login →
+                can be revoked
+              </div>
+            </div>
+            <div class="flow-step">
+              <div class="step-num">PW</div>
+              <div class="step-content">
+                Bcrypt with salt rounds: 10 →
+                <code>bcrypt.hash(password, 10)</code> → never stored in plain
+                text → <code>select: false</code> on schema
+              </div>
+            </div>
+            <h2>Authorization Middleware Chain</h2>
+            <div class="code-box">
+              <span class="cm">// Route definition</span> router.<span
+                class="fn"
+                >post</span
+              >(<span class="str">"/create-product"</span>, authMiddleware,
+              <span class="cm">// verify JWT → attach req.user</span> isAdmin,
+              <span class="cm">// check req.user.role === "admin"</span>
+              createProduct <span class="cm">// controller</span>
+              );
+
+              <span class="cm">// authMiddleware</span>
+              <span class="kw">const</span> token =
+              req.headers.authorization?.<span class="fn">split</span>(<span
+                class="str"
+                >" "</span
+              >)[<span class="num">1</span>];
+              <span class="kw">const</span> decoded = jwt.<span class="fn"
+                >verify</span
+              >(token, JWT_SECRET); req.user =
+              <span class="kw">await</span> User.<span class="fn">findById</span
+              >(decoded.id) .<span class="fn">select</span>(<span class="str"
+                >"-password"</span
+              >);
+            </div>
+          </div>
+          <div>
+            <h2>Password Reset Flow</h2>
+            <div class="code-box">
+              <span class="cm">// Step 1: Generate token</span>
+              <span class="kw">const</span> resetToken = crypto .<span
+                class="fn"
+                >randomBytes</span
+              >(<span class="num">32</span>).<span class="fn">toString</span
+              >(<span class="str">"hex"</span>);
+
+              <span class="cm">// Step 2: Hash for DB storage</span>
+              <span class="kw">const</span> hashedToken = crypto .<span
+                class="fn"
+                >createHash</span
+              >(<span class="str">"sha256"</span>) .<span class="fn"
+                >update</span
+              >(resetToken) .<span class="fn">digest</span>(<span class="str"
+                >"hex"</span
+              >); user.passwordResetToken = hashedToken;
+              user.passwordResetExpires = <span class="type">Date</span>.<span
+                class="fn"
+                >now</span
+              >() + <span class="num">30</span> * <span class="num">60</span> *
+              <span class="num">1000</span>;
+
+              <span class="cm">// Step 3: Verify on reset</span>
+              <span class="kw">const</span> incomingHash = crypto .<span
+                class="fn"
+                >createHash</span
+              >(<span class="str">"sha256"</span>) .<span class="fn"
+                >update</span
+              >(req.params.token) .<span class="fn">digest</span>(<span
+                class="str"
+                >"hex"</span
+              >);
+
+              <span class="kw">const</span> user =
+              <span class="kw">await</span> User.<span class="fn">findOne</span
+              >({ passwordResetToken: incomingHash, passwordResetExpires: { $gt:
+              <span class="type">Date</span>.<span class="fn">now</span>() } });
+            </div>
+            <h2>Data Protection Measures</h2>
+            <div class="field-grid">
+              <div class="field-item">
+                <span class="fname">CORS</span
+                ><span class="fdesc">Configured for specific origins only</span>
+              </div>
+              <div class="field-item">
+                <span class="fname">ObjectId check</span
+                ><span class="fdesc"
+                  >validateMongoDbId() on every :id param</span
+                >
+              </div>
+              <div class="field-item">
+                <span class="fname">Barcode collision</span
+                ><span class="fdesc">100-retry loop before error</span>
+              </div>
+              <div class="field-item">
+                <span class="fname">Sparse indexes</span
+                ><span class="fdesc"
+                  >email + referralCode: null allowed, unique when set</span
+                >
+              </div>
+              <div class="field-item">
+                <span class="fname">isBlocked</span
+                ><span class="fdesc">Blocked users rejected at login</span>
+              </div>
+              <div class="field-item">
+                <span class="fname">Rate limiting</span
+                ><span class="fdesc">express-rate-limit on auth routes</span>
+              </div>
+              <div class="field-item">
+                <span class="fname">Helmet.js</span
+                ><span class="fdesc">HTTP security headers</span>
+              </div>
+              <div class="field-item">
+                <span class="fname">Env vars</span
+                ><span class="fdesc">All secrets in .env, never committed</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SLIDE 20 — Redux State -->
+      <div class="slide" data-slide="20">
+        <div class="slide-header">
+          <div class="icon-badge"><i class="fas fa-diagram-project"></i></div>
+          <h1>Frontend State Management — Deep Dive</h1>
+          <div class="slide-num">20 / 23</div>
+        </div>
+        <div class="two-col">
+          <div>
+            <h3>Redux Toolkit Store Slices</h3>
+            <div class="code-box">
+              <span class="cm">// userSlice.js</span> { user:
+              <span class="kw">null</span>, authToken:
+              <span class="kw">null</span>, isAdmin:
+              <span class="num">false</span>, authStatus:
+              <span class="str">"idle"</span>,
+              <span class="cm">// idle|loading|success|failed</span>
+              wishlist: [], orders: [], cart: [] }
+
+              <span class="cm">// productSlice.js</span>
+              { products: [], filteredProducts: [], selectedProduct:
+              <span class="kw">null</span>, loading:
+              <span class="num">false</span>, error:
+              <span class="kw">null</span>
+              }
+
+              <span class="cm">// cartSlice.js</span>
+              { cartItems: [], totalPrice: <span class="num">0</span>,
+              totalItems: <span class="num">0</span>, couponDiscount:
+              <span class="num">0</span>, coinDiscount:
+              <span class="num">0</span>, offerDiscount:
+              <span class="num">0</span>
+              }
+
+              <span class="cm">// orderSlice.js</span>
+              { orders: [], selectedOrder: <span class="kw">null</span>,
+              orderStatus: <span class="str">"idle"</span> }
+            </div>
+          </div>
+          <div>
+            <h2>Key Async Thunks</h2>
+            <div class="code-box">
+              <span class="cm">// loginUser thunk</span>
+              <span class="kw">export const</span> loginUser =
+              <span class="fn">createAsyncThunk</span>(
+              <span class="str">"auth/login"</span>,
+              <span class="kw">async</span> (data, { rejectWithValue }) => {
+              <span class="kw">const</span> res =
+              <span class="kw">await</span> axios.<span class="fn">post</span
+              >(<span class="str">"/api/user/login"</span>, data);
+              localStorage.<span class="fn">setItem</span>(<span class="str"
+                >"authToken"</span
+              >, res.data.token); <span class="kw">return</span> res.data;
+              <span class="cm">// {user, token, refreshToken}</span>
+              } );
+
+              <span class="cm">// getProducts thunk (customer store)</span>
+              <span class="kw">export const</span> getProducts =
+              <span class="fn">createAsyncThunk</span>(
+              <span class="str">"product/getAll"</span>,
+              <span class="kw">async</span> () => {
+              <span class="kw">const</span> res =
+              <span class="kw">await</span> axios.<span class="fn">get</span
+              >(<span class="str">"/api/product?store=true"</span>);
+              <span class="kw">return</span> res.data; } );
+
+              <span class="cm">// createOrder thunk</span>
+              <span class="kw">export const</span> createOrder =
+              <span class="fn">createAsyncThunk</span>(
+              <span class="str">"order/create"</span>,
+              <span class="kw">async</span> (orderData, { dispatch }) => {
+              <span class="kw">const</span> res =
+              <span class="kw">await</span> axios.<span class="fn">post</span
+              >(<span class="str">"/api/user/order"</span>, orderData);
+              dispatch(<span class="fn">resetCart</span>());
+              <span class="cm">// clear cart on success</span>
+              <span class="kw">return</span> res.data; } );
+            </div>
+          </div>
+        </div>
+        <h2>Route Protection + Axios Interceptors</h2>
+        <div class="two-col">
+          <div class="code-box">
+            <span class="cm">// PrivateRoutes.js</span>
+            <span class="kw">const</span> PrivateRoute = () => {
+            <span class="kw">const</span> authToken =
+            <span class="fn">useSelector</span>(s => s.user.authToken);
+            <span class="kw">return</span> authToken ?
+            <span class="tag tag-green">&lt;Outlet /&gt;</span> :
+            <span class="tag tag-red">&lt;Navigate to="/login" /&gt;</span>; };
+
+            <span class="cm">// OpenRoutes.js (login/signup)</span>
+            <span class="kw">const</span> OpenRoute = () => {
+            <span class="kw">const</span> authToken =
+            <span class="fn">useSelector</span>(s => s.user.authToken);
+            <span class="kw">return</span> !authToken ?
+            <span class="tag tag-green">&lt;Outlet /&gt;</span> :
+            <span class="tag tag-red">&lt;Navigate to="/" /&gt;</span>; };
+          </div>
+          <div class="code-box">
+            <span class="cm">// axiosSetup.js</span>
+            axios.interceptors.request.<span class="fn">use</span>((config) => {
+            <span class="kw">const</span> token = localStorage.<span class="fn"
+              >getItem</span
+            >(<span class="str">"authToken"</span>);
+            <span class="kw">if</span> (token) { config.headers.<span class="fn"
+              >set</span
+            >( <span class="str">"Authorization"</span>,
+            <span class="str">`Bearer ${token}`</span>
+            ); }
+            <span class="kw">return</span> config; });
+            axios.interceptors.response.<span class="fn">use</span>( (res) =>
+            res, (err) => { <span class="kw">if</span> (err.response?.status ===
+            <span class="num">401</span>) { localStorage.<span class="fn"
+              >clear</span
+            >(); window.location.href = <span class="str">"/login"</span>; }
+            <span class="kw">return</span> Promise.<span class="fn">reject</span
+            >(err); } );
+          </div>
+        </div>
+      </div>
+
+      <!-- SLIDE 21 — Cloudinary -->
+      <div class="slide" data-slide="21">
+        <div class="slide-header">
+          <div class="icon-badge"><i class="fas fa-cloud-arrow-up"></i></div>
+          <h1>Cloudinary Media Upload Module — Deep Dive</h1>
+          <div class="slide-num">21 / 23</div>
+        </div>
+        <div class="two-col">
+          <div>
+            <h2>Image Upload Flow</h2>
+            <div class="flow-step">
+              <div class="step-num">1</div>
+              <div class="step-content">
+                Frontend:
+                <code>&lt;input type="file" multiple accept="image/*"&gt;</code>
+                → FormData with files
+              </div>
+            </div>
+            <div class="flow-step">
+              <div class="step-num">2</div>
+              <div class="step-content">
+                Multer middleware (<code>uploadImage.js</code>):
+                <code>storage: memoryStorage()</code> → accept image files only
+                → size limit 5MB per file
+              </div>
+            </div>
+            <div class="flow-step">
+              <div class="step-num">3</div>
+              <div class="step-content">
+                <code>POST /api/upload</code> →
+                <code
+                  >cloudinary.uploader.upload(file.path, {folder:
+                  "products/images"})</code
+                >
+                → returns <code>{public_id, url}</code>
+              </div>
+            </div>
+            <div class="flow-step">
+              <div class="step-num">4</div>
+              <div class="step-content">
+                URL stored in <code>product.images[]</code> or
+                <code>blog.image</code>
+              </div>
+            </div>
+            <h2>Video Upload Flow</h2>
+            <div class="flow-step">
+              <div class="step-num">1</div>
+              <div class="step-content">
+                Multer middleware (<code>uploadMedia.js</code>): accept video
+                files → size limit 50MB
+              </div>
+            </div>
+            <div class="flow-step">
+              <div class="step-num">2</div>
+              <div class="step-content">
+                <code>POST /api/upload/video</code> →
+                <code
+                  >cloudinary.uploader.upload(file.path, {resource_type:
+                  "video", folder: "products/videos"})</code
+                >
+              </div>
+            </div>
+            <div class="flow-step">
+              <div class="step-num">3</div>
+              <div class="step-content">
+                URL stored in <code>product.videos[]</code>
+              </div>
+            </div>
+          </div>
+          <div>
+            <h2>Cloudinary Config</h2>
+            <div class="code-box">
+              <span class="cm">// utils/cloudinary.js</span>
+              <span class="kw">const</span> cloudinary =
+              <span class="fn">require</span>(<span class="str"
+                >"cloudinary"</span
+              >).v2; cloudinary.<span class="fn">config</span>({ cloud_name:
+              process.env.CLOUDINARY_NAME, api_key: process.env.CLOUDINARY_KEY,
+              api_secret: process.env.CLOUDINARY_SECRET });
+            </div>
+            <h2>Deletion on Update</h2>
+            <div class="code-box">
+              <span class="cm">// When product images are replaced:</span>
+              <span class="kw">if</span> (existingProduct.images?.length) {
+              <span class="kw">for</span> (<span class="kw">const</span> img
+              <span class="kw">of</span> existingProduct.images) {
+              <span class="kw">await</span> cloudinary.uploader .<span
+                class="fn"
+                >destroy</span
+              >(img.public_id); } }
+              <span class="cm">// Same for videos[]</span>
+              <span class="kw">if</span> (existingProduct.videos?.length) {
+              <span class="kw">for</span> (<span class="kw">const</span> vid
+              <span class="kw">of</span> existingProduct.videos) {
+              <span class="kw">await</span> cloudinary.uploader .<span
+                class="fn"
+                >destroy</span
+              >(vid.public_id, { resource_type:
+              <span class="str">"video"</span> }); } }
+            </div>
+            <h2>Multer Middleware</h2>
+            <div class="code-box">
+              <span class="cm">// middleware/uploadImage.js</span>
+              <span class="kw">const</span> multer =
+              <span class="fn">require</span>(<span class="str">"multer"</span
+              >); <span class="kw">const</span> storage = multer.<span
+                class="fn"
+                >memoryStorage</span
+              >();
+
+              <span class="kw">const</span> fileFilter = (req, file, cb) => {
+              <span class="kw">if</span> (file.mimetype.<span class="fn"
+                >startsWith</span
+              >(<span class="str">"image/"</span>)) { cb(<span class="kw"
+                >null</span
+              >, <span class="num">true</span>); }
+              <span class="kw">else</span> { cb(<span class="kw">new</span>
+              <span class="type">Error</span>(<span class="str"
+                >"Only images allowed"</span
+              >), <span class="num">false</span>); } };
+
+              <span class="kw">export const</span> uploadImage =
+              <span class="fn">multer</span>({ storage, fileFilter, limits: {
+              fileSize: <span class="num">5</span> *
+              <span class="num">1024</span> * <span class="num">1024</span> }
+              });
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SLIDE 22 — Deployment -->
+      <div class="slide" data-slide="22">
+        <div class="slide-header">
+          <div class="icon-badge"><i class="fas fa-rocket"></i></div>
+          <h1>Deployment Architecture — Deep Dive</h1>
+          <div class="slide-num">22 / 23</div>
+        </div>
+        <div class="three-col">
+          <div class="panel" style="border-top: 3px solid var(--green)">
+            <div class="panel-title">
+              <i class="fas fa-globe"></i> Customer Frontend — Netlify
+            </div>
+            <div class="code-box" style="font-size: 10.5px">
+              <span class="cm"># netlify.toml</span> [build] command =
+              <span class="str">"npm run build"</span> publish =
+              <span class="str">"build"</span>
+
+              [[redirects]] from = <span class="str">"/*"</span> to =
+              <span class="str">"/index.html"</span> status =
+              <span class="num">200</span>
+            </div>
+            <h3 style="margin-top: 10px">Environment Variables</h3>
+            <div class="field-grid">
+              <div class="field-item" style="border-left-color: var(--green)">
+                <span class="fname">REACT_APP_API_URL</span
+                ><span class="fdesc">Backend API base URL</span>
+              </div>
+              <div class="field-item" style="border-left-color: var(--green)">
+                <span class="fname">REACT_APP_RAZORPAY_KEY</span
+                ><span class="fdesc">Razorpay public key_id</span>
+              </div>
+            </div>
+          </div>
+          <div class="panel" style="border-top: 3px solid var(--orange)">
+            <div class="panel-title">
+              <i class="fas fa-shield-halved"></i> Admin Dashboard — Render
+            </div>
+            <div class="code-box" style="font-size: 10.5px">
+              <span class="cm"># render.yaml</span> services: - type: web name:
+              admin-dashboard env: static buildCommand: npm run build
+              publishPath: build
+            </div>
+            <p style="font-size: 11px; margin-top: 8px">
+              Separate Render service with its own environment variables and
+              build pipeline. Same SPA redirect rules applied.
+            </p>
+          </div>
+          <div class="panel" style="border-top: 3px solid var(--blue)">
+            <div class="panel-title">
+              <i class="fas fa-server"></i> Backend API — Render
+            </div>
+            <div class="code-box" style="font-size: 10.5px">
+              <span class="cm"># Render Web Service</span> Build: npm install
+              Start: npm start <span class="cm"># node index.js</span> Port:
+              8000 (from PORT env)
+            </div>
+            <h3 style="margin-top: 10px">Environment Variables</h3>
+            <div class="field-grid">
+              <div class="field-item" style="border-left-color: var(--blue)">
+                <span class="fname">MONGODB_URL</span
+                ><span class="fdesc">Atlas connection string</span>
+              </div>
+              <div class="field-item" style="border-left-color: var(--blue)">
+                <span class="fname">JWT_SECRET</span
+                ><span class="fdesc">JWT signing secret</span>
+              </div>
+              <div class="field-item" style="border-left-color: var(--blue)">
+                <span class="fname">RAZORPAY_KEY_ID</span
+                ><span class="fdesc">Razorpay API key</span>
+              </div>
+              <div class="field-item" style="border-left-color: var(--blue)">
+                <span class="fname">RAZORPAY_KEY_SECRET</span
+                ><span class="fdesc">Razorpay secret</span>
+              </div>
+              <div class="field-item" style="border-left-color: var(--blue)">
+                <span class="fname">CLOUDINARY_NAME</span
+                ><span class="fdesc">Cloud name</span>
+              </div>
+              <div class="field-item" style="border-left-color: var(--blue)">
+                <span class="fname">CLOUDINARY_KEY</span
+                ><span class="fdesc">API key</span>
+              </div>
+              <div class="field-item" style="border-left-color: var(--blue)">
+                <span class="fname">CLOUDINARY_SECRET</span
+                ><span class="fdesc">API secret</span>
+              </div>
+              <div class="field-item" style="border-left-color: var(--blue)">
+                <span class="fname">SMTP_USER</span
+                ><span class="fdesc">Gmail address</span>
+              </div>
+              <div class="field-item" style="border-left-color: var(--blue)">
+                <span class="fname">SMTP_PASS</span
+                ><span class="fdesc">App password</span>
+              </div>
+              <div class="field-item" style="border-left-color: var(--blue)">
+                <span class="fname">PORT</span><span class="fdesc">8000</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="two-col" style="margin-top: 10px">
+          <div class="panel">
+            <div class="panel-title">
+              <i class="fas fa-database"></i> MongoDB Atlas
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </body>
+  <script>
+    let currentSlide = 0;
+    const slides = document.querySelectorAll('.slide');
+    const totalSlides = slides.length;
+
+    function showSlide(index) {
+      slides.forEach((slide, i) => {
+        slide.classList.toggle('active', i === index);
+      });
+    }
+
+    function nextSlide() {
+      currentSlide = (currentSlide + 1) % totalSlides;
+      showSlide(currentSlide);
+    }
+
+    function prevSlide() {
+      currentSlide = (currentSlide - 1 + totalSlides) % totalSlides;
+      showSlide(currentSlide);
+    }
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowRight' || e.key === ' ') {
+        nextSlide();
+      } else if (e.key === 'ArrowLeft') {
+        prevSlide();
+      }
+    });
+
+    // Show first slide
+    showSlide(0);
+  </script>
+</html>

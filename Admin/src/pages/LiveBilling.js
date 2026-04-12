@@ -97,6 +97,11 @@ const LiveBilling = () => {
   const [celebratedCoins, setCelebratedCoins] = useState(0);
   const coinCelebrationTimerRef = useRef(null);
 
+  // Payment method state
+  const [paymentMethod, setPaymentMethod] = useState("CASH"); // CASH or ONLINE
+  const [paymentDestination, setPaymentDestination] = useState("CURRENT_ACCOUNT"); // CURRENT_ACCOUNT or OTHER_ACCOUNT
+  const [onlinePaymentDestinationConfig, setOnlinePaymentDestinationConfig] = useState("CURRENT_ACCOUNT"); // Admin setting
+
   // Sale processing state
   const [isProcessingSale, setIsProcessingSale] = useState(false);
   const isProcessingSaleRef = useRef(false); // Synchronous ref for immediate checks
@@ -525,6 +530,7 @@ const LiveBilling = () => {
         setShowSpinner(res.data.showSpinner === true);
         setShowReferralOffer(res.data.showReferralOffer === true);
         setReferralCoinPercent(res.data.referralCoinPercent || 10);
+        setOnlinePaymentDestinationConfig(res.data.onlinePaymentDestination || "CURRENT_ACCOUNT");
         setStoreName(res.data.storeName || "Cart Corner");
         setStoreTagline(res.data.storeTagline || "Your One-Stop Shopping Destination");
       } catch (err) {
@@ -907,7 +913,8 @@ const validateReferralContact = async (mobile) => {
           discount: discountAmount,
           offerDiscount: appliedOfferAmount,
           total: payableAmount,
-          paymentMethod: "CASH",
+          paymentMethod: paymentMethod === "CASH" ? "CASH" : "ONLINE",
+          paymentDestination: paymentMethod === "CASH" ? "CASH" : paymentDestination,
           referralContact: customer.referralContact || null,
           coinsUsed: useCoins ? coinAmount : 0,
           coinAmount: useCoins ? coinDiscountAmount : 0,
@@ -982,6 +989,8 @@ const validateReferralContact = async (mobile) => {
       setCustomerOffer({ hasOffer: false, offerDiscount: 0, offerType: "" });
       setUseCoins(false);
       setCoinAmount(0);
+      setPaymentMethod("CASH"); // Reset to CASH
+      setPaymentDestination("CURRENT_ACCOUNT"); // Reset destination
       setSpinCompleted(false); // Reset spin state for next sale
     } catch (err) {
       console.error("Failed to complete sale:", err);
@@ -1826,6 +1835,66 @@ const validateReferralContact = async (mobile) => {
                   coinsUsed={coinAmount}
                   gstin={gstin}
                 />
+                
+                {/* Payment Method Selection */}
+                <div className="bg-white/5 rounded-xl p-4 border border-white/20">
+                  <span className="text-indigo-200 text-sm font-semibold block mb-3">Payment Method</span>
+                  <div className="grid grid-cols-2 gap-2 mb-3">
+                    <button
+                      onClick={() => {
+                        setPaymentMethod("CASH");
+                        setPaymentDestination("CURRENT_ACCOUNT");
+                      }}
+                      className={`py-2 px-3 rounded-lg font-medium text-sm transition-all ${
+                        paymentMethod === "CASH"
+                          ? "bg-green-500 text-white"
+                          : "bg-white/10 text-indigo-200 hover:bg-white/20"
+                      }`}
+                    >
+                      💵 Cash
+                    </button>
+                    <button
+                      onClick={() => setPaymentMethod("ONLINE")}
+                      className={`py-2 px-3 rounded-lg font-medium text-sm transition-all ${
+                        paymentMethod === "ONLINE"
+                          ? "bg-blue-500 text-white"
+                          : "bg-white/10 text-indigo-200 hover:bg-white/20"
+                      }`}
+                    >
+                      💳 Online
+                    </button>
+                  </div>
+                  
+                  {/* Online Account Destination */}
+                  {paymentMethod === "ONLINE" && (
+                    <div className="bg-blue-500/10 rounded-lg p-3 border border-blue-500/20">
+                      <span className="text-blue-200 text-xs font-semibold block mb-2">Account Type</span>
+                      <div className="grid grid-cols-2 gap-2">
+                        <button
+                          onClick={() => setPaymentDestination("CURRENT_ACCOUNT")}
+                          className={`py-2 px-2 rounded text-sm font-medium transition-all ${
+                            paymentDestination === "CURRENT_ACCOUNT"
+                              ? "bg-blue-500 text-white"
+                              : "bg-white/10 text-blue-200 hover:bg-white/20"
+                          }`}
+                        >
+                          Current
+                        </button>
+                        <button
+                          onClick={() => setPaymentDestination("OTHER_ACCOUNT")}
+                          className={`py-2 px-2 rounded text-sm font-medium transition-all ${
+                            paymentDestination === "OTHER_ACCOUNT"
+                              ? "bg-blue-500 text-white"
+                              : "bg-white/10 text-blue-200 hover:bg-white/20"
+                          }`}
+                        >
+                          Other
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
                 <button
                   onClick={handleCompleteSale}
                   disabled={!Object.keys(cart).length || isProcessingSale}

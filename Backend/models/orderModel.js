@@ -192,6 +192,11 @@ paymentInfo: {
       enum: ["ONLINE", "OFFLINE"],
       default: "ONLINE",
     },
+    paymentDestination: {
+      type: String,
+      enum: ["CURRENT_ACCOUNT", "OTHER_ACCOUNT", "CASH"],
+      default: "CURRENT_ACCOUNT",
+    },
 
     // ── Shiprocket shipping fields ──────────────────────────────────────
     shippingProvider: { type: String, default: null },

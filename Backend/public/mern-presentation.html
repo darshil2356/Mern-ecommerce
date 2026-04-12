@@ -612,6 +612,30 @@
           display: none;
         }
       }
+
+      .nav-button {
+        position: fixed;
+        bottom: 20px;
+        background: var(--gold);
+        color: var(--bg);
+        border: none;
+        padding: 10px 15px;
+        border-radius: 50%;
+        cursor: pointer;
+        font-size: 18px;
+        z-index: 1000;
+        opacity: 0.8;
+        transition: opacity 0.3s;
+      }
+      .nav-button:hover {
+        opacity: 1;
+      }
+      .nav-button.prev {
+        left: 20px;
+      }
+      .nav-button.next {
+        right: 20px;
+      }
     </style>
   </head>
   <body>
@@ -3315,11 +3339,16 @@
         </div>
       </div>
     </div>
+
+    <button class="nav-button prev" id="prevBtn"><i class="fas fa-chevron-left"></i></button>
+    <button class="nav-button next" id="nextBtn"><i class="fas fa-chevron-right"></i></button>
   </body>
   <script>
     let currentSlide = 0;
     const slides = document.querySelectorAll('.slide');
     const totalSlides = slides.length;
+    let startX = 0;
+    let endX = 0;
 
     function showSlide(index) {
       slides.forEach((slide, i) => {
@@ -3342,6 +3371,22 @@
         nextSlide();
       } else if (e.key === 'ArrowLeft') {
         prevSlide();
+      }
+    });
+
+    document.getElementById('nextBtn').addEventListener('click', nextSlide);
+    document.getElementById('prevBtn').addEventListener('click', prevSlide);
+
+    document.addEventListener('touchstart', (e) => {
+      startX = e.touches[0].clientX;
+    });
+
+    document.addEventListener('touchend', (e) => {
+      endX = e.changedTouches[0].clientX;
+      if (startX - endX > 50) {
+        nextSlide(); // swipe left
+      } else if (endX - startX > 50) {
+        prevSlide(); // swipe right
       }
     });
 

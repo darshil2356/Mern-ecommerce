@@ -82,7 +82,7 @@ const Checkout = () => {
   const [summaryOpen, setSummaryOpen] = useState(false);
   // GST settings from backend
   const [gstSettings, setGstSettings] = useState({ cgst: 0, sgst: 0, igst: 0, storeState: "Gujarat", taxIncluded: false });
-  const [gstType, setGstType] = useState("CGST_SGST");
+  const [gstType, setGstType] = useState("NONE");
   const [cgstAmt, setCgstAmt] = useState(0);
   const [sgstAmt, setSgstAmt] = useState(0);
   const [igstAmt, setIgstAmt] = useState(0);
@@ -117,12 +117,14 @@ const Checkout = () => {
 
   // Recalculate GST when state or totalAmount changes
   useEffect(() => {
-    if (!selectedState || !totalAmount) {
+    if (!totalAmount) {
       setCgstAmt(0); setSgstAmt(0); setIgstAmt(0);
       setGstType("NONE");
       return;
     }
-    if (selectedState === gstSettings.storeState) {
+    // Use selected state, or fall back to store's default state (intra-state)
+    const effectiveState = selectedState || gstSettings.storeState;
+    if (effectiveState === gstSettings.storeState) {
       setGstType("CGST_SGST");
       if (gstSettings.taxIncluded) {
         const totalRate = (gstSettings.cgst + gstSettings.sgst) / 100;

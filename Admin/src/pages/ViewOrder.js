@@ -430,8 +430,9 @@ const ViewOrder = () => {
     }
   }
 
+  const isOffline = orderState?.mode === "OFFLINE";
   const subtotal = orderState?.totalPrice || 0;
-  const discount = orderState?.discountAmount || ((orderState?.totalPrice || 0) - (orderState?.totalPriceAfterDiscount || 0));
+  const discount = orderState?.discountAmount || 0;
   const breakdown = orderState?.discountBreakdown || {};
   const directDiscount = breakdown.directDiscount || 0;
   const offerDiscount = breakdown.offerDiscount || 0;
@@ -447,11 +448,13 @@ const ViewOrder = () => {
   const sgstRate = gstBreakdown.sgstRate || 0;
   const igstRate = gstBreakdown.igstRate || 0;
   const gstType = gstBreakdown.gstType || "NONE";
-  const taxableAmount = gstBreakdown.taxableAmount || 0;
   const hasGST = cgst > 0 || sgst > 0 || igst > 0;
 
-  const shippingCost = 100; // Fixed shipping cost as per checkout logic
+  // Shipping only applies to ONLINE orders
+  const shippingCost = isOffline ? 0 : 100;
   const gstTotal = cgst + sgst + igst;
+
+  // Always trust DB totalPriceAfterDiscount as the final amount
   const finalTotal = orderState?.totalPriceAfterDiscount || 0;
 
   return (
@@ -981,6 +984,7 @@ const ViewOrder = () => {
                 </Table.Summary.Cell>
               </Table.Summary.Row>
 
+              {!isOffline && (
               <Table.Summary.Row>
                 <Table.Summary.Cell colSpan={6}>
                   <div style={{
@@ -1002,6 +1006,7 @@ const ViewOrder = () => {
                   </div>
                 </Table.Summary.Cell>
               </Table.Summary.Row>
+              )}
 
               {hasBreakdown ? (
                 <>
@@ -1130,22 +1135,13 @@ const ViewOrder = () => {
               {hasGST && gstType === "CGST_SGST" && cgst > 0 && (
                 <Table.Summary.Row>
                   <Table.Summary.Cell colSpan={6}>
-                    <div style={{
-                      color: '#16a34a',
-                      fontWeight: 600,
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '8px'
-                    }}>
-                      🏛️ CGST ({cgstRate}%)
+                    <div style={{ color: '#16a34a', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      🏛️ CGST ({cgstRate}%){isOffline ? " (incl. in price)" : ""}
                     </div>
                   </Table.Summary.Cell>
                   <Table.Summary.Cell align="right">
-                    <div style={{
-                      color: '#16a34a',
-                      fontWeight: 600
-                    }}>
-                      +₹{cgst.toFixed(2)}
+                    <div style={{ color: '#16a34a', fontWeight: 600 }}>
+                      {isOffline ? "" : "+"}₹{cgst.toFixed(2)}
                     </div>
                   </Table.Summary.Cell>
                 </Table.Summary.Row>
@@ -1153,22 +1149,13 @@ const ViewOrder = () => {
               {hasGST && gstType === "CGST_SGST" && sgst > 0 && (
                 <Table.Summary.Row>
                   <Table.Summary.Cell colSpan={6}>
-                    <div style={{
-                      color: '#16a34a',
-                      fontWeight: 600,
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '8px'
-                    }}>
-                      🏛️ SGST ({sgstRate}%)
+                    <div style={{ color: '#16a34a', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      🏛️ SGST ({sgstRate}%){isOffline ? " (incl. in price)" : ""}
                     </div>
                   </Table.Summary.Cell>
                   <Table.Summary.Cell align="right">
-                    <div style={{
-                      color: '#16a34a',
-                      fontWeight: 600
-                    }}>
-                      +₹{sgst.toFixed(2)}
+                    <div style={{ color: '#16a34a', fontWeight: 600 }}>
+                      {isOffline ? "" : "+"}₹{sgst.toFixed(2)}
                     </div>
                   </Table.Summary.Cell>
                 </Table.Summary.Row>
@@ -1176,22 +1163,13 @@ const ViewOrder = () => {
               {hasGST && gstType === "IGST" && igst > 0 && (
                 <Table.Summary.Row>
                   <Table.Summary.Cell colSpan={6}>
-                    <div style={{
-                      color: '#ea580c',
-                      fontWeight: 600,
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '8px'
-                    }}>
-                      🌐 IGST ({igstRate}%) — Inter-state
+                    <div style={{ color: '#ea580c', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      🌐 IGST ({igstRate}%) — Inter-state{isOffline ? " (incl. in price)" : ""}
                     </div>
                   </Table.Summary.Cell>
                   <Table.Summary.Cell align="right">
-                    <div style={{
-                      color: '#ea580c',
-                      fontWeight: 600
-                    }}>
-                      +₹{igst.toFixed(2)}
+                    <div style={{ color: '#ea580c', fontWeight: 600 }}>
+                      {isOffline ? "" : "+"}₹{igst.toFixed(2)}
                     </div>
                   </Table.Summary.Cell>
                 </Table.Summary.Row>
@@ -1199,24 +1177,13 @@ const ViewOrder = () => {
               {hasGST && (
                 <Table.Summary.Row>
                   <Table.Summary.Cell colSpan={6}>
-                    <div style={{
-                      color: '#722ed1',
-                      fontWeight: 700,
-                      fontSize: '16px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '8px'
-                    }}>
-                      💼 Total GST
+                    <div style={{ color: '#722ed1', fontWeight: 700, fontSize: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      💼 Total GST{isOffline ? " (included in price)" : ""}
                     </div>
                   </Table.Summary.Cell>
                   <Table.Summary.Cell align="right">
-                    <div style={{
-                      color: '#722ed1',
-                      fontWeight: 700,
-                      fontSize: '16px'
-                    }}>
-                      +₹{(cgst + sgst + igst).toFixed(2)}
+                    <div style={{ color: '#722ed1', fontWeight: 700, fontSize: '16px' }}>
+                      ₹{(cgst + sgst + igst).toFixed(2)}
                     </div>
                   </Table.Summary.Cell>
                 </Table.Summary.Row>

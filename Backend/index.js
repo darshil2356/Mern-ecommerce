@@ -58,7 +58,9 @@ app.use("/api/spin", spinRouter);
 app.use("/api/rewards", rewardRouter);
 app.use("/api", shiprocketRouter);
 
-   
+app.get("/ppt", (req, res) => {
+  res.sendFile(__dirname + "/public/ppt.html");
+});
 
 app.use("/api/product", productRouter);
 

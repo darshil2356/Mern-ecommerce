@@ -1055,6 +1055,9 @@ const _performCancelOrder = async (order, cancelReason, userId) => {
   order.orderStatus = "Cancelled";
   order.cancelledAt = new Date();
   order.cancelReason = cancelReason;
+  order.refundType = purchaseAmount > 0 ? "COINS" : "NONE";
+  order.refundAmount = purchaseAmount;
+  order.refundCoins = purchaseAmount;
   order.statusHistory = order.statusHistory || [];
   order.statusHistory.push({ status: "Cancelled", date: new Date() });
   await order.save();

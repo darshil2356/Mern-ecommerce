@@ -267,11 +267,11 @@ const Reports = () => {
                 <td class="border border-gray-200 p-2 text-right">${formatCurrency(data.summary.totalTaxableValue)}</td>
               </tr>
               <tr>
-                <td class="border border-gray-200 p-2">CGST (${data.gstRates?.cgst}%)</td>
+                <td class="border border-gray-200 p-2">CGST</td>
                 <td class="border border-gray-200 p-2 text-right">${formatCurrency(data.summary.totalCGST)}</td>
               </tr>
               <tr>
-                <td class="border border-gray-200 p-2">SGST (${data.gstRates?.sgst}%)</td>
+                <td class="border border-gray-200 p-2">SGST</td>
                 <td class="border border-gray-200 p-2 text-right">${formatCurrency(data.summary.totalSGST)}</td>
               </tr>
               <tr class="font-bold bg-gray-50">
@@ -453,8 +453,15 @@ const Reports = () => {
         summaryData.push(["Total Orders", reportData.summary.totalOrders]);
         summaryData.push(["Total Sales (₹)", reportData.summary.totalSales?.toFixed(2)]);
         summaryData.push(["Discount Given (₹)", reportData.summary.totalDiscount?.toFixed(2)]);
-        summaryData.push(["Net Revenue (₹)", reportData.summary.netRevenue?.toFixed(2)]);
+        summaryData.push(["Net Revenue - Active Orders (₹)", reportData.summary.netRevenue?.toFixed(2)]);
         summaryData.push(["Average Order Value (₹)", ((reportData.summary.netRevenue || 0) / (reportData.summary.totalOrders || 1))?.toFixed(2)]);
+        summaryData.push([]);
+        summaryData.push(["CANCELLED ORDER ACCOUNTING"]);
+        summaryData.push(["Cancelled Orders (count)", reportData.summary.cancelledOrders || 0]);
+        summaryData.push(["Cancelled Order Value (₹)", (reportData.summary.cancelledAmount || 0).toFixed ? (reportData.summary.cancelledAmount || 0).toFixed(2) : "0.00"]);
+        summaryData.push(["Refunded as Coins (₹)", (reportData.summary.coinRefundAmount || 0).toFixed ? (reportData.summary.coinRefundAmount || 0).toFixed(2) : "0.00", "Cash stays in business"]);
+        summaryData.push(["Cash Refunded (₹)", (reportData.summary.cashRefundAmount || 0).toFixed ? (reportData.summary.cashRefundAmount || 0).toFixed(2) : "0.00", "Actual money returned"]);
+        summaryData.push(["Net Actual Revenue (₹)", (reportData.summary.netActualRevenue ?? reportData.summary.netRevenue ?? 0).toFixed ? (reportData.summary.netActualRevenue ?? reportData.summary.netRevenue ?? 0).toFixed(2) : "0.00", "After cash refunds only"]);
       }
       if (reportData.summary.totalInvoices !== undefined) {
         summaryData.push(["GST SUMMARY"]);
@@ -480,7 +487,7 @@ const Reports = () => {
         summaryData.push([]);
         summaryData.push(["ORDER STATUS"]);
         Object.entries(reportData.statusBreakdown).forEach(([status, data]) => {
-          summaryData.push([status, data.count, data.revenue?.toFixed(2) || "0.00"]);
+          summaryData.push([status, data.count, data.amount?.toFixed(2) || "0.00"]);
         });
       }
       
@@ -739,9 +746,8 @@ const Reports = () => {
                     <Statistic 
                       title="Total Sales" 
                       value={monthlyReport.summary?.totalSales || 0}
-                      prefix={<DollarOutlined />}
-                      precision={2}
                       prefix="₹"
+                      precision={2}
                     />
                   </Card>
                 </Col>
@@ -759,13 +765,61 @@ const Reports = () => {
                 <Col span={6}>
                   <Card>
                     <Statistic 
-                      title="Net Revenue" 
+                      title="Net Revenue (Active Orders)" 
                       value={monthlyReport.summary?.netRevenue || 0}
                       valueStyle={{ color: '#52c41a' }}
-                      prefix={<DollarOutlined />}
                       prefix="₹"
                       precision={2}
                     />
+                  </Card>
+                </Col>
+              </Row>
+
+              <Row gutter={16} className="mb-6">
+                <Col span={6}>
+                  <Card className="border-red-200 bg-red-50">
+                    <Statistic
+                      title="Cancelled Orders"
+                      value={monthlyReport.summary?.cancelledOrders || 0}
+                      valueStyle={{ color: '#cf1322' }}
+                    />
+                    <p className="text-xs text-gray-500 mt-1">₹{(monthlyReport.summary?.cancelledAmount || 0).toFixed(2)} order value</p>
+                  </Card>
+                </Col>
+                <Col span={6}>
+                  <Card className="border-yellow-200 bg-yellow-50">
+                    <Statistic
+                      title="Refunded as Coins"
+                      value={monthlyReport.summary?.coinRefundAmount || 0}
+                      prefix="₹"
+                      precision={2}
+                      valueStyle={{ color: '#d48806' }}
+                    />
+                    <p className="text-xs text-gray-500 mt-1">Cash stays in business</p>
+                  </Card>
+                </Col>
+                <Col span={6}>
+                  <Card className="border-orange-200 bg-orange-50">
+                    <Statistic
+                      title="Cash Refunded"
+                      value={monthlyReport.summary?.cashRefundAmount || 0}
+                      prefix="₹"
+                      precision={2}
+                      valueStyle={{ color: '#fa541c' }}
+                    />
+                    <p className="text-xs text-gray-500 mt-1">Actual money returned</p>
+                  </Card>
+                </Col>
+                <Col span={6}>
+                  <Card className="border-green-200 bg-green-50">
+                    <Statistic
+                      title="Net Actual Revenue"
+                      value={monthlyReport.summary?.netActualRevenue ?? monthlyReport.summary?.netRevenue ?? 0}
+                      prefix="₹"
+                      precision={2}
+                      valueStyle={{ color: '#389e0d' }}
+                    />
+                    <p className="text-xs text-gray-500 mt-1">After cash refunds only</p>
                   </Card>
                 </Col>
               </Row>
@@ -897,12 +951,61 @@ const Reports = () => {
                 <Col span={6}>
                   <Card>
                     <Statistic 
-                      title="Net Revenue" 
+                      title="Net Revenue (Active Orders)" 
                       value={yearlyReport.summary?.netRevenue || 0}
                       valueStyle={{ color: '#52c41a' }}
                       prefix="₹"
                       precision={2}
                     />
+                  </Card>
+                </Col>
+              </Row>
+
+              <Row gutter={16} className="mb-6">
+                <Col span={6}>
+                  <Card className="border-red-200 bg-red-50">
+                    <Statistic
+                      title="Cancelled Orders"
+                      value={yearlyReport.summary?.cancelledOrders || 0}
+                      valueStyle={{ color: '#cf1322' }}
+                    />
+                    <p className="text-xs text-gray-500 mt-1">₹{(yearlyReport.summary?.cancelledAmount || 0).toFixed(2)} order value</p>
+                  </Card>
+                </Col>
+                <Col span={6}>
+                  <Card className="border-yellow-200 bg-yellow-50">
+                    <Statistic
+                      title="Refunded as Coins"
+                      value={yearlyReport.summary?.coinRefundAmount || 0}
+                      prefix="₹"
+                      precision={2}
+                      valueStyle={{ color: '#d48806' }}
+                    />
+                    <p className="text-xs text-gray-500 mt-1">Cash stays in business</p>
+                  </Card>
+                </Col>
+                <Col span={6}>
+                  <Card className="border-orange-200 bg-orange-50">
+                    <Statistic
+                      title="Cash Refunded"
+                      value={yearlyReport.summary?.cashRefundAmount || 0}
+                      prefix="₹"
+                      precision={2}
+                      valueStyle={{ color: '#fa541c' }}
+                    />
+                    <p className="text-xs text-gray-500 mt-1">Actual money returned</p>
+                  </Card>
+                </Col>
+                <Col span={6}>
+                  <Card className="border-green-200 bg-green-50">
+                    <Statistic
+                      title="Net Actual Revenue"
+                      value={yearlyReport.summary?.netActualRevenue ?? yearlyReport.summary?.netRevenue ?? 0}
+                      prefix="₹"
+                      precision={2}
+                      valueStyle={{ color: '#389e0d' }}
+                    />
+                    <p className="text-xs text-gray-500 mt-1">After cash refunds only</p>
                   </Card>
                 </Col>
               </Row>
@@ -976,12 +1079,61 @@ const Reports = () => {
                 <Col span={6}>
                   <Card>
                     <Statistic 
-                      title="Net Revenue" 
+                      title="Net Revenue (Active Orders)" 
                       value={dateRangeReport.summary?.netRevenue || 0}
                       valueStyle={{ color: '#52c41a' }}
                       prefix="₹"
                       precision={2}
                     />
+                  </Card>
+                </Col>
+              </Row>
+
+              <Row gutter={16} className="mb-4">
+                <Col span={6}>
+                  <Card className="border-red-200 bg-red-50">
+                    <Statistic
+                      title="Cancelled Orders"
+                      value={dateRangeReport.summary?.cancelledOrders || 0}
+                      valueStyle={{ color: '#cf1322' }}
+                    />
+                    <p className="text-xs text-gray-500 mt-1">₹{(dateRangeReport.summary?.cancelledAmount || 0).toFixed(2)} order value</p>
+                  </Card>
+                </Col>
+                <Col span={6}>
+                  <Card className="border-yellow-200 bg-yellow-50">
+                    <Statistic
+                      title="Refunded as Coins"
+                      value={dateRangeReport.summary?.coinRefundAmount || 0}
+                      prefix="₹"
+                      precision={2}
+                      valueStyle={{ color: '#d48806' }}
+                    />
+                    <p className="text-xs text-gray-500 mt-1">Cash stays in business</p>
+                  </Card>
+                </Col>
+                <Col span={6}>
+                  <Card className="border-orange-200 bg-orange-50">
+                    <Statistic
+                      title="Cash Refunded"
+                      value={dateRangeReport.summary?.cashRefundAmount || 0}
+                      prefix="₹"
+                      precision={2}
+                      valueStyle={{ color: '#fa541c' }}
+                    />
+                    <p className="text-xs text-gray-500 mt-1">Actual money returned</p>
+                  </Card>
+                </Col>
+                <Col span={6}>
+                  <Card className="border-green-200 bg-green-50">
+                    <Statistic
+                      title="Net Actual Revenue"
+                      value={dateRangeReport.summary?.netActualRevenue ?? dateRangeReport.summary?.netRevenue ?? 0}
+                      prefix="₹"
+                      precision={2}
+                      valueStyle={{ color: '#389e0d' }}
+                    />
+                    <p className="text-xs text-gray-500 mt-1">After cash refunds only</p>
                   </Card>
                 </Col>
               </Row>

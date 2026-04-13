@@ -12,6 +12,12 @@ const initialState = {
   isLoading: false,
   isSuccess: false,
   message: "",
+  monthlyReport: null,
+  yearlyReport: null,
+  dateRangeReport: null,
+  gstReport: null,
+  productWiseReport: null,
+  customerWiseReport: null,
 };
 export const login = createAsyncThunk(
   "auth/login",

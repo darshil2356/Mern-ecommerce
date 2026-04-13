@@ -32,6 +32,29 @@ const buildPaymentFilter = (query) => {
   }
 };
 
+// Merge date filter and payment filter safely for find()
+const mergeFilters = (dateFilter, paymentFilter) => {
+  if (!paymentFilter || Object.keys(paymentFilter).length === 0) return dateFilter;
+  if (paymentFilter.$and) {
+    return { ...dateFilter, $and: paymentFilter.$and };
+  }
+  return { ...dateFilter, ...paymentFilter };
+};
+
+// Build cancelled order summary with refund breakdown
+const buildCancelledSummary = (cancelledOrders) => {
+  const cancelledAmount = cancelledOrders.reduce((sum, o) => sum + (o.totalPriceAfterDiscount || 0), 0);
+  // Coin refund = amount credited as coins (no cash leaves the business)
+  const coinRefundAmount = cancelledOrders
+    .filter(o => o.refundType === "COINS" || !o.refundType || o.refundType === "NONE")
+    .reduce((sum, o) => sum + (o.refundCoins || o.refundAmount || o.totalPriceAfterDiscount || 0), 0);
+  // Cash/online refund = actual money returned (reduces net revenue)
+  const cashRefundAmount = cancelledOrders
+    .filter(o => o.refundType === "CASH" || o.refundType === "ONLINE")
+    .reduce((sum, o) => sum + (o.refundAmount || 0), 0);
+  return { cancelledAmount, coinRefundAmount, cashRefundAmount };
+};
+
 // Get comprehensive monthly report for CA
 const getMonthlyReport = asyncHandler(async (req, res) => {
   const { month, year } = req.query;
@@ -41,8 +64,8 @@ const getMonthlyReport = asyncHandler(async (req, res) => {
   const startDate = new Date(targetYear, targetMonth, 1);
   const endDate = new Date(targetYear, targetMonth + 1, 0, 23, 59, 59, 999);
 
-  const orders = await Order.find({ createdAt: { $gte: startDate, $lte: endDate } })
-    .where(buildPaymentFilter(req.query))
+  const pf = buildPaymentFilter(req.query);
+  const orders = await Order.find(mergeFilters({ createdAt: { $gte: startDate, $lte: endDate } }, pf))
     .populate("user", "firstname lastname mobile email")
     .populate({ path: "orderItems.product", select: "title brand price barcode hsnCode" });
 
@@ -53,7 +76,11 @@ const getMonthlyReport = asyncHandler(async (req, res) => {
   const totalSales = activeOrders.reduce((sum, o) => sum + (o.totalPrice || 0), 0);
   const totalDiscount = activeOrders.reduce((sum, o) => sum + (o.discountAmount || 0), 0);
   const netRevenue = activeOrders.reduce((sum, o) => sum + (o.totalPriceAfterDiscount || 0), 0);
-  const cancelledAmount = cancelledOrders.reduce((sum, o) => sum + (o.totalPriceAfterDiscount || 0), 0);
+
+  const { cancelledAmount, coinRefundAmount, cashRefundAmount } = buildCancelledSummary(cancelledOrders);
+  // netActualRevenue = revenue from active orders minus any real cash refunds
+  // Coin refunds do NOT reduce cash — the money stays in the business
+  const netActualRevenue = netRevenue - cashRefundAmount;
 
   const onlineOrders = activeOrders.filter(o => o.mode === "ONLINE");
   const offlineOrders = activeOrders.filter(o => o.mode === "OFFLINE");
@@ -103,7 +130,12 @@ const getMonthlyReport = asyncHandler(async (req, res) => {
   res.json({
     success: true,
     reportPeriod: { month: monthNames[targetMonth], year: targetYear, startDate, endDate },
-    summary: { totalOrders, totalSales, totalDiscount, netRevenue, cancelledOrders: cancelledOrders.length, cancelledAmount, averageOrderValue: totalOrders > 0 ? netRevenue / totalOrders : 0 },
+    summary: {
+      totalOrders, totalSales, totalDiscount, netRevenue, netActualRevenue,
+      cancelledOrders: cancelledOrders.length, cancelledAmount,
+      coinRefundAmount, cashRefundAmount,
+      averageOrderValue: totalOrders > 0 ? netRevenue / totalOrders : 0
+    },
     modeBreakdown: {
       online: { orders: onlineOrders.length, amount: onlineOrders.reduce((s, o) => s + (o.totalPriceAfterDiscount || 0), 0) },
       offline: { orders: offlineOrders.length, amount: offlineOrders.reduce((s, o) => s + (o.totalPriceAfterDiscount || 0), 0) }
@@ -123,6 +155,9 @@ const getMonthlyReport = asyncHandler(async (req, res) => {
       gstBreakdown: order.gstBreakdown || null,
       mode: order.mode,
       status: order.orderStatus,
+      refundType: order.refundType || null,
+      refundAmount: order.refundAmount || 0,
+      refundCoins: order.refundCoins || 0,
       createdAt: order.createdAt
     }))
   });
@@ -136,13 +171,13 @@ const getYearlyReport = asyncHandler(async (req, res) => {
   const startDate = new Date(targetYear, 0, 1);
   const endDate = new Date(targetYear, 11, 31, 23, 59, 59, 999);
 
-  const orders = await Order.find({ createdAt: { $gte: startDate, $lte: endDate } })
-    .where(buildPaymentFilter(req.query))
+  const pf = buildPaymentFilter(req.query);
+  const orders = await Order.find(mergeFilters({ createdAt: { $gte: startDate, $lte: endDate } }, pf))
     .populate("user", "firstname lastname mobile email")
     .populate({ path: "orderItems.product", select: "title brand price barcode hsnCode" });
 
   const monthlyData = await Order.aggregate([
-    { $match: { createdAt: { $gte: startDate, $lte: endDate }, ...buildPaymentFilter(req.query) } },
+    { $match: mergeFilters({ createdAt: { $gte: startDate, $lte: endDate } }, pf) },
     { $group: { _id: { $month: "$createdAt" }, totalOrders: { $sum: 1 }, totalSales: { $sum: "$totalPrice" }, totalDiscount: { $sum: "$discountAmount" }, netRevenue: { $sum: "$totalPriceAfterDiscount" } } },
     { $sort: { _id: 1 } }
   ]);
@@ -158,7 +193,10 @@ const getYearlyReport = asyncHandler(async (req, res) => {
   const totalSales = activeOrders.reduce((sum, o) => sum + (o.totalPrice || 0), 0);
   const totalDiscount = activeOrders.reduce((sum, o) => sum + (o.discountAmount || 0), 0);
   const netRevenue = activeOrders.reduce((sum, o) => sum + (o.totalPriceAfterDiscount || 0), 0);
-  const cancelledAmount = cancelledOrders.reduce((sum, o) => sum + (o.totalPriceAfterDiscount || 0), 0);
+
+  const { cancelledAmount, coinRefundAmount, cashRefundAmount } = buildCancelledSummary(cancelledOrders);
+  const netActualRevenue = netRevenue - cashRefundAmount;
+
   const onlineOrders = activeOrders.filter(o => o.mode === "ONLINE");
   const offlineOrders = activeOrders.filter(o => o.mode === "OFFLINE");
 
@@ -173,7 +211,12 @@ const getYearlyReport = asyncHandler(async (req, res) => {
   res.json({
     success: true,
     reportPeriod: { year: targetYear, startDate, endDate },
-    summary: { totalOrders, totalSales, totalDiscount, netRevenue, cancelledOrders: cancelledOrders.length, cancelledAmount, averageOrderValue: totalOrders > 0 ? netRevenue / totalOrders : 0 },
+    summary: {
+      totalOrders, totalSales, totalDiscount, netRevenue, netActualRevenue,
+      cancelledOrders: cancelledOrders.length, cancelledAmount,
+      coinRefundAmount, cashRefundAmount,
+      averageOrderValue: totalOrders > 0 ? netRevenue / totalOrders : 0
+    },
     monthlyBreakdown,
     modeBreakdown: {
       online: { orders: onlineOrders.length, amount: onlineOrders.reduce((s, o) => s + (o.totalPriceAfterDiscount || 0), 0) },
@@ -195,6 +238,9 @@ const getYearlyReport = asyncHandler(async (req, res) => {
       gstBreakdown: order.gstBreakdown || null,
       mode: order.mode,
       status: order.orderStatus,
+      refundType: order.refundType || null,
+      refundAmount: order.refundAmount || 0,
+      refundCoins: order.refundCoins || 0,
       createdAt: order.createdAt
     }))
   });
@@ -208,8 +254,8 @@ const getDateRangeReport = asyncHandler(async (req, res) => {
   const start = new Date(startDate); start.setHours(0, 0, 0, 0);
   const end = new Date(endDate); end.setHours(23, 59, 59, 999);
 
-  const orders = await Order.find({ createdAt: { $gte: start, $lte: end } })
-    .where(buildPaymentFilter(req.query))
+  const pf = buildPaymentFilter(req.query);
+  const orders = await Order.find(mergeFilters({ createdAt: { $gte: start, $lte: end } }, pf))
     .populate("user", "firstname lastname mobile email")
     .populate({ path: "orderItems.product", select: "title brand price barcode hsnCode" });
 
@@ -219,14 +265,22 @@ const getDateRangeReport = asyncHandler(async (req, res) => {
   const totalSales = activeOrders.reduce((sum, o) => sum + (o.totalPrice || 0), 0);
   const totalDiscount = activeOrders.reduce((sum, o) => sum + (o.discountAmount || 0), 0);
   const netRevenue = activeOrders.reduce((sum, o) => sum + (o.totalPriceAfterDiscount || 0), 0);
-  const cancelledAmount = cancelledOrders.reduce((sum, o) => sum + (o.totalPriceAfterDiscount || 0), 0);
+
+  const { cancelledAmount, coinRefundAmount, cashRefundAmount } = buildCancelledSummary(cancelledOrders);
+  const netActualRevenue = netRevenue - cashRefundAmount;
+
   const onlineOrders = activeOrders.filter(o => o.mode === "ONLINE");
   const offlineOrders = activeOrders.filter(o => o.mode === "OFFLINE");
 
   res.json({
     success: true,
     reportPeriod: { startDate: start, endDate: end },
-    summary: { totalOrders, totalSales, totalDiscount, netRevenue, cancelledOrders: cancelledOrders.length, cancelledAmount, averageOrderValue: totalOrders > 0 ? netRevenue / totalOrders : 0 },
+    summary: {
+      totalOrders, totalSales, totalDiscount, netRevenue, netActualRevenue,
+      cancelledOrders: cancelledOrders.length, cancelledAmount,
+      coinRefundAmount, cashRefundAmount,
+      averageOrderValue: totalOrders > 0 ? netRevenue / totalOrders : 0
+    },
     modeBreakdown: {
       online: { orders: onlineOrders.length, amount: onlineOrders.reduce((s, o) => s + (o.totalPriceAfterDiscount || 0), 0) },
       offline: { orders: offlineOrders.length, amount: offlineOrders.reduce((s, o) => s + (o.totalPriceAfterDiscount || 0), 0) }
@@ -246,6 +300,9 @@ const getDateRangeReport = asyncHandler(async (req, res) => {
       gstBreakdown: order.gstBreakdown || null,
       mode: order.mode,
       status: order.orderStatus,
+      refundType: order.refundType || null,
+      refundAmount: order.refundAmount || 0,
+      refundCoins: order.refundCoins || 0,
       createdAt: order.createdAt
     }))
   });
@@ -260,8 +317,8 @@ const getGSTReport = asyncHandler(async (req, res) => {
   const startDate = new Date(targetYear, targetMonth, 1);
   const endDate = new Date(targetYear, targetMonth + 1, 0, 23, 59, 59, 999);
 
-  const orders = await Order.find({ createdAt: { $gte: startDate, $lte: endDate } })
-    .where(buildPaymentFilter(req.query))
+  const pf = buildPaymentFilter(req.query);
+  const orders = await Order.find(mergeFilters({ createdAt: { $gte: startDate, $lte: endDate } }, pf))
     .populate("user", "firstname lastname gstin");
 
   let totalTaxableValue = 0;
@@ -279,7 +336,6 @@ const getGSTReport = asyncHandler(async (req, res) => {
     const sgst = gst.sgst || 0;
     const igst = gst.igst || 0;
     const totalTax = cgst + sgst + igst;
-    const invoiceValue = taxableValue + totalTax - (order.discountAmount || 0);
 
     totalTaxableValue += taxableValue;
     totalCGST += cgst;
@@ -304,7 +360,9 @@ const getGSTReport = asyncHandler(async (req, res) => {
       igstRate: gst.igstRate || 0,
       igst: igst.toFixed(2),
       totalTax: totalTax.toFixed(2),
-      invoiceValue: (order.totalPriceAfterDiscount || 0).toFixed(2)
+      invoiceValue: (order.totalPriceAfterDiscount || 0).toFixed(2),
+      orderStatus: order.orderStatus,
+      refundType: order.refundType || null,
     };
   });
 
@@ -338,8 +396,8 @@ const getProductWiseReport = asyncHandler(async (req, res) => {
     end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
   }
 
-  const orders = await Order.find({ createdAt: { $gte: start, $lte: end }, orderStatus: { $ne: "Cancelled" } })
-    .where(buildPaymentFilter(req.query))
+  const pf = buildPaymentFilter(req.query);
+  const orders = await Order.find(mergeFilters({ createdAt: { $gte: start, $lte: end }, orderStatus: { $ne: "Cancelled" } }, pf))
     .populate({ path: "orderItems.product", select: "title brand price barcode category hsnCode" });
 
   const productStats = {};
@@ -378,8 +436,8 @@ const getCustomerWiseReport = asyncHandler(async (req, res) => {
     end = new Date(now.getFullYear(), 11, 31, 23, 59, 59, 999);
   }
 
-  const orders = await Order.find({ createdAt: { $gte: start, $lte: end }, orderStatus: { $ne: "Cancelled" } })
-    .where(buildPaymentFilter(req.query))
+  const pf = buildPaymentFilter(req.query);
+  const orders = await Order.find(mergeFilters({ createdAt: { $gte: start, $lte: end }, orderStatus: { $ne: "Cancelled" } }, pf))
     .populate("user", "firstname lastname mobile email createdAt");
 
   const customerStats = {};

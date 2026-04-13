@@ -216,6 +216,9 @@ paymentInfo: {
     deliveredAt:      { type: Date,   default: null },
     cancelledAt:      { type: Date,   default: null },
     cancelReason:     { type: String, default: null },
+    refundType:       { type: String, enum: ["COINS", "CASH", "ONLINE", "NONE"], default: "NONE" },
+    refundAmount:     { type: Number, default: 0 },
+    refundCoins:      { type: Number, default: 0 },
     statusHistory: [
       {
         status: { type: String },

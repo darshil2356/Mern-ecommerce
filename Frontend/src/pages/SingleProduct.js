@@ -14,6 +14,7 @@ import { addToWishlist } from "../features/products/productSlilce";
 import { motion, AnimatePresence } from "framer-motion";
 import axios from "axios";
 import { base_url } from "../utils/axiosConfig";
+import trackingService from "../utils/trackingService";
 
 const SingleProduct = () => {
   const [color, setColor] = useState(null);
@@ -78,6 +79,17 @@ const SingleProduct = () => {
     }
   }, [dispatch, getProductId]);
 
+  // Track product view when product data is loaded
+  useEffect(() => {
+    if (productState?._id && productState?.title) {
+      trackingService.trackProductView(
+        productState._id,
+        productState.title,
+        productState.category || 'uncategorized'
+      );
+    }
+  }, [productState?._id, productState?.title]);
+
   // Fetch bundles for this product
   useEffect(() => {
     const fetchBundles = async () => {
@@ -112,6 +124,14 @@ const SingleProduct = () => {
     } else if (availableSizes.length > 0 && size === null) {
       toast.error("Please choose Size");
     } else {
+      // Track add to cart
+      trackingService.trackAddToCart(
+        productState?._id,
+        productState?.title,
+        quantity,
+        productState?.price
+      );
+
       dispatch(
         addProdToCart({
           productId: productState?._id,

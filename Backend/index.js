@@ -29,6 +29,24 @@ const shiprocketRouter = require("./routes/shiprocketRoute");
 const { startTrackingCron } = require("./jobs/trackingCron");
 const notificationRouter = require("./routes/notificationRoute");
 const { initFirebase } = require("./config/firebaseAdmin");
+const trackingRouter = require("./routes/trackingRoute");
+
+// Socket.io setup
+const http = require("http");
+const { Server } = require("socket.io");
+const server = http.createServer(app);
+const allowedOrigins = [
+  process.env.CLIENT_URL || "http://localhost:3001",
+  process.env.ADMIN_URL  || "http://localhost:3000",
+];
+
+const io = new Server(server, {
+  cors: {
+    origin: allowedOrigins,
+    methods: ["GET", "POST"],
+    credentials: true,
+  },
+});
 
 
      
@@ -36,7 +54,10 @@ const { initFirebase } = require("./config/firebaseAdmin");
 dbConnect();
 initFirebase();
 app.use(morgan("dev"));
-app.use(cors());
+app.use(cors({
+  origin: allowedOrigins,
+  credentials: true,
+}));
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(cookieParser());
@@ -61,12 +82,101 @@ app.use("/api/spin", spinRouter);
 app.use("/api/rewards", rewardRouter);
 app.use("/api", shiprocketRouter);
 app.use("/api/notifications", notificationRouter);
+app.use("/api/tracking", trackingRouter);
 
 app.get("/ppt", (req, res) => {
   res.sendFile(__dirname + "/public/ppt.html");
 });
 
-app.use("/api/product", productRouter);
+app.get("/api/product", productRouter);
+
+// Socket.io connection handling
+io.on("connection", (socket) => {
+  console.log("User connected:", socket.id);
+
+  // Join user-specific room for targeted updates
+  socket.on("join-user", (userId) => {
+    if (userId) {
+      socket.join(`user_${userId}`);
+    }
+  });
+
+  // Join session room
+  socket.on("join-session", (sessionId) => {
+    if (sessionId) {
+      socket.join(`session_${sessionId}`);
+    }
+  });
+
+  // Admin dashboard room
+  socket.on("join-admin", () => {
+    socket.join("admin_dashboard");
+  });
+
+  // Handle heartbeat from clients
+  socket.on("heartbeat", async (data) => {
+    const { sessionId, currentPage } = data;
+
+    if (sessionId) {
+      // Update session activity
+      await require("./models/sessionModel").findOneAndUpdate(
+        { sessionId },
+        {
+          lastActivity: new Date(),
+          currentPage,
+          isActive: true,
+        }
+      );
+
+      // Broadcast to admin dashboard
+      io.to("admin_dashboard").emit("user_activity", {
+        sessionId,
+        currentPage,
+        timestamp: new Date(),
+      });
+    }
+  });
+
+  // Handle tracking events
+  socket.on("track_event", async (eventData) => {
+    try {
+      const Event = require("./models/eventModel");
+      const Session = require("./models/sessionModel");
+
+      // Save event
+      const event = await Event.create(eventData);
+
+      // Update session
+      await Session.findOneAndUpdate(
+        { sessionId: eventData.sessionId },
+        { lastActivity: new Date(), currentPage: eventData.page }
+      );
+
+      // Broadcast to admin dashboard
+      io.to("admin_dashboard").emit("new_event", event);
+
+      // Check for issues
+      const trackingCtrl = require("./controller/trackingCtrl");
+      await trackingCtrl.checkForIssues(
+        eventData.sessionId,
+        eventData.userId,
+        eventData.guestId,
+        eventData.eventType,
+        eventData.metadata
+      );
+
+    } catch (error) {
+      console.error("Error handling track_event:", error);
+    }
+  });
+
+  socket.on("disconnect", () => {
+    console.log("User disconnected:", socket.id);
+  });
+});
+
+// Make io accessible in routes
+app.set("io", io);
 
 
 // app.use("/api/user", require("./routes/userRoute"));
@@ -77,7 +187,7 @@ app.use("/api/product", productRouter);
 
 app.use(notFound);
 app.use(errorHandler);
-app.listen(PORT, () => {
-  console.log(`Server is running  at PORT ${PORT}`);
+server.listen(PORT, () => {
+  console.log(`Server is running at PORT ${PORT}`);
   startTrackingCron();
 });

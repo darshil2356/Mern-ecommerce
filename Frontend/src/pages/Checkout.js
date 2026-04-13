@@ -11,6 +11,7 @@ import axios from "axios";
 import { base_url, getConfig } from "../utils/axiosConfig";
 import { createAnOrder, deleteUserCart, getUserCart, resetState } from "../features/user/userSlice";
 import { getColorSwatch, getReadableColorName } from "../utils/colorDisplay";
+import trackingService from "../utils/trackingService";
 import "./Checkout.css";
 
 const shippingSchema = yup.object({
@@ -90,6 +91,9 @@ const Checkout = () => {
 
   useEffect(() => {
     dispatch(getUserCart(getConfig()));
+    // Track checkout started
+    trackingService.trackCheckoutStarted(cartState || [], totalAmount);
+
     // Fetch GST settings from public endpoint (no auth needed)
     axios.get(`${base_url}user/public-settings`).then(res => {
       setGstSettings({
@@ -194,7 +198,16 @@ const Checkout = () => {
               razorpayPaymentId: response.razorpay_payment_id,
               razorpayOrderId: response.razorpay_order_id,
             }, getConfig());
-            if (!payRes?.data) { alert("Payment verification failed"); setIsProcessing(false); return; }
+            if (!payRes?.data) {
+              trackingService.trackPaymentFailed(order_id, "Payment verification failed", "razorpay");
+              alert("Payment verification failed");
+              setIsProcessing(false);
+              return;
+            }
+
+            // Track successful payment
+            trackingService.trackPaymentSuccess(payRes.data.orderId || order_id, finalAmount, "razorpay");
+
             if (useCoins && coinDiscount > 0) {
               const stored = localStorage.getItem("customer");
               if (stored) {
@@ -227,6 +240,7 @@ const Checkout = () => {
             dispatch(resetState());
             setTimeout(() => navigate("/my-orders"), 100);
           } catch (e) {
+            trackingService.trackPaymentFailed(order_id, e.message || "Payment processing failed", "razorpay");
             alert("Payment processing failed. Contact support if amount was deducted.");
             setIsProcessing(false); setCurrentStep(1);
           }

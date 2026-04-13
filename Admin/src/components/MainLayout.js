@@ -18,7 +18,7 @@ import { Link } from "react-router-dom";
 import { Outlet, useLocation } from "react-router-dom";
 import { ImBlog } from "react-icons/im";
 import { IoIosNotifications } from "react-icons/io";
-import { FaClipboardList, FaBloggerB, FaChartLine, FaBox, FaUsers, FaTags, FaFileAlt, FaCube, FaLink, FaMagic, FaCoins } from "react-icons/fa";
+import { FaClipboardList, FaBloggerB, FaChartLine, FaBox, FaUsers, FaTags, FaFileAlt, FaCube, FaLink, FaMagic, FaCoins, FaEye, FaChartBar } from "react-icons/fa";
 import { SiBrandfolder } from "react-icons/si";
 import { BiCategoryAlt } from "react-icons/bi";
 import { Layout, Menu, theme, Drawer } from "antd";
@@ -83,7 +83,24 @@ const MainLayout = () => {
       icon: <AiOutlineDashboard className="fs-5" />,
       label: "Dashboard",
     },
-{
+    {
+      key: "analytics-tracking",
+      icon: <FaChartBar className="fs-5" />,
+      label: "Analytics & Tracking",
+      children: [
+        {
+          key: "live-tracking",
+          icon: <FaEye className="fs-5" />,
+          label: "Live User Tracking",
+        },
+        {
+          key: "tracking-analytics",
+          icon: <FaChartLine className="fs-5" />,
+          label: "Tracking Analytics",
+        },
+      ],
+    },
+    {
       key: "customers",
       icon: <FaUsers className="fs-5" />,
       label: "Customers",

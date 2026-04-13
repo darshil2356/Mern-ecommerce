@@ -37,6 +37,8 @@ import ReferralDetails from "./pages/ReferralDetails";
 import SpinManagement from "./pages/SpinManagement";
 import ReferralSettings from "./pages/ReferralSettings";
 import CoinSettings from "./pages/CoinSettings";
+import LiveTrackingDashboard from "./pages/LiveTrackingDashboard";
+import TrackingAnalytics from "./pages/TrackingAnalytics";
 
 function App() {
   return (
@@ -97,6 +99,8 @@ function App() {
           <Route path="add-bundle" element={<AddBundle />} />
           <Route path="bundle/:id" element={<AddBundle />} />
           <Route path="list-bundle" element={<Bundlelist />} />
+          <Route path="live-tracking" element={<LiveTrackingDashboard />} />
+          <Route path="tracking-analytics" element={<TrackingAnalytics />} />
         </Route>
       </Routes>
     </Router>

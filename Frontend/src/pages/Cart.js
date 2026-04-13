@@ -9,6 +9,7 @@ import { useDispatch, useSelector } from "react-redux";
 import { deleteCartProduct, getUserCart, updateCartProduct } from "../features/user/userSlice";
 import { getConfig } from "../utils/axiosConfig";
 import { getColorSwatch, getReadableColorName } from "../utils/colorDisplay";
+import trackingService from "../utils/trackingService";
 
 const Cart = () => {
   const dispatch = useDispatch();
@@ -33,6 +34,16 @@ const Cart = () => {
   }, [productupdateDetail, dispatch]);
 
   const deleteACartProduct = (id) => {
+    // Find the product being removed for tracking
+    const productToRemove = userCartState.find(item => item._id === id);
+    if (productToRemove) {
+      trackingService.trackRemoveFromCart(
+        productToRemove.productId?._id || productToRemove.productId,
+        productToRemove.productId?.title || productToRemove.title,
+        productToRemove.quantity
+      );
+    }
+
     setDeletingItems(prev => new Set([...prev, id]));
     dispatch(deleteCartProduct({ id, config2: getConfig() }));
     setTimeout(() => {

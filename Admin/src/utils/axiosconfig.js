@@ -1,6 +1,6 @@
 import axios from "axios";
 
-export const base_url = process.env.REACT_APP_API_URL || "http://localhost:8000/api/";
+export const base_url = process.env.REACT_APP_API_URL ;
 
 export const getTokenFromLocalStorage = () => {
   const persisted = localStorage.getItem("user");

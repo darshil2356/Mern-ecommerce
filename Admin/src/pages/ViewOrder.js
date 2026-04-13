@@ -304,7 +304,7 @@ const ViewOrder = () => {
     );
   }
 
-  const timelineStatuses = getTimelineItems(orderState?.orderStatus);
+  const timelineStatuses = getTimelineItems(orderState);
 
   const productColumns = [
     {

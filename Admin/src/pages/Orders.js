@@ -1,15 +1,15 @@
 import React, { useEffect, useState, useMemo } from "react";
-import { Table, Button, Select, Tag, message, Space, Tooltip, Input, DatePicker, Badge, Avatar } from "antd";
+import { Table, Button, Select, Tag, message, Space, Tooltip, Input, DatePicker, Badge, Avatar, Modal } from "antd";
 import {
   FilterOutlined, EyeOutlined, PrinterOutlined, RocketOutlined,
   SearchOutlined, ShoppingOutlined, CarOutlined, CheckCircleOutlined,
   ClockCircleOutlined, CloseCircleOutlined, SyncOutlined, ThunderboltOutlined,
-  UserOutlined, ReloadOutlined, TrophyOutlined, FireOutlined
+  UserOutlined, ReloadOutlined, TrophyOutlined, FireOutlined, StopOutlined
 } from "@ant-design/icons";
 import { useDispatch, useSelector } from "react-redux";
 import { Link } from "react-router-dom";
 import dayjs from "dayjs";
-import { getOrders, updateAOrder } from "../features/auth/authSlice";
+import { getOrders, updateAOrder, adminCancelAOrder } from "../features/auth/authSlice";
 import { base_url } from "../utils/baseUrl";
 import { config } from "../utils/axiosconfig";
 import axios from "axios";
@@ -40,15 +40,30 @@ const Orders = () => {
   const [searchText, setSearchText] = useState("");
   const [dateRange, setDateRange] = useState(null);
   const [paymentFilter, setPaymentFilter] = useState("All");
+  const [cancelModal, setCancelModal] = useState({ open: false, orderId: null, reason: "" });
 
   useEffect(() => { dispatch(getOrders()); }, [dispatch]);
 
   const updateOrderStatus = async (orderId, newStatus) => {
+    if (newStatus === "Cancelled") {
+      setCancelModal({ open: true, orderId, reason: "" });
+      return;
+    }
     try {
       await dispatch(updateAOrder({ id: orderId, status: newStatus })).unwrap();
       message.success(`Status updated to ${newStatus}`);
       dispatch(getOrders());
     } catch { message.error("Failed to update status"); }
+  };
+
+  const handleConfirmCancel = async () => {
+    if (!cancelModal.reason.trim()) { message.warning("Cancel reason is required"); return; }
+    try {
+      await dispatch(adminCancelAOrder({ id: cancelModal.orderId, cancelReason: cancelModal.reason.trim() })).unwrap();
+      message.success("Order cancelled successfully");
+      dispatch(getOrders());
+    } catch { message.error("Failed to cancel order"); }
+    setCancelModal({ open: false, orderId: null, reason: "" });
   };
 
   const handleBulkShipment = async () => {
@@ -192,14 +207,42 @@ const Orders = () => {
     {
       title: "Status",
       dataIndex: "status",
-      width: 160,
+      width: 200,
       align: "center",
-      render: (status) => {
+      render: (status, r) => {
         const cfg = STATUS_CONFIG[status] || STATUS_CONFIG.All;
+        if (r.isLocked || status === "Cancelled") {
+          return (
+            <div style={{ display: "inline-flex", alignItems: "center", gap: 6, background: cfg.bg, color: cfg.color, border: `1.5px solid ${cfg.border}`, borderRadius: 20, padding: "5px 12px", fontWeight: 700, fontSize: 11 }}>
+              {cfg.icon} {status}
+              {r.isLocked && <Tooltip title="Managed by Shiprocket"><RocketOutlined style={{ fontSize: 10, opacity: 0.7 }} /></Tooltip>}
+            </div>
+          );
+        }
         return (
-          <div style={{ display: "inline-flex", alignItems: "center", gap: 6, background: cfg.bg, color: cfg.color, border: `1.5px solid ${cfg.border}`, borderRadius: 20, padding: "5px 12px", fontWeight: 700, fontSize: 11 }}>
-            {cfg.icon} {status}
-          </div>
+          <Select
+            value={status}
+            onChange={(v) => updateOrderStatus(r.orderId, v)}
+            style={{ width: 170 }}
+            size="small"
+            dropdownStyle={{ minWidth: 180 }}
+          >
+            {["Ordered","Processed","Packed"].map(s => (
+              <Option key={s} value={s}>
+                <span style={{ display: "flex", alignItems: "center", gap: 6, color: STATUS_CONFIG[s]?.color }}>
+                  {STATUS_CONFIG[s]?.icon} {s}
+                </span>
+              </Option>
+            ))}
+            <Option value="Shipped" disabled><span style={{ color: "#94a3b8" }}>🚀 Shipped (auto)</span></Option>
+            <Option value="Out for Delivery" disabled><span style={{ color: "#94a3b8" }}>📦 Out for Delivery (auto)</span></Option>
+            <Option value="Delivered" disabled><span style={{ color: "#94a3b8" }}>✅ Delivered (auto)</span></Option>
+            <Option value="Cancelled">
+              <span style={{ display: "flex", alignItems: "center", gap: 6, color: "#dc2626" }}>
+                <CloseCircleOutlined /> Cancelled
+              </span>
+            </Option>
+          </Select>
         );
       },
     },
@@ -230,7 +273,7 @@ const Orders = () => {
     {
       title: "Actions",
       key: "actions",
-      width: 230,
+      width: 110,
       align: "center",
       render: (_, r) => (
         <Space size={6}>
@@ -242,23 +285,6 @@ const Orders = () => {
           <Tooltip title="Print Bill">
             <Button size="small" icon={<PrinterOutlined />} onClick={() => printOrderBill(r.orderId)} style={{ borderRadius: 8, border: "2px solid #10b981", color: "#10b981", fontWeight: 600 }} />
           </Tooltip>
-          {!r.isLocked ? (
-            <Select size="small" value={r.status} onChange={(v) => updateOrderStatus(r.orderId, v)} style={{ width: 120 }}>
-              <Option value="Ordered">Ordered</Option>
-              <Option value="Processed">Processed</Option>
-              <Option value="Packed">Packed</Option>
-              <Option value="Shipped" disabled>Shipped</Option>
-              <Option value="Out for Delivery" disabled>Out for Delivery</Option>
-              <Option value="Delivered" disabled>Delivered</Option>
-              <Option value="Cancelled">Cancelled</Option>
-            </Select>
-          ) : (
-            <Tooltip title="Managed by Shiprocket">
-              <div style={{ background: "linear-gradient(135deg,#f093fb,#f5576c)", color: "#fff", padding: "4px 10px", borderRadius: 20, fontSize: 11, fontWeight: 700, display: "flex", alignItems: "center", gap: 4 }}>
-                <RocketOutlined /> Auto
-              </div>
-            </Tooltip>
-          )}
         </Space>
       ),
     },
@@ -361,6 +387,29 @@ const Orders = () => {
           </div>
         </div>
       </div>
+
+      {/* ── Cancel Modal ── */}
+      <Modal
+        title={<span style={{ display: "flex", alignItems: "center", gap: 8 }}><StopOutlined style={{ color: "#dc2626" }} /> Cancel Order</span>}
+        open={cancelModal.open}
+        onCancel={() => setCancelModal({ open: false, orderId: null, reason: "" })}
+        onOk={handleConfirmCancel}
+        okText="Confirm Cancel"
+        okButtonProps={{ danger: true, disabled: !cancelModal.reason.trim() }}
+        cancelText="Keep Order"
+      >
+        <p style={{ color: "#374151", marginBottom: 12 }}>This will cancel the order, restore stock, and refund the amount as coins to the customer.</p>
+        <Input.TextArea
+          rows={3}
+          placeholder="Enter cancel reason (required)"
+          value={cancelModal.reason}
+          onChange={e => setCancelModal(prev => ({ ...prev, reason: e.target.value }))}
+          style={{ borderRadius: 8 }}
+        />
+        {!cancelModal.reason.trim() && (
+          <div style={{ color: "#dc2626", fontSize: 12, marginTop: 6 }}>Cancel reason is required</div>
+        )}
+      </Modal>
 
       {/* ── Table ── */}
       <div style={{ background: "#ffffff", borderRadius: 20, boxShadow: "0 12px 28px rgba(15,23,42,0.08)", border: "1px solid #e5e7eb", overflow: "hidden" }}>

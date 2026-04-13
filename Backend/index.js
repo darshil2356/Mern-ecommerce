@@ -27,11 +27,14 @@ const spinRouter = require("./routes/spinRoute");
 const rewardRouter = require("./routes/rewardRoute");
 const shiprocketRouter = require("./routes/shiprocketRoute");
 const { startTrackingCron } = require("./jobs/trackingCron");
+const notificationRouter = require("./routes/notificationRoute");
+const { initFirebase } = require("./config/firebaseAdmin");
 
 
      
 
 dbConnect();
+initFirebase();
 app.use(morgan("dev"));
 app.use(cors());
 app.use(bodyParser.json());
@@ -57,6 +60,7 @@ app.use("/api/bundles", bundleRouter);
 app.use("/api/spin", spinRouter);
 app.use("/api/rewards", rewardRouter);
 app.use("/api", shiprocketRouter);
+app.use("/api/notifications", notificationRouter);
 
 app.get("/ppt", (req, res) => {
   res.sendFile(__dirname + "/public/ppt.html");

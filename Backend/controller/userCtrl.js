@@ -5,6 +5,8 @@ const Coupon = require("../models/couponModel");
 const Order = require("../models/orderModel");
 const Color = require("../models/colorModel");
 const uniqid = require("uniqid");
+const { notifyUser } = require("./notificationCtrl");
+const { ORDER_STATUS_EVENT_MAP } = require("../config/notificationConfig");
 
 const asyncHandler = require("express-async-handler");
 const { generateToken } = require("../config/jwtToken");
@@ -566,6 +568,14 @@ const registerUser = asyncHandler(async (req, res) => {
       } catch (e) { console.error("Signup referral reward error:", e.message); }
     }
     // Return user with token so frontend can auto-login
+    // Push notification: welcome
+    setImmediate(() =>
+      notifyUser(newUser._id, "WELCOME", {
+        storeName: "Yashoda Fashion",
+        name: newUser.firstname,
+      }).catch(() => {})
+    );
+
     return res.json({
       _id: newUser._id,
       firstname: newUser.firstname,
@@ -1394,6 +1404,14 @@ const createOrder = asyncHandler(async (req, res) => {
       await awardCoinsOnOrder(_id, totalPriceAfterDiscount, 10);
     }
 
+    // Push notification: order placed
+    setImmediate(() =>
+      notifyUser(_id, "ORDER_PLACED", {
+        orderId: order._id.toString().slice(-6).toUpperCase(),
+        amount: totalPriceAfterDiscount,
+      }).catch(() => {})
+    );
+
     res.json({
       order,
       success: true,
@@ -1504,6 +1522,19 @@ const updateOrder = asyncHandler(async (req, res) => {
     orders.statusHistory = orders.statusHistory || [];
     orders.statusHistory.push({ status: newStatus, date: new Date() });
     await orders.save();
+
+    // Push notification: dynamic based on new status
+    const eventKey = ORDER_STATUS_EVENT_MAP[newStatus];
+    if (eventKey && orders.user?._id) {
+      setImmediate(() =>
+        notifyUser(orders.user._id, eventKey, {
+          orderId: orders._id.toString().slice(-6).toUpperCase(),
+          amount: orders.totalPriceAfterDiscount,
+          courierName: orders.courierName || "courier",
+          trackingUrl: orders.trackingUrl || "",
+        }).catch(() => {})
+      );
+    }
 
     // Auto-trigger Shiprocket when status becomes Packed
     if (newStatus === "Packed" && !orders.shipmentId) {

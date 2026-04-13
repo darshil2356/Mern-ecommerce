@@ -184,6 +184,11 @@ var userSchema = new mongoose.Schema(
     passwordChangedAt: Date,
     passwordResetToken: String,
     passwordResetExpires: Date,
+    // Push notification FCM tokens (one per device)
+    fcmTokens: {
+      type: [String],
+      default: [],
+    },
   },
   {
     timestamps: true,

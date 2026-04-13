@@ -1,9 +1,11 @@
 import React from "react";
 import "./App.css";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { useSelector } from "react-redux";
 import Layout from "./components/Layout";
 import ScrollToTop from "./components/ScrollToTop";
 import "./utils/axiosSetup";
+import usePushNotification from "./utils/usePushNotification";
 import Home from "./pages/Home";
 import About from "./pages/About";
 import Contact from "./pages/Contact";
@@ -32,6 +34,8 @@ import Reels from "./pages/Reels";
 import Bundles from "./pages/Bundles";
 
 function App() {
+  const user = useSelector((state) => state.auth?.user);
+  usePushNotification(!!user);
   return (
     <>
       <BrowserRouter>

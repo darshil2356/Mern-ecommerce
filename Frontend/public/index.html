@@ -112,6 +112,27 @@
           if (loader) loader.classList.add('fade-out');
         }, 500);
       });
+
+      // Pass Firebase config to service worker
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('/firebase-messaging-sw.js').then(function(reg) {
+          if (reg.active) {
+            reg.active.postMessage({
+              type: 'FIREBASE_CONFIG',
+              config: {
+                apiKey: '%REACT_APP_FIREBASE_API_KEY%',
+                authDomain: '%REACT_APP_FIREBASE_AUTH_DOMAIN%',
+                projectId: '%REACT_APP_FIREBASE_PROJECT_ID%',
+                storageBucket: '%REACT_APP_FIREBASE_STORAGE_BUCKET%',
+                messagingSenderId: '%REACT_APP_FIREBASE_MESSAGING_SENDER_ID%',
+                appId: '%REACT_APP_FIREBASE_APP_ID%'
+              }
+            });
+          }
+        }).catch(function(err) {
+          console.warn('SW registration failed:', err);
+        });
+      }
     </script>
     <script
       src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/js/bootstrap.bundle.min.js"

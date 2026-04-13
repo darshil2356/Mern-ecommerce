@@ -46,13 +46,17 @@ const getMonthlyReport = asyncHandler(async (req, res) => {
     .populate("user", "firstname lastname mobile email")
     .populate({ path: "orderItems.product", select: "title brand price barcode hsnCode" });
 
-  const totalOrders = orders.length;
-  const totalSales = orders.reduce((sum, o) => sum + (o.totalPrice || 0), 0);
-  const totalDiscount = orders.reduce((sum, o) => sum + (o.discountAmount || 0), 0);
-  const netRevenue = orders.reduce((sum, o) => sum + (o.totalPriceAfterDiscount || 0), 0);
+  const activeOrders = orders.filter(o => o.orderStatus !== "Cancelled");
+  const cancelledOrders = orders.filter(o => o.orderStatus === "Cancelled");
 
-  const onlineOrders = orders.filter(o => o.mode === "ONLINE");
-  const offlineOrders = orders.filter(o => o.mode === "OFFLINE");
+  const totalOrders = activeOrders.length;
+  const totalSales = activeOrders.reduce((sum, o) => sum + (o.totalPrice || 0), 0);
+  const totalDiscount = activeOrders.reduce((sum, o) => sum + (o.discountAmount || 0), 0);
+  const netRevenue = activeOrders.reduce((sum, o) => sum + (o.totalPriceAfterDiscount || 0), 0);
+  const cancelledAmount = cancelledOrders.reduce((sum, o) => sum + (o.totalPriceAfterDiscount || 0), 0);
+
+  const onlineOrders = activeOrders.filter(o => o.mode === "ONLINE");
+  const offlineOrders = activeOrders.filter(o => o.mode === "OFFLINE");
 
   const statusBreakdown = {};
   orders.forEach(order => {
@@ -63,7 +67,7 @@ const getMonthlyReport = asyncHandler(async (req, res) => {
   });
 
   const productStats = {};
-  orders.forEach(order => {
+  activeOrders.forEach(order => {
     order.orderItems.forEach(item => {
       const productId = item.product?._id?.toString() || "Unknown";
       if (!productStats[productId]) {
@@ -76,7 +80,7 @@ const getMonthlyReport = asyncHandler(async (req, res) => {
   const topProducts = Object.values(productStats).sort((a, b) => b.revenue - a.revenue).slice(0, 10);
 
   const customerStats = {};
-  orders.forEach(order => {
+  activeOrders.forEach(order => {
     const customerId = order.user?._id?.toString() || "Walk-in";
     const customerName = order.user ? `${order.user.firstname || ""} ${order.user.lastname || ""}`.trim() : "Walk-in Customer";
     if (!customerStats[customerId]) {
@@ -88,7 +92,7 @@ const getMonthlyReport = asyncHandler(async (req, res) => {
   const topCustomers = Object.values(customerStats).sort((a, b) => b.amount - a.amount).slice(0, 10);
 
   const dailyBreakdown = {};
-  orders.forEach(order => {
+  activeOrders.forEach(order => {
     const day = new Date(order.createdAt).getDate();
     if (!dailyBreakdown[day]) dailyBreakdown[day] = { orders: 0, amount: 0 };
     dailyBreakdown[day].orders += 1;
@@ -99,7 +103,7 @@ const getMonthlyReport = asyncHandler(async (req, res) => {
   res.json({
     success: true,
     reportPeriod: { month: monthNames[targetMonth], year: targetYear, startDate, endDate },
-    summary: { totalOrders, totalSales, totalDiscount, netRevenue, averageOrderValue: totalOrders > 0 ? netRevenue / totalOrders : 0 },
+    summary: { totalOrders, totalSales, totalDiscount, netRevenue, cancelledOrders: cancelledOrders.length, cancelledAmount, averageOrderValue: totalOrders > 0 ? netRevenue / totalOrders : 0 },
     modeBreakdown: {
       online: { orders: onlineOrders.length, amount: onlineOrders.reduce((s, o) => s + (o.totalPriceAfterDiscount || 0), 0) },
       offline: { orders: offlineOrders.length, amount: offlineOrders.reduce((s, o) => s + (o.totalPriceAfterDiscount || 0), 0) }
@@ -148,12 +152,15 @@ const getYearlyReport = asyncHandler(async (req, res) => {
     return { month: name, orders: monthData?.totalOrders || 0, sales: monthData?.totalSales || 0, discount: monthData?.totalDiscount || 0, revenue: monthData?.netRevenue || 0 };
   });
 
-  const totalOrders = orders.length;
-  const totalSales = orders.reduce((sum, o) => sum + (o.totalPrice || 0), 0);
-  const totalDiscount = orders.reduce((sum, o) => sum + (o.discountAmount || 0), 0);
-  const netRevenue = orders.reduce((sum, o) => sum + (o.totalPriceAfterDiscount || 0), 0);
-  const onlineOrders = orders.filter(o => o.mode === "ONLINE");
-  const offlineOrders = orders.filter(o => o.mode === "OFFLINE");
+  const activeOrders = orders.filter(o => o.orderStatus !== "Cancelled");
+  const cancelledOrders = orders.filter(o => o.orderStatus === "Cancelled");
+  const totalOrders = activeOrders.length;
+  const totalSales = activeOrders.reduce((sum, o) => sum + (o.totalPrice || 0), 0);
+  const totalDiscount = activeOrders.reduce((sum, o) => sum + (o.discountAmount || 0), 0);
+  const netRevenue = activeOrders.reduce((sum, o) => sum + (o.totalPriceAfterDiscount || 0), 0);
+  const cancelledAmount = cancelledOrders.reduce((sum, o) => sum + (o.totalPriceAfterDiscount || 0), 0);
+  const onlineOrders = activeOrders.filter(o => o.mode === "ONLINE");
+  const offlineOrders = activeOrders.filter(o => o.mode === "OFFLINE");
 
   const statusBreakdown = {};
   orders.forEach(order => {
@@ -166,7 +173,7 @@ const getYearlyReport = asyncHandler(async (req, res) => {
   res.json({
     success: true,
     reportPeriod: { year: targetYear, startDate, endDate },
-    summary: { totalOrders, totalSales, totalDiscount, netRevenue, averageOrderValue: totalOrders > 0 ? netRevenue / totalOrders : 0 },
+    summary: { totalOrders, totalSales, totalDiscount, netRevenue, cancelledOrders: cancelledOrders.length, cancelledAmount, averageOrderValue: totalOrders > 0 ? netRevenue / totalOrders : 0 },
     monthlyBreakdown,
     modeBreakdown: {
       online: { orders: onlineOrders.length, amount: onlineOrders.reduce((s, o) => s + (o.totalPriceAfterDiscount || 0), 0) },
@@ -206,17 +213,20 @@ const getDateRangeReport = asyncHandler(async (req, res) => {
     .populate("user", "firstname lastname mobile email")
     .populate({ path: "orderItems.product", select: "title brand price barcode hsnCode" });
 
-  const totalOrders = orders.length;
-  const totalSales = orders.reduce((sum, o) => sum + (o.totalPrice || 0), 0);
-  const totalDiscount = orders.reduce((sum, o) => sum + (o.discountAmount || 0), 0);
-  const netRevenue = orders.reduce((sum, o) => sum + (o.totalPriceAfterDiscount || 0), 0);
-  const onlineOrders = orders.filter(o => o.mode === "ONLINE");
-  const offlineOrders = orders.filter(o => o.mode === "OFFLINE");
+  const activeOrders = orders.filter(o => o.orderStatus !== "Cancelled");
+  const cancelledOrders = orders.filter(o => o.orderStatus === "Cancelled");
+  const totalOrders = activeOrders.length;
+  const totalSales = activeOrders.reduce((sum, o) => sum + (o.totalPrice || 0), 0);
+  const totalDiscount = activeOrders.reduce((sum, o) => sum + (o.discountAmount || 0), 0);
+  const netRevenue = activeOrders.reduce((sum, o) => sum + (o.totalPriceAfterDiscount || 0), 0);
+  const cancelledAmount = cancelledOrders.reduce((sum, o) => sum + (o.totalPriceAfterDiscount || 0), 0);
+  const onlineOrders = activeOrders.filter(o => o.mode === "ONLINE");
+  const offlineOrders = activeOrders.filter(o => o.mode === "OFFLINE");
 
   res.json({
     success: true,
     reportPeriod: { startDate: start, endDate: end },
-    summary: { totalOrders, totalSales, totalDiscount, netRevenue, averageOrderValue: totalOrders > 0 ? netRevenue / totalOrders : 0 },
+    summary: { totalOrders, totalSales, totalDiscount, netRevenue, cancelledOrders: cancelledOrders.length, cancelledAmount, averageOrderValue: totalOrders > 0 ? netRevenue / totalOrders : 0 },
     modeBreakdown: {
       online: { orders: onlineOrders.length, amount: onlineOrders.reduce((s, o) => s + (o.totalPriceAfterDiscount || 0), 0) },
       offline: { orders: offlineOrders.length, amount: offlineOrders.reduce((s, o) => s + (o.totalPriceAfterDiscount || 0), 0) }
@@ -328,7 +338,7 @@ const getProductWiseReport = asyncHandler(async (req, res) => {
     end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
   }
 
-  const orders = await Order.find({ createdAt: { $gte: start, $lte: end } })
+  const orders = await Order.find({ createdAt: { $gte: start, $lte: end }, orderStatus: { $ne: "Cancelled" } })
     .where(buildPaymentFilter(req.query))
     .populate({ path: "orderItems.product", select: "title brand price barcode category hsnCode" });
 
@@ -368,7 +378,7 @@ const getCustomerWiseReport = asyncHandler(async (req, res) => {
     end = new Date(now.getFullYear(), 11, 31, 23, 59, 59, 999);
   }
 
-  const orders = await Order.find({ createdAt: { $gte: start, $lte: end } })
+  const orders = await Order.find({ createdAt: { $gte: start, $lte: end }, orderStatus: { $ne: "Cancelled" } })
     .where(buildPaymentFilter(req.query))
     .populate("user", "firstname lastname mobile email createdAt");
 

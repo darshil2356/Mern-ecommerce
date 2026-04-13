@@ -498,7 +498,7 @@ if (referrer) {
   // Award lifetime referral coins on every order once customer is linked.
   if (totalPriceAfterDiscount > 0) {
     const purchasingUserId = purchaseCustomer?._id || order.user;
-    await awardCoinsOnOrder(purchasingUserId, totalPriceAfterDiscount, 10);
+    await awardCoinsOnOrder(purchasingUserId, totalPriceAfterDiscount, 10, order._id);
   }
 
   res.json({
@@ -830,6 +830,243 @@ const logout = asyncHandler(async (req, res) => {
   });
   res.sendStatus(204); // forbidden
 });
+
+const cancelOrder = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { cancelReason } = req.body;
+  const { _id: userId } = req.user;
+
+  const order = await Order.findOne({ _id: id, user: userId }).populate("orderItems.product");
+  if (!order) {
+    res.status(404);
+    throw new Error("Order not found");
+  }
+
+  const nonCancellableStatuses = ["Shipped", "Out for Delivery", "Delivered", "Cancelled"];
+  if (nonCancellableStatuses.includes(order.orderStatus)) {
+    res.status(400);
+    throw new Error(`Order cannot be cancelled. Current status: ${order.orderStatus}`);
+  }
+
+  await _performCancelOrder(order, cancelReason || "Cancelled by customer", userId);
+
+  res.json({ success: true, message: "Order cancelled successfully", order });
+});
+
+const adminCancelOrder = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { cancelReason } = req.body;
+
+  if (!cancelReason || !cancelReason.trim()) {
+    res.status(400);
+    throw new Error("Cancel reason is required");
+  }
+
+  const order = await Order.findById(id).populate("orderItems.product");
+  if (!order) {
+    res.status(404);
+    throw new Error("Order not found");
+  }
+
+  if (order.orderStatus === "Cancelled") {
+    res.status(400);
+    throw new Error("Order is already cancelled");
+  }
+
+  await _performCancelOrder(order, cancelReason.trim(), order.user);
+
+  res.json({ success: true, message: "Order cancelled by admin", order });
+});
+
+// Shared cancel logic used by both user and admin cancel
+// Precise stock restore — mirrors deductStockFromProduct in reverse
+// Priority: barcode → color+size → size-only → color-only → main quantity
+const _restoreStock = async (product, item) => {
+  const qty = item.quantity || 1;
+  const colorId = item.color ? String(item.color._id || item.color) : null;
+
+  // 1. Barcode match (most precise)
+  if (item.barcode) {
+    if (product.variants && product.variants.length > 0) {
+      for (const variant of product.variants) {
+        const se = (variant.sizeStock || []).find(s => s.barcode === item.barcode);
+        if (se) { se.quantity += qty; return; }
+      }
+    }
+    if (product.sizeStock && product.sizeStock.length > 0) {
+      const se = product.sizeStock.find(s => s.barcode === item.barcode);
+      if (se) { se.quantity += qty; return; }
+    }
+  }
+
+  // 2. Color + size match in variants
+  if (colorId && item.size && product.variants && product.variants.length > 0) {
+    const variant = product.variants.find(v => String(v.color?._id || v.color) === colorId);
+    if (variant) {
+      const se = (variant.sizeStock || []).find(s => s.size === item.size);
+      if (se) { se.quantity += qty; return; }
+    }
+  }
+
+  // 3. Size-only match in variants (any variant)
+  if (item.size && product.variants && product.variants.length > 0) {
+    for (const variant of product.variants) {
+      const se = (variant.sizeStock || []).find(s => s.size === item.size);
+      if (se) { se.quantity += qty; return; }
+    }
+  }
+
+  // 4. Size match in top-level sizeStock
+  if (item.size && product.sizeStock && product.sizeStock.length > 0) {
+    const se = product.sizeStock.find(s => s.size === item.size);
+    if (se) { se.quantity += qty; return; }
+  }
+
+  // 5. Color-only match in variants (no size — add to first sizeStock slot)
+  if (colorId && product.variants && product.variants.length > 0) {
+    const variant = product.variants.find(v => String(v.color?._id || v.color) === colorId);
+    if (variant && variant.sizeStock && variant.sizeStock.length > 0) {
+      variant.sizeStock[0].quantity += qty;
+      return;
+    }
+  }
+
+  // 6. Fallback: main quantity
+  product.quantity = (product.quantity || 0) + qty;
+};
+
+const _performCancelOrder = async (order, cancelReason, userId) => {
+  // 1. Restore stock for every item
+  for (const item of order.orderItems) {
+
+    // ── BUNDLE items ──────────────────────────────────────────────────────────────────
+    if (item.isBundle && Array.isArray(item.bundleProducts)) {
+      for (const bp of item.bundleProducts) {
+        if (!bp.productId) continue;
+        const product = await Product.findById(bp.productId);
+        if (!product) continue;
+        const qty = bp.quantity || 1;
+        await _restoreStock(product, { color: bp.selectedColor, size: bp.selectedSize, barcode: bp.barcode, quantity: qty });
+        product.sold = Math.max(0, (product.sold || 0) - qty);
+        product.quantity = normalizeProductQuantity(product);
+        await product.save();
+      }
+      continue;
+    }
+
+    // ── REGULAR items ───────────────────────────────────────────────────────────────────
+    if (!item.product) continue;
+    const product = await Product.findById(item.product._id || item.product);
+    if (!product) continue;
+    const qty = item.quantity || 1;
+    await _restoreStock(product, { color: item.color, size: item.size, barcode: item.barcode, quantity: qty });
+    product.sold = Math.max(0, (product.sold || 0) - qty);
+    product.quantity = normalizeProductQuantity(product);
+    await product.save();
+  }
+
+  // 2. Load customer ONCE — do all coin ops on same object, save once
+  const customer = await User.findById(userId);
+
+  // 2a. Refund coins that were USED as payment (coinsUsed)
+  if (order.coinsUsed && order.coinsUsed > 0 && customer) {
+    customer.coins = (customer.coins || 0) + order.coinsUsed;
+    appendCoinTransaction(customer, {
+      type: "credit",
+      coins: order.coinsUsed,
+      reason: "coins_used_refund",
+      source: "admin_adjustment",
+      description: `${order.coinsUsed} coins refunded (were used as payment)`,
+      metadata: { orderId: order._id },
+    });
+  }
+
+  // 2b. Reverse purchase-reward coins earned on this order (buyer side only)
+  if (customer) {
+    const orderIdStr = String(order._id);
+    const purchaseTxns = (customer.coinTransactions || []).filter(
+      (tx) => tx.source === "purchase" && tx.type === "credit" && String(tx.metadata?.orderId) === orderIdStr
+    );
+    for (const tx of purchaseTxns) {
+      const toReverse = tx.coins || 0;
+      if (toReverse > 0 && customer.coins >= toReverse) {
+        customer.coins -= toReverse;
+        appendCoinTransaction(customer, {
+          type: "debit",
+          coins: toReverse,
+          reason: "cancel_reversal",
+          source: "purchase",
+          description: "Purchase reward reversed due to order cancellation",
+          metadata: { orderId: order._id, reversedTxId: tx._id },
+        });
+      }
+    }
+  }
+
+  // 2c. Add full purchase amount as coins (no money-back policy)
+  const purchaseAmount = order.totalPriceAfterDiscount || 0;
+  if (purchaseAmount > 0 && customer) {
+    customer.coins = (customer.coins || 0) + purchaseAmount;
+    appendCoinTransaction(customer, {
+      type: "credit",
+      coins: purchaseAmount,
+      reason: "cancel_refund",
+      source: "admin_adjustment",
+      description: `₹${purchaseAmount} refunded as coins (no money-back policy)`,
+      metadata: { orderId: order._id, purchaseAmount },
+    });
+  }
+
+  // Save customer once
+  if (customer) await customer.save();
+
+  // 3. Reverse referrer coins earned from this order (separate user — safe to load independently)
+  if (customer?.referredBy) {
+    const referrer = await User.findById(customer.referredBy);
+    if (referrer) {
+      const orderIdStr = String(order._id);
+      const referrerTxns = (referrer.coinTransactions || []).filter(
+        (tx) =>
+          tx.source === "referral_purchase" &&
+          tx.type === "credit" &&
+          String(tx.metadata?.referredUserId) === String(userId) &&
+          String(tx.metadata?.orderId) === orderIdStr
+      );
+      for (const tx of referrerTxns) {
+        const toReverse = tx.coins || 0;
+        if (toReverse > 0 && referrer.coins >= toReverse) {
+          referrer.coins -= toReverse;
+          if (referrer.referralEarnings >= toReverse) referrer.referralEarnings -= toReverse;
+          appendCoinTransaction(referrer, {
+            type: "debit",
+            coins: toReverse,
+            reason: "cancel_reversal",
+            source: "referral_purchase",
+            description: "Referral reward reversed: referred user cancelled order",
+            metadata: { referredUserId: userId, orderId: order._id, reversedTxId: tx._id },
+          });
+        }
+      }
+      await referrer.save();
+    }
+  }
+
+  // 5. Update order status
+  order.orderStatus = "Cancelled";
+  order.cancelledAt = new Date();
+  order.cancelReason = cancelReason;
+  order.statusHistory = order.statusHistory || [];
+  order.statusHistory.push({ status: "Cancelled", date: new Date() });
+  await order.save();
+
+  // 6. Push notification
+  setImmediate(() =>
+    notifyUser(userId, "ORDER_CANCELLED", {
+      orderId: order._id.toString().slice(-6).toUpperCase(),
+      amount: purchaseAmount,
+    }).catch(() => {})
+  );
+};
 
 // Update a user
 
@@ -1401,7 +1638,7 @@ const createOrder = asyncHandler(async (req, res) => {
 
     // Award coins for referral if the user was referred
     if (totalPriceAfterDiscount > 0) {
-      await awardCoinsOnOrder(_id, totalPriceAfterDiscount, 10);
+      await awardCoinsOnOrder(_id, totalPriceAfterDiscount, 10, order._id);
     }
 
     // Push notification: order placed
@@ -2705,13 +2942,12 @@ const applyReferral = asyncHandler(async (req, res) => {
 
 // Award coins on order - delegates to ReferralService for config-driven logic
 // orderAmount = totalPriceAfterDiscount (after ALL discounts including coin discount)
-const awardCoinsOnOrder = async (referredUserId, orderAmount, _coinPercent = 10) => {
+const awardCoinsOnOrder = async (referredUserId, orderAmount, _coinPercent = 10, orderId = null) => {
   try {
     const ReferralService = require("../services/ReferralService");
     const orderCount = await Order.countDocuments({ user: referredUserId });
     const isFirstPurchase = orderCount <= 1;
-    // processReferralReward handles BOTH referrer coins AND buyer purchase coins internally
-    await ReferralService.processReferralReward(referredUserId, orderAmount, isFirstPurchase);
+    await ReferralService.processReferralReward(referredUserId, orderAmount, isFirstPurchase, orderId);
   } catch (err) {
     console.error("awardCoinsOnOrder error:", err.message);
   }
@@ -2870,4 +3106,6 @@ module.exports = {
   updateCustomerById,
   deleteCustomerById,
   addBundleToCart,
+  cancelOrder,
+  adminCancelOrder,
 };

@@ -57,7 +57,7 @@ const awardCoins = async (userId, coins, tx, monthlyCapSource = null, monthlyCap
  * @param {number}   orderAmount  - totalPriceAfterDiscount
  * @param {boolean}  isFirstPurchase
  */
-const processReferralReward = async (buyerUserId, orderAmount, isFirstPurchase = false) => {
+const processReferralReward = async (buyerUserId, orderAmount, isFirstPurchase = false, orderId = null) => {
   const [refConfig, coinConfig] = await Promise.all([getReferralConfig(), getCoinConfig()]);
 
   if (!refConfig.isEnabled || !coinConfig.isEnabled) return;
@@ -67,7 +67,7 @@ const processReferralReward = async (buyerUserId, orderAmount, isFirstPurchase =
 
   const trigger = refConfig.rewardTrigger;
 
-  // ── REFERRER reward (referrer earns when buyer purchases) ──────────────────
+  // ── REFERRER reward ────────────────────────────────────────────────────────
   if (coinConfig.referralRewardEnabled && coinConfig.referrerPurchaseRewardEnabled && buyer.referredBy) {
     if (trigger === "ON_SIGNUP") {
       // handled at signup only
@@ -92,7 +92,7 @@ const processReferralReward = async (buyerUserId, orderAmount, isFirstPurchase =
               reason: "referral_purchase",
               source: "referral_purchase",
               description: `Referral reward: referred user purchased ₹${orderAmount}`,
-              metadata: { referredUserId: buyerUserId, orderAmount },
+              metadata: { referredUserId: buyerUserId, orderAmount, orderId },
             },
             "referral_purchase",
             refConfig.maxRewardPerUserPerMonth
@@ -102,14 +102,14 @@ const processReferralReward = async (buyerUserId, orderAmount, isFirstPurchase =
     }
   }
 
-  // ── BUYER reward (buyer earns coins on their own purchase) ─────────────────
+  // ── BUYER reward ───────────────────────────────────────────────────────────
   if (coinConfig.purchaseRewardEnabled && coinConfig.buyerPurchaseRewardEnabled) {
-    await processPurchaseReward(buyerUserId, orderAmount, coinConfig);
+    await processPurchaseReward(buyerUserId, orderAmount, coinConfig, orderId);
   }
 };
 
 // ─── Purchase coin reward (buyer earns on own purchase) ──────────────────────
-const processPurchaseReward = async (userId, orderAmount, coinConfigOverride = null) => {
+const processPurchaseReward = async (userId, orderAmount, coinConfigOverride = null, orderId = null) => {
   const coinConfig = coinConfigOverride || (await getCoinConfig());
   if (!coinConfig.isEnabled || !coinConfig.purchaseRewardEnabled) return;
   if (!coinConfig.buyerPurchaseRewardEnabled) return;
@@ -133,7 +133,7 @@ const processPurchaseReward = async (userId, orderAmount, coinConfigOverride = n
     reason: "purchase_reward",
     source: "purchase",
     description: `Purchase reward for order of ₹${orderAmount}`,
-    metadata: { orderAmount },
+    metadata: { orderAmount, orderId },
   });
 };
 
@@ -159,10 +159,100 @@ const processSignupReferralReward = async (referrerId) => {
   );
 };
 
+// ─── Reverse coins awarded on an order (called on cancellation) ──────────────
+/**
+ * Reverses:
+ *  1. Purchase reward coins given to the buyer
+ *  2. Referral reward coins given to the referrer
+ * Uses coinTransactions metadata to find exact coins to reverse.
+ */
+const reverseCancelCoins = async (buyerUserId, orderId) => {
+  try {
+    const buyer = await User.findById(buyerUserId);
+    if (!buyer) return { buyerCoinsReversed: 0, referrerCoinsReversed: 0 };
+
+    const orderIdStr = String(orderId);
+    let buyerCoinsReversed = 0;
+    let referrerCoinsReversed = 0;
+
+    // ── Reverse buyer purchase reward coins ──────────────────────────────────
+    const buyerPurchaseTxns = (buyer.coinTransactions || []).filter(
+      (tx) =>
+        tx.source === "purchase" &&
+        tx.type === "credit" &&
+        String(tx.metadata?.orderId) === orderIdStr
+    );
+
+    for (const tx of buyerPurchaseTxns) {
+      const coinsToReverse = tx.coins || 0;
+      if (coinsToReverse > 0 && buyer.coins >= coinsToReverse) {
+        buyer.coins -= coinsToReverse;
+        buyerCoinsReversed += coinsToReverse;
+        appendCoinTx(buyer, {
+          type: "debit",
+          coins: coinsToReverse,
+          reason: "cancel_reversal",
+          source: "purchase",
+          description: "Purchase reward reversed due to order cancellation",
+          metadata: { orderId, reversedTxId: tx._id },
+        });
+      }
+    }
+    await buyer.save();
+
+    // ── Reverse referrer coins earned from this buyer's order ────────────────
+    if (buyer.referredBy) {
+      const referrer = await User.findById(buyer.referredBy);
+      if (referrer) {
+        const referrerTxns = (referrer.coinTransactions || []).filter(
+          (tx) =>
+            tx.source === "referral_purchase" &&
+            tx.type === "credit" &&
+            String(tx.metadata?.referredUserId) === String(buyerUserId)
+        );
+
+        // Find txns that match this order by checking orderId in metadata OR
+        // by matching the most recent referral_purchase txn for this buyer
+        // (since older orders may not have orderId in metadata)
+        const orderTxns = referrerTxns.filter(
+          (tx) => String(tx.metadata?.orderId) === orderIdStr
+        );
+        const txnsToReverse = orderTxns.length > 0 ? orderTxns : [];
+
+        for (const tx of txnsToReverse) {
+          const coinsToReverse = tx.coins || 0;
+          if (coinsToReverse > 0 && referrer.coins >= coinsToReverse) {
+            referrer.coins -= coinsToReverse;
+            if (referrer.referralEarnings >= coinsToReverse) {
+              referrer.referralEarnings -= coinsToReverse;
+            }
+            referrerCoinsReversed += coinsToReverse;
+            appendCoinTx(referrer, {
+              type: "debit",
+              coins: coinsToReverse,
+              reason: "cancel_reversal",
+              source: "referral_purchase",
+              description: "Referral reward reversed: referred user cancelled order",
+              metadata: { referredUserId: buyerUserId, orderId, reversedTxId: tx._id },
+            });
+          }
+        }
+        await referrer.save();
+      }
+    }
+
+    return { buyerCoinsReversed, referrerCoinsReversed };
+  } catch (err) {
+    console.error("reverseCancelCoins error:", err.message);
+    return { buyerCoinsReversed: 0, referrerCoinsReversed: 0 };
+  }
+};
+
 module.exports = {
   getReferralConfig,
   getCoinConfig,
   processReferralReward,
   processPurchaseReward,
   processSignupReferralReward,
+  reverseCancelCoins,
 };

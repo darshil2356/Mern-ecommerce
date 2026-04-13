@@ -1,16 +1,18 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useParams, Link } from "react-router-dom";
 import Container from "../components/Container";
 import BreadCrumb from "../components/BreadCrumb";
-import { getSingleOrder } from "../features/user/userSlice";
-import { FiPackage, FiTruck, FiCheckCircle, FiClock, FiMapPin, FiPhone, FiMail } from "react-icons/fi";
+import { getSingleOrder, cancelOrder } from "../features/user/userSlice";
+import { FiPackage, FiTruck, FiCheckCircle, FiClock, FiMapPin, FiPhone, FiMail, FiXCircle } from "react-icons/fi";
 import { getColorSwatch, getReadableColorName } from "../utils/colorDisplay";
 
 const OrderDetails = () => {
   const { id } = useParams();
   const dispatch = useDispatch();
   const { singleOrder, isLoading } = useSelector((state) => state?.auth);
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [cancelReason, setCancelReason] = useState("");
 
   useEffect(() => {
     if (id) {
@@ -73,6 +75,15 @@ const OrderDetails = () => {
 
   const TIMELINE_STEPS = ["Ordered", "Processed", "Packed", "Shipped", "Out for Delivery", "Delivered"];
   const currentIdx = TIMELINE_STEPS.indexOf(order.orderStatus);
+
+  const cancellableStatuses = ["Ordered", "Processed", "Packed"];
+  const canCancel = cancellableStatuses.includes(order.orderStatus);
+
+  const handleCancelConfirm = () => {
+    dispatch(cancelOrder({ id: order._id, cancelReason: cancelReason || "Cancelled by customer" }));
+    setShowCancelModal(false);
+    setCancelReason("");
+  };
 
   const subtotal = order.totalPrice || 0;
   const paid = order.totalPriceAfterDiscount || 0;
@@ -493,7 +504,83 @@ const OrderDetails = () => {
               >
                 ← Back to My Orders
               </Link>
+              {canCancel && (
+                <button
+                  onClick={() => setShowCancelModal(true)}
+                  className="btn ms-3"
+                  style={{
+                    background: "#fee2e2",
+                    color: "#991b1b",
+                    border: "1px solid #fca5a5",
+                    borderRadius: 10,
+                    padding: "12px 24px",
+                    fontSize: 16,
+                    fontWeight: 600,
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 8
+                  }}
+                >
+                  <FiXCircle size={18} /> Cancel Order
+                </button>
+              )}
             </div>
+
+            {/* Cancel Confirmation Modal */}
+            {showCancelModal && (
+              <div style={{
+                position: "fixed", top: 0, left: 0, right: 0, bottom: 0,
+                background: "rgba(0,0,0,0.5)", zIndex: 9999,
+                display: "flex", alignItems: "center", justifyContent: "center"
+              }}>
+                <div style={{
+                  background: "#fff", borderRadius: 16, padding: 32,
+                  maxWidth: 420, width: "90%", boxShadow: "0 20px 60px rgba(0,0,0,0.3)"
+                }}>
+                  <div className="d-flex align-items-center gap-3 mb-3">
+                    <FiXCircle size={28} color="#dc2626" />
+                    <h5 className="mb-0" style={{ fontWeight: 700, color: "#0f172a" }}>Cancel Order?</h5>
+                  </div>
+                  <p style={{ color: "#64748b", marginBottom: 16 }}>
+                    Are you sure you want to cancel this order? Stock will be restored.
+                    {order.coinsUsed > 0 && ` Your ${order.coinsUsed} coins will be refunded.`}
+                  </p>
+                  <textarea
+                    placeholder="Reason for cancellation (optional)"
+                    value={cancelReason}
+                    onChange={e => setCancelReason(e.target.value)}
+                    rows={3}
+                    style={{
+                      width: "100%", borderRadius: 8, border: "1px solid #e2e8f0",
+                      padding: "10px 12px", fontSize: 14, marginBottom: 20,
+                      resize: "none", outline: "none"
+                    }}
+                  />
+                  <div className="d-flex gap-3">
+                    <button
+                      onClick={() => { setShowCancelModal(false); setCancelReason(""); }}
+                      style={{
+                        flex: 1, padding: "10px", borderRadius: 8,
+                        border: "1px solid #e2e8f0", background: "#f8fafc",
+                        fontWeight: 600, cursor: "pointer", fontSize: 15
+                      }}
+                    >
+                      Keep Order
+                    </button>
+                    <button
+                      onClick={handleCancelConfirm}
+                      style={{
+                        flex: 1, padding: "10px", borderRadius: 8,
+                        border: "none", background: "#dc2626", color: "#fff",
+                        fontWeight: 600, cursor: "pointer", fontSize: 15
+                      }}
+                    >
+                      Yes, Cancel
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </Container>

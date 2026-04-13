@@ -23,6 +23,11 @@ const updateOrder = async (data) => {
   return response.data;
 };
 
+const adminCancelOrder = async ({ id, cancelReason }) => {
+  const response = await api.put(`user/admin-cancel-order/${id}`, { cancelReason });
+  return response.data;
+};
+
 const getMonthlyOrders = async () => {
   const response = await api.get("user/getMonthWiseOrderIncome");
   return response.data;
@@ -102,6 +107,7 @@ const authService = {
   getDashboardStats,
   getYearlyStats,
   updateOrder,
+  adminCancelOrder,
   getMonthlyReport,
   getYearlyReport,
   getDateRangeReport,

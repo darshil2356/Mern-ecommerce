@@ -200,6 +200,17 @@ export const applyReferralCode = createAsyncThunk(
   }
 );
 
+export const cancelOrder = createAsyncThunk(
+  "user/order/cancel",
+  async ({ id, cancelReason }, thunkAPI) => {
+    try {
+      return await authService.cancelOrder({ id, cancelReason });
+    } catch (error) {
+      return thunkAPI.rejectWithValue(error);
+    }
+  }
+);
+
 export const logout = createAction("auth/logout");
 export const resetState = createAction("Reset_all");
 
@@ -640,6 +651,36 @@ export const authSlice = createSlice({
         if (state.isError) {
           toast.error(action.payload?.response?.data?.message || "Something Went Wrong!");
         }
+      })
+      .addCase(cancelOrder.pending, (state) => {
+        state.isLoading = true;
+      })
+      .addCase(cancelOrder.fulfilled, (state, action) => {
+        state.isLoading = false;
+        state.isError = false;
+        state.isSuccess = true;
+        // Update the order status in singleOrder if it matches
+        if (state.singleOrder?.orders?._id === action.payload?.order?._id) {
+          state.singleOrder.orders.orderStatus = "Cancelled";
+          state.singleOrder.orders.cancelledAt = action.payload?.order?.cancelledAt;
+          state.singleOrder.orders.cancelReason = action.payload?.order?.cancelReason;
+        }
+        // Update in orders list too
+        if (state.getorderedProduct?.orders) {
+          state.getorderedProduct.orders = state.getorderedProduct.orders.map(o =>
+            o._id === action.payload?.order?._id
+              ? { ...o, orderStatus: "Cancelled" }
+              : o
+          );
+        }
+        toast.success("Order cancelled successfully");
+      })
+      .addCase(cancelOrder.rejected, (state, action) => {
+        state.isLoading = false;
+        state.isError = true;
+        state.isSuccess = false;
+        state.message = action.error;
+        toast.error(action.payload?.response?.data?.message || "Failed to cancel order");
       })
       .addCase(logout, (state) => {
         state.user = null;

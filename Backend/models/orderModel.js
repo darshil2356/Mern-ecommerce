@@ -105,6 +105,14 @@ paymentInfo: {
       required: false,
       default: null,
     },
+    size: {
+      type: String,
+      default: null,
+    },
+    barcode: {
+      type: String,
+      default: null,
+    },
     quantity: {
       type: Number,
       required: true,
@@ -206,6 +214,8 @@ paymentInfo: {
     courierName:      { type: String, default: null },
     shippedAt:        { type: Date,   default: null },
     deliveredAt:      { type: Date,   default: null },
+    cancelledAt:      { type: Date,   default: null },
+    cancelReason:     { type: String, default: null },
     statusHistory: [
       {
         status: { type: String },

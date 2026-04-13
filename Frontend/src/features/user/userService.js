@@ -102,6 +102,15 @@ const getUserSingleOrder = async (id) => {
   }
 };
 
+const cancelOrder = async ({ id, cancelReason }) => {
+  const response = await axios.put(
+    `${base_url}user/cancel-order/${id}`,
+    { cancelReason },
+    getConfig()
+  );
+  return response.data;
+};
+
 const updateUser = async (data) => {
   const response = await axios.put(
     `${base_url}user/edit-user`,
@@ -192,6 +201,7 @@ export const authService = {
   createOrder,
   getUserOrders,
   getUserSingleOrder,
+  cancelOrder,
   updateUser,
   forgotPasswordToken,
   resetPass,

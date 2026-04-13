@@ -56,6 +56,17 @@ export const updateAOrder = createAsyncThunk(
   }
 );
 
+export const adminCancelAOrder = createAsyncThunk(
+  "order/admin-cancel-order",
+  async ({ id, cancelReason }, thunkAPI) => {
+    try {
+      return await authService.adminCancelOrder({ id, cancelReason });
+    } catch (error) {
+      return thunkAPI.rejectWithValue(error);
+    }
+  }
+);
+
 export const getMonthlyData = createAsyncThunk(
   "orders/monlthdata",
   async (data, thunkAPI) => {
@@ -223,6 +234,23 @@ export const authSlice = createSlice({
         state.isSuccess = false;
         state.message = action.error;
         state.isLoading = false;
+      })
+      .addCase(adminCancelAOrder.pending, (state) => {
+        state.isLoading = true;
+      })
+      .addCase(adminCancelAOrder.fulfilled, (state, action) => {
+        state.isError = false;
+        state.isLoading = false;
+        state.isSuccess = true;
+        state.singleorder = { orders: action.payload.order };
+        toast.success("Order cancelled successfully");
+      })
+      .addCase(adminCancelAOrder.rejected, (state, action) => {
+        state.isError = true;
+        state.isSuccess = false;
+        state.message = action.error;
+        state.isLoading = false;
+        toast.error(action.payload?.response?.data?.message || "Failed to cancel order");
       })
       .addCase(getaOrder.pending, (state) => {
         state.isLoading = true;

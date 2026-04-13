@@ -1,8 +1,8 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import {
   Card, Row, Col, Tag, Button, Divider, Descriptions, Timeline,
   Space, Alert, Typography, Progress, Avatar, List, Table,
-  Badge, Steps, Statistic
+  Badge, Steps, Statistic, Modal, Input
 } from "antd";
 import { useDispatch, useSelector } from "react-redux";
 import { Link, useLocation, useNavigate } from "react-router-dom";
@@ -12,9 +12,9 @@ import {
   ExclamationCircleOutlined, PhoneOutlined, MailOutlined, GlobalOutlined,
   PrinterOutlined, RocketOutlined, EnvironmentOutlined, DollarOutlined,
   ThunderboltOutlined, GiftOutlined, StarOutlined, SyncOutlined,
-  ShoppingOutlined, CloseCircleOutlined
+  ShoppingOutlined, CloseCircleOutlined, StopOutlined
 } from "@ant-design/icons";
-import { getaOrder } from "../features/auth/authSlice";
+import { getaOrder, adminCancelAOrder } from "../features/auth/authSlice";
 import dayjs from "dayjs";
 import { getColorSwatch, getReadableColorName } from "../utils/colorDisplay";
 
@@ -286,6 +286,8 @@ const ViewOrder = () => {
   const orderId = location.pathname.split("/")[3];
   const dispatch = useDispatch();
   const navigate = useNavigate();
+  const [cancelModalOpen, setCancelModalOpen] = useState(false);
+  const [cancelReason, setCancelReason] = useState("");
   
   useEffect(() => {
     dispatch(getaOrder(orderId));
@@ -445,6 +447,7 @@ const ViewOrder = () => {
   const offerDiscount = breakdown.offerDiscount || 0;
   const coinDiscount = breakdown.coinDiscount || 0;
   const hasBreakdown = directDiscount > 0 || offerDiscount > 0 || coinDiscount > 0;
+  const isCancelledOrder = orderState?.orderStatus === "Cancelled";
 
   // GST/Tax breakdown
   const gstBreakdown = orderState?.gstBreakdown || {};
@@ -571,13 +574,98 @@ const ViewOrder = () => {
               >
                 {orderState?.mode || "ONLINE"}
               </Tag>
+              {orderState?.orderStatus !== "Cancelled" && orderState?.orderStatus !== "Delivered" && (
+                <Button
+                  danger
+                  icon={<StopOutlined />}
+                  size="large"
+                  style={{ borderRadius: '12px', fontWeight: 600 }}
+                  onClick={() => { setCancelReason(""); setCancelModalOpen(true); }}
+                >
+                  Cancel Order
+                </Button>
+              )}
             </Space>
           </Col>
         </Row>
         </div>
       </div>
 
+      {/* Admin Cancel Order Modal */}
+      <Modal
+        title={
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <StopOutlined style={{ color: '#dc2626', fontSize: 20 }} />
+            <span style={{ fontWeight: 700, fontSize: 16 }}>Cancel Order</span>
+          </div>
+        }
+        open={cancelModalOpen}
+        onCancel={() => setCancelModalOpen(false)}
+        footer={[
+          <Button key="back" onClick={() => setCancelModalOpen(false)}>Keep Order</Button>,
+          <Button
+            key="submit"
+            danger
+            type="primary"
+            disabled={!cancelReason.trim()}
+            onClick={() => {
+              dispatch(adminCancelAOrder({ id: orderId, cancelReason: cancelReason.trim() }));
+              setCancelModalOpen(false);
+            }}
+          >
+            Confirm Cancel
+          </Button>
+        ]}
+      >
+        <div style={{ marginBottom: 8, color: '#374151', fontSize: 14 }}>
+          This will:
+          <ul style={{ marginTop: 8, paddingLeft: 20, lineHeight: 2 }}>
+            <li>Cancel the order and restore stock</li>
+            <li>Reverse any purchase-reward coins earned on this order</li>
+            <li>Reverse referrer coins earned from this order</li>
+            <li>Add full purchase amount as coins to customer account (no money-back policy)</li>
+            {orderState?.coinsUsed > 0 && <li>Refund {orderState.coinsUsed} coins used during payment</li>}
+          </ul>
+        </div>
+        <Input.TextArea
+          rows={3}
+          placeholder="Enter cancel reason (required)"
+          value={cancelReason}
+          onChange={e => setCancelReason(e.target.value)}
+          style={{ borderRadius: 8 }}
+        />
+        {!cancelReason.trim() && (
+          <div style={{ color: '#dc2626', fontSize: 12, marginTop: 6 }}>Cancel reason is required</div>
+        )}
+      </Modal>
+
       <Row gutter={[24, 24]}>
+        {/* Cancelled Order Info Banner */}
+        {isCancelledOrder && (
+          <Col span={24}>
+            <Alert
+              type="error"
+              showIcon
+              icon={<StopOutlined />}
+              message={
+                <span style={{ fontWeight: 700, fontSize: 15 }}>
+                  Order Cancelled
+                  {orderState?.cancelledAt && ` — ${dayjs(orderState.cancelledAt).format("DD MMM YYYY, HH:mm")}`}
+                </span>
+              }
+              description={
+                <div>
+                  <div><strong>Reason:</strong> {orderState?.cancelReason || "No reason provided"}</div>
+                  <div style={{ marginTop: 6, color: '#7c3aed', fontWeight: 600 }}>
+                    🪙 ₹{orderState?.totalPriceAfterDiscount?.toFixed(2)} added as coins to customer account
+                  </div>
+                </div>
+              }
+              style={{ borderRadius: 12 }}
+            />
+          </Col>
+        )}
+
         {/* Customer Information Card */}
         <Col xs={24} lg={8}>
           <Card

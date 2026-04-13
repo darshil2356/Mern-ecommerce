@@ -6,7 +6,7 @@ import { buildForegroundNotification } from "../utils/notificationConfig";
 
 const VAPID_KEY = process.env.REACT_APP_FIREBASE_VAPID_KEY;
 
-const usePushNotification = (isLoggedIn) => {
+const usePushNotification = (userId) => {
   const subscribeToken = useCallback(async (token) => {
     try {
       await axios.post(`${base_url}notifications/subscribe`, { token }, getConfig());
@@ -16,7 +16,7 @@ const usePushNotification = (isLoggedIn) => {
   }, []);
 
   useEffect(() => {
-    if (!isLoggedIn) return;
+    if (!userId) return;
     if (!("Notification" in window)) return;
 
     let unsubscribe = null;
@@ -53,7 +53,7 @@ const usePushNotification = (isLoggedIn) => {
     return () => {
       if (typeof unsubscribe === "function") unsubscribe();
     };
-  }, [isLoggedIn, subscribeToken]);
+  }, [userId, subscribeToken]);
 };
 
 export default usePushNotification;

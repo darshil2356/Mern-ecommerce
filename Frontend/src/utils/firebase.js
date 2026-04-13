@@ -14,6 +14,10 @@ const loadScript = (src) =>
 
 let _messaging = null;
 
+export const resetFirebaseMessaging = () => {
+  _messaging = null;
+};
+
 export const initFirebaseMessaging = async () => {
   if (_messaging) return _messaging;
 

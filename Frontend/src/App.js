@@ -35,7 +35,7 @@ import Bundles from "./pages/Bundles";
 
 function App() {
   const user = useSelector((state) => state.auth?.user);
-  usePushNotification(!!user);
+  usePushNotification(user?._id);
   return (
     <>
       <BrowserRouter>

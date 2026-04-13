@@ -9,6 +9,7 @@ import { Typeahead } from "react-bootstrap-typeahead";
 import "react-bootstrap-typeahead/css/Typeahead.css";
 import { getAProduct, getAllProducts } from "../features/products/productSlilce";
 import { getUserCart, getMyReferrals } from "../features/user/userSlice";
+import { resetFirebaseMessaging } from "../utils/firebase";
 
 const NAV_LINKS = [
   { to: "/", label: "Home" },
@@ -56,7 +57,7 @@ const Header = () => {
       setProductOpt(productState.filter(p => p?._id && p?.title).map((p, i) => ({ id: i, prod: p._id, name: p.title })));
   }, [productState]);
 
-  const handleLogout = () => { localStorage.clear(); window.location.reload(); };
+  const handleLogout = () => { resetFirebaseMessaging(); localStorage.clear(); window.location.reload(); };
   const closeMobile = () => setMobileOpen(false);
   const isLoggedIn = authState?.user !== null;
   const categories = productState?.length ? [...new Set(productState.map(p => p.category))].slice(0, 8) : [];

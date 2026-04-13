@@ -687,6 +687,61 @@ const deleteReview = asyncHandler(async (req, res) => {
   }
 });
 
+// ─── REELS: cursor-based paginated feed (only products with videos) ───────────
+const getReels = asyncHandler(async (req, res) => {
+  const limit = Math.min(parseInt(req.query.limit) || 10, 20);
+  const cursor = req.query.cursor;
+
+  // Get logged-in user id if token present (optional auth)
+  let userId = null;
+  try {
+    const jwt = require("jsonwebtoken");
+    const authHeader = req.headers.authorization || "";
+    const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null;
+    if (token) {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      userId = decoded?.id?.toString();
+    }
+  } catch {}
+
+  const filter = { "videos.0": { $exists: true } };
+  if (cursor) filter._id = { $lt: cursor };
+
+  const reels = await Product.find(filter)
+    .select("title price images videos reelLikes reelLikedBy slug")
+    .sort({ reelLikes: -1, _id: -1 })
+    .limit(limit)
+    .lean();
+
+  // Attach per-user liked flag, strip reelLikedBy array from response
+  const reelsOut = reels.map((r) => ({
+    ...r,
+    liked: userId ? (r.reelLikedBy || []).map(String).includes(userId) : false,
+    reelLikedBy: undefined,
+  }));
+
+  const nextCursor = reels.length === limit ? reels[reels.length - 1]._id : null;
+  res.json({ reels: reelsOut, nextCursor, hasMore: !!nextCursor });
+});
+
+// ─── REEL LIKE / UNLIKE ────────────────────────────────────────────────────────
+const toggleReelLike = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  validateMongoDbId(id);
+
+  const userId = req.user._id.toString();
+  const product = await Product.findById(id).select("reelLikedBy reelLikes");
+  if (!product) return res.status(404).json({ message: "Product not found" });
+
+  const alreadyLiked = (product.reelLikedBy || []).map(String).includes(userId);
+  const update = alreadyLiked
+    ? { $pull: { reelLikedBy: userId }, $inc: { reelLikes: -1 } }
+    : { $addToSet: { reelLikedBy: userId }, $inc: { reelLikes: 1 } };
+
+  const updated = await Product.findByIdAndUpdate(id, update, { new: true }).select("reelLikes");
+  res.json({ liked: !alreadyLiked, reelLikes: Math.max(0, updated.reelLikes) });
+});
+
 module.exports = {
   createProduct,
   getaProduct,
@@ -698,4 +753,6 @@ module.exports = {
   getAllReviews,
   markReviewHelpful,
   deleteReview,
+  getReels,
+  toggleReelLike,
 };

@@ -169,6 +169,12 @@ sizeStock: [
       type: Number,
       default: 0,
     },
+    reelLikes: {
+      type: Number,
+      default: 0,
+      index: true,
+    },
+    reelLikedBy: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
     // Review statistics
     ratingStats: {
       5: { type: Number, default: 0 },

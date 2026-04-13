@@ -10,6 +10,8 @@ const {
   getAllReviews,
   markReviewHelpful,
   deleteReview,
+  getReels,
+  toggleReelLike,
 } = require("../controller/productCtrl");
 const { isAdmin, authMiddleware } = require("../middlewares/authMiddleware");
 const { getProductByBarcode } = require("../controller/userCtrl");
@@ -19,6 +21,8 @@ router.post("/", authMiddleware, isAdmin, createProduct);
 router.get("/", getAllProduct);
 
 // Static/specific routes before parameterized ones
+router.get("/reels", getReels);
+router.put("/reels/:id/like", authMiddleware, toggleReelLike);
 router.get("/reviews/all", authMiddleware, isAdmin, getAllReviews);
 router.put("/reviews/helpful", markReviewHelpful);
 router.delete("/reviews/:prodId/:reviewId", authMiddleware, deleteReview);
@@ -30,6 +34,5 @@ router.get("/barcode/:barcode", getProductByBarcode);
 router.get("/:id", getaProduct);
 router.put("/:id", authMiddleware, isAdmin, updateProduct);
 router.delete("/:id", authMiddleware, isAdmin, deleteProduct);
-
 
 module.exports = router;

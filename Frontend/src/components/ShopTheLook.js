@@ -74,7 +74,7 @@ const ShopTheLook = ({ navigate }) => {
     <div style={{ position: 'relative' }}>
       {/* Scroll Container */}
       <div 
-        className="d-flex gap-4 overflow-auto pb-4"
+        className="shop-the-look-container d-flex gap-4 overflow-auto pb-4"
         style={{ 
           scrollbarWidth: 'none', 
           msOverflowStyle: 'none',
@@ -88,6 +88,7 @@ const ShopTheLook = ({ navigate }) => {
             whileInView={{ opacity: 1, scale: 1 }}
             viewport={{ once: true }}
             transition={{ delay: Math.min(index * 0.1, 0.3) }}
+            className="shop-the-look-item"
             style={{
               minWidth: '280px',
               aspectRatio: '9/16',
@@ -300,10 +301,71 @@ const ShopTheLook = ({ navigate }) => {
         .d-flex.gap-4.overflow-auto::-webkit-scrollbar {
           display: none;
         }
+        
+        /* Desktop styles (min-width: 768px) */
+        @media (min-width: 768px) {
+          .shop-the-look-container {
+            height: 400px !important;
+          }
+          
+          .shop-the-look-item {
+            height: 400px !important;
+            width: 300px !important;
+            min-width: 300px !important;
+          }
+          
+          .shop-the-look-item video {
+            object-fit: cover !important;
+          }
+          
+          /* Adjust text sizes for desktop */
+          .shop-the-look-item h4 {
+            font-size: 14px !important;
+          }
+          
+          .shop-the-look-item p {
+            font-size: 16px !important;
+          }
+          
+          .shop-the-look-item button {
+            padding: 8px 12px !important;
+            font-size: 11px !important;
+          }
+          
+          /* Adjust overlay padding */
+          .shop-the-look-item div[style*="position: absolute"][style*="bottom: 0"] {
+            padding: 12px !important;
+            gap: 8px !important;
+          }
+          
+          /* Adjust side stats position */
+          .shop-the-look-item div[style*="position: absolute"][style*="right: 12px"] {
+            bottom: 100px !important;
+          }
+        }
+        
+        /* Mobile styles - keep original */
+        @media (max-width: 767px) {
+          .shop-the-look-item {
+            min-width: 280px !important;
+          }
+          
+          .shop-the-look-item h4 {
+            font-size: 18px !important;
+          }
+          
+          .shop-the-look-item p {
+            font-size: 20px !important;
+          }
+          
+          .shop-the-look-item button {
+            padding: 12px 20px !important;
+            font-size: 13px !important;
+          }
+        }
       `}</style>
     </div>
   );
 };
 
 export default ShopTheLook;
-

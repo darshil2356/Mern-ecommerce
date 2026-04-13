@@ -104,6 +104,17 @@ const Reels = () => {
     }
   };
 
+  // Arrow key navigation
+  useEffect(() => {
+    if (viewMode !== 'fullscreen') return;
+    const handleKeyDown = (e) => {
+      if (e.key === 'ArrowDown' && currentIndex < reelsData.length - 1) scrollToReel(currentIndex + 1);
+      if (e.key === 'ArrowUp' && currentIndex > 0) scrollToReel(currentIndex - 1);
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [viewMode, currentIndex, reelsData.length]);
+
   // Update video play/pause based on currentIndex
   useEffect(() => {
     Object.keys(videoRefs.current).forEach((key) => {
@@ -169,9 +180,18 @@ const Reels = () => {
           bottom: 0,
           background: '#000',
           zIndex: 9999,
-          overflow: 'hidden'
+          overflow: 'hidden',
+          display: 'flex',
+          justifyContent: 'center'
         }}
       >
+        <style>{`
+          @media (min-width: 768px) {
+            .reels-inner { width: 30% !important; }
+          }
+          .reels-scroll::-webkit-scrollbar { display: none; }
+        `}</style>
+        <div className="reels-inner" style={{ position: 'relative', width: '100%', height: '100%' }}>
         {/* Header */}
         <div style={{
           position: 'absolute',
@@ -257,6 +277,7 @@ const Reels = () => {
         {/* Scrollable Reels Container - FULL HEIGHT */}
         <div 
           ref={scrollContainerRef}
+          className="reels-scroll"
           onScroll={handleScroll}
           onTouchStart={handleTouchStart}
           onTouchEnd={handleTouchEnd}
@@ -266,7 +287,8 @@ const Reels = () => {
             overflowX: 'hidden',
             scrollSnapType: 'y mandatory',
             scrollBehavior: 'smooth',
-            WebkitOverflowScrolling: 'touch'
+            WebkitOverflowScrolling: 'touch',
+            scrollbarWidth: 'none'
           }}
         >
           {reelsData.slice(0, visibleReels).map((item, index) => (
@@ -454,6 +476,7 @@ const Reels = () => {
           {reelsData.length > 5 && (
             <span style={{ color: '#fff', fontSize: '11px', marginLeft: '4px' }}>+{reelsData.length}</span>
           )}
+        </div>
         </div>
       </div>
     );

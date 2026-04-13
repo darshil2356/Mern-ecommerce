@@ -39,6 +39,7 @@ import ReferralSettings from "./pages/ReferralSettings";
 import CoinSettings from "./pages/CoinSettings";
 import LiveTrackingDashboard from "./pages/LiveTrackingDashboard";
 import TrackingAnalytics from "./pages/TrackingAnalytics";
+import DropoffReports from "./pages/DropoffReports";
 
 function App() {
   return (
@@ -101,6 +102,7 @@ function App() {
           <Route path="list-bundle" element={<Bundlelist />} />
           <Route path="live-tracking" element={<LiveTrackingDashboard />} />
           <Route path="tracking-analytics" element={<TrackingAnalytics />} />
+          <Route path="dropoff-reports" element={<DropoffReports />} />
         </Route>
       </Routes>
     </Router>

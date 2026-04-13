@@ -91,8 +91,6 @@ const Checkout = () => {
 
   useEffect(() => {
     dispatch(getUserCart(getConfig()));
-    // Track checkout started
-    trackingService.trackCheckoutStarted(cartState || [], totalAmount);
 
     // Fetch GST settings from public endpoint (no auth needed)
     axios.get(`${base_url}user/public-settings`).then(res => {
@@ -108,7 +106,16 @@ const Checkout = () => {
 
   useEffect(() => {
     if (!cartState?.length) { setTotalAmount(0); return; }
-    setTotalAmount(cartState.reduce((s, i) => s + Number(i.quantity) * i.price, 0));
+    const total = cartState.reduce((s, i) => s + Number(i.quantity) * i.price, 0);
+    setTotalAmount(total);
+    // Track checkout started with real total and item details
+    const items = cartState.map(i => ({
+      productId: i.productId?._id || i.productId,
+      productName: i.productId?.title || i.bundleTitle || 'Unknown',
+      quantity: i.quantity,
+      price: i.price,
+    }));
+    trackingService.trackCheckoutStarted(items, total);
   }, [cartState]);
 
   useEffect(() => {

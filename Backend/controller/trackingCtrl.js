@@ -24,6 +24,130 @@ const getRequestIp = (req) => {
 
 const getRequestUserAgent = (req) => req.headers["user-agent"] || "unknown";
 
+// Checkout drop-offs: logged-in users who started checkout but never completed
+const getCheckoutDropoffs = asyncHandler(async (req, res) => {
+  const { period = "24h" } = req.query;
+  const periodMap = { "1h": 1, "24h": 24, "7d": 168, "30d": 720 };
+  const startDate = new Date(Date.now() - (periodMap[period] || 24) * 60 * 60 * 1000);
+
+  const Cart = require("../models/cartModel");
+  const Order = require("../models/orderModel");
+
+  // All users with items in cart
+  const cartItems = await Cart.find({})
+    .populate("userId", "firstname lastname email mobile")
+    .populate("productId", "title")
+    .lean();
+
+  const userCartMap = {};
+  for (const item of cartItems) {
+    if (!item.userId) continue;
+    const uid = item.userId._id.toString();
+    if (!userCartMap[uid]) {
+      userCartMap[uid] = { user: item.userId, items: [], totalValue: 0 };
+    }
+    const name = item.isBundle ? item.bundleTitle : (item.productId?.title || "Unknown");
+    const price = Number(item.price) || 0;
+    const qty = Number(item.quantity) || 1;
+    userCartMap[uid].items.push({ productName: name, quantity: qty, price });
+    userCartMap[uid].totalValue += price * qty;
+  }
+
+  // Users with non-cancelled order — exclude
+  const orderedUserIds = new Set(
+    (await Order.find({ orderStatus: { $nin: ["Cancelled"] } }).select("user").lean())
+      .map(o => o.user?.toString()).filter(Boolean)
+  );
+
+  const dropoffs = [];
+  for (const [uid, data] of Object.entries(userCartMap)) {
+    if (orderedUserIds.has(uid)) continue;
+
+    // Get user's most recent event
+    const lastEvent = await Event.findOne({ userId: uid }).sort({ timestamp: -1 }).lean();
+    if (!lastEvent) continue;
+
+    // Only checkout dropoff if their LAST page was /checkout
+    const lastPage = lastEvent.page || "";
+    if (!lastPage.includes("/checkout")) continue;
+
+    // Must have visited checkout within the selected period
+    const checkoutEvent = await Event.findOne({
+      userId: uid,
+      eventType: "checkout_started",
+      timestamp: { $gte: startDate },
+    }).sort({ timestamp: -1 }).lean();
+    if (!checkoutEvent) continue;
+
+    dropoffs.push({
+      userId: data.user,
+      items: data.items,
+      totalValue: data.totalValue,
+      itemCount: data.items.length,
+      droppedAt: checkoutEvent.timestamp,
+    });
+  }
+
+  res.json({ success: true, dropoffs, count: dropoffs.length });
+});
+
+// Cart drop-offs: user has items in cart and their last page was NOT /checkout
+const getCartDropoffs = asyncHandler(async (req, res) => {
+  const { period = "24h" } = req.query;
+  const periodMap = { "1h": 1, "24h": 24, "7d": 168, "30d": 720 };
+  const startDate = new Date(Date.now() - (periodMap[period] || 24) * 60 * 60 * 1000);
+
+  const Cart = require("../models/cartModel");
+  const Order = require("../models/orderModel");
+
+  const cartItems = await Cart.find({})
+    .populate("userId", "firstname lastname email mobile")
+    .populate("productId", "title")
+    .lean();
+
+  const userCartMap = {};
+  for (const item of cartItems) {
+    if (!item.userId) continue;
+    const uid = item.userId._id.toString();
+    if (!userCartMap[uid]) {
+      userCartMap[uid] = { user: item.userId, items: [], totalValue: 0, lastAdded: item.createdAt };
+    }
+    const name = item.isBundle ? item.bundleTitle : (item.productId?.title || "Unknown");
+    const price = Number(item.price) || 0;
+    const qty = Number(item.quantity) || 1;
+    userCartMap[uid].items.push({ productName: name, quantity: qty, price });
+    userCartMap[uid].totalValue += price * qty;
+    if (item.createdAt > userCartMap[uid].lastAdded) userCartMap[uid].lastAdded = item.createdAt;
+  }
+
+  // Users with non-cancelled order — exclude
+  const orderedUserIds = new Set(
+    (await Order.find({ orderStatus: { $nin: ["Cancelled"] } }).select("user").lean())
+      .map(o => o.user?.toString()).filter(Boolean)
+  );
+
+  const dropoffs = [];
+  for (const [uid, data] of Object.entries(userCartMap)) {
+    if (orderedUserIds.has(uid)) continue;
+
+    // Get user's most recent event
+    const lastEvent = await Event.findOne({ userId: uid }).sort({ timestamp: -1 }).lean();
+
+    // If last page was /checkout, they belong in checkout dropoffs
+    if (lastEvent && lastEvent.page?.includes("/checkout")) continue;
+
+    dropoffs.push({
+      userId: data.user,
+      items: data.items,
+      totalValue: data.totalValue,
+      itemCount: data.items.length,
+      lastAddedAt: data.lastAdded,
+    });
+  }
+
+  res.json({ success: true, dropoffs, count: dropoffs.length });
+});
+
 // Get tracking config (public)
 const getTrackingConfig = asyncHandler(async (req, res) => {
   const config = await getConfig();
@@ -488,4 +612,6 @@ module.exports = {
   resolveIssue,
   sendFollowUp,
   getAnalytics,
+  getCheckoutDropoffs,
+  getCartDropoffs,
 };

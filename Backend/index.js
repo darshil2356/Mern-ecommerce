@@ -40,6 +40,17 @@ const allowedOrigins = [
   process.env.ADMIN_URL  || "http://localhost:3000",
 ];
 
+const corsOptions = {
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error(`CORS blocked: ${origin}`));
+    }
+  },
+  credentials: true,
+};
+
 const io = new Server(server, {
   cors: {
     origin: allowedOrigins,
@@ -54,10 +65,7 @@ const io = new Server(server, {
 dbConnect();
 initFirebase();
 app.use(morgan("dev"));
-app.use(cors({
-  origin: allowedOrigins,
-  credentials: true,
-}));
+app.use(cors(corsOptions));
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(cookieParser());

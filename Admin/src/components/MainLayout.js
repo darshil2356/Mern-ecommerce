@@ -98,6 +98,11 @@ const MainLayout = () => {
           icon: <FaChartLine className="fs-5" />,
           label: "Tracking Analytics",
         },
+        {
+          key: "dropoff-reports",
+          icon: <FaChartBar className="fs-5" />,
+          label: "Drop-off Reports",
+        },
       ],
     },
     {

@@ -11,6 +11,8 @@ const {
   resolveIssue,
   sendFollowUp,
   getAnalytics,
+  getCheckoutDropoffs,
+  getCartDropoffs,
 } = require("../controller/trackingCtrl");
 const { authMiddleware, isAdmin } = require("../middlewares/authMiddleware");
 
@@ -32,5 +34,7 @@ router.get("/issues", authMiddleware, isAdmin, getIssues);
 router.put("/issues/:issueId/resolve", authMiddleware, isAdmin, resolveIssue);
 router.post("/followup", authMiddleware, isAdmin, sendFollowUp);
 router.get("/analytics", authMiddleware, isAdmin, getAnalytics);
+router.get("/checkout-dropoffs", authMiddleware, isAdmin, getCheckoutDropoffs);
+router.get("/cart-dropoffs", authMiddleware, isAdmin, getCartDropoffs);
 
 module.exports = router;

@@ -448,20 +448,15 @@ const getAllProduct = asyncHandler(async (req, res) => {
     const product = await query.lean();
     // Ensure quantity is normalized for old products with sizeStock / variants
     const normalizedProducts = product.map((prod) => {
-      const calcQuantity = () => {
-        const p = prod.toObject ? prod.toObject() : prod;
-        if (p.variants && p.variants.length > 0) {
-          return p.variants.reduce((total, variant) => total + (variant.sizeStock || []).reduce((sum, item) => sum + Number(item.quantity || 0), 0), 0);
-        }
-        if (p.sizeStock && p.sizeStock.length > 0) {
-          return p.sizeStock.reduce((sum, item) => sum + Number(item.quantity || 0), 0);
-        }
-        return Number(p.quantity || 0);
-      };
-      return {
-        ...prod.toObject(),
-        quantity: calcQuantity(),
-      };
+      let quantity;
+      if (prod.variants && prod.variants.length > 0) {
+        quantity = prod.variants.reduce((total, variant) => total + (variant.sizeStock || []).reduce((sum, item) => sum + Number(item.quantity || 0), 0), 0);
+      } else if (prod.sizeStock && prod.sizeStock.length > 0) {
+        quantity = prod.sizeStock.reduce((sum, item) => sum + Number(item.quantity || 0), 0);
+      } else {
+        quantity = Number(prod.quantity || 0);
+      }
+      return { ...prod, quantity };
     });
     res.json(normalizedProducts);
   } catch (error) {

@@ -16,21 +16,20 @@ const { getProductByBarcode } = require("../controller/userCtrl");
 const router = express.Router();
 
 router.post("/", authMiddleware, isAdmin, createProduct);
+router.get("/", getAllProduct);
 
-router.get("/:id", getaProduct);
-router.put("/wishlist", authMiddleware, addToWishlist);
-router.put("/rating", authMiddleware, rating);
-
-// New review management routes
+// Static/specific routes before parameterized ones
 router.get("/reviews/all", authMiddleware, isAdmin, getAllReviews);
 router.put("/reviews/helpful", markReviewHelpful);
 router.delete("/reviews/:prodId/:reviewId", authMiddleware, deleteReview);
+router.put("/wishlist", authMiddleware, addToWishlist);
+router.put("/rating", authMiddleware, rating);
+router.get("/barcode/:barcode", getProductByBarcode);
 
+// Parameterized routes last
+router.get("/:id", getaProduct);
 router.put("/:id", authMiddleware, isAdmin, updateProduct);
 router.delete("/:id", authMiddleware, isAdmin, deleteProduct);
-
-router.get("/", getAllProduct);
-router.get("/barcode/:barcode", getProductByBarcode);
 
 
 module.exports = router;

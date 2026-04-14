@@ -124,18 +124,25 @@ export const productSlice = createSlice({
 // state.productVideos = action.payload.videos || [];
 
 
-state.productColors = action.payload.color?._id || "";
-state.productSize = action.payload.size || [];
-state.productVideos = action.payload.videos || [];
-
+        state.productColors = action.payload.color?._id || "";
+        state.productSize = action.payload.size || [];
+        state.productVideos = action.payload.videos || [];
         state.productQuantity = action.payload.quantity;
         state.inventory = action.payload.inventory;
         state.sizeStock = action.payload.sizeStock || [];
-  state.variants = action.payload.variants || [];
-
-
-
+        state.variants = action.payload.variants || [];
         state.productImages = action.payload.images;
+        state.subcategory = action.payload.subcategory || "";
+        state.short_description = action.payload.short_description || "";
+        state.highlights = action.payload.highlights || [];
+        state.search_keywords = action.payload.search_keywords || [];
+        state.mrp = action.payload.mrp || "";
+        state.discount_percentage = action.payload.discount_percentage || "";
+        state.sku = action.payload.sku || "";
+        state.min_stock_alert = action.payload.min_stock_alert ?? 5;
+        state.attributes = action.payload.attributes || {};
+        state.seo = action.payload.seo || {};
+        state.shipping = action.payload.shipping || {};
       })
       .addCase(getAProduct.rejected, (state, action) => {
         state.isLoading = false;

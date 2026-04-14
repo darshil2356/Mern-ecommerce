@@ -15,8 +15,10 @@ const {
 } = require("../controller/productCtrl");
 const { isAdmin, authMiddleware } = require("../middlewares/authMiddleware");
 const { getProductByBarcode } = require("../controller/userCtrl");
+const { aiGenerateProduct } = require("../controller/aiProductCtrl");
 const router = express.Router();
 
+router.post("/ai-generate", authMiddleware, isAdmin, aiGenerateProduct);
 router.post("/", authMiddleware, isAdmin, createProduct);
 router.get("/", getAllProduct);
 

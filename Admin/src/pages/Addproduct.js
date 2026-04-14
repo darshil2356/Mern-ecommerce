@@ -17,6 +17,7 @@ import JsBarcode from "jsbarcode";
 import { FaEye, FaDownload, FaPlus, FaMinus, FaTrash, FaImage, FaVideo } from "react-icons/fa";
 import { MdPrint, MdInventory, MdCategory, MdColorLens, MdAttachMoney } from "react-icons/md";
 import BarcodeModal from "../components/BarcodeModal";
+import AIProductGenerator from "../components/AIProductGenerator";
 
 import {
   uploadImg,
@@ -141,6 +142,17 @@ const Addproduct = () => {
     productQuantity,
     productImages,
     productVideos,
+    subcategory: productSubcategory,
+    short_description: productShortDesc,
+    highlights: productHighlights,
+    search_keywords: productSearchKeywords,
+    mrp: productMrp,
+    discount_percentage: productDiscount,
+    sku: productSku,
+    min_stock_alert: productMinStock,
+    attributes: productAttributes,
+    seo: productSeo,
+    shipping: productShipping,
   } = newProduct;
 
   const videoState = useSelector((state) => state?.upload?.videos);
@@ -202,6 +214,17 @@ const Addproduct = () => {
       category: productCategory || "",
       tags: productTag || "",
       hsnCode: newProduct?.hsnCode || newProduct?.productHsn || "",
+      subcategory: productSubcategory || "",
+      short_description: productShortDesc || "",
+      highlights: productHighlights || [],
+      search_keywords: productSearchKeywords || [],
+      mrp: productMrp || "",
+      discount_percentage: productDiscount || "",
+      sku: productSku || "",
+      min_stock_alert: productMinStock ?? 5,
+      attributes: productAttributes || { material: "", pattern: "", fit: "", occasion: "", gender: "", age_group: "" },
+      seo: productSeo || { meta_title: "", meta_description: "", meta_keywords: [] },
+      shipping: productShipping || { weight: "", dimensions: "", is_fragile: false },
       color: productColors?._id || productColors || undefined,
       sizeStock: newProduct?.sizeStock?.map((s) => ({
         size: s.size,
@@ -419,6 +442,52 @@ const Addproduct = () => {
             </p>
           </div>
           <div className="d-flex gap-3">
+            <AIProductGenerator
+              onGenerated={(data) => {
+                if (data.name) formik.setFieldValue("title", data.name);
+                if (data.description) formik.setFieldValue("description", data.description);
+                if (data.pricing?.selling_price) formik.setFieldValue("price", data.pricing.selling_price);
+                if (data.brand) formik.setFieldValue("brand", data.brand);
+                if (data.category) formik.setFieldValue("category", data.category);
+                if (data.tags?.length) {
+                  const tagMap = { featured: "featured", popular: "popular", special: "special" };
+                  const matched = data.tags.find((t) => tagMap[t?.toLowerCase()]);
+                  if (matched) formik.setFieldValue("tags", matched.toLowerCase());
+                }
+                if (data.subcategory) formik.setFieldValue("subcategory", data.subcategory);
+                if (data.short_description) formik.setFieldValue("short_description", data.short_description);
+                if (data.highlights?.length) formik.setFieldValue("highlights", data.highlights);
+                if (data.search_keywords?.length) formik.setFieldValue("search_keywords", data.search_keywords);
+                if (data.pricing?.mrp) formik.setFieldValue("mrp", data.pricing.mrp);
+                if (data.pricing?.discount_percentage) formik.setFieldValue("discount_percentage", data.pricing.discount_percentage);
+                if (data.inventory?.sku) formik.setFieldValue("sku", data.inventory.sku);
+                if (data.inventory?.min_stock_alert) formik.setFieldValue("min_stock_alert", data.inventory.min_stock_alert);
+                if (data.attributes) {
+                  formik.setFieldValue("attributes", {
+                    material: data.attributes.material || "",
+                    pattern: data.attributes.pattern || "",
+                    fit: data.attributes.fit || "",
+                    occasion: data.attributes.occasion || "",
+                    gender: data.attributes.gender || "",
+                    age_group: data.attributes.age_group || "",
+                  });
+                }
+                if (data.seo) {
+                  formik.setFieldValue("seo", {
+                    meta_title: data.seo.meta_title || "",
+                    meta_description: data.seo.meta_description || "",
+                    meta_keywords: data.seo.meta_keywords || [],
+                  });
+                }
+                if (data.shipping) {
+                  formik.setFieldValue("shipping", {
+                    weight: data.shipping.weight || "",
+                    dimensions: data.shipping.dimensions || "",
+                    is_fragile: data.shipping.is_fragile || false,
+                  });
+                }
+              }}
+            />
             <Button
               onClick={() => navigate("/admin/list-product")}
               style={{
@@ -490,6 +559,20 @@ const Addproduct = () => {
 
               <div className="mb-4">
                 <label className="fw-medium mb-2 d-block" style={{ color: "#1a1a1a" }}>
+                  Short Description
+                </label>
+                <Input.TextArea
+                  rows={2}
+                  placeholder="Brief product summary (shown in listings)"
+                  name="short_description"
+                  value={formik.values.short_description}
+                  onChange={formik.handleChange("short_description")}
+                  style={{ borderRadius: "8px" }}
+                />
+              </div>
+
+              <div className="mb-4">
+                <label className="fw-medium mb-2 d-block" style={{ color: "#1a1a1a" }}>
                   Description <span className="text-danger">*</span>
                 </label>
                 <div style={{ 
@@ -511,32 +594,7 @@ const Addproduct = () => {
               </div>
 
               <div className="mb-4">
-                <label className="fw-medium mb-2 d-block" style={{ color: "#1a1a1a" }}>
-                  Price <span className="text-danger">*</span>
-                </label>
-                <Input
-                  size="large"
-                  type="number"
-                  prefix={<MdAttachMoney style={{ color: "#8c8c8c" }} />}
-                  placeholder="Enter product price"
-                  name="price"
-                  value={formik.values.price}
-                  onChange={formik.handleChange("price")}
-                  onBlur={formik.handleBlur("price")}
-                  style={{
-                    borderRadius: "8px",
-                    border: formik.touched.price && formik.errors.price ? "1px solid #ff4d4f" : "1px solid #d9d9d9",
-                  }}
-                />
-                {formik.touched.price && formik.errors.price && (
-                  <span className="text-danger" style={{ fontSize: "12px" }}>{formik.errors.price}</span>
-                )}
-              </div>
-
-              <div className="mb-4">
-                <label className="fw-medium mb-2 d-block" style={{ color: "#1a1a1a" }}>
-                  HSN Code
-                </label>
+                <label className="fw-medium mb-2 d-block" style={{ color: "#1a1a1a" }}>HSN Code</label>
                 <Input
                   size="large"
                   placeholder="Enter HSN code (4-8 digits)"
@@ -544,16 +602,89 @@ const Addproduct = () => {
                   value={formik.values.hsnCode}
                   onChange={formik.handleChange("hsnCode")}
                   onBlur={formik.handleBlur("hsnCode")}
-                  style={{
-                    borderRadius: "8px",
-                    border: formik.touched.hsnCode && formik.errors.hsnCode ? "1px solid #ff4d4f" : "1px solid #d9d9d9",
-                  }}
+                  style={{ borderRadius: "8px", border: formik.touched.hsnCode && formik.errors.hsnCode ? "1px solid #ff4d4f" : "1px solid #d9d9d9" }}
                 />
                 {formik.touched.hsnCode && formik.errors.hsnCode && (
                   <span className="text-danger" style={{ fontSize: "12px" }}>{formik.errors.hsnCode}</span>
                 )}
               </div>
+
+              <div className="mb-4">
+                <label className="fw-medium mb-2 d-block" style={{ color: "#1a1a1a" }}>
+                  Highlights
+                </label>
+                {(formik.values.highlights || []).map((h, i) => (
+                  <div key={i} className="d-flex gap-2 mb-2">
+                    <Input
+                      value={h}
+                      placeholder={`Highlight ${i + 1}`}
+                      onChange={(e) => {
+                        const updated = [...formik.values.highlights];
+                        updated[i] = e.target.value;
+                        formik.setFieldValue("highlights", updated);
+                      }}
+                      style={{ borderRadius: "8px" }}
+                    />
+                    <Button danger type="text" onClick={() => {
+                      const updated = formik.values.highlights.filter((_, idx) => idx !== i);
+                      formik.setFieldValue("highlights", updated);
+                    }}>✕</Button>
+                  </div>
+                ))}
+                <Button type="dashed" size="small" onClick={() => formik.setFieldValue("highlights", [...(formik.values.highlights || []), ""])}>
+                  + Add Highlight
+                </Button>
+              </div>
+
+              <div className="mb-0">
+                <label className="fw-medium mb-2 d-block" style={{ color: "#1a1a1a" }}>
+                  Search Keywords
+                </label>
+                <Select
+                  mode="tags"
+                  size="large"
+                  style={{ width: "100%" }}
+                  placeholder="Type keyword and press Enter"
+                  value={formik.values.search_keywords || []}
+                  onChange={(val) => formik.setFieldValue("search_keywords", val)}
+                />
+              </div>
             </form>
+          </Card>
+
+          {/* Pricing Card */}
+          <Card
+            style={{ borderRadius: "12px", border: "none", boxShadow: "0 1px 3px rgba(0,0,0,0.08)", marginBottom: "24px" }}
+            bodyStyle={{ padding: "24px" }}
+          >
+            <div className="d-flex align-items-center gap-2 mb-4">
+              <MdAttachMoney style={{ fontSize: "20px", color: "#52c41a" }} />
+              <h4 className="mb-0" style={{ fontWeight: 600 }}>Pricing</h4>
+            </div>
+            <div className="row g-3">
+              <div className="col-md-4">
+                <label className="fw-medium mb-2 d-block" style={{ color: "#1a1a1a" }}>Selling Price <span className="text-danger">*</span></label>
+                <Input size="large" type="number" prefix="₹" placeholder="799" name="price"
+                  value={formik.values.price} onChange={formik.handleChange("price")} onBlur={formik.handleBlur("price")}
+                  style={{ borderRadius: "8px", border: formik.touched.price && formik.errors.price ? "1px solid #ff4d4f" : "1px solid #d9d9d9" }}
+                />
+                {formik.touched.price && formik.errors.price && <span className="text-danger" style={{ fontSize: "12px" }}>{formik.errors.price}</span>}
+              </div>
+              <div className="col-md-4">
+                <label className="fw-medium mb-2 d-block" style={{ color: "#1a1a1a" }}>MRP</label>
+                <Input size="large" type="number" prefix="₹" placeholder="1299" name="mrp"
+                  value={formik.values.mrp} onChange={formik.handleChange("mrp")}
+                  style={{ borderRadius: "8px" }}
+                />
+              </div>
+              <div className="col-md-4">
+                <label className="fw-medium mb-2 d-block" style={{ color: "#1a1a1a" }}>Discount %</label>
+                <Input size="large" type="number" suffix="%" placeholder="38" name="discount_percentage"
+                  value={formik.values.discount_percentage} onChange={formik.handleChange("discount_percentage")}
+                  style={{ borderRadius: "8px" }}
+                />
+              </div>
+            </div>
           </Card>
 
           {/* Category & Brand Card */}
@@ -622,6 +753,14 @@ const Addproduct = () => {
                 {formik.touched.category && formik.errors.category && (
                   <span className="text-danger" style={{ fontSize: "12px" }}>{formik.errors.category}</span>
                 )}
+              </div>
+
+              <div className="col-md-6">
+                <label className="fw-medium mb-2 d-block" style={{ color: "#1a1a1a" }}>Subcategory</label>
+                <Input size="large" placeholder="e.g. T-Shirts" name="subcategory"
+                  value={formik.values.subcategory} onChange={formik.handleChange("subcategory")}
+                  style={{ borderRadius: "8px" }}
+                />
               </div>
 
               <div className="col-md-6">
@@ -765,47 +904,146 @@ const Addproduct = () => {
 
           {/* Inventory Settings Card */}
           <Card
-            style={{
-              borderRadius: "12px",
-              border: "none",
-              boxShadow: "0 1px 3px rgba(0,0,0,0.08)",
-              marginBottom: "24px",
-            }}
+            style={{ borderRadius: "12px", border: "none", boxShadow: "0 1px 3px rgba(0,0,0,0.08)", marginBottom: "24px" }}
             bodyStyle={{ padding: "24px" }}
           >
             <div className="d-flex align-items-center gap-2 mb-4">
               <MdInventory style={{ fontSize: "20px", color: "#fa8c16" }} />
-              <h4 className="mb-0" style={{ fontWeight: 600 }}>Inventory Settings</h4>
+              <h4 className="mb-0" style={{ fontWeight: 600 }}>Inventory & SKU</h4>
             </div>
-
+            <div className="row g-3 mb-4">
+              <div className="col-md-6">
+                <label className="fw-medium mb-2 d-block" style={{ color: "#1a1a1a" }}>SKU</label>
+                <Input size="large" placeholder="e.g. TSHIRT-M-SKY-001" name="sku"
+                  value={formik.values.sku} onChange={formik.handleChange("sku")}
+                  style={{ borderRadius: "8px" }}
+                />
+              </div>
+              <div className="col-md-6">
+                <label className="fw-medium mb-2 d-block" style={{ color: "#1a1a1a" }}>Min Stock Alert</label>
+                <Input size="large" type="number" placeholder="5" name="min_stock_alert"
+                  value={formik.values.min_stock_alert} onChange={formik.handleChange("min_stock_alert")}
+                  style={{ borderRadius: "8px" }}
+                />
+              </div>
+            </div>
             <div className="d-flex gap-4">
               <div className="form-check">
-                <input
-                  className="form-check-input"
-                  type="checkbox"
-                  checked={true}
-                  disabled
+                <input className="form-check-input" type="checkbox" checked={true} disabled
                   style={{ width: "18px", height: "18px", cursor: "not-allowed" }}
                 />
-                <label className="form-check-label ms-2 fw-medium">
-                  Offline Store
-                </label>
+                <label className="form-check-label ms-2 fw-medium">Offline Store</label>
               </div>
-
               <div className="form-check">
-                <input
-                  className="form-check-input"
-                  type="checkbox"
-                  name="inventory.online"
+                <input className="form-check-input" type="checkbox" name="inventory.online"
                   checked={formik.values.inventory.online}
-                  onChange={(e) =>
-                    formik.setFieldValue("inventory.online", e.target.checked)
-                  }
+                  onChange={(e) => formik.setFieldValue("inventory.online", e.target.checked)}
                   style={{ width: "18px", height: "18px" }}
                 />
-                <label className="form-check-label ms-2 fw-medium">
-                  Online Store
-                </label>
+                <label className="form-check-label ms-2 fw-medium">Online Store</label>
+              </div>
+            </div>
+          </Card>
+
+          {/* Attributes Card */}
+          <Card
+            style={{ borderRadius: "12px", border: "none", boxShadow: "0 1px 3px rgba(0,0,0,0.08)", marginBottom: "24px" }}
+            bodyStyle={{ padding: "24px" }}
+          >
+            <div className="d-flex align-items-center gap-2 mb-4">
+              <MdColorLens style={{ fontSize: "20px", color: "#eb2f96" }} />
+              <h4 className="mb-0" style={{ fontWeight: 600 }}>Product Attributes</h4>
+            </div>
+            <div className="row g-3">
+              {[
+                { key: "material", label: "Material", placeholder: "e.g. Cotton Blend" },
+                { key: "pattern", label: "Pattern", placeholder: "e.g. Graphic Print" },
+                { key: "fit", label: "Fit", placeholder: "e.g. Regular Fit" },
+                { key: "occasion", label: "Occasion", placeholder: "e.g. Casual" },
+                { key: "gender", label: "Gender", placeholder: "e.g. Men" },
+                { key: "age_group", label: "Age Group", placeholder: "e.g. Adult" },
+              ].map(({ key, label, placeholder }) => (
+                <div className="col-md-6" key={key}>
+                  <label className="fw-medium mb-2 d-block" style={{ color: "#1a1a1a" }}>{label}</label>
+                  <Input size="large" placeholder={placeholder}
+                    value={formik.values.attributes?.[key] || ""}
+                    onChange={(e) => formik.setFieldValue(`attributes.${key}`, e.target.value)}
+                    style={{ borderRadius: "8px" }}
+                  />
+                </div>
+              ))}
+            </div>
+          </Card>
+
+          {/* SEO Card */}
+          <Card
+            style={{ borderRadius: "12px", border: "none", boxShadow: "0 1px 3px rgba(0,0,0,0.08)", marginBottom: "24px" }}
+            bodyStyle={{ padding: "24px" }}
+          >
+            <div className="d-flex align-items-center gap-2 mb-4">
+              <MdCategory style={{ fontSize: "20px", color: "#1890ff" }} />
+              <h4 className="mb-0" style={{ fontWeight: 600 }}>SEO</h4>
+            </div>
+            <div className="mb-3">
+              <label className="fw-medium mb-2 d-block" style={{ color: "#1a1a1a" }}>Meta Title</label>
+              <Input size="large" placeholder="SEO meta title"
+                value={formik.values.seo?.meta_title || ""}
+                onChange={(e) => formik.setFieldValue("seo.meta_title", e.target.value)}
+                style={{ borderRadius: "8px" }}
+              />
+            </div>
+            <div className="mb-3">
+              <label className="fw-medium mb-2 d-block" style={{ color: "#1a1a1a" }}>Meta Description</label>
+              <Input.TextArea rows={2} placeholder="SEO meta description"
+                value={formik.values.seo?.meta_description || ""}
+                onChange={(e) => formik.setFieldValue("seo.meta_description", e.target.value)}
+                style={{ borderRadius: "8px" }}
+              />
+            </div>
+            <div>
+              <label className="fw-medium mb-2 d-block" style={{ color: "#1a1a1a" }}>Meta Keywords</label>
+              <Select mode="tags" size="large" style={{ width: "100%" }} placeholder="Type keyword and press Enter"
+                value={formik.values.seo?.meta_keywords || []}
+                onChange={(val) => formik.setFieldValue("seo.meta_keywords", val)}
+              />
+            </div>
+          </Card>
+
+          {/* Shipping Card */}
+          <Card
+            style={{ borderRadius: "12px", border: "none", boxShadow: "0 1px 3px rgba(0,0,0,0.08)", marginBottom: "24px" }}
+            bodyStyle={{ padding: "24px" }}
+          >
+            <div className="d-flex align-items-center gap-2 mb-4">
+              <MdInventory style={{ fontSize: "20px", color: "#13c2c2" }} />
+              <h4 className="mb-0" style={{ fontWeight: 600 }}>Shipping</h4>
+            </div>
+            <div className="row g-3">
+              <div className="col-md-5">
+                <label className="fw-medium mb-2 d-block" style={{ color: "#1a1a1a" }}>Weight</label>
+                <Input size="large" placeholder="e.g. 200g"
+                  value={formik.values.shipping?.weight || ""}
+                  onChange={(e) => formik.setFieldValue("shipping.weight", e.target.value)}
+                  style={{ borderRadius: "8px" }}
+                />
+              </div>
+              <div className="col-md-5">
+                <label className="fw-medium mb-2 d-block" style={{ color: "#1a1a1a" }}>Dimensions</label>
+                <Input size="large" placeholder="e.g. 25cm x 20cm x 2cm"
+                  value={formik.values.shipping?.dimensions || ""}
+                  onChange={(e) => formik.setFieldValue("shipping.dimensions", e.target.value)}
+                  style={{ borderRadius: "8px" }}
+                />
+              </div>
+              <div className="col-md-2 d-flex align-items-end">
+                <div className="form-check">
+                  <input className="form-check-input" type="checkbox"
+                    checked={formik.values.shipping?.is_fragile || false}
+                    onChange={(e) => formik.setFieldValue("shipping.is_fragile", e.target.checked)}
+                    style={{ width: "18px", height: "18px" }}
+                  />
+                  <label className="form-check-label ms-2 fw-medium">Fragile</label>
+                </div>
               </div>
             </div>
           </Card>

@@ -149,6 +149,38 @@ sizeStock: [
   },
 ],
 
+    subcategory: { type: String, trim: true },
+    short_description: { type: String, trim: true },
+    highlights: [{ type: String }],
+    search_keywords: [{ type: String }],
+
+    mrp: { type: Number },
+    discount_percentage: { type: Number },
+
+    sku: { type: String, trim: true, sparse: true, index: true },
+    min_stock_alert: { type: Number, default: 5 },
+
+    attributes: {
+      material: String,
+      pattern: String,
+      fit: String,
+      occasion: String,
+      gender: String,
+      age_group: String,
+    },
+
+    seo: {
+      meta_title: String,
+      meta_description: String,
+      meta_keywords: [{ type: String }],
+    },
+
+    shipping: {
+      weight: String,
+      dimensions: String,
+      is_fragile: { type: Boolean, default: false },
+    },
+
     tags: String,
     ratings: [
       {

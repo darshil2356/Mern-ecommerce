@@ -355,9 +355,9 @@ const SingleProduct = () => {
   return (
     <>
       <Meta
-        title={productState?.title}
-        description={productState?.description?.replace(/<[^>]+>/g, "").slice(0, 160)}
-        keywords={`${productState?.title}, ${productState?.brand}, ${productState?.category}, buy online, Yashoda Fashion`}
+        title={productState?.seo?.meta_title || productState?.title}
+        description={productState?.seo?.meta_description || productState?.description?.replace(/<[^>]+>/g, "").slice(0, 160)}
+        keywords={productState?.seo?.meta_keywords?.join(", ") || `${productState?.title}, ${productState?.brand}, ${productState?.category}, buy online, Yashoda Fashion`}
         image={productState?.images?.[0]?.url}
         url={`/product/${productState?._id}`}
         type="product"

@@ -171,37 +171,17 @@ const getIssues = asyncHandler(async (req, res) => {
 
   res.json({
     success: true,
-
-  let activeSessionId = sessionId;
-  const resolvedIp = ipAddress || getRequestIp(req);
-  const resolvedUserAgent = userAgent || getRequestUserAgent(req);
-  const resolvedGuestId = guestId || uuidv4();
-
-  if (!activeSessionId) {
-    const newSessionId = uuidv4();
-    activeSessionId = newSessionId;
-    await Session.create({
-      userId,
-      guestId: resolvedGuestId,
-      sessionId: newSessionId,
-      ipAddress: resolvedIp,
-      userAgent: resolvedUserAgent,
-      device,
-      location,
-      currentPage: page || "/",
-    });
-  }
     issues,
   });
 });
-    sessionId: activeSessionId,
+
 // Resolve issue
 const resolveIssue = asyncHandler(async (req, res) => {
   const { issueId } = req.params;
   const { resolvedBy } = req.body;
 
-    ipAddress: resolvedIp,
-    userAgent: resolvedUserAgent,
+  const issue = await Issue.findByIdAndUpdate(
+    issueId,
     {
       resolved: true,
       resolvedAt: new Date(),
@@ -456,4 +436,9 @@ module.exports = {
   resolveIssue,
   sendFollowUp,
   getAnalytics,
+  getTrackingConfig,
+  updateTrackingConfig,
+  upgradeSession,
+  getCheckoutDropoffs,
+  getCartDropoffs,
 };

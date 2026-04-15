@@ -132,7 +132,7 @@ const cardStyle = {
 
 const imageWrap = {
   position: "relative",
-  aspectRatio: "3/4",
+  aspectRatio: "1/1",
   background: "#f5f5f5",
   overflow: "hidden",
 };
@@ -213,11 +213,11 @@ const outOfStockText = {
 };
 
 const infoWrap = {
-  padding: "10px 12px 14px",
+  padding: "6px 8px 8px",
   flex: 1,
   display: "flex",
   flexDirection: "column",
-  gap: 3,
+  gap: 2,
 };
 
 const brandText = {
@@ -230,13 +230,13 @@ const brandText = {
 };
 
 const titleText = {
-  fontSize: 13,
+  fontSize: 11,
   fontWeight: 500,
   color: "#1a1a1a",
-  lineHeight: 1.4,
+  lineHeight: 1.3,
   margin: 0,
   display: "-webkit-box",
-  WebkitLineClamp: 2,
+  WebkitLineClamp: 1,
   WebkitBoxOrient: "vertical",
   overflow: "hidden",
 };
@@ -249,13 +249,13 @@ const priceRow = {
 };
 
 const priceMain = {
-  fontSize: 15,
+  fontSize: 12,
   fontWeight: 700,
   color: "#1a1a1a",
 };
 
 const priceOld = {
-  fontSize: 12,
+  fontSize: 10,
   color: "#aaa",
   textDecoration: "line-through",
 };

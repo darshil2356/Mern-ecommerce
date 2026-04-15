@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import BreadCrumb from "../components/BreadCrumb";
 import Meta from "../components/Meta";
 import ProductCard from "../components/ProductCard";
@@ -23,6 +23,8 @@ const OurStore = () => {
   const [maxPrice, setMaxPrice] = useState(null);
   const [sort, setSort] = useState(null);
   const [filterState, setFilterState] = useState({});
+  const [visibleCount, setVisibleCount] = useState(20);
+  const sentinelRef = useRef(null);
 
   const dispatch = useDispatch();
   const location = useLocation();
@@ -59,9 +61,27 @@ const OurStore = () => {
     setTag(null); setCategory(null); setBrand(null);
     setMinPrice(null); setMaxPrice(null); setSort(null);
     setFilterState({});
+    setVisibleCount(20);
     dispatch(getAllProducts({}));
     setShowFilter(false);
   };
+
+  useEffect(() => {
+    setVisibleCount(20);
+  }, [productState]);
+
+  useEffect(() => {
+    const sentinel = sentinelRef.current;
+    if (!sentinel) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) setVisibleCount((c) => c + 20);
+      },
+      { threshold: 0.1 }
+    );
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [productState]);
 
   const hasFilters = tag || category || brand || minPrice || maxPrice || sort;
   const activeCount = [tag, category, brand, minPrice || maxPrice, sort].filter(Boolean).length;
@@ -239,7 +259,10 @@ const OurStore = () => {
                 </div>
               ) : productState?.length > 0 ? (
                 <div style={productsGrid}>
-                  <ProductCard data={productState} grid={4} />
+                  <ProductCard data={productState.slice(0, visibleCount)} grid={4} />
+                  {visibleCount < productState.length && (
+                    <div ref={sentinelRef} style={{ gridColumn: "1 / -1", height: 40 }} />
+                  )}
                 </div>
               ) : (
                 <div style={emptyBox}>
@@ -375,8 +398,8 @@ const sidebarCard = {
 
 const productsGrid = {
   display: "grid",
-  gridTemplateColumns: "repeat(2, 1fr)",
-  gap: 14,
+  gridTemplateColumns: "repeat(4, 1fr)",
+  gap: 10,
 };
 
 const loadingBox = {

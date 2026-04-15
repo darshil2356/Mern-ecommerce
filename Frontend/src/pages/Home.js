@@ -18,67 +18,154 @@ import { base_url } from "../utils/axiosConfig";
 import { toast } from "react-toastify";
 
 // Reusable product card for home page sections
-const HomeProductCard = ({ item, navigate }) => (
-  <motion.div
-    whileHover={{ y: -6, boxShadow: "0 12px 40px rgba(0,0,0,0.12)" }}
-    onClick={() => navigate("/product/" + item?._id)}
-    style={{
-      background: "#fff",
-      borderRadius: "16px",
-      overflow: "hidden",
-      boxShadow: "0 4px 20px rgba(0,0,0,0.06)",
-      cursor: "pointer",
-      height: "100%",
-      transition: "all 0.3s ease",
-    }}
-  >
-    <div style={{ position: "relative", height: "260px", overflow: "hidden", background: "#f8f8f8" }}>
-      {item?.images?.[0]?.url ? (
-        <img
-          src={item.images[0].url}
-          alt={item.title}
-          style={{ width: "100%", height: "100%", objectFit: "cover", transition: "transform 0.4s ease" }}
-          onMouseEnter={e => (e.currentTarget.style.transform = "scale(1.05)")}
-          onMouseLeave={e => (e.currentTarget.style.transform = "scale(1)")}
+  const ProductSkeleton = () => (
+    <motion.div
+      className="animate-scale-in"
+      style={{
+        background: "#fff",
+        borderRadius: "16px",
+        overflow: "hidden",
+        boxShadow: "0 4px 20px rgba(0,0,0,0.06)",
+        height: "100%",
+        animation: "shimmer 0.8s linear infinite"
+      }}
+    >
+      {/* Image area */}
+      <div style={{ 
+        position: "relative", 
+        height: "260px", 
+        overflow: "hidden", 
+        background: "var(--surface-2, #f8fafc)"
+      }}>
+        <div 
+          className="skeleton-block"
+          style={{
+            position: "absolute",
+            top: "12px",
+            left: "12px",
+            width: "60px",
+            height: "20px",
+            borderRadius: "4px"
+          }}
         />
-      ) : (
-        <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}>
-          <FiPackage style={{ fontSize: "48px", color: "#ddd" }} />
-        </div>
-      )}
-      {item?.tags && (
-        <span style={{
-          position: "absolute", top: "12px", left: "12px",
-          background: item.tags === "special" ? "#ef4444" : item.tags === "new" ? "#1a1a1a" : "#d4af37",
-          color: "#fff", padding: "4px 10px", fontSize: "10px", fontWeight: 700,
-          borderRadius: "4px", textTransform: "uppercase", letterSpacing: "0.5px",
-        }}>
-          {item.tags === "special" ? "SALE" : item.tags === "new" ? "NEW" : item.tags}
-        </span>
-      )}
-    </div>
-    <div style={{ padding: "16px 20px 20px" }}>
-      <p style={{ color: "#d4af37", fontSize: "11px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "1px", marginBottom: "6px" }}>
-        {item?.brand}
-      </p>
-      <h5 style={{ fontFamily: "'Playfair Display', serif", fontSize: "15px", marginBottom: "10px", lineHeight: 1.4, color: "#1a1a1a" }}>
-        {item?.title?.length > 45 ? item.title.slice(0, 45) + "…" : item?.title}
-      </h5>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <span style={{ fontSize: "20px", fontWeight: 700, color: "#1a1a1a" }}>
-          ₹{item?.price?.toLocaleString()}
-        </span>
-        <span style={{
-          fontSize: "11px", padding: "3px 10px", borderRadius: "20px", fontWeight: 600,
-          background: item?.quantity > 0 ? "#dcfce7" : "#fee2e2",
-          color: item?.quantity > 0 ? "#166534" : "#dc2626",
-        }}>
-          {item?.quantity > 0 ? "In Stock" : "Out of Stock"}
-        </span>
+        <div 
+          className="skeleton-block"
+          style={{
+            width: "100%",
+            height: "100%",
+            animation: "shimmer 1s linear infinite"
+          }}
+        />
       </div>
-    </div>
-  </motion.div>
-);
+      
+      {/* Content area */}
+      <div style={{ padding: "16px 20px 20px" }}>
+        {/* Brand */}
+        <div 
+          className="skeleton-block"
+          style={{
+            width: "80px",
+            height: "12px",
+            marginBottom: "6px",
+            borderRadius: "2px"
+          }}
+        />
+        {/* Title */}
+        <div 
+          className="skeleton-block"
+          style={{
+            width: "100%",
+            height: "18px",
+            marginBottom: "10px",
+            borderRadius: "2px"
+          }}
+        />
+        <div 
+          className="skeleton-block"
+          style={{
+            width: "60px",
+            height: "12px",
+            marginBottom: "10px",
+            borderRadius: "20px",
+            float: "right"
+          }}
+        />
+        {/* Price */}
+        <div 
+          className="skeleton-block"
+          style={{
+            width: "90px",
+            height: "24px",
+            marginBottom: "4px",
+            borderRadius: "2px"
+          }}
+        />
+      </div>
+    </motion.div>
+  );
+
+  const HomeProductCard = ({ item, navigate }) => (
+    <motion.div
+      whileHover={{ y: -6, boxShadow: "0 12px 40px rgba(0,0,0,0.12)" }}
+      className="animate-fade-in"
+      onClick={() => navigate("/product/" + item?._id)}
+      style={{
+        background: "#fff",
+        borderRadius: "16px",
+        overflow: "hidden",
+        boxShadow: "0 4px 20px rgba(0,0,0,0.06)",
+        cursor: "pointer",
+        height: "100%",
+        transition: "all 0.3s ease",
+      }}
+    >
+      <div style={{ position: "relative", height: "260px", overflow: "hidden", background: "#f8f8f8" }}>
+        {item?.images?.[0]?.url ? (
+          <img
+            src={item.images[0].url}
+            alt={item.title}
+            style={{ width: "100%", height: "100%", objectFit: "cover", transition: "transform 0.4s ease" }}
+            onMouseEnter={e => (e.currentTarget.style.transform = "scale(1.05)")}
+            onMouseLeave={e => (e.currentTarget.style.transform = "scale(1)")}
+          />
+        ) : (
+          <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <FiPackage style={{ fontSize: "48px", color: "#ddd" }} />
+          </div>
+        )}
+        {item?.tags && (
+          <span style={{
+            position: "absolute", top: "12px", left: "12px",
+            background: item.tags === "special" ? "#ef4444" : item.tags === "new" ? "#1a1a1a" : "#d4af37",
+            color: "#fff", padding: "4px 10px", fontSize: "10px", fontWeight: 700,
+            borderRadius: "4px", textTransform: "uppercase", letterSpacing: "0.5px",
+          }}>
+            {item.tags === "special" ? "SALE" : item.tags === "new" ? "NEW" : item.tags}
+          </span>
+        )}
+      </div>
+      <div style={{ padding: "16px 20px 20px" }}>
+        <p style={{ color: "#d4af37", fontSize: "11px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "1px", marginBottom: "6px" }}>
+          {item?.brand}
+        </p>
+        <h5 style={{ fontFamily: "'Playfair Display', serif", fontSize: "15px", marginBottom: "10px", lineHeight: 1.4, color: "#1a1a1a" }}>
+          {item?.title?.length > 45 ? item.title.slice(0, 45) + "…" : item?.title}
+        </h5>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <span style={{ fontSize: "20px", fontWeight: 700, color: "#1a1a1a" }}>
+            ₹{item?.price?.toLocaleString()}
+          </span>
+          <span style={{
+            fontSize: "11px", padding: "3px 10px", borderRadius: "20px", fontWeight: 600,
+            background: item?.quantity > 0 ? "#dcfce7" : "#fee2e2",
+            color: item?.quantity > 0 ? "#166534" : "#dc2626",
+          }}>
+            {item?.quantity > 0 ? "In Stock" : "Out of Stock"}
+          </span>
+        </div>
+      </div>
+    </motion.div>
+  );
 
 // Section header component
 const SectionHeader = ({ icon, title, linkTo, linkText }) => (
@@ -100,6 +187,7 @@ const Home = () => {
   const productState = useSelector((state) => state?.product?.product);
   const navigate = useNavigate();
   const dispatch = useDispatch();
+  const [isLoading, setIsLoading] = useState(true);
   const [activeBundles, setActiveBundles] = useState([]);
   const [addingBundle, setAddingBundle] = useState(null);
   const [bundleSizeModal, setBundleSizeModal] = useState(null);
@@ -146,11 +234,23 @@ const Home = () => {
     colorOption?.hex || colorOption?.title || "#d1d5db";
 
   useEffect(() => {
-    dispatch(getAllBlogs());
-    dispatch(getAllProducts());
-    axios.get(`${base_url}bundles/active`)
-      .then(res => setActiveBundles(res.data || []))
-      .catch(() => setActiveBundles([]));
+    const loadData = async () => {
+      try {
+        setIsLoading(true);
+        await Promise.all([
+          dispatch(getAllBlogs()),
+          dispatch(getAllProducts())
+        ]);
+        const bundlesRes = await axios.get(`${base_url}bundles/active`);
+        setActiveBundles(bundlesRes.data || []);
+      } catch (error) {
+        console.error('Data load error:', error);
+        setActiveBundles([]);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    loadData();
   }, [dispatch]);
 
   const products = productState || [];
@@ -391,7 +491,42 @@ const Home = () => {
       {/* ── SHOP THE LOOK ── */}
       <Container class1="py-5">
         <SectionHeader icon="🎬" title="Shop The Look" linkTo="/reels" linkText="View All Reels" />
-        <ShopTheLook navigate={navigate} />
+        {isLoading ? (
+          <div className="shop-the-look-container d-flex gap-4 overflow-auto pb-4" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none', paddingBottom: '16px', height: '450px' }}>
+            {Array.from({length: 3}).map((_, i) => (
+              <div key={`look-skel-${i}`} className="shop-the-look-item" style={{
+                minWidth: '300px',
+                height: '400px',
+                borderRadius: '20px',
+                overflow: 'hidden',
+                position: 'relative',
+                marginRight: '16px',
+                flexShrink: 0,
+                boxShadow: '0 8px 30px rgba(0,0,0,0.2)'
+              }}>
+                <div className="skeleton-block" style={{width: '100%', height: '100%', animation: 'shimmer 0.8s linear infinite'}} />
+                <div className="skeleton-block" style={{
+                  position: 'absolute', top: '16px', left: '16px',
+                  width: '80px', height: '20px', borderRadius: '20px'
+                }} />
+                <div className="skeleton-block" style={{
+                  position: 'absolute', bottom: '20px', left: '20px', right: '20px',
+                  height: '120px'
+                }}>
+                  <div style={{height: '24px', marginBottom: '8px', borderRadius: '4px'}} />
+                  <div style={{width: '120px', height: '28px', borderRadius: '4px', marginBottom: '16px'}} />
+                  <div style={{width: '140px', height: '40px', borderRadius: '30px'}} />
+                </div>
+                <div className="skeleton-block" style={{
+                  position: 'absolute', right: '12px', bottom: '140px',
+                  width: '40px', height: '60px'
+                }} />
+              </div>
+            ))}
+          </div>
+        ) : (
+          <ShopTheLook navigate={navigate} />
+        )}
       </Container>
 
       {/* ── CATEGORIES ── */}
@@ -400,48 +535,71 @@ const Home = () => {
           <Container class1="">
             <SectionHeader icon={<FiTag style={{ color: "#d4af37" }} />} title="Shop by Category" />
             <div className="row g-3">
-              {categories.map((cat, index) => {
-                const colors = ["#1a1a1a", "#2d2d2d", "#3a3a3a", "#4a4a4a", "#5a5a5a", "#6a6a6a"];
-                return (
-                  <div key={index} className="col-6 col-md-4 col-lg-2">
-                    <motion.div
-                      whileHover={{ y: -6, scale: 1.02 }}
-                      onClick={() => navigate("/product", { state: { category: cat } })}
-                      style={{ height: "120px", borderRadius: "14px", background: colors[index % 6], display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", boxShadow: "0 4px 15px rgba(0,0,0,0.15)" }}
-                    >
-                      <h3 style={{ fontFamily: "'Playfair Display', serif", color: "#fff", fontSize: "1rem", textTransform: "capitalize", textAlign: "center", padding: "0 10px", margin: 0 }}>
-                        {cat}
-                      </h3>
-                    </motion.div>
+              {isLoading || categories.length === 0 ? (
+                Array.from({length: 12}).map((_, i) => (
+                  <div key={`cat-skel-${i}`} className="col-6 col-md-4 col-lg-3">
+                    <div 
+                      className="skeleton-block"
+                      style={{
+                        height: "120px", 
+                        borderRadius: "14px", 
+                        animation: "shimmer 1s linear infinite"
+                      }}
+                    />
                   </div>
-                );
-              })}
+                ))
+              ) : (
+                categories.map((cat, index) => {
+                  const colors = ["#1a1a1a", "#2d2d2d", "#3a3a3a", "#4a4a4a", "#5a5a5a", "#6a6a6a"];
+                  return (
+                    <div key={index} className="col-6 col-md-4 col-lg-2">
+                      <motion.div
+                        whileHover={{ y: "-6", scale: 1.02 }}
+                        onClick={() => navigate("/product", { state: { category: cat } })}
+                        style={{ height: "120px", borderRadius: "14px", background: colors[index % 6], display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", boxShadow: "0 4px 15px rgba(0,0,0,0.15)" }}
+                      >
+                        <h3 style={{ fontFamily: "'Playfair Display', serif", color: "#fff", fontSize: "1rem", textTransform: "capitalize", textAlign: "center", padding: "0 10px", margin: 0 }}>
+                          {cat}
+                        </h3>
+                      </motion.div>
+                    </div>
+                  );
+                })
+              )}
             </div>
           </Container>
         </div>
       )}
 
       {/* ── NEW ARRIVALS ── */}
-      {newArrivals.length > 0 && (
+{isLoading || newArrivals.length > 0 ? (
         <Container class1="py-5">
           <SectionHeader icon={<FiStar style={{ color: "#d4af37" }} />} title="New Arrivals" linkTo="/product" />
           <div className="row g-4">
-            {newArrivals.slice(0, 4).map((item, i) => (
+            {isLoading ? Array.from({length: 8}).map((_, i) => (
+              <div key={`new-skel-${i}`} className="col-12 col-sm-6 col-lg-3">
+                <ProductSkeleton />
+              </div>
+            )) : newArrivals.slice(0, 4).map((item, i) => (
               <div key={i} className="col-12 col-sm-6 col-lg-3">
                 <HomeProductCard item={item} navigate={navigate} />
               </div>
             ))}
           </div>
         </Container>
-      )}
+      ) : null}
 
       {/* ── FEATURED PRODUCTS ── */}
-      {featuredProducts.length > 0 && (
+{isLoading || featuredProducts.length > 0 ? (
         <div style={{ background: "#f9f9f9", padding: "60px 0" }}>
           <Container class1="">
             <SectionHeader icon={<FiStar style={{ color: "#d4af37" }} />} title="Featured Products" linkTo="/product" />
             <div className="row g-4">
-              {featuredProducts.slice(0, 4).map((item, i) => (
+              {isLoading ? Array.from({length: 8}).map((_, i) => (
+                <div key={`feat-skel-${i}`} className="col-12 col-sm-6 col-lg-3">
+                  <ProductSkeleton />
+                </div>
+              )) : featuredProducts.slice(0, 4).map((item, i) => (
                 <div key={i} className="col-12 col-sm-6 col-lg-3">
                   <HomeProductCard item={item} navigate={navigate} />
                 </div>
@@ -449,29 +607,37 @@ const Home = () => {
             </div>
           </Container>
         </div>
-      )}
+      ) : null}
 
       {/* ── SPECIAL OFFERS ── */}
-      {specialProducts.length > 0 && (
+{isLoading || specialProducts.length > 0 ? (
         <Container class1="py-5">
           <SectionHeader icon={<FiTag style={{ color: "#ef4444" }} />} title="Special Offers" linkTo="/product" />
           <div className="row g-4">
-            {specialProducts.slice(0, 4).map((item, i) => (
+            {isLoading ? Array.from({length: 8}).map((_, i) => (
+              <div key={`special-skel-${i}`} className="col-12 col-sm-6 col-lg-3">
+                <ProductSkeleton />
+              </div>
+            )) : specialProducts.slice(0, 4).map((item, i) => (
               <div key={i} className="col-12 col-sm-6 col-lg-3">
                 <HomeProductCard item={item} navigate={navigate} />
               </div>
             ))}
           </div>
         </Container>
-      )}
+      ) : null}
 
       {/* ── POPULAR PRODUCTS ── */}
-      {popularProducts.length > 0 && (
+{isLoading || popularProducts.length > 0 ? (
         <div style={{ background: "#f9f9f9", padding: "60px 0" }}>
           <Container class1="">
             <SectionHeader icon={<FiTrendingUp style={{ color: "#d4af37" }} />} title="Popular Products" linkTo="/product" />
             <div className="row g-4">
-              {popularProducts.slice(0, 4).map((item, i) => (
+              {isLoading ? Array.from({length: 8}).map((_, i) => (
+                <div key={`pop-skel-${i}`} className="col-12 col-sm-6 col-lg-3">
+                  <ProductSkeleton />
+                </div>
+              )) : popularProducts.slice(0, 4).map((item, i) => (
                 <div key={i} className="col-12 col-sm-6 col-lg-3">
                   <HomeProductCard item={item} navigate={navigate} />
                 </div>
@@ -479,7 +645,7 @@ const Home = () => {
             </div>
           </Container>
         </div>
-      )}
+      ) : null}
 
       {/* ── BLOGS ── */}
       {blogState && blogState.length > 0 && (

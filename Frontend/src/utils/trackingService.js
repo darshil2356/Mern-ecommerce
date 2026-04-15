@@ -1,13 +1,13 @@
 import io from 'socket.io-client';
 import axios from 'axios';
 
-const API_BASE_URL = process.env.REACT_APP_BASE_URL || 'http://localhost:8000/api';
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000/api';
 
 class TrackingService {
   constructor() {
     this.socket = null;
-    this.sessionId = localStorage.getItem('trackingSessionId') || null;
-    this.guestId = localStorage.getItem('trackingGuestId') || null;
+    this.sessionId = null;
+    this.guestId = null;
     this.userId = null;
     this.heartbeatInterval = null;
     this.currentPage = window.location.pathname;
@@ -16,32 +16,23 @@ class TrackingService {
 
   // Initialize tracking
   async init(userId = null) {
-    // If already initialized and user just logged in, upgrade guest session to user session
-    if (this.isInitialized) {
-      if (userId && userId !== this.userId) {
-        this.userId = userId;
-        await this.upgradeSession(userId);
-      }
-      return;
-    }
+    if (this.isInitialized) return;
 
     try {
-      // Check if tracking is enabled before doing anything
-      const configRes = await axios.get(`${API_BASE_URL}tracking/config`);
-      if (!configRes.data.isEnabled) return;
-
+      // Get or create session
       const sessionData = await this.createSession(userId);
 
       this.sessionId = sessionData.session.sessionId;
       this.guestId = sessionData.session.guestId;
       this.userId = userId;
 
-      // Persist so page refresh reuses same session
-      localStorage.setItem('trackingSessionId', this.sessionId);
-      localStorage.setItem('trackingGuestId', this.guestId);
+      // Connect to socket
+      this.connectSocket();
 
+      // Start heartbeat
       this.startHeartbeat();
 
+      // Track initial page view
       this.trackEvent('page_view', {
         page: this.currentPage,
         referrer: document.referrer,
@@ -49,24 +40,15 @@ class TrackingService {
       });
 
       this.isInitialized = true;
+
+      // Track page changes
       this.trackPageChanges();
+
+      // Track user interactions
       this.trackInteractions();
 
     } catch (error) {
       console.error('Failed to initialize tracking:', error);
-    }
-  }
-
-  // Upgrade guest session to logged-in user session
-  async upgradeSession(userId) {
-    try {
-      await axios.patch(`${API_BASE_URL}tracking/session/${this.sessionId}/upgrade`, { userId });
-      // Rejoin socket room as user
-      if (this.socket && this.socket.connected) {
-        this.socket.emit('join-user', userId);
-      }
-    } catch (error) {
-      console.error('Failed to upgrade session:', error);
     }
   }
 
@@ -75,7 +57,7 @@ class TrackingService {
     const device = this.getDeviceType();
     const location = await this.getLocation();
 
-    const response = await axios.post(`${API_BASE_URL}tracking/session`, {
+    const response = await axios.post(`${API_BASE_URL}/tracking/session`, {
       userId,
       sessionId: this.sessionId, // Will be null for new sessions
       ipAddress: await this.getIPAddress(),
@@ -104,11 +86,6 @@ class TrackingService {
 
     this.socket.on('disconnect', () => {
       console.log('Disconnected from tracking server');
-    });
-
-    // Stop tracking immediately if admin disables it
-    this.socket.on('tracking_config_changed', ({ isEnabled }) => {
-      if (!isEnabled) this.destroy();
     });
   }
 
@@ -210,8 +187,6 @@ class TrackingService {
 
   // Track custom event
   trackEvent(eventType, metadata = {}) {
-    if (!this.sessionId) return;
-
     const eventData = {
       sessionId: this.sessionId,
       userId: this.userId,
@@ -219,20 +194,21 @@ class TrackingService {
       eventType,
       page: this.currentPage,
       metadata,
-      ipAddress: null,
+      ipAddress: null, // Will be set by server
       userAgent: navigator.userAgent,
       device: this.getDeviceType(),
-      location: null,
+      location: null, // Will be set by server
     };
 
-    // Send via socket if connected, otherwise fall back to HTTP
+    // Send via socket if connected
     if (this.socket && this.socket.connected) {
       this.socket.emit('track_event', eventData);
-    } else {
-      axios.post(`${API_BASE_URL}tracking/event`, eventData).catch(err => {
-        console.warn('Failed to send tracking event:', err);
-      });
     }
+
+    // Also send via HTTP as backup
+    axios.post(`${API_BASE_URL}/tracking/event`, eventData).catch(err => {
+      console.warn('Failed to send tracking event via HTTP:', err);
+    });
   }
 
   // E-commerce specific tracking methods

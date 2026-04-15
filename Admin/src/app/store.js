@@ -13,6 +13,7 @@ import enquiryReducer from "../features/enquiry/enquirySlice";
 import uploadReducer from "../features/upload/uploadSlice";
 import couponReducer from "../features/coupon/couponSlice";
 import bundleReducer from "../features/bundle/bundleSlice";
+import marketIntelReducer from "../features/marketIntel/marketIntelSlice";
 export const store = configureStore({
   reducer: {
     auth: authReducer,
@@ -27,5 +28,6 @@ export const store = configureStore({
     upload: uploadReducer,
     coupon: couponReducer,
     bundle: bundleReducer,
+    marketIntel: marketIntelReducer,
   },
 });

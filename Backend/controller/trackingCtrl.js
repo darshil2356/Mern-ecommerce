@@ -4,15 +4,7 @@ const Event = require("../models/eventModel");
 const Issue = require("../models/issueModel");
 const Notification = require("../models/notificationModel");
 const User = require("../models/userModel");
-const TrackingConfig = require("../models/trackingConfigModel");
 const { v4: uuidv4 } = require("uuid");
-
-// Helper: get config (creates default if not exists)
-const getConfig = async () => {
-  let config = await TrackingConfig.findOne();
-  if (!config) config = await TrackingConfig.create({ isEnabled: true });
-  return config;
-};
 
 const getRequestIp = (req) => {
   const forwarded = req.headers["x-forwarded-for"];
@@ -24,156 +16,8 @@ const getRequestIp = (req) => {
 
 const getRequestUserAgent = (req) => req.headers["user-agent"] || "unknown";
 
-// Checkout drop-offs: logged-in users who started checkout but never completed
-const getCheckoutDropoffs = asyncHandler(async (req, res) => {
-  const { period = "24h" } = req.query;
-  const periodMap = { "1h": 1, "24h": 24, "7d": 168, "30d": 720 };
-  const startDate = new Date(Date.now() - (periodMap[period] || 24) * 60 * 60 * 1000);
-
-  const Cart = require("../models/cartModel");
-  const Order = require("../models/orderModel");
-
-  // All users with items in cart
-  const cartItems = await Cart.find({})
-    .populate("userId", "firstname lastname email mobile")
-    .populate("productId", "title")
-    .lean();
-
-  const userCartMap = {};
-  for (const item of cartItems) {
-    if (!item.userId) continue;
-    const uid = item.userId._id.toString();
-    if (!userCartMap[uid]) {
-      userCartMap[uid] = { user: item.userId, items: [], totalValue: 0 };
-    }
-    const name = item.isBundle ? item.bundleTitle : (item.productId?.title || "Unknown");
-    const price = Number(item.price) || 0;
-    const qty = Number(item.quantity) || 1;
-    userCartMap[uid].items.push({ productName: name, quantity: qty, price });
-    userCartMap[uid].totalValue += price * qty;
-  }
-
-  // Users with non-cancelled order — exclude
-  const orderedUserIds = new Set(
-    (await Order.find({ orderStatus: { $nin: ["Cancelled"] } }).select("user").lean())
-      .map(o => o.user?.toString()).filter(Boolean)
-  );
-
-  const dropoffs = [];
-  for (const [uid, data] of Object.entries(userCartMap)) {
-    if (orderedUserIds.has(uid)) continue;
-
-    // Get user's most recent event
-    const lastEvent = await Event.findOne({ userId: uid }).sort({ timestamp: -1 }).lean();
-    if (!lastEvent) continue;
-
-    // Only checkout dropoff if their LAST page was /checkout
-    const lastPage = lastEvent.page || "";
-    if (!lastPage.includes("/checkout")) continue;
-
-    // Must have visited checkout within the selected period
-    const checkoutEvent = await Event.findOne({
-      userId: uid,
-      eventType: "checkout_started",
-      timestamp: { $gte: startDate },
-    }).sort({ timestamp: -1 }).lean();
-    if (!checkoutEvent) continue;
-
-    dropoffs.push({
-      userId: data.user,
-      items: data.items,
-      totalValue: data.totalValue,
-      itemCount: data.items.length,
-      droppedAt: checkoutEvent.timestamp,
-    });
-  }
-
-  res.json({ success: true, dropoffs, count: dropoffs.length });
-});
-
-// Cart drop-offs: user has items in cart and their last page was NOT /checkout
-const getCartDropoffs = asyncHandler(async (req, res) => {
-  const { period = "24h" } = req.query;
-  const periodMap = { "1h": 1, "24h": 24, "7d": 168, "30d": 720 };
-  const startDate = new Date(Date.now() - (periodMap[period] || 24) * 60 * 60 * 1000);
-
-  const Cart = require("../models/cartModel");
-  const Order = require("../models/orderModel");
-
-  const cartItems = await Cart.find({})
-    .populate("userId", "firstname lastname email mobile")
-    .populate("productId", "title")
-    .lean();
-
-  const userCartMap = {};
-  for (const item of cartItems) {
-    if (!item.userId) continue;
-    const uid = item.userId._id.toString();
-    if (!userCartMap[uid]) {
-      userCartMap[uid] = { user: item.userId, items: [], totalValue: 0, lastAdded: item.createdAt };
-    }
-    const name = item.isBundle ? item.bundleTitle : (item.productId?.title || "Unknown");
-    const price = Number(item.price) || 0;
-    const qty = Number(item.quantity) || 1;
-    userCartMap[uid].items.push({ productName: name, quantity: qty, price });
-    userCartMap[uid].totalValue += price * qty;
-    if (item.createdAt > userCartMap[uid].lastAdded) userCartMap[uid].lastAdded = item.createdAt;
-  }
-
-  // Users with non-cancelled order — exclude
-  const orderedUserIds = new Set(
-    (await Order.find({ orderStatus: { $nin: ["Cancelled"] } }).select("user").lean())
-      .map(o => o.user?.toString()).filter(Boolean)
-  );
-
-  const dropoffs = [];
-  for (const [uid, data] of Object.entries(userCartMap)) {
-    if (orderedUserIds.has(uid)) continue;
-
-    // Get user's most recent event
-    const lastEvent = await Event.findOne({ userId: uid }).sort({ timestamp: -1 }).lean();
-
-    // If last page was /checkout, they belong in checkout dropoffs
-    if (lastEvent && lastEvent.page?.includes("/checkout")) continue;
-
-    dropoffs.push({
-      userId: data.user,
-      items: data.items,
-      totalValue: data.totalValue,
-      itemCount: data.items.length,
-      lastAddedAt: data.lastAdded,
-    });
-  }
-
-  res.json({ success: true, dropoffs, count: dropoffs.length });
-});
-
-// Get tracking config (public)
-const getTrackingConfig = asyncHandler(async (req, res) => {
-  const config = await getConfig();
-  res.json({ success: true, isEnabled: config.isEnabled });
-});
-
-// Update tracking config (admin only)
-const updateTrackingConfig = asyncHandler(async (req, res) => {
-  const { isEnabled } = req.body;
-  const config = await TrackingConfig.findOneAndUpdate(
-    {},
-    { isEnabled, updatedBy: req.user?._id },
-    { upsert: true, new: true }
-  );
-  // Broadcast to all connected clients via socket
-  const io = req.app.get("io");
-  if (io) io.emit("tracking_config_changed", { isEnabled });
-  res.json({ success: true, isEnabled: config.isEnabled });
-});
-
 // Create or update session
 const createSession = asyncHandler(async (req, res) => {
-  const config = await getConfig();
-  if (!config.isEnabled) {
-    return res.json({ success: false, disabled: true });
-  }
   const {
     userId,
     guestId,
@@ -191,31 +35,25 @@ const createSession = asyncHandler(async (req, res) => {
   let session;
 
   if (sessionId) {
-    // Update existing session only if it actually exists
+    // Update existing session
     session = await Session.findOneAndUpdate(
       { sessionId },
       {
         lastActivity: new Date(),
         currentPage,
         isActive: true,
-        ...(userId && { userId }),
+        $setOnInsert: {
+          userId,
+          guestId,
+          ipAddress: resolvedIp,
+          userAgent: resolvedUserAgent,
+          device,
+          location,
+          startTime: new Date(),
+        },
       },
-      { new: true }
+      { upsert: true, new: true }
     );
-
-    // If session not found (e.g. DB was cleared), create a fresh one
-    if (!session) {
-      session = await Session.create({
-        userId,
-        guestId: guestId || uuidv4(),
-        sessionId,
-        ipAddress: resolvedIp,
-        userAgent: resolvedUserAgent,
-        device,
-        location,
-        currentPage,
-      });
-    }
   } else {
     // Create new session
     const newSessionId = uuidv4();
@@ -242,10 +80,6 @@ const createSession = asyncHandler(async (req, res) => {
 
 // Track user event
 const trackEvent = asyncHandler(async (req, res) => {
-  const config = await getConfig();
-  if (!config.isEnabled) {
-    return res.json({ success: false, disabled: true });
-  }
   const {
     sessionId,
     userId,
@@ -258,10 +92,6 @@ const trackEvent = asyncHandler(async (req, res) => {
     device,
     location,
   } = req.body;
-
-  if (!sessionId) {
-    return res.status(400).json({ success: false, message: "sessionId is required. Call /api/tracking/session first." });
-  }
 
   // Create event
   const event = await Event.create({
@@ -301,19 +131,10 @@ const getActiveSessions = asyncHandler(async (req, res) => {
     .sort({ lastActivity: -1 })
     .limit(100);
 
-  // Deduplicate: keep only the most recent session per userId (or per guestId for guests)
-  const seen = new Set();
-  const uniqueSessions = sessions.filter((s) => {
-    const key = s.userId ? s.userId._id.toString() : s.guestId;
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
-
   res.json({
     success: true,
-    sessions: uniqueSessions,
-    count: uniqueSessions.length,
+    sessions,
+    count: sessions.length,
   });
 });
 
@@ -327,7 +148,6 @@ const getUserActivity = asyncHandler(async (req, res) => {
   if (sessionId) query.sessionId = sessionId;
 
   const events = await Event.find(query)
-    .populate("userId", "firstname lastname email")
     .sort({ timestamp: -1 })
     .limit(parseInt(limit));
 
@@ -354,41 +174,6 @@ const getIssues = asyncHandler(async (req, res) => {
     issues,
   });
 });
-
-// Upgrade guest session to logged-in user
-const upgradeSession = asyncHandler(async (req, res) => {
-  const { sessionId } = req.params;
-  const { userId } = req.body;
-
-  if (!userId) {
-    return res.status(400).json({ success: false, message: "userId is required" });
-  }
-
-  const session = await Session.findOneAndUpdate(
-    { sessionId },
-    { userId, lastActivity: new Date() },
-    { new: true }
-  );
-
-  if (!session) {
-    return res.status(404).json({ success: false, message: "Session not found" });
-  }
-
-  // Also update all events from this session that have no userId
-  await Event.updateMany(
-    { sessionId, userId: null },
-    { userId }
-  );
-
-  // Also update all issues from this session that have no userId
-  await Issue.updateMany(
-    { sessionId, userId: null },
-    { userId }
-  );
-
-  res.json({ success: true, session });
-});
-
 // Resolve issue
 const resolveIssue = asyncHandler(async (req, res) => {
   const { issueId } = req.params;
@@ -454,28 +239,19 @@ const getAnalytics = asyncHandler(async (req, res) => {
       startDate = new Date(Date.now() - 24 * 60 * 60 * 1000);
   }
 
-  const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
-  const activeSessions = await Session.find({
-    isActive: true,
-    lastActivity: { $gte: fiveMinutesAgo },
-  }, "userId guestId");
-
-  // Deduplicate same as getActiveSessions
-  const seenUsers = new Set();
-  activeSessions.forEach((s) => {
-    const key = s.userId ? s.userId.toString() : s.guestId;
-    seenUsers.add(key);
-  });
-  const activeUsers = seenUsers.size;
-
   const [
     totalSessions,
+    activeUsers,
     totalEvents,
     issuesCount,
     topPages,
     eventTypes,
   ] = await Promise.all([
     Session.countDocuments({ createdAt: { $gte: startDate } }),
+    Session.countDocuments({
+      isActive: true,
+      lastActivity: { $gte: new Date(Date.now() - 5 * 60 * 1000) },
+    }),
     Event.countDocuments({ timestamp: { $gte: startDate } }),
     Issue.countDocuments({
       createdAt: { $gte: startDate },
@@ -599,6 +375,56 @@ const checkForIssues = async (sessionId, userId, guestId, eventType, metadata) =
     console.error("Error in issue detection:", error);
   }
 };
+
+let trackingConfig = { enabled: true };
+
+const getTrackingConfig = asyncHandler(async (req, res) => {
+  res.json({ success: true, config: trackingConfig });
+});
+
+const updateTrackingConfig = asyncHandler(async (req, res) => {
+  trackingConfig = { ...trackingConfig, ...req.body };
+  res.json({ success: true, config: trackingConfig });
+});
+
+const upgradeSession = asyncHandler(async (req, res) => {
+  const { sessionId } = req.params;
+  const { userId } = req.body;
+
+  const session = await Session.findOneAndUpdate(
+    { sessionId },
+    { userId, lastActivity: new Date() },
+    { new: true }
+  );
+
+  if (!session) {
+    return res.status(404).json({ success: false, message: "Session not found" });
+  }
+
+  res.json({ success: true, session });
+});
+
+const getCheckoutDropoffs = asyncHandler(async (req, res) => {
+  const { limit = 50 } = req.query;
+
+  const issues = await Issue.find({ issueType: "stuck_checkout", resolved: false })
+    .populate("userId", "firstname lastname email")
+    .sort({ createdAt: -1 })
+    .limit(parseInt(limit));
+
+  res.json({ success: true, dropoffs: issues, count: issues.length });
+});
+
+const getCartDropoffs = asyncHandler(async (req, res) => {
+  const { limit = 50 } = req.query;
+
+  const issues = await Issue.find({ issueType: "abandoned_cart", resolved: false })
+    .populate("userId", "firstname lastname email")
+    .sort({ createdAt: -1 })
+    .limit(parseInt(limit));
+
+  res.json({ success: true, dropoffs: issues, count: issues.length });
+});
 
 module.exports = {
   getTrackingConfig,

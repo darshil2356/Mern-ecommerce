@@ -4,6 +4,7 @@ const {
   updateBlog,
   getBlog,
   getAllBlogs,
+  getBlogBySlug,
   deleteBlog,
   liketheBlog,
   disliketheBlog,
@@ -27,6 +28,7 @@ router.put("/dislikes", authMiddleware, disliketheBlog);
 
 router.put("/:id", authMiddleware, isAdmin, updateBlog);
 
+router.get("/slug/:slug", getBlogBySlug);
 router.get("/:id", getBlog);
 router.get("/", getAllBlogs);
 

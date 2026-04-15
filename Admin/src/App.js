@@ -40,6 +40,8 @@ import CoinSettings from "./pages/CoinSettings";
 import LiveTrackingDashboard from "./pages/LiveTrackingDashboard";
 import TrackingAnalytics from "./pages/TrackingAnalytics";
 import DropoffReports from "./pages/DropoffReports";
+import AiGrowthReport from "./pages/AiGrowthReport";
+import MarketIntelligence from "./pages/MarketIntelligence";
 
 function App() {
   return (
@@ -103,6 +105,8 @@ function App() {
           <Route path="live-tracking" element={<LiveTrackingDashboard />} />
           <Route path="tracking-analytics" element={<TrackingAnalytics />} />
           <Route path="dropoff-reports" element={<DropoffReports />} />
+          <Route path="ai-growth" element={<AiGrowthReport />} />
+          <Route path="market-intelligence" element={<MarketIntelligence />} />
         </Route>
       </Routes>
     </Router>

@@ -18,7 +18,7 @@ import { Link } from "react-router-dom";
 import { Outlet, useLocation } from "react-router-dom";
 import { ImBlog } from "react-icons/im";
 import { IoIosNotifications } from "react-icons/io";
-import { FaClipboardList, FaBloggerB, FaChartLine, FaBox, FaUsers, FaTags, FaFileAlt, FaCube, FaLink, FaMagic, FaCoins, FaEye, FaChartBar } from "react-icons/fa";
+import { FaClipboardList, FaBloggerB, FaChartLine, FaBox, FaUsers, FaTags, FaFileAlt, FaCube, FaLink, FaMagic, FaCoins, FaEye, FaChartBar, FaRocket } from "react-icons/fa";
 import { SiBrandfolder } from "react-icons/si";
 import { BiCategoryAlt } from "react-icons/bi";
 import { Layout, Menu, theme, Drawer } from "antd";
@@ -262,6 +262,16 @@ const MainLayout = () => {
       key: "enquiries",
       icon: <AiOutlineFileText className="fs-5" />,
       label: "Enquiries",
+    },
+    {
+      key: "ai-growth",
+      icon: <FaRocket className="fs-5" />,
+      label: "AI Growth Report",
+    },
+    {
+      key: "market-intelligence",
+      icon: <FaChartLine className="fs-5" />,
+      label: "Market Intelligence",
     },
     {
       key: "signout",

@@ -27,9 +27,12 @@ const spinRouter = require("./routes/spinRoute");
 const rewardRouter = require("./routes/rewardRoute");
 const shiprocketRouter = require("./routes/shiprocketRoute");
 const { startTrackingCron } = require("./jobs/trackingCron");
+const { startDailyBlogCron } = require("./jobs/blogCron");
 const notificationRouter = require("./routes/notificationRoute");
 const { initFirebase } = require("./config/firebaseAdmin");
 const trackingRouter = require("./routes/trackingRoute");
+const aiGrowthRouter = require("./routes/aiGrowthRoute");
+const marketIntelRouter = require("./routes/marketIntelRoute");
 
 // Socket.io setup
 const http = require("http");
@@ -91,6 +94,8 @@ app.use("/api/rewards", rewardRouter);
 app.use("/api", shiprocketRouter);
 app.use("/api/notifications", notificationRouter);
 app.use("/api/tracking", trackingRouter);
+app.use("/api/ai/growth", aiGrowthRouter);
+app.use("/api/marketIntel", marketIntelRouter);
 
 app.get("/ppt", (req, res) => {
   res.sendFile(__dirname + "/public/ppt.html");
@@ -198,4 +203,5 @@ app.use(errorHandler);
 server.listen(PORT, () => {
   console.log(`Server is running at PORT ${PORT}`);
   startTrackingCron();
+  startDailyBlogCron();
 });

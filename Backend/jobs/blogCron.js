@@ -1,4 +1,5 @@
 const axios = require("axios");
+const cron = require("node-cron");
 const Blog = require("../models/blogModel");
 
 const GEMINI_MODELS = [
@@ -110,19 +111,12 @@ const runDailyBlogCron = async () => {
 };
 
 const startDailyBlogCron = () => {
-  // Run once at startup after 5s delay, then every 24 hours
-  setTimeout(async () => {
-    const now = new Date();
-    // Only auto-run at startup if it's between 6-8 AM IST
-    const istHour = (now.getUTCHours() + 5.5) % 24;
-    if (istHour >= 6 && istHour < 8) {
-      await runDailyBlogCron();
-    }
-  }, 5000);
+  // Run once at startup after 5s delay (no time restriction)
+  setTimeout(runDailyBlogCron, 5000);
 
-  // Schedule every 24 hours
-  setInterval(runDailyBlogCron, 24 * 60 * 60 * 1000);
-  console.log("[BlogCron] Scheduled — runs every 24 hours");
+  // Schedule at 7:00 AM IST (01:30 UTC) every day
+  cron.schedule("30 1 * * *", runDailyBlogCron, { timezone: "Asia/Kolkata" });
+  console.log("[BlogCron] Scheduled — runs daily at 7:00 AM IST");
 };
 
 module.exports = { startDailyBlogCron, runDailyBlogCron };

@@ -2496,9 +2496,11 @@ const getCustomerDetails = asyncHandler(async (req, res) => {
     const totalPurchaseAmount = orders.reduce((sum, order) => sum + (order.totalPriceAfterDiscount || 0), 0);
     const lastOrder = orders.length > 0 ? orders[0] : null;
 
-    // Calculate total savings offered
+    // Calculate total savings offered (discounts only, excluding GST)
     const totalSavings = orders.reduce((sum, order) => {
-      return sum + ((order.totalPrice || 0) - (order.totalPriceAfterDiscount || 0));
+      const discount = order.discountAmount || 0;
+      const coinDiscount = order.coinAmount || 0;
+      return sum + discount + coinDiscount;
     }, 0);
 
     // Populate referredBy info

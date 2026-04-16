@@ -80,207 +80,96 @@ const MainLayout = () => {
   const menuItems = [
     {
       key: "",
-      icon: <AiOutlineDashboard className="fs-5" />,
+      icon: <AiOutlineDashboard />,
       label: "Dashboard",
     },
     {
-      key: "analytics-tracking",
-      icon: <FaChartBar className="fs-5" />,
-      label: "Analytics & Tracking",
-      children: [
-        {
-          key: "live-tracking",
-          icon: <FaEye className="fs-5" />,
-          label: "Live User Tracking",
-        },
-        {
-          key: "tracking-analytics",
-          icon: <FaChartLine className="fs-5" />,
-          label: "Tracking Analytics",
-        },
-        {
-          key: "dropoff-reports",
-          icon: <FaChartBar className="fs-5" />,
-          label: "Drop-off Reports",
-        },
-      ],
-    },
-    {
       key: "customers",
-      icon: <FaUsers className="fs-5" />,
+      icon: <FaUsers />,
       label: "Customers",
     },
     {
-      key: "referral-details",
-      icon: <FaLink className="fs-5" />,
-      label: "Referral Details",
-    },
-    {
-      key: "rewards",
-      icon: <FaCoins className="fs-5" />,
-      label: "Rewards",
-      children: [
-        {
-          key: "spin-management",
-          icon: <FaMagic className="fs-5" />,
-          label: "Spin Wheel",
-        },
-        {
-          key: "referral-settings",
-          icon: <FaLink className="fs-5" />,
-          label: "Referral Settings",
-        },
-        {
-          key: "coin-settings",
-          icon: <FaCoins className="fs-5" />,
-          label: "Coin Settings",
-        },
-      ],
-    },
-    {
-      key: "Catalog",
-      icon: <FaBox className="fs-5" />,
-      label: "Catalog",
-      children: [
-        {
-          key: "product",
-          icon: <AiOutlineShoppingCart className="fs-5" />,
-          label: "Add Product",
-        },
-        {
-          key: "list-product",
-          icon: <AiOutlineShoppingCart className="fs-5" />,
-          label: "Product List",
-        },
-        {
-          key: "add-bundle",
-          icon: <FaCube className="fs-5" />,
-          label: "Add Bundle",
-        },
-        {
-          key: "list-bundle",
-          icon: <FaCube className="fs-5" />,
-          label: "Bundle List",
-        },
-        {
-          key: "brand",
-          icon: <SiBrandfolder className="fs-5" />,
-          label: "Brand",
-        },
-        {
-          key: "list-brand",
-          icon: <SiBrandfolder className="fs-5" />,
-          label: "Brand List ",
-        },
-        {
-          key: "category",
-          icon: <BiCategoryAlt className="fs-5" />,
-          label: "Category",
-        },
-        {
-          key: "list-category",
-          icon: <BiCategoryAlt className="fs-5" />,
-          label: "Category List",
-        },
-        {
-          key: "color",
-          icon: <AiOutlineBgColors className="fs-5" />,
-          label: "Color",
-        },
-        {
-          key: "list-color",
-          icon: <AiOutlineBgColors className="fs-5" />,
-          label: "Color List",
-        },
-      ],
-    },
-    {
-      key: "live-billing",
-      icon: <AiOutlineShoppingCart className="fs-5" />,
-      label: "POS Billing",
-    },
-    {
       key: "orders",
-      icon: <FaClipboardList className="fs-5" />,
+      icon: <FaClipboardList />,
       label: "Orders",
     },
     {
-      key: "rojmel",
-      icon: <FaBook className="fs-5" />,
-      label: "Rojmel (Ledger)",
+      key: "live-billing",
+      icon: <AiOutlineShoppingCart />,
+      label: "POS Billing",
     },
     {
-      key: "reports",
-      icon: <FaFileAlt className="fs-5" />,
-      label: "Reports",
+      key: "Catalog",
+      icon: <FaBox />,
+      label: "Catalog",
+      children: [
+        { key: "product", icon: <AiOutlineShoppingCart />, label: "Add Product" },
+        { key: "list-product", icon: <AiOutlineShoppingCart />, label: "Product List" },
+        { key: "add-bundle", icon: <FaCube />, label: "Add Bundle" },
+        { key: "list-bundle", icon: <FaCube />, label: "Bundle List" },
+        { key: "brand", icon: <SiBrandfolder />, label: "Brand" },
+        { key: "list-brand", icon: <SiBrandfolder />, label: "Brand List" },
+        { key: "category", icon: <BiCategoryAlt />, label: "Category" },
+        { key: "list-category", icon: <BiCategoryAlt />, label: "Category List" },
+        { key: "color", icon: <AiOutlineBgColors />, label: "Color" },
+        { key: "list-color", icon: <AiOutlineBgColors />, label: "Color List" },
+      ],
     },
     {
-      key: "reviews",
-      icon: <AiFillStar className="fs-5" />,
-      label: "Reviews",
+      key: "analytics-tracking",
+      icon: <FaChartBar />,
+      label: "Analytics",
+      children: [
+        { key: "live-tracking", icon: <FaEye />, label: "Live Tracking" },
+        { key: "tracking-analytics", icon: <FaChartLine />, label: "Analytics" },
+        { key: "dropoff-reports", icon: <FaChartBar />, label: "Drop-off Reports" },
+        { key: "ai-growth", icon: <FaRocket />, label: "AI Growth" },
+        { key: "market-intelligence", icon: <FaChartLine />, label: "Market Intel" },
+        { key: "reports", icon: <FaFileAlt />, label: "Reports" },
+      ],
+    },
+    {
+      key: "rewards",
+      icon: <FaCoins />,
+      label: "Rewards",
+      children: [
+        { key: "spin-management", icon: <FaMagic />, label: "Spin Wheel" },
+        { key: "referral-settings", icon: <FaLink />, label: "Referral Settings" },
+        { key: "referral-details", icon: <FaLink />, label: "Referral Details" },
+        { key: "coin-settings", icon: <FaCoins />, label: "Coin Settings" },
+      ],
     },
     {
       key: "marketing",
-      icon: <FaTags className="fs-5" />,
+      icon: <FaTags />,
       label: "Marketing",
       children: [
-        {
-          key: "coupon",
-          icon: <ImBlog className="fs-5" />,
-          label: "Add Coupon",
-        },
-        {
-          key: "coupon-list",
-          icon: <RiCouponLine className="fs-5" />,
-          label: "Coupon List",
-        },
+        { key: "coupon", icon: <RiCouponLine />, label: "Add Coupon" },
+        { key: "coupon-list", icon: <RiCouponLine />, label: "Coupon List" },
+        { key: "blog", icon: <ImBlog />, label: "Add Blog" },
+        { key: "blog-list", icon: <FaBloggerB />, label: "Blog List" },
+        { key: "blog-category", icon: <ImBlog />, label: "Blog Category" },
+        { key: "blog-category-list", icon: <FaBloggerB />, label: "Blog Cat List" },
       ],
     },
     {
-      key: "blogs",
-      icon: <FaBloggerB className="fs-5" />,
-      label: "Blogs",
-      children: [
-        {
-          key: "blog",
-          icon: <ImBlog className="fs-5" />,
-          label: "Add Blog",
-        },
-        {
-          key: "blog-list",
-          icon: <FaBloggerB className="fs-5" />,
-          label: "Blog List",
-        },
-        {
-          key: "blog-category",
-          icon: <ImBlog className="fs-5" />,
-          label: "Add Blog Category",
-        },
-        {
-          key: "blog-category-list",
-          icon: <FaBloggerB className="fs-5" />,
-          label: "Blog Category List",
-        },
-      ],
+      key: "rojmel",
+      icon: <FaBook />,
+      label: "Rojmel",
+    },
+    {
+      key: "reviews",
+      icon: <AiFillStar />,
+      label: "Reviews",
     },
     {
       key: "enquiries",
-      icon: <AiOutlineFileText className="fs-5" />,
+      icon: <AiOutlineFileText />,
       label: "Enquiries",
     },
     {
-      key: "ai-growth",
-      icon: <FaRocket className="fs-5" />,
-      label: "AI Growth Report",
-    },
-    {
-      key: "market-intelligence",
-      icon: <FaChartLine className="fs-5" />,
-      label: "Market Intelligence",
-    },
-    {
       key: "signout",
-      icon: <AiOutlineLogout className="fs-5" />,
+      icon: <AiOutlineLogout />,
       label: "Sign Out",
     },
   ];
@@ -340,7 +229,7 @@ const MainLayout = () => {
         </Drawer>
       )}
 
-      <Layout className="site-layout">
+      <Layout className={`site-layout ${collapsed ? 'site-layout-collapsed' : ''}`}>
         <Header className="main-header">
           <div className="header-left">
             <div
@@ -416,140 +305,154 @@ const MainLayout = () => {
       </Layout>
 
       <style>{`
-        /* Main Layout Styles */
+        /* Main Layout */
         .main-layout {
           min-height: 100vh;
         }
-        
-        /* Animated Sidebar */
+
+        /* Sidebar fixed full height */
         .main-sider {
+          position: fixed !important;
+          left: 0;
+          top: 0;
+          bottom: 0;
+          height: 100vh !important;
           background: linear-gradient(180deg, #1a1a2e 0%, #16213e 100%) !important;
-          box-shadow: 4px 0 20px rgba(0, 0, 0, 0.15);
+          box-shadow: 4px 0 20px rgba(0,0,0,0.15);
           z-index: 100;
           transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+          overflow: hidden;
         }
-        
+
         .main-sider .ant-layout-sider-children {
           display: flex;
           flex-direction: column;
-          height: 100%;
+          height: 100vh;
+          overflow: hidden;
         }
-        
-        /* Logo Styles */
+
+        /* Push content right to account for fixed sidebar */
+        .site-layout {
+          margin-left: 260px;
+          transition: margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .site-layout-collapsed {
+          margin-left: 80px;
+        }
+
+        /* Logo */
         .logo-container {
-          padding: 20px 16px;
-          margin-bottom: 8px;
+          padding: 10px 14px;
+          flex-shrink: 0;
         }
-        
+
         .logo-content {
           display: flex;
           align-items: center;
           justify-content: center;
           background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-          border-radius: 12px;
-          padding: 14px;
-          animation: logoGlow 3s ease-in-out infinite;
+          border-radius: 10px;
+          padding: 9px 12px;
         }
-        
+
         @keyframes logoGlow {
           0%, 100% { box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4); }
           50% { box-shadow: 0 4px 25px rgba(102, 126, 234, 0.6); }
         }
-        
+
         .logo-icon {
-          font-size: 24px;
-          margin-right: 10px;
-          animation: pulse 2s ease-in-out infinite;
+          font-size: 18px;
+          margin-right: 8px;
         }
-        
+
         @keyframes pulse {
           0%, 100% { transform: scale(1); }
           50% { transform: scale(1.1); }
         }
-        
+
         .logo-text {
-          font-size: 18px;
+          font-size: 15px;
           font-weight: 700;
           color: white;
           letter-spacing: 0.5px;
         }
-        
-        .sm-logo {
-          display: none;
-        }
-        
-        .lg-logo {
-          display: flex;
-          align-items: center;
-        }
-        
-        .ant-layout-sider-collapsed .sm-logo {
-          display: block;
-        }
-        
-        .ant-layout-sider-collapsed .lg-logo {
-          display: none;
-        }
-        
-        /* Menu Styles */
+
+        .sm-logo { display: none; }
+        .lg-logo { display: flex; align-items: center; }
+        .ant-layout-sider-collapsed .sm-logo { display: block; }
+        .ant-layout-sider-collapsed .lg-logo { display: none; }
+
+        /* Menu — fills remaining height, scrollable but no scrollbar */
         .main-menu {
           background: transparent !important;
           border-right: none !important;
-          padding: 0 12px;
+          padding: 0 8px 8px;
+          flex: 1;
+          overflow-y: auto;
+          overflow-x: hidden;
+          scrollbar-width: none;
         }
-        
+
+        .main-menu::-webkit-scrollbar { width: 0; }
+
         .main-menu .ant-menu-item,
         .main-menu .ant-menu-submenu-title {
-          border-radius: 10px !important;
-          margin: 4px 0 !important;
-          height: 46px !important;
-          line-height: 46px !important;
-          transition: all 0.3s ease !important;
+          border-radius: 7px !important;
+          margin: 1px 0 !important;
+          height: 36px !important;
+          line-height: 36px !important;
+          font-size: 13px !important;
+          transition: all 0.2s ease !important;
         }
-        
+
         .main-menu .ant-menu-item:hover,
         .main-menu .ant-menu-submenu-title:hover {
-          background: linear-gradient(90deg, rgba(102, 126, 234, 0.2) 0%, rgba(118, 75, 162, 0.2) 100%) !important;
-          transform: translateX(4px);
+          background: rgba(102, 126, 234, 0.2) !important;
         }
-        
+
         .main-menu .ant-menu-item-selected {
           background: linear-gradient(90deg, #667eea 0%, #764ba2 100%) !important;
-          box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+          box-shadow: 0 2px 8px rgba(102, 126, 234, 0.4);
         }
-        
-        .main-menu .ant-menu-item-selected::after {
-          display: none;
-        }
-        
+
+        .main-menu .ant-menu-item-selected::after { display: none; }
+
         .main-menu .ant-menu-submenu-selected > .ant-menu-submenu-title {
           color: #667eea !important;
         }
-        
+
         .main-menu .ant-menu-sub {
-          background: rgba(0, 0, 0, 0.2) !important;
-          border-radius: 10px !important;
-          padding: 4px !important;
+          background: rgba(0,0,0,0.15) !important;
+          border-radius: 7px !important;
+          padding: 1px !important;
         }
-        
+
+        .main-menu .ant-menu-sub .ant-menu-item {
+          height: 32px !important;
+          line-height: 32px !important;
+          font-size: 12px !important;
+          margin: 1px 0 !important;
+        }
+
         .main-menu .ant-menu-inline-collapsed .ant-menu-item {
           padding: 0 !important;
           display: flex;
           justify-content: center;
         }
         
-        /* Header Styles */
+        /* Header */
         .main-header {
           display: flex;
           justify-content: space-between;
           align-items: center;
-          padding: 0 24px !important;
+          padding: 0 20px !important;
           background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%) !important;
-          box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+          box-shadow: 0 2px 12px rgba(0,0,0,0.08);
           position: sticky;
           top: 0;
           z-index: 99;
-          height: 70px;
+          height: 60px;
         }
         
         .header-left {
@@ -689,11 +592,10 @@ const MainLayout = () => {
           transform: translateX(4px);
         }
         
-        /* Content Area */
         .main-content {
           margin: 0 !important;
           padding: 0 !important;
-          min-height: calc(100vh - 70px);
+          min-height: calc(100vh - 60px);
           background: #f0f2f5;
         }
         
@@ -718,47 +620,27 @@ const MainLayout = () => {
 
         .mobile-drawer .main-menu {
           flex: 1;
+          overflow-y: auto;
+          overflow-x: hidden;
         }
 
-        /* Responsive Styles */
+        .mobile-drawer .main-menu::-webkit-scrollbar {
+          width: 0px;
+        }
+
         @media (max-width: 768px) {
-          .main-header {
-            padding: 0 12px !important;
-            height: 60px;
-          }
-
-          .user-info {
-            display: none;
-          }
-
-          .content-wrapper {
-            padding: 12px;
-          }
-
-          .trigger-btn {
-            width: 38px;
-            height: 38px;
-          }
-
-          .user-profile {
-            padding: 4px 8px 4px 4px;
-            gap: 8px;
-          }
-
-          .main-content {
-            min-height: calc(100vh - 60px);
-          }
+          .site-layout { margin-left: 0 !important; }
+          .main-header { padding: 0 12px !important; height: 56px; }
+          .user-info { display: none; }
+          .content-wrapper { padding: 12px; }
+          .trigger-btn { width: 36px; height: 36px; }
+          .user-profile { padding: 4px 8px 4px 4px; gap: 8px; }
+          .main-content { min-height: calc(100vh - 56px); }
         }
 
         @media (max-width: 576px) {
-          .header-action-btns .notification-btn {
-            display: none;
-          }
-
-          .user-avatar img {
-            width: 34px !important;
-            height: 34px !important;
-          }
+          .header-action-btns .notification-btn { display: none; }
+          .user-avatar img { width: 32px !important; height: 32px !important; }
         }
       `}</style>
     </Layout>

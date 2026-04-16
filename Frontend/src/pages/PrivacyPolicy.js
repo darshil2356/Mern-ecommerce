@@ -7,7 +7,12 @@ import { motion } from "framer-motion";
 const PrivacyPolicy = () => {
   return (
     <>
-      <Meta title={"Privacy Policy"} />
+      <Meta
+        title="Privacy Policy"
+        description="Read Yashoda Fashion's privacy policy to understand how we collect, use, and protect your personal information."
+        keywords="privacy policy, data protection, Yashoda Fashion privacy"
+        url="/privacy-policy"
+      />
       <BreadCrumb title="Privacy Policy" />
       
       {/* Hero Section */}

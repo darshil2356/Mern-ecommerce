@@ -5,7 +5,7 @@ import ProductCard from "../components/ProductCard";
 import Container from "../components/Container";
 import { useDispatch, useSelector } from "react-redux";
 import { getAllProducts } from "../features/products/productSlilce";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { AiOutlineFilter, AiOutlineClose } from "react-icons/ai";
 
 const OurStore = () => {
@@ -28,9 +28,14 @@ const OurStore = () => {
 
   const dispatch = useDispatch();
   const location = useLocation();
+  const navigate = useNavigate();
+  const { category: urlCategory } = useParams();
 
   useEffect(() => {
-    const incomingCategory = location.state?.category || null;
+    // Support both URL param (/product/category/saree) and legacy state
+    const incomingCategory = urlCategory
+      ? decodeURIComponent(urlCategory)
+      : location.state?.category || null;
     if (incomingCategory) {
       setCategory(incomingCategory);
       const fs = { category: incomingCategory };
@@ -39,7 +44,7 @@ const OurStore = () => {
     } else {
       dispatch(getAllProducts({}));
     }
-  }, [dispatch]); // eslint-disable-line
+  }, [dispatch, urlCategory]); // eslint-disable-line
 
   useEffect(() => {
     if (productState?.length > 0) {
@@ -173,15 +178,23 @@ const OurStore = () => {
     </div>
   );
 
+  const pageTitle = category
+    ? `${category.charAt(0).toUpperCase() + category.slice(1)} – Shop Online`
+    : "Shop All Products";
+  const pageDesc = category
+    ? `Buy ${category} online at Yashoda Fashion. Browse our premium ${category} collection with best prices and fast delivery.`
+    : "Browse our full collection of premium fashion, clothing, and accessories.";
+  const pageUrl = category ? `/product/category/${encodeURIComponent(category)}` : "/product";
+
   return (
     <>
       <Meta
-        title="Shop All Products"
-        description="Browse our full collection of premium fashion, clothing, and accessories."
-        keywords="shop fashion online, buy clothes, premium clothing"
-        url="/product"
+        title={pageTitle}
+        description={pageDesc}
+        keywords={category ? `${category}, buy ${category} online, ${category} India, Yashoda Fashion` : "shop fashion online, buy clothes, premium clothing"}
+        url={pageUrl}
       />
-      <BreadCrumb title="Our Store" />
+      <BreadCrumb title={category ? category.charAt(0).toUpperCase() + category.slice(1) : "Our Store"} />
 
       <div style={{ background: "#f7f7f7", minHeight: "100vh" }}>
         <Container class1="store-wrapper py-4">

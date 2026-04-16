@@ -7,7 +7,12 @@ import { motion } from "framer-motion";
 const ShippingPolicy = () => {
   return (
     <>
-      <Meta title={"Shipping Policy"} />
+      <Meta
+        title="Shipping Policy"
+        description="Yashoda Fashion shipping policy: free shipping above ₹999, delivery in 5-10 business days, and easy order tracking across India."
+        keywords="shipping policy, delivery time, free shipping India, order tracking, Yashoda Fashion shipping"
+        url="/shipping-policy"
+      />
       <BreadCrumb title="Shipping Policy" />
       
       {/* Hero Section */}

@@ -35,7 +35,12 @@ const Contact = () => {
   });
   return (
     <>
-      <Meta title={"Contact Us"} />
+      <Meta
+        title="Contact Us"
+        description="Get in touch with Yashoda Fashion. Reach us via phone, email, or our contact form for any queries about orders, products, or support."
+        keywords="contact Yashoda Fashion, customer support, fashion store contact, help center"
+        url="/contact"
+      />
       <BreadCrumb title="Contact Us" />
       <Container class1="contact-wrapper py-5 home-wrapper-2">
         <div className="row">

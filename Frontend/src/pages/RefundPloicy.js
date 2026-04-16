@@ -7,7 +7,12 @@ import { motion } from "framer-motion";
 const RefundPloicy = () => {
   return (
     <>
-      <Meta title={"Refund Policy"} />
+      <Meta
+        title="Refund Policy"
+        description="Learn about Yashoda Fashion's 7-day return and refund policy. Easy returns, fast refunds, and hassle-free exchanges."
+        keywords="refund policy, return policy, exchange policy, Yashoda Fashion returns"
+        url="/refund-policy"
+      />
       <BreadCrumb title="Refund Policy" />
       
       {/* Hero Section */}

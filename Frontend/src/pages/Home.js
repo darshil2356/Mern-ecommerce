@@ -16,6 +16,7 @@ import { FiTag, FiStar, FiTrendingUp, FiPackage } from "react-icons/fi";
 import axios from "axios";
 import { base_url } from "../utils/axiosConfig";
 import { toast } from "react-toastify";
+import { productUrl, categoryUrl } from "../utils/seoUrl";
 
 // Reusable product card for home page sections
   const ProductSkeleton = () => (
@@ -108,7 +109,7 @@ import { toast } from "react-toastify";
     <motion.div
       whileHover={{ y: -6, boxShadow: "0 12px 40px rgba(0,0,0,0.12)" }}
       className="animate-fade-in"
-      onClick={() => navigate("/product/" + item?._id)}
+      onClick={() => navigate(productUrl(item))}
       style={{
         background: "#fff",
         borderRadius: "16px",
@@ -557,7 +558,7 @@ const Home = () => {
                     <div key={index} className="col-6 col-md-4 col-lg-2">
                       <motion.div
                         whileHover={{ y: "-6", scale: 1.02 }}
-                        onClick={() => navigate("/product", { state: { category: cat } })}
+                        onClick={() => navigate(categoryUrl(cat))}
                         style={{ height: "120px", borderRadius: "14px", background: colors[index % 6], display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", boxShadow: "0 4px 15px rgba(0,0,0,0.15)" }}
                       >
                         <h3 style={{ fontFamily: "'Playfair Display', serif", color: "#fff", fontSize: "1rem", textTransform: "capitalize", textAlign: "center", padding: "0 10px", margin: 0 }}>

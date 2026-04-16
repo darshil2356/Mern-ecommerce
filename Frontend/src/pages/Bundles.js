@@ -74,7 +74,12 @@ const Bundles = () => {
 
   return (
     <>
-      <Meta title="Bundle Deals" />
+      <Meta
+        title="Bundle Deals – Save More with Combo Offers"
+        description="Shop exclusive bundle deals at Yashoda Fashion. Buy curated product combos and save up to 50% on premium fashion clothing."
+        keywords="bundle deals, combo offers, fashion bundles, buy more save more, Yashoda Fashion bundles"
+        url="/bundles"
+      />
       <BreadCrumb title="Bundle Deals" />
       <Container class1="py-5">
         <div className="d-flex align-items-center justify-content-between mb-4 flex-wrap gap-2">

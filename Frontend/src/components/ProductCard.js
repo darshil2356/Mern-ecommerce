@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { productUrl } from "../utils/seoUrl";
 import { useDispatch, useSelector } from "react-redux";
 import { addToWishlist } from "../features/products/productSlilce";
 import { AiFillHeart, AiOutlineHeart } from "react-icons/ai";
@@ -45,7 +46,7 @@ const ProductCard = ({ data }) => {
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: Math.min(index * 0.04, 0.25), duration: 0.3 }}
-            onClick={() => navigate("/product/" + item._id)}
+            onClick={() => navigate(productUrl(item))}
             style={{ cursor: "pointer" }}
           >
             <div style={cardStyle}>

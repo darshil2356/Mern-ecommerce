@@ -7,7 +7,12 @@ import { motion } from "framer-motion";
 const TermAndContions = () => {
   return (
     <>
-      <Meta title={"Terms & Conditions"} />
+      <Meta
+        title="Terms & Conditions"
+        description="Read Yashoda Fashion's terms and conditions governing the use of our website, purchases, and services."
+        keywords="terms and conditions, terms of service, Yashoda Fashion terms, user agreement"
+        url="/term-conditions"
+      />
       <BreadCrumb title="Terms & Conditions" />
       
       {/* Hero Section */}

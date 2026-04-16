@@ -11,6 +11,7 @@ import { AiOutlineHeart, AiOutlineShoppingCart, AiOutlineEye } from "react-icons
 import { IoIosClose } from "react-icons/io";
 import { toast } from "react-toastify";
 import { getColorSwatch, getReadableColorName } from "../utils/colorDisplay";
+import { productUrl } from "../utils/seoUrl";
 
 const Wishlist = () => {
   const dispatch = useDispatch();
@@ -250,7 +251,7 @@ const Wishlist = () => {
                         {item?.brand}
                       </h6>
                       <h5 
-                        onClick={() => navigate("/product/" + item?._id)}
+                        onClick={() => navigate(productUrl(item))}
                         style={{ 
                           fontFamily: "'Playfair Display', serif", 
                           fontSize: '16px', 
@@ -312,7 +313,7 @@ const Wishlist = () => {
                           <AiOutlineShoppingCart /> Add to Cart
                         </button>
                         <button
-                          onClick={() => navigate("/product/" + item?._id)}
+                          onClick={() => navigate(productUrl(item))}
                           style={{
                             background: 'transparent',
                             color: '#1a1a1a',

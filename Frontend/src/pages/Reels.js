@@ -1,7 +1,9 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
+import Meta from "../components/Meta";
 import axios from "axios";
 import { base_url, getConfig } from "../utils/axiosConfig";
+import { productUrl } from "../utils/seoUrl";
 import {
   BsHeart,
   BsHeartFill,
@@ -204,7 +206,7 @@ const Reels = () => {
 
   const handleWhatsAppShare = () => {
     if (!shareItem) return;
-    const url = `${window.location.origin}/product/${shareItem._id}`;
+    const url = `${window.location.origin}${productUrl(shareItem)}`;
     const text = encodeURIComponent(
       `Check out ${shareItem.title} - ₹${shareItem.price?.toLocaleString()}\n${url}`,
     );
@@ -214,7 +216,7 @@ const Reels = () => {
 
   const handleCopyLink = () => {
     if (!shareItem) return;
-    const url = `${window.location.origin}/product/${shareItem._id}`;
+    const url = `${window.location.origin}${productUrl(shareItem)}`;
     const el = document.createElement("textarea");
     el.value = url;
     el.style.cssText = "position:fixed;opacity:0";
@@ -420,6 +422,13 @@ const Reels = () => {
 
   // ── Fullscreen View ───────────────────────────────────────────────────────────
   return (
+    <>
+      <Meta
+        title="Shop Reels – Video Shopping"
+        description="Watch fashion reels and shop the look instantly at Yashoda Fashion. Discover trending outfits through short videos."
+        keywords="fashion reels, video shopping, shop the look, trending fashion India, Yashoda Fashion reels"
+        url="/reels"
+      />
     <div
       style={{
         position: "fixed",
@@ -728,7 +737,7 @@ const Reels = () => {
                     data-interactive
                     onClick={(e) => {
                       e.stopPropagation();
-                      navigate(`/product/${item._id}`);
+                      navigate(productUrl(item));
                     }}
                     style={{
                       background: "rgba(255,255,255,0.15)",
@@ -1026,6 +1035,7 @@ const Reels = () => {
         )}
       </div>
     </div>
+    </>
   );
 };
 

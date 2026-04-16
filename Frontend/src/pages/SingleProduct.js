@@ -4,7 +4,7 @@ import BreadCrumb from "../components/BreadCrumb";
 import Meta from "../components/Meta";
 import Color from "../components/Color";
 import { AiOutlineHeart, AiFillHeart, AiOutlinePlayCircle, AiOutlineZoomIn, AiOutlineShoppingCart, AiOutlineUpload, AiFillCheckCircle, AiOutlineLike } from "react-icons/ai";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import Container from "../components/Container";
 import { useDispatch, useSelector } from "react-redux";
 import { addRating, getAProduct, getAllProducts, resetSingleProduct } from "../features/products/productSlilce";
@@ -15,6 +15,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import axios from "axios";
 import { base_url } from "../utils/axiosConfig";
 import trackingService from "../utils/trackingService";
+import { productUrl } from "../utils/seoUrl";
 
 const SingleProduct = () => {
   const [color, setColor] = useState(null);
@@ -34,7 +35,10 @@ const SingleProduct = () => {
   const [sortBy, setSortBy] = useState("newest");
   const location = useLocation();
   const navigate = useNavigate();
-  const getProductId = location.pathname.split("/")[2];
+  // Support both /product/:slug-:id and /product/:id formats
+  const { slug } = useParams();
+  // MongoDB ObjectId is always 24 hex chars at the end
+  const getProductId = slug?.match(/[a-f0-9]{24}$/)?.[0] || slug;
   const dispatch = useDispatch();
   const fileInputRef = useRef(null);
   
@@ -359,7 +363,7 @@ const SingleProduct = () => {
         description={productState?.seo?.meta_description || productState?.description?.replace(/<[^>]+>/g, "").slice(0, 160)}
         keywords={productState?.seo?.meta_keywords?.join(", ") || `${productState?.title}, ${productState?.brand}, ${productState?.category}, buy online, Yashoda Fashion`}
         image={productState?.images?.[0]?.url}
-        url={`/product/${productState?._id}`}
+        url={productUrl(productState)}
         type="product"
         price={productState?.price}
         brand={productState?.brand}
@@ -1509,7 +1513,7 @@ const SingleProduct = () => {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: index * 0.1 }}
                   whileHover={{ y: -8 }}
-                  onClick={() => navigate("/product/" + item?._id)}
+                  onClick={() => navigate(productUrl(item))}
                   style={{
                     background: '#fff',
                     borderRadius: '16px',

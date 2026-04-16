@@ -10,6 +10,7 @@ import "react-bootstrap-typeahead/css/Typeahead.css";
 import { getAProduct, getAllProducts } from "../features/products/productSlilce";
 import { getUserCart, getMyReferrals } from "../features/user/userSlice";
 import { resetFirebaseMessaging } from "../utils/firebase";
+import { productUrl, categoryUrl } from "../utils/seoUrl";
 
 const NAV_LINKS = [
   { to: "/", label: "Home" },
@@ -324,7 +325,7 @@ const Header = () => {
           <div className="h-search">
             <Typeahead
               id="search-desktop"
-              onChange={(sel) => { if (sel?.[0]?.prod) { navigate(`/product/${sel[0].prod}`); dispatch(getAProduct(sel[0].prod)); } }}
+              onChange={(sel) => { if (sel?.[0]?.prod) { const p = productState?.find(x => x._id === sel[0].prod); navigate(productUrl(p || { _id: sel[0].prod, title: sel[0].name })); dispatch(getAProduct(sel[0].prod)); } }}
               options={productOpt} labelKey="name" placeholder="Search products..."
             />
             <button className="h-sbtn"><BsSearch color="#1a1a1a" size={15} /></button>
@@ -390,7 +391,7 @@ const Header = () => {
           <div className="h-mob-search-inner">
             <Typeahead
               id="search-mobile"
-              onChange={(sel) => { if (sel?.[0]?.prod) { navigate(`/product/${sel[0].prod}`); dispatch(getAProduct(sel[0].prod)); setSearchOpen(false); } }}
+              onChange={(sel) => { if (sel?.[0]?.prod) { const p = productState?.find(x => x._id === sel[0].prod); navigate(productUrl(p || { _id: sel[0].prod, title: sel[0].name })); dispatch(getAProduct(sel[0].prod)); setSearchOpen(false); } }}
               options={productOpt} labelKey="name" placeholder="Search products..."
             />
             <button className="h-sbtn"><BsSearch color="#1a1a1a" size={15} /></button>
@@ -409,7 +410,7 @@ const Header = () => {
             {catOpen && categories.length > 0 && (
               <div className="h-cat-menu">
                 {categories.map((cat, i) => (
-                  <Link key={i} to="/product" className="h-cat-item" onClick={() => setCatOpen(false)}>{cat}</Link>
+                  <Link key={i} to={categoryUrl(cat)} className="h-cat-item" onClick={() => setCatOpen(false)}>{cat}</Link>
                 ))}
               </div>
             )}

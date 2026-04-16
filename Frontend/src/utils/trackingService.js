@@ -14,42 +14,56 @@ class TrackingService {
     this.isInitialized = false;
   }
 
-  // Initialize tracking
+  // Initialize tracking — connects socket (always), starts tracking if enabled
   async init(userId = null) {
-    if (this.isInitialized) return;
+    this.userId = userId;
+
+    // Always connect socket so we can listen for config changes
+    if (!this.socket) this.connectSocket();
 
     try {
-      // Get or create session
-      const sessionData = await this.createSession(userId);
+      const configRes = await axios.get(`${API_BASE_URL}/tracking/config`);
+      if (configRes.data.config?.isEnabled) {
+        await this.start(userId);
+      }
+    } catch (error) {
+      console.error('Failed to initialize tracking:', error);
+    }
+  }
 
+  // Start all tracking
+  async start(userId = null) {
+    if (this.isInitialized) return;
+    try {
+      const sessionData = await this.createSession(userId);
       this.sessionId = sessionData.session.sessionId;
       this.guestId = sessionData.session.guestId;
       this.userId = userId;
 
-      // Connect to socket
-      this.connectSocket();
+      if (this.socket) {
+        if (this.userId) this.socket.emit('join-user', this.userId);
+        this.socket.emit('join-session', this.sessionId);
+      }
 
-      // Start heartbeat
       this.startHeartbeat();
-
-      // Track initial page view
-      this.trackEvent('page_view', {
-        page: this.currentPage,
-        referrer: document.referrer,
-        userAgent: navigator.userAgent,
-      });
-
+      this.trackEvent('page_view', { page: this.currentPage, referrer: document.referrer });
       this.isInitialized = true;
-
-      // Track page changes
       this.trackPageChanges();
-
-      // Track user interactions
       this.trackInteractions();
-
     } catch (error) {
-      console.error('Failed to initialize tracking:', error);
+      console.error('Failed to start tracking:', error);
     }
+  }
+
+  // Stop all tracking (keep socket alive to listen for re-enable)
+  stop() {
+    if (this.heartbeatInterval) {
+      clearInterval(this.heartbeatInterval);
+      this.heartbeatInterval = null;
+    }
+    this.sessionId = null;
+    this.guestId = null;
+    this.isInitialized = false;
   }
 
   // Create or update session
@@ -75,17 +89,17 @@ class TrackingService {
     this.socket = io(process.env.REACT_APP_SOCKET_URL || 'http://localhost:8000');
 
     this.socket.on('connect', () => {
-      console.log('Connected to tracking server');
-
-      // Join rooms
-      if (this.userId) {
-        this.socket.emit('join-user', this.userId);
-      }
+      if (this.userId) this.socket.emit('join-user', this.userId);
       this.socket.emit('join-session', this.sessionId);
     });
 
-    this.socket.on('disconnect', () => {
-      console.log('Disconnected from tracking server');
+    // Listen for admin toggle — start or stop tracking in real-time
+    this.socket.on('tracking_config_changed', ({ isEnabled }) => {
+      if (isEnabled) {
+        this.start(this.userId);
+      } else {
+        this.stop();
+      }
     });
   }
 
@@ -187,6 +201,8 @@ class TrackingService {
 
   // Track custom event
   trackEvent(eventType, metadata = {}) {
+    if (!this.sessionId) return; // session not ready yet
+
     const eventData = {
       sessionId: this.sessionId,
       userId: this.userId,
@@ -300,15 +316,13 @@ class TrackingService {
     }
   }
 
-  // Cleanup
+  // Full cleanup (on app unmount)
   destroy() {
-    if (this.heartbeatInterval) {
-      clearInterval(this.heartbeatInterval);
-    }
+    this.stop();
     if (this.socket) {
       this.socket.disconnect();
+      this.socket = null;
     }
-    this.isInitialized = false;
   }
 }
 

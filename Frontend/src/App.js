@@ -38,9 +38,9 @@ function App() {
   const user = useSelector((state) => state.auth?.user);
   usePushNotification(user?._id);
 
-  // Initialize tracking
   useEffect(() => {
     trackingService.init(user?._id);
+    return () => trackingService.destroy();
   }, [user]);
 
   return (

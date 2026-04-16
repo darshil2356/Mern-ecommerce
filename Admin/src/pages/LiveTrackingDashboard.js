@@ -41,6 +41,10 @@ const LiveTrackingDashboard = () => {
       checkForNewIssues();
     });
 
+    newSocket.on('tracking_config_changed', (data) => {
+      setTrackingEnabled(data.isEnabled);
+    });
+
     // Initial data load
     loadDashboardData();
     loadTrackingConfig();
@@ -53,7 +57,7 @@ const LiveTrackingDashboard = () => {
   const loadTrackingConfig = async () => {
     try {
       const res = await axios.get('/tracking/config');
-      setTrackingEnabled(res.data.isEnabled);
+      setTrackingEnabled(res.data.config?.isEnabled ?? true);
     } catch (error) {
       console.error('Error loading tracking config:', error);
     }

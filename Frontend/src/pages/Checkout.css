@@ -804,3 +804,63 @@
 @media (min-width: 481px) and (max-width: 767px) {
   .co-row { flex-direction: row; }
 }
+
+/* ── Payment Method Selector ── */
+.co-payment-methods { margin-bottom: 4px; }
+
+.co-pm-options {
+  display: flex;
+  gap: 10px;
+}
+
+.co-pm-card {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1.5px solid #e5e7eb;
+  border-radius: 12px;
+  background: #fafafa;
+  cursor: pointer;
+  transition: all 0.2s;
+  position: relative;
+}
+
+.co-pm-card input[type="radio"] { display: none; }
+
+.co-pm-selected {
+  border-color: #6366f1;
+  background: #eef2ff;
+  box-shadow: 0 0 0 3px rgba(99,102,241,0.1);
+}
+
+.co-pm-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #111827;
+  margin: 0 0 2px;
+}
+
+.co-pm-sub {
+  font-size: 11px;
+  color: #9ca3af;
+  margin: 0;
+}
+
+.co-pm-check {
+  margin-left: auto;
+  width: 20px;
+  height: 20px;
+  background: #6366f1;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  flex-shrink: 0;
+}
+
+@media (max-width: 480px) {
+  .co-pm-options { flex-direction: column; }
+}

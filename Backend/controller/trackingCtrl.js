@@ -93,7 +93,10 @@ const trackEvent = asyncHandler(async (req, res) => {
     location,
   } = req.body;
 
-  // Create event
+  if (!sessionId) {
+    return res.status(400).json({ success: false, message: "sessionId is required" });
+  }
+
   const event = await Event.create({
     sessionId,
     userId,
@@ -107,13 +110,11 @@ const trackEvent = asyncHandler(async (req, res) => {
     location,
   });
 
-  // Update session last activity
   await Session.findOneAndUpdate(
     { sessionId },
     { lastActivity: new Date(), currentPage: page }
   );
 
-  // Check for issues based on event
   await checkForIssues(sessionId, userId, guestId, eventType, metadata);
 
   res.json({ success: true, eventId: event._id });
@@ -377,15 +378,28 @@ const checkForIssues = async (sessionId, userId, guestId, eventType, metadata) =
   }
 };
 
-let trackingConfig = { enabled: true };
+const TrackingConfig = require("../models/trackingConfigModel");
 
 const getTrackingConfig = asyncHandler(async (req, res) => {
-  res.json({ success: true, config: trackingConfig });
+  let config = await TrackingConfig.findOne();
+  if (!config) config = await TrackingConfig.create({ isEnabled: true });
+  res.json({ success: true, config });
 });
 
 const updateTrackingConfig = asyncHandler(async (req, res) => {
-  trackingConfig = { ...trackingConfig, ...req.body };
-  res.json({ success: true, config: trackingConfig });
+  let config = await TrackingConfig.findOneAndUpdate(
+    {},
+    { isEnabled: req.body.isEnabled },
+    { upsert: true, new: true }
+  );
+
+  // Broadcast to all connected clients so frontend reacts immediately
+  const io = req.app.get('io');
+  if (io) {
+    io.emit('tracking_config_changed', { isEnabled: config.isEnabled });
+  }
+
+  res.json({ success: true, config });
 });
 
 const upgradeSession = asyncHandler(async (req, res) => {
@@ -441,4 +455,5 @@ module.exports = {
   upgradeSession,
   getCheckoutDropoffs,
   getCartDropoffs,
+  checkForIssues,
 };

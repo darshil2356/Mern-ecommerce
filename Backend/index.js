@@ -155,6 +155,8 @@ io.on("connection", (socket) => {
   // Handle tracking events
   socket.on("track_event", async (eventData) => {
     try {
+      if (!eventData.sessionId) return; // ignore events without session
+
       const Event = require("./models/eventModel");
       const Session = require("./models/sessionModel");
 

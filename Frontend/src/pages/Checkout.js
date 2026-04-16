@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { BiArrowBack, BiCheck } from "react-icons/bi";
-import { FaCoins, FaShieldAlt, FaSpinner } from "react-icons/fa";
+import { FaCoins, FaShieldAlt, FaSpinner, FaMoneyBillWave } from "react-icons/fa";
 import { FiMapPin, FiCreditCard, FiPackage, FiChevronRight, FiTruck } from "react-icons/fi";
 import Container from "../components/Container";
 import { useDispatch, useSelector } from "react-redux";
@@ -81,6 +81,7 @@ const Checkout = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [cartProductState, setCartProductState] = useState([]);
   const [summaryOpen, setSummaryOpen] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState("online");
   // GST settings from backend
   const [gstSettings, setGstSettings] = useState({ cgst: 0, sgst: 0, igst: 0, storeState: "Gujarat", taxIncluded: false });
   const [gstType, setGstType] = useState("NONE");
@@ -170,9 +171,13 @@ const Checkout = () => {
     validationSchema: shippingSchema,
     onSubmit: async (values) => {
       localStorage.setItem("address", JSON.stringify(values));
-      setCurrentStep(2);
-      setIsProcessing(true);
-      setTimeout(() => checkOutHandler(), 500);
+      if (paymentMethod === "cod") {
+        await codOrderHandler(values);
+      } else {
+        setCurrentStep(2);
+        setIsProcessing(true);
+        setTimeout(() => checkOutHandler(), 500);
+      }
     },
   });
 
@@ -181,6 +186,34 @@ const Checkout = () => {
     s.src = src; s.onload = () => res(true); s.onerror = () => res(false);
     document.body.appendChild(s);
   });
+
+  const codOrderHandler = async (values) => {
+    try {
+      setCurrentStep(2);
+      setIsProcessing(true);
+      await dispatch(createAnOrder({
+        totalPrice: totalAmount,
+        totalPriceAfterDiscount: finalAmount,
+        orderItems: cartProductState,
+        paymentInfo: { method: "COD", status: "Pending" },
+        shippingInfo: values,
+        coinsUsed: useCoins ? coinAmount : 0,
+        coinAmount: coinDiscount,
+        discountBreakdown: { directDiscount: 0, offerDiscount: 0, coinDiscount },
+        gstBreakdown: { cgst: cgstAmt, sgst: sgstAmt, igst: igstAmt, cgstRate: gstSettings.cgst, sgstRate: gstSettings.sgst, igstRate: gstSettings.igst, gstType, taxableAmount: totalAmount },
+      }));
+      await dispatch(deleteUserCart(getConfig()));
+      localStorage.removeItem("address");
+      dispatch(resetState());
+      setCurrentStep(3);
+      setIsProcessing(false);
+      setTimeout(() => navigate("/my-orders"), 100);
+    } catch (e) {
+      alert("Failed to place order. Please try again.");
+      setIsProcessing(false);
+      setCurrentStep(1);
+    }
+  };
 
   const checkOutHandler = async () => {
     try {
@@ -331,6 +364,31 @@ const Checkout = () => {
                     <div className="co-row">
                       <Field formik={formik} label="City" name="city" placeholder="City" half />
                       <Field formik={formik} label="Pincode" name="pincode" placeholder="6-digit pincode" type="number" half />
+                    </div>
+
+                    {/* Payment Method */}
+                    <div className="co-payment-methods">
+                      <p className="co-label" style={{ marginBottom: 10 }}>Payment Method</p>
+                      <div className="co-pm-options">
+                        <label className={`co-pm-card${paymentMethod === "online" ? " co-pm-selected" : ""}`}>
+                          <input type="radio" name="paymentMethod" value="online" checked={paymentMethod === "online"} onChange={() => setPaymentMethod("online")} />
+                          <FiCreditCard size={20} color={paymentMethod === "online" ? "#6366f1" : "#9ca3af"} />
+                          <div>
+                            <p className="co-pm-title">Online Payment</p>
+                            <p className="co-pm-sub">UPI, Card, Net Banking</p>
+                          </div>
+                          {paymentMethod === "online" && <span className="co-pm-check"><BiCheck size={14} /></span>}
+                        </label>
+                        <label className={`co-pm-card${paymentMethod === "cod" ? " co-pm-selected" : ""}`}>
+                          <input type="radio" name="paymentMethod" value="cod" checked={paymentMethod === "cod"} onChange={() => setPaymentMethod("cod")} />
+                          <FaMoneyBillWave size={20} color={paymentMethod === "cod" ? "#6366f1" : "#9ca3af"} />
+                          <div>
+                            <p className="co-pm-title">Cash on Delivery</p>
+                            <p className="co-pm-sub">Pay when you receive</p>
+                          </div>
+                          {paymentMethod === "cod" && <span className="co-pm-check"><BiCheck size={14} /></span>}
+                        </label>
+                      </div>
                     </div>
 
                     {/* Coins toggle */}

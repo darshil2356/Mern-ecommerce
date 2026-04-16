@@ -15,18 +15,14 @@ const buildPaymentFilter = (query) => {
       return { paymentDestination: "CASH" };
     case "online_current":
       return {
-        $and: [
-          { mode: "ONLINE" },
-          {
-            $or: [
-              { paymentDestination: "CURRENT_ACCOUNT" },
-              { paymentDestination: { $exists: false } }
-            ]
-          }
+        $or: [
+          { paymentDestination: "CURRENT_ACCOUNT" },
+          { mode: "ONLINE", paymentDestination: { $exists: false } },
+          { mode: "ONLINE", paymentDestination: null }
         ]
       };
     case "online_other":
-      return { mode: "ONLINE", paymentDestination: "OTHER_ACCOUNT" };
+      return { paymentDestination: "OTHER_ACCOUNT" };
     default:
       return {};
   }
@@ -37,6 +33,9 @@ const mergeFilters = (dateFilter, paymentFilter) => {
   if (!paymentFilter || Object.keys(paymentFilter).length === 0) return dateFilter;
   if (paymentFilter.$and) {
     return { ...dateFilter, $and: paymentFilter.$and };
+  }
+  if (paymentFilter.$or) {
+    return { ...dateFilter, $or: paymentFilter.$or };
   }
   return { ...dateFilter, ...paymentFilter };
 };
@@ -82,8 +81,9 @@ const getMonthlyReport = asyncHandler(async (req, res) => {
   // Coin refunds do NOT reduce cash — the money stays in the business
   const netActualRevenue = netRevenue - cashRefundAmount;
 
-  const onlineOrders = activeOrders.filter(o => o.mode === "ONLINE");
-  const offlineOrders = activeOrders.filter(o => o.mode === "OFFLINE");
+  const cashOrders         = activeOrders.filter(o => o.paymentDestination === "CASH");
+  const onlineCurrentOrders = activeOrders.filter(o => o.paymentDestination === "CURRENT_ACCOUNT" || (o.mode === "ONLINE" && !o.paymentDestination));
+  const onlineOtherOrders   = activeOrders.filter(o => o.paymentDestination === "OTHER_ACCOUNT");
 
   const statusBreakdown = {};
   orders.forEach(order => {
@@ -137,8 +137,12 @@ const getMonthlyReport = asyncHandler(async (req, res) => {
       averageOrderValue: totalOrders > 0 ? netRevenue / totalOrders : 0
     },
     modeBreakdown: {
-      online: { orders: onlineOrders.length, amount: onlineOrders.reduce((s, o) => s + (o.totalPriceAfterDiscount || 0), 0) },
-      offline: { orders: offlineOrders.length, amount: offlineOrders.reduce((s, o) => s + (o.totalPriceAfterDiscount || 0), 0) }
+      cash:          { orders: cashOrders.length,          amount: cashOrders.reduce((s, o) => s + (o.totalPriceAfterDiscount || 0), 0) },
+      onlineCurrent: { orders: onlineCurrentOrders.length, amount: onlineCurrentOrders.reduce((s, o) => s + (o.totalPriceAfterDiscount || 0), 0) },
+      onlineOther:   { orders: onlineOtherOrders.length,   amount: onlineOtherOrders.reduce((s, o) => s + (o.totalPriceAfterDiscount || 0), 0) },
+      // legacy keys kept for frontend compatibility
+      online:  { orders: onlineCurrentOrders.length + onlineOtherOrders.length, amount: [...onlineCurrentOrders, ...onlineOtherOrders].reduce((s, o) => s + (o.totalPriceAfterDiscount || 0), 0) },
+      offline: { orders: cashOrders.length, amount: cashOrders.reduce((s, o) => s + (o.totalPriceAfterDiscount || 0), 0) }
     },
     statusBreakdown, topProducts, topCustomers, dailyData,
     orders: orders.map(order => ({
@@ -197,8 +201,9 @@ const getYearlyReport = asyncHandler(async (req, res) => {
   const { cancelledAmount, coinRefundAmount, cashRefundAmount } = buildCancelledSummary(cancelledOrders);
   const netActualRevenue = netRevenue - cashRefundAmount;
 
-  const onlineOrders = activeOrders.filter(o => o.mode === "ONLINE");
-  const offlineOrders = activeOrders.filter(o => o.mode === "OFFLINE");
+  const cashOrders_y         = activeOrders.filter(o => o.paymentDestination === "CASH");
+  const onlineCurrentOrders_y = activeOrders.filter(o => o.paymentDestination === "CURRENT_ACCOUNT" || (o.mode === "ONLINE" && !o.paymentDestination));
+  const onlineOtherOrders_y   = activeOrders.filter(o => o.paymentDestination === "OTHER_ACCOUNT");
 
   const statusBreakdown = {};
   orders.forEach(order => {
@@ -219,8 +224,11 @@ const getYearlyReport = asyncHandler(async (req, res) => {
     },
     monthlyBreakdown,
     modeBreakdown: {
-      online: { orders: onlineOrders.length, amount: onlineOrders.reduce((s, o) => s + (o.totalPriceAfterDiscount || 0), 0) },
-      offline: { orders: offlineOrders.length, amount: offlineOrders.reduce((s, o) => s + (o.totalPriceAfterDiscount || 0), 0) }
+      cash:          { orders: cashOrders_y.length,          amount: cashOrders_y.reduce((s, o) => s + (o.totalPriceAfterDiscount || 0), 0) },
+      onlineCurrent: { orders: onlineCurrentOrders_y.length, amount: onlineCurrentOrders_y.reduce((s, o) => s + (o.totalPriceAfterDiscount || 0), 0) },
+      onlineOther:   { orders: onlineOtherOrders_y.length,   amount: onlineOtherOrders_y.reduce((s, o) => s + (o.totalPriceAfterDiscount || 0), 0) },
+      online:  { orders: onlineCurrentOrders_y.length + onlineOtherOrders_y.length, amount: [...onlineCurrentOrders_y, ...onlineOtherOrders_y].reduce((s, o) => s + (o.totalPriceAfterDiscount || 0), 0) },
+      offline: { orders: cashOrders_y.length, amount: cashOrders_y.reduce((s, o) => s + (o.totalPriceAfterDiscount || 0), 0) }
     },
     statusBreakdown,
     orders: orders.map(order => ({
@@ -269,8 +277,9 @@ const getDateRangeReport = asyncHandler(async (req, res) => {
   const { cancelledAmount, coinRefundAmount, cashRefundAmount } = buildCancelledSummary(cancelledOrders);
   const netActualRevenue = netRevenue - cashRefundAmount;
 
-  const onlineOrders = activeOrders.filter(o => o.mode === "ONLINE");
-  const offlineOrders = activeOrders.filter(o => o.mode === "OFFLINE");
+  const cashOrders_dr         = activeOrders.filter(o => o.paymentDestination === "CASH");
+  const onlineCurrentOrders_dr = activeOrders.filter(o => o.paymentDestination === "CURRENT_ACCOUNT" || (o.mode === "ONLINE" && !o.paymentDestination));
+  const onlineOtherOrders_dr   = activeOrders.filter(o => o.paymentDestination === "OTHER_ACCOUNT");
 
   res.json({
     success: true,
@@ -282,8 +291,11 @@ const getDateRangeReport = asyncHandler(async (req, res) => {
       averageOrderValue: totalOrders > 0 ? netRevenue / totalOrders : 0
     },
     modeBreakdown: {
-      online: { orders: onlineOrders.length, amount: onlineOrders.reduce((s, o) => s + (o.totalPriceAfterDiscount || 0), 0) },
-      offline: { orders: offlineOrders.length, amount: offlineOrders.reduce((s, o) => s + (o.totalPriceAfterDiscount || 0), 0) }
+      cash:          { orders: cashOrders_dr.length,          amount: cashOrders_dr.reduce((s, o) => s + (o.totalPriceAfterDiscount || 0), 0) },
+      onlineCurrent: { orders: onlineCurrentOrders_dr.length, amount: onlineCurrentOrders_dr.reduce((s, o) => s + (o.totalPriceAfterDiscount || 0), 0) },
+      onlineOther:   { orders: onlineOtherOrders_dr.length,   amount: onlineOtherOrders_dr.reduce((s, o) => s + (o.totalPriceAfterDiscount || 0), 0) },
+      online:  { orders: onlineCurrentOrders_dr.length + onlineOtherOrders_dr.length, amount: [...onlineCurrentOrders_dr, ...onlineOtherOrders_dr].reduce((s, o) => s + (o.totalPriceAfterDiscount || 0), 0) },
+      offline: { orders: cashOrders_dr.length, amount: cashOrders_dr.reduce((s, o) => s + (o.totalPriceAfterDiscount || 0), 0) }
     },
     orders: orders.map(order => ({
       _id: order._id,

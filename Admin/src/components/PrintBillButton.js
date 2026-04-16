@@ -19,7 +19,9 @@ const PrintBillButton = ({
   coinsUsed = 0,
   subtotal = 0,
   invoiceNumber = null,
-  gstin = ""
+  gstin = "",
+  storeName = "Cart Corner",
+  storeTagline = "Your One-Stop Shopping Destination"
 }) => {
   // Generate invoice number if not provided
   const generateInvoiceNumber = () => {
@@ -27,6 +29,26 @@ const PrintBillButton = ({
     const date = new Date();
     const random = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
     return `INV-${date.getFullYear()}${(date.getMonth()+1).toString().padStart(2, '0')}${date.getDate().toString().padStart(2, '0')}-${random}`;
+  };
+
+  // Helper function to convert number to words
+  const numberToWords = (num) => {
+    const a = ['','One ','Two ','Three ','Four ','Five ','Six ','Seven ','Eight ','Nine ','Ten ','Eleven ','Twelve ','Thirteen ','Fourteen ','Fifteen ','Sixteen ','Seventeen ','Eighteen ','Nineteen '];
+    const b = ['', '', 'Twenty','Thirty','Forty','Fifty','Sixty','Seventy','Eighty','Ninety'];
+    const numToWords = (n) => {
+      if ((n = n.toString()).length > 9) return 'overflow';
+      let n_zero = ('000000000' + n).substr(-9);
+      let n1 = n_zero.substr(0, 2), n2 = n_zero.substr(2, 2), n3 = n_zero.substr(4, 2), n4 = n_zero.substr(6, 2), n5 = n_zero.substr(8, 2);
+      let res = '';
+      res += (n1 != 0) ? (a[Number(n1)] || b[n1[0]] + ' ' + a[n1[1]]) + 'Crore ' : '';
+      res += (n2 != 0) ? (a[Number(n2)] || b[n2[0]] + ' ' + a[n2[1]]) + 'Lakh ' : '';
+      res += (n3 != 0) ? (a[Number(n3)] || b[n3[0]] + ' ' + a[n3[1]]) + 'Thousand ' : '';
+      res += (n4 != 0) ? (a[Number(n4)] || b[n4[0]] + ' ' + a[n4[1]]) + 'Hundred ' : '';
+      res += (n5 != 0) ? ((res != '') ? 'and ' : '') + (a[Number(n5)] || b[n5[0]] + ' ' + a[n5[1]]) : '';
+      return res;
+    };
+    if (num <= 0) return 'Zero';
+    return numToWords(Math.floor(num));
   };
 
   const printBill = () => {
@@ -77,15 +99,10 @@ const PrintBillButton = ({
                       </svg>
                     </div>
                     <div>
-                      <h1 class="text-2xl font-bold tracking-tight">PREMIUM STORE</h1>
-                      <p class="text-blue-200 text-xs">Wholesale & Retail</p>
+                      <h1 class="text-2xl font-bold tracking-tight">${storeName}</h1>
+                      <p class="text-blue-200 text-xs">${storeTagline}</p>
                     </div>
                   </div>
-                  <p class="text-blue-100 text-sm mt-3">
-                    123 Business Street, Tech Park<br>
-                    City Center, State - 123456<br>
-                    📞 +91 98765 43210 | ✉️ info@premiumstore.com
-                  </p>
                 </div>
                 <div class="text-right">
                   <div class="bg-white/20 px-4 py-2 rounded-lg inline-block">
@@ -220,7 +237,7 @@ const PrintBillButton = ({
 
             <!-- Footer Bar -->
             <div class="bg-blue-600 text-white text-center py-2">
-              <p class="text-xs">www.premiumstore.com | Powered by Premium Store Billing System</p>
+              <p class="text-xs">${storeName} | ${storeTagline}</p>
             </div>
 
           </div>
@@ -230,29 +247,6 @@ const PrintBillButton = ({
 
     win.document.close();
     setTimeout(() => win.print(), 500);
-  };
-
-  // Helper function to convert number to words
-  const numberToWords = (num) => {
-    const a = ['','One ','Two ','Three ','Four ','Five ','Six ','Seven ','Eight ','Nine ','Ten ','Eleven ','Twelve ','Thirteen ','Fourteen ','Fifteen ','Sixteen ','Seventeen ','Eighteen ','Nineteen '];
-    const b = ['', '', 'Twenty','Thirty','Forty','Fifty','Sixty','Seventy','Eighty','Ninety'];
-
-    const numToWords = (n) => {
-      if ((n = n.toString()).length > 9) return 'overflow';
-      let n_zero = ('000000000' + n).substr(-9);
-      let n1 = n_zero.substr(0, 2), n2 = n_zero.substr(2, 2), n3 = n_zero.substr(4, 2), n4 = n_zero.substr(6, 2), n5 = n_zero.substr(8, 2);
-      let n6 = n_zero.substr(0, 3), n7 = n_zero.substr(3, 3), n8 = n_zero.substr(6, 3);
-      let res = '';
-      res += (n1 != 0) ? (a[Number(n1)] || b[n1[0]] + ' ' + a[n1[1]]) + 'Crore ' : '';
-      res += (n2 != 0) ? (a[Number(n2)] || b[n2[0]] + ' ' + a[n2[1]]) + 'Lakh ' : '';
-      res += (n3 != 0) ? (a[Number(n3)] || b[n3[0]] + ' ' + a[n3[1]]) + 'Thousand ' : '';
-      res += (n4 != 0) ? (a[Number(n4)] || b[n4[0]] + ' ' + a[n4[1]]) + 'Hundred ' : '';
-      res += (n5 != 0) ? ((res != '') ? 'and ' : '') + (a[Number(n5)] || b[n5[0]] + ' ' + a[n5[1]]) : '';
-      return res;
-    };
-
-    if (num <= 0) return 'Zero';
-    return numToWords(Math.floor(num));
   };
 
   return (

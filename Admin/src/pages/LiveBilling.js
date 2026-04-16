@@ -30,7 +30,6 @@ import PrintBillButton from "../components/PrintBillButton";
 const LiveBilling = () => {
   const [buffer, setBuffer] = useState("");
   const [cart, setCart] = useState({});
-  const [spinCompleted, setSpinCompleted] = useState(false);
 
   const [cgstPercent, setCgstPercent] = useState(0);
   const [sgstPercent, setSgstPercent] = useState(0);
@@ -79,7 +78,7 @@ const LiveBilling = () => {
   const [appliedOfferAmount, setAppliedOfferAmount] = useState(0);
 
   // Settings state - loaded from backend
-  const [showSpinner, setShowSpinner]           = useState(true);
+  const [showSpinner, setShowSpinner]           = useState(false);
   const [showReferralOffer, setShowReferralOffer] = useState(false);
   const [referralCoinPercent, setReferralCoinPercent] = useState(10);
   const [storeName, setStoreName]               = useState("Cart Corner");
@@ -516,11 +515,14 @@ const LiveBilling = () => {
   useEffect(() => {
     const fetchSettings = async () => {
       try {
-        const res = await axios.get(`${base_url}user/settings`, config);
-        const cgst = res.data.cgst || 0;
-        const sgst = res.data.sgst || 0;
-        const igst = res.data.igst || 0;
-        const sState = res.data.storeState || "Gujarat";
+        const [settingsRes, spinRes] = await Promise.all([
+          axios.get(`${base_url}user/settings`, config),
+          axios.get(`${base_url}spin/config`, config),
+        ]);
+        const cgst = settingsRes.data.cgst || 0;
+        const sgst = settingsRes.data.sgst || 0;
+        const igst = settingsRes.data.igst || 0;
+        const sState = settingsRes.data.storeState || "Gujarat";
         setCgstPercent(cgst);
         setSgstPercent(sgst);
         setIgstPercent(igst);
@@ -529,21 +531,18 @@ const LiveBilling = () => {
         setDefaultIgst(igst);
         setDefaultStoreState(sState);
         setStoreState(sState);
-        setGstType("CGST_SGST"); // default intra-state
-        setTaxIncluded(res.data.taxIncluded === true);
-        setShowSpinner(res.data.showSpinner === true);
-        setShowReferralOffer(res.data.showReferralOffer === true);
-        setReferralCoinPercent(res.data.referralCoinPercent || 10);
-        setOnlinePaymentDestinationConfig(res.data.onlinePaymentDestination || "CURRENT_ACCOUNT");
-        setStoreName(res.data.storeName || "Cart Corner");
-        setStoreTagline(res.data.storeTagline || "Your One-Stop Shopping Destination");
+        setGstType("CGST_SGST");
+        setTaxIncluded(settingsRes.data.taxIncluded === true);
+        setShowSpinner(spinRes.data.isEnabled === true);
+        setOnlinePaymentDestinationConfig(settingsRes.data.onlinePaymentDestination || "CURRENT_ACCOUNT");
+        setStoreName(settingsRes.data.storeName || "Cart Corner");
+        setStoreTagline(settingsRes.data.storeTagline || "Your One-Stop Shopping Destination");
       } catch (err) {
         console.error("Failed to fetch settings:", err);
       }
     };
     fetchSettings();
   }, []);
- 
 
   // Open GSTIN modal
   const openGstinModal = () => {
@@ -716,25 +715,19 @@ const LiveBilling = () => {
     setAppliedOfferAmount(0);
   };
 
-  // Handle spin wheel result — called ONLY when user clicks "Claim & Continue"
-  // At this point the reward is already saved in DB by the backend.
-  // We just finalize the sale here.
+  // Handle spin wheel result — called ONLY when user clicks "Claim & Continue" or closes after result
   const handleSpinComplete = async (offer) => {
-    // offer = { label, rewardType, rewardValue, color }
-    setSpinCompleted(true);
-    // Finalize the sale now that spin is done
+    setShowSpinWheel(false);
     if (!isProcessingSaleRef.current) {
       await finalizeSale();
     }
-    setSpinCompleted(false);
   };
 
   // Handle complete sale with spin wheel logic
   const handleCompleteSale = () => {
     if (!Object.keys(cart).length || isProcessingSaleRef.current) return;
-    // Show spin wheel if enabled and customer has a contact
-    // finalizeSale() is called inside handleSpinComplete after user clicks Claim
-    if (showSpinner && customer.contact && !spinCompleted) {
+    // Show spin wheel only if enabled AND customer has a contact
+    if (showSpinner && customer.contact) {
       setShowSpinWheel(true);
     } else {
       finalizeSale();
@@ -1016,7 +1009,6 @@ const LiveBilling = () => {
       setCoinAmount(0);
       setPaymentMethod("CASH"); // Reset to CASH
       setPaymentDestination("CURRENT_ACCOUNT"); // Reset destination
-      setSpinCompleted(false); // Reset spin state for next sale
     } catch (err) {
       console.error("Failed to complete sale:", err);
       Swal.fire({
@@ -1470,7 +1462,6 @@ const LiveBilling = () => {
                 </div>
 
                 {/* Referral Section */}
-                {showReferralOffer && (
                 <div className="md:col-span-2 mt-1">
                   <label className="block text-xs font-medium text-gray-500 mb-1">
                     Referrer &nbsp;<span className="text-indigo-400 font-normal">(search by name, phone or code)</span>
@@ -1545,7 +1536,6 @@ const LiveBilling = () => {
 
                   </div>
                 </div>
-                )}
 
               </div>
             </div>
@@ -1865,6 +1855,8 @@ const LiveBilling = () => {
                   coinDiscountAmount={coinDiscountAmount}
                   coinsUsed={coinAmount}
                   gstin={gstin}
+                  storeName={storeName}
+                  storeTagline={storeTagline}
                 />
                 
                 {/* Payment Method Selection */}
@@ -2067,7 +2059,10 @@ const LiveBilling = () => {
           isOpen={showSpinWheel}
           onClose={() => {
             setShowSpinWheel(false);
-            // Don't call finalizeSale here - let SpinWheel component handle it
+            // User closed without spinning — still complete the sale
+            if (!isProcessingSaleRef.current) {
+              finalizeSale();
+            }
           }}
           onSpinComplete={handleSpinComplete}
           customerMobile={customer.contact}

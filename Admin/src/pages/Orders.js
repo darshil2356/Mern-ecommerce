@@ -125,7 +125,7 @@ const Orders = () => {
       amount: order?.totalPrice,
       finalAmount: order?.totalPriceAfterDiscount,
       status: order?.orderStatus || "Ordered",
-      payment: order?.paymentInfo?.razorpayPaymentId ? "Paid" : (order?.paymentInfo?.razorpayOrderId === "OFFLINE" ? "Offline" : "Pending"),
+      payment: order?.paymentInfo?.razorpayPaymentId ? "Paid" : (order?.mode === "OFFLINE" ? (order?.paymentDestination === "CASH" ? "Cash" : order?.paymentDestination === "OTHER_ACCOUNT" ? "Online-Other" : "Online-Current") : "Pending"),
       date: dayjs(order?.createdAt).format("DD MMM YYYY"),
       rawDate: order?.createdAt,
       courierName: order?.courierName || "—",
@@ -252,7 +252,7 @@ const Orders = () => {
       width: 110,
       align: "center",
       render: (p) => (
-        <Tag color={p === "Paid" ? "success" : p === "Offline" ? "warning" : "error"} style={{ borderRadius: 12, padding: "3px 10px", fontWeight: 700, fontSize: 11 }}>{p}</Tag>
+        <Tag color={p === "Paid" ? "success" : p === "Cash" ? "warning" : p.startsWith("Online") ? "processing" : "error"} style={{ borderRadius: 12, padding: "3px 10px", fontWeight: 700, fontSize: 11 }}>{p}</Tag>
       ),
     },
     {
@@ -368,8 +368,10 @@ const Orders = () => {
           />
           <Select value={paymentFilter} onChange={setPaymentFilter} style={{ width: 150, borderRadius: 12 }}>
             <Option value="All">All Payments</Option>
-            <Option value="Paid">Paid</Option>
-            <Option value="Offline">Offline</Option>
+            <Option value="Paid">Paid (Online)</Option>
+            <Option value="Cash">Cash</Option>
+            <Option value="Online-Current">Online-Current</Option>
+            <Option value="Online-Other">Online-Other</Option>
             <Option value="Pending">Pending</Option>
           </Select>
           <Button icon={<ReloadOutlined />} onClick={() => { setActiveStatus("All"); setSearchText(""); setDateRange(null); setPaymentFilter("All"); }} style={{ borderRadius: 12, border: "1.5px solid #e2e8f0", fontWeight: 600 }}>

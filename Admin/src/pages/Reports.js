@@ -408,7 +408,9 @@ const Reports = () => {
           "Discount (₹)": o.discountAmount || 0,
           "Tax/GST (₹)": ((o.totalPriceAfterDiscount || 0) - (o.totalPrice || 0) + (o.discountAmount || 0)).toFixed(2),
           "Total Amount (₹)": o.totalPriceAfterDiscount || 0,
-          "Payment Mode": o.mode === 'OFFLINE' ? 'COD/Offline' : 'Online',
+          "Payment Mode": o.mode === 'OFFLINE'
+            ? (o.paymentDestination === 'CASH' ? 'Cash' : o.paymentDestination === 'OTHER_ACCOUNT' ? 'Online-Other' : 'Online-Current')
+            : 'Online',
           "Order Status": o.orderStatus || "Ordered",
           "Payment Status": o.paymentInfo?.razorpayPaymentId ? "Paid" : "Pending"
         };
@@ -476,10 +478,11 @@ const Reports = () => {
       // Mode Breakdown
       if (reportData.modeBreakdown) {
         summaryData.push([]);
-        summaryData.push(["SALES BY MODE"]);
-        summaryData.push(["Mode", "Orders", "Amount (₹)"]);
-        summaryData.push(["Online", reportData.modeBreakdown.online?.orders || 0, reportData.modeBreakdown.online?.amount?.toFixed(2) || "0.00"]);
-        summaryData.push(["Offline (POS)", reportData.modeBreakdown.offline?.orders || 0, reportData.modeBreakdown.offline?.amount?.toFixed(2) || "0.00"]);
+        summaryData.push(["SALES BY PAYMENT METHOD"]);
+        summaryData.push(["Method", "Orders", "Amount (₹)"]);
+        summaryData.push(["Cash (POS)",           reportData.modeBreakdown.cash?.orders          || 0, (reportData.modeBreakdown.cash?.amount          || 0).toFixed(2)]);
+        summaryData.push(["Online - Current A/C", reportData.modeBreakdown.onlineCurrent?.orders || 0, (reportData.modeBreakdown.onlineCurrent?.amount || 0).toFixed(2)]);
+        summaryData.push(["Online - Other A/C",   reportData.modeBreakdown.onlineOther?.orders   || 0, (reportData.modeBreakdown.onlineOther?.amount   || 0).toFixed(2)]);
       }
       
       // Order Status Breakdown
@@ -585,18 +588,21 @@ const Reports = () => {
 
     // Create Mode Breakdown Sheet
     if (reportData.modeBreakdown) {
+      const totalAmt = (reportData.modeBreakdown.cash?.amount || 0) + (reportData.modeBreakdown.onlineCurrent?.amount || 0) + (reportData.modeBreakdown.onlineOther?.amount || 0);
+      const totalOrd = (reportData.modeBreakdown.cash?.orders || 0) + (reportData.modeBreakdown.onlineCurrent?.orders || 0) + (reportData.modeBreakdown.onlineOther?.orders || 0);
       const modeData = [
-        ["SALES BY PAYMENT MODE"],
+        ["SALES BY PAYMENT METHOD"],
         [],
-        ["Mode", "Number of Orders", "Amount (₹)", "Percentage"],
-        ["Online", reportData.modeBreakdown.online?.orders || 0, reportData.modeBreakdown.online?.amount?.toFixed(2) || "0.00", ((reportData.modeBreakdown.online?.amount / (reportData.summary?.netRevenue || 1)) * 100)?.toFixed(2) + "%"],
-        ["Offline (POS)", reportData.modeBreakdown.offline?.orders || 0, reportData.modeBreakdown.offline?.amount?.toFixed(2) || "0.00", ((reportData.modeBreakdown.offline?.amount / (reportData.summary?.netRevenue || 1)) * 100)?.toFixed(2) + "%"],
+        ["Method", "Number of Orders", "Amount (₹)", "Percentage"],
+        ["Cash (POS)",           reportData.modeBreakdown.cash?.orders          || 0, (reportData.modeBreakdown.cash?.amount          || 0).toFixed(2), totalAmt > 0 ? (((reportData.modeBreakdown.cash?.amount          || 0) / totalAmt) * 100).toFixed(2) + "%" : "0%"],
+        ["Online - Current A/C", reportData.modeBreakdown.onlineCurrent?.orders || 0, (reportData.modeBreakdown.onlineCurrent?.amount || 0).toFixed(2), totalAmt > 0 ? (((reportData.modeBreakdown.onlineCurrent?.amount || 0) / totalAmt) * 100).toFixed(2) + "%" : "0%"],
+        ["Online - Other A/C",   reportData.modeBreakdown.onlineOther?.orders   || 0, (reportData.modeBreakdown.onlineOther?.amount   || 0).toFixed(2), totalAmt > 0 ? (((reportData.modeBreakdown.onlineOther?.amount   || 0) / totalAmt) * 100).toFixed(2) + "%" : "0%"],
         [],
-        ["TOTAL", (reportData.modeBreakdown.online?.orders || 0) + (reportData.modeBreakdown.offline?.orders || 0), (reportData.summary?.netRevenue || 0)?.toFixed(2), "100%"]
+        ["TOTAL", totalOrd, totalAmt.toFixed(2), "100%"]
       ];
       const wsMode = XLSX.utils.aoa_to_sheet(modeData);
-      wsMode['!cols'] = [{ wch: 20 }, { wch: 18 }, { wch: 18 }, { wch: 15 }];
-      XLSX.utils.book_append_sheet(wb, wsMode, "Payment Mode");
+      wsMode['!cols'] = [{ wch: 22 }, { wch: 18 }, { wch: 18 }, { wch: 15 }];
+      XLSX.utils.book_append_sheet(wb, wsMode, "Payment Method");
     }
 
     // Download Excel file
@@ -826,14 +832,18 @@ const Reports = () => {
 
               <Row gutter={16} className="mb-6">
                 <Col span={12}>
-                  <Card title="Sales by Mode" size="small">
+                  <Card title="Sales by Payment Method" size="small">
                     <div className="flex justify-between mb-2">
-                      <span>Online</span>
-                      <Tag color="blue">₹{monthlyReport.modeBreakdown?.online?.amount?.toFixed(2)}</Tag>
+                      <span>💵 Cash (POS)</span>
+                      <Tag color="orange">₹{(monthlyReport.modeBreakdown?.cash?.amount || 0).toFixed(2)} ({monthlyReport.modeBreakdown?.cash?.orders || 0})</Tag>
                     </div>
                     <div className="flex justify-between mb-2">
-                      <span>Offline (POS)</span>
-                      <Tag color="green">₹{monthlyReport.modeBreakdown?.offline?.amount?.toFixed(2)}</Tag>
+                      <span>🏦 Online - Current A/C</span>
+                      <Tag color="blue">₹{(monthlyReport.modeBreakdown?.onlineCurrent?.amount || 0).toFixed(2)} ({monthlyReport.modeBreakdown?.onlineCurrent?.orders || 0})</Tag>
+                    </div>
+                    <div className="flex justify-between mb-2">
+                      <span>💳 Online - Other A/C</span>
+                      <Tag color="purple">₹{(monthlyReport.modeBreakdown?.onlineOther?.amount || 0).toFixed(2)} ({monthlyReport.modeBreakdown?.onlineOther?.orders || 0})</Tag>
                     </div>
                     <div className="flex justify-between font-semibold mt-4 pt-2 border-t">
                       <span>Total</span>

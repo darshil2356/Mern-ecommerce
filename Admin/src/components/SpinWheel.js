@@ -103,7 +103,7 @@ const SpinWheel = ({ isOpen, onClose, onSpinComplete, customerMobile, userId, or
   const loadConfig = async () => {
     try {
       setLoadingCfg(true);
-      const res = await axios.get(`${base_url}spin/config`);
+      const res = await axios.get(`${base_url}spin/config`, config);
       const active = (res.data.segments || []).filter((s) => s.isActive);
       setSegments(active);
       setCanSpin(res.data.isEnabled && active.length > 0);
@@ -196,19 +196,20 @@ const SpinWheel = ({ isOpen, onClose, onSpinComplete, customerMobile, userId, or
     }, 5200);
   };
 
-  // Called when user clicks "Claim & Continue" — NOW fire the callback
+  // Called when user clicks "Claim & Continue" — fire onSpinComplete, parent handles finalizeSale
   const handleClaim = () => {
     const seg = pendingResult.current;
-    if (onSpinComplete && seg) onSpinComplete(seg); // triggers finalizeSale in parent
-    onClose();
+    if (onSpinComplete && seg) {
+      onSpinComplete(seg); // parent's onSpinComplete closes wheel + finalizes sale
+    } else {
+      onClose(); // fallback: parent's onClose finalizes sale
+    }
   };
 
-  // Called when user clicks "Close" without claiming (NONE result)
+  // Called when user clicks X button or backdrop (no spin result)
   const handleClose = () => {
     if (!isSpinning) {
-      const seg = pendingResult.current;
-      if (onSpinComplete && seg) onSpinComplete(seg);
-      onClose();
+      onClose(); // parent's onClose handles finalizeSale
     }
   };
 

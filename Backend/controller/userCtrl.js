@@ -230,7 +230,7 @@ const deductStockFromProduct = async (product, item) => {
 const createOfflineOrder = asyncHandler(async (req, res) => {
 
   
-  const { items, paymentMethod, customer, discount, offerDiscount: offerDiscountAmt, coinsUsed, coinAmount, gstBreakdown } = req.body;
+  const { items, paymentMethod, paymentDestination: reqPaymentDestination, customer, discount, offerDiscount: offerDiscountAmt, coinsUsed, coinAmount, gstBreakdown } = req.body;
   const adminId = req.user._id;
 
 
@@ -361,12 +361,12 @@ const createOfflineOrder = asyncHandler(async (req, res) => {
     coinsUsed: coinsUsed || 0,
     coinAmount: coinAmount || 0,
     paymentInfo: {
-      razorpayOrderId: paymentMethod || "OFFLINE",
+      razorpayOrderId: paymentMethod === "CASH" ? "OFFLINE" : "OFFLINE_ONLINE",
       razorpayPaymentId: "OFFLINE",
     },
     orderStatus: "Delivered",
     mode: "OFFLINE",
-    paymentDestination: "CASH",
+    paymentDestination: paymentMethod === "CASH" ? "CASH" : (reqPaymentDestination || "CURRENT_ACCOUNT"),
   });
 
   // Step 4: If customer does NOT exist → create AFTER order success
@@ -2387,14 +2387,11 @@ const getSettings = asyncHandler(async (req, res) => {
 
   try {
     const user = await User.findById(_id).select(
-      "gstin email showSpinner showReferralOffer referralCoinPercent storeName storeTagline storeAddress storePhone cgst sgst igst storeState taxIncluded"
+      "gstin email storeName storeTagline storeAddress storePhone cgst sgst igst storeState taxIncluded onlinePaymentDestination"
     );
     res.json({
       gstin: user.gstin || "",
       email: user.email || "",
-      showSpinner: user.showSpinner === true,
-      showReferralOffer: user.showReferralOffer === true,
-      referralCoinPercent: user.referralCoinPercent || 10,
       storeName: user.storeName || "Cart Corner",
       storeTagline: user.storeTagline || "Your One-Stop Shopping Destination",
       storeAddress: user.storeAddress || "",
@@ -2416,7 +2413,6 @@ const updateSettings = asyncHandler(async (req, res) => {
   const { _id } = req.user;
 
   const {
-    showSpinner, showReferralOffer, referralCoinPercent,
     cgst, sgst, igst, storeState, taxIncluded,
     storeName, storeTagline, storeAddress, storePhone,
     onlinePaymentDestination,
@@ -2425,9 +2421,6 @@ const updateSettings = asyncHandler(async (req, res) => {
   const updatedUser = await User.findByIdAndUpdate(
     _id,
     {
-      showSpinner: Boolean(showSpinner),
-      showReferralOffer: Boolean(showReferralOffer),
-      referralCoinPercent: Number(referralCoinPercent) || 10,
       cgst: parseFloat(cgst) >= 0 ? parseFloat(cgst) : 0,
       sgst: parseFloat(sgst) >= 0 ? parseFloat(sgst) : 0,
       igst: parseFloat(igst) >= 0 ? parseFloat(igst) : 0,
@@ -2444,9 +2437,6 @@ const updateSettings = asyncHandler(async (req, res) => {
 
   res.json({
     success: true,
-    showSpinner: updatedUser.showSpinner,
-    showReferralOffer: updatedUser.showReferralOffer,
-    referralCoinPercent: updatedUser.referralCoinPercent,
     cgst: updatedUser.cgst,
     sgst: updatedUser.sgst,
     igst: updatedUser.igst,

@@ -2,23 +2,19 @@ import React, { useEffect, useState } from "react";
 import { Form, Input, Switch, Button, Card, message, Spin } from "antd";
 import {
   FaBuilding, FaEnvelope, FaStore, FaMapMarkerAlt, FaPhone,
-  FaMagic, FaSave, FaQuoteRight, FaPercentage, FaUsers, FaInfoCircle
+  FaMagic, FaSave, FaQuoteRight, FaPercentage,
 } from "react-icons/fa";
 import axios from "axios";
 import { base_url } from "../utils/baseUrl";
 import { config } from "../utils/axiosconfig";
 
 const Settings = () => {
-  const [loading, setLoading]   = useState(true);
-  const [saving, setSaving]     = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving]   = useState(false);
   const [form] = Form.useForm();
 
-  const [spinnerEnabled,      setSpinnerEnabled]      = useState(false);
-  const [referralOfferEnabled, setReferralOfferEnabled] = useState(false);
-  const [referralCoinPercent,  setReferralCoinPercent]  = useState(10);
-  // Tax mode: false = prices EXCLUDE tax (add on top), true = prices INCLUDE tax (extract)
-  const [taxIncluded, setTaxIncluded] = useState(false);
-  const [storeState, setStoreState] = useState("Gujarat");
+  const [taxIncluded, setTaxIncluded]                       = useState(false);
+  const [storeState, setStoreState]                         = useState("Gujarat");
   const [onlinePaymentDestination, setOnlinePaymentDestination] = useState("CURRENT_ACCOUNT");
 
   useEffect(() => { fetchSettings(); }, []);
@@ -38,9 +34,6 @@ const Settings = () => {
         storeAddress: res.data.storeAddress || "",
         storePhone:   res.data.storePhone   || "",
       });
-      setSpinnerEnabled(res.data.showSpinner === true);
-      setReferralOfferEnabled(res.data.showReferralOffer === true);
-      setReferralCoinPercent(res.data.referralCoinPercent || 10);
       setTaxIncluded(res.data.taxIncluded === true);
       setStoreState(res.data.storeState || "Gujarat");
       setOnlinePaymentDestination(res.data.onlinePaymentDestination || "CURRENT_ACCOUNT");
@@ -59,9 +52,6 @@ const Settings = () => {
         cgst: parseFloat(values.cgst) || 0,
         sgst: parseFloat(values.sgst) || 0,
         igst: parseFloat(values.igst) || 0,
-        showSpinner:         spinnerEnabled,
-        showReferralOffer:   referralOfferEnabled,
-        referralCoinPercent: referralOfferEnabled ? referralCoinPercent : 0,
         taxIncluded,
         storeState,
         onlinePaymentDestination,
@@ -107,30 +97,21 @@ const Settings = () => {
 
           {/* Tax rates */}
           <div className="flex gap-4">
-            <Form.Item
-              className="flex-1" label="CGST (%)"
-              name="cgst"
-              rules={[{ validator: (_, v) => (v === '' || v === null || v === undefined) ? Promise.reject('Enter CGST') : isNaN(Number(v)) || Number(v) < 0 ? Promise.reject('Invalid') : Promise.resolve() }]}
-            >
+            <Form.Item className="flex-1" label="CGST (%)" name="cgst"
+              rules={[{ validator: (_, v) => (v === "" || v === null || v === undefined) ? Promise.reject("Enter CGST") : isNaN(Number(v)) || Number(v) < 0 ? Promise.reject("Invalid") : Promise.resolve() }]}>
               <Input type="number" min={0} step={0.01} placeholder="e.g. 2.5" prefix={<FaPercentage className="text-gray-400" />} />
             </Form.Item>
-            <Form.Item
-              className="flex-1" label="SGST (%)"
-              name="sgst"
-              rules={[{ validator: (_, v) => (v === '' || v === null || v === undefined) ? Promise.reject('Enter SGST') : isNaN(Number(v)) || Number(v) < 0 ? Promise.reject('Invalid') : Promise.resolve() }]}
-            >
+            <Form.Item className="flex-1" label="SGST (%)" name="sgst"
+              rules={[{ validator: (_, v) => (v === "" || v === null || v === undefined) ? Promise.reject("Enter SGST") : isNaN(Number(v)) || Number(v) < 0 ? Promise.reject("Invalid") : Promise.resolve() }]}>
               <Input type="number" min={0} step={0.01} placeholder="e.g. 2.5" prefix={<FaPercentage className="text-gray-400" />} />
             </Form.Item>
-            <Form.Item
-              className="flex-1" label="IGST (%)"
-              name="igst"
-              rules={[{ validator: (_, v) => (v === '' || v === null || v === undefined) ? Promise.reject('Enter IGST') : isNaN(Number(v)) || Number(v) < 0 ? Promise.reject('Invalid') : Promise.resolve() }]}
-            >
+            <Form.Item className="flex-1" label="IGST (%)" name="igst"
+              rules={[{ validator: (_, v) => (v === "" || v === null || v === undefined) ? Promise.reject("Enter IGST") : isNaN(Number(v)) || Number(v) < 0 ? Promise.reject("Invalid") : Promise.resolve() }]}>
               <Input type="number" min={0} step={0.01} placeholder="e.g. 5" prefix={<FaPercentage className="text-gray-400" />} />
             </Form.Item>
           </div>
 
-          {/* Store State for GST logic */}
+          {/* Store State */}
           <div className="p-4 bg-green-50 rounded-xl border border-green-200 mb-4">
             <p className="font-medium text-gray-800 mb-1">Store Location (State)</p>
             <p className="text-xs text-gray-500 mb-3">
@@ -154,8 +135,8 @@ const Settings = () => {
                 <p className="font-medium text-gray-800">Tax Mode</p>
                 <p className="text-xs text-gray-500 mt-0.5">
                   {taxIncluded
-                    ? "Prices INCLUDE tax — tax is extracted from the price (e.g. ₹1000 product price already has GST inside)"
-                    : "Prices EXCLUDE tax — tax is added on top of the price (e.g. ₹1000 + 18% GST = ₹1180)"}
+                    ? "Prices INCLUDE tax — tax is extracted from the price"
+                    : "Prices EXCLUDE tax — tax is added on top of the price"}
                 </p>
               </div>
               <Switch
@@ -172,7 +153,6 @@ const Settings = () => {
                 <p className="text-gray-500">+ CGST 9%: ₹90</p>
                 <p className="text-gray-500">+ SGST 9%: ₹90</p>
                 <p className="font-bold text-indigo-600">Total: ₹1180</p>
-                <p className="text-gray-400 mt-1">Coins on ₹1180 (after discount)</p>
               </div>
               <div className={`p-3 rounded-lg border-2 ${taxIncluded ? "border-indigo-500 bg-indigo-50" : "border-gray-200 bg-white"}`}>
                 <p className="font-semibold text-gray-700 mb-1">🏷️ Tax Included</p>
@@ -180,7 +160,6 @@ const Settings = () => {
                 <p className="text-gray-500">CGST 9% extracted: ₹90</p>
                 <p className="text-gray-500">SGST 9% extracted: ₹90</p>
                 <p className="font-bold text-indigo-600">Base: ₹1000 | Total: ₹1180</p>
-                <p className="text-gray-400 mt-1">Coins on ₹1180 (after discount)</p>
               </div>
             </div>
           </div>
@@ -202,19 +181,9 @@ const Settings = () => {
           </Form.Item>
         </Card>
 
-        {/* ── Features ── */}
-        <Card className="mb-6 shadow-sm" title={<span className="flex items-center gap-2"><FaMagic className="text-indigo-600" /> Features & Preferences</span>}>
-          <div className="flex items-center gap-4 mb-4">
-            <Switch checked={spinnerEnabled} onChange={setSpinnerEnabled} checkedChildren="Enabled" unCheckedChildren="Disabled" />
-            <span className="text-gray-500 text-sm">Show spin wheel offer after purchase</span>
-          </div>
-
-          <div className="flex items-center gap-4">
-            <Switch checked={referralOfferEnabled} onChange={setReferralOfferEnabled} checkedChildren="Enabled" unCheckedChildren="Disabled" />
-            <span className="text-gray-500 text-sm">Show referral offer while live billing</span>
-          </div>
-
-          <div className="mt-6">
+        {/* ── Payment ── */}
+        <Card className="mb-6 shadow-sm" title={<span className="flex items-center gap-2"><FaMagic className="text-indigo-600" /> Payment Preferences</span>}>
+          <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Online Payment Account</label>
             <select
               className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-700"
@@ -225,28 +194,9 @@ const Settings = () => {
               <option value="OTHER_ACCOUNT">Other Account</option>
             </select>
             <p className="text-xs text-gray-500 mt-2">
-              Choose where new online payments are recorded. This is used by reports to split online orders into current or other account.
+              Choose where new online payments are recorded in reports.
             </p>
           </div>
-
-          {referralOfferEnabled && (
-            <div className="mt-4 pl-4 border-l-2 border-indigo-200">
-              <div className="flex items-center gap-4">
-                <FaPercentage className="text-gray-400" />
-                <span className="text-gray-500 text-sm">Coins to referrer (% of order amount):</span>
-                <input
-                  type="number" min={0} max={100}
-                  className="w-20 px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-center"
-                  value={referralCoinPercent}
-                  onChange={(e) => setReferralCoinPercent(Math.min(100, Math.max(0, Number(e.target.value))))}
-                />
-                <span className="text-gray-500 text-sm">%</span>
-              </div>
-              <p className="text-xs text-gray-400 mt-2">
-                Calculated on the final payable amount (after all discounts)
-              </p>
-            </div>
-          )}
         </Card>
 
         <div className="flex justify-end gap-4">

@@ -956,9 +956,17 @@ const ViewOrder = () => {
                 <Col span={12}>
                   <Statistic
                     title={<span style={{ color: '#666', fontSize: '12px' }}>Payment Method</span>}
-                    value={orderState?.paymentInfo?.razorpayOrderId === "OFFLINE" ? "Offline/Cash" : "Online"}
+                    value={
+                      orderState?.mode === "OFFLINE"
+                        ? orderState?.paymentDestination === "CASH"
+                          ? "Cash"
+                          : orderState?.paymentDestination === "OTHER_ACCOUNT"
+                          ? "Online (Other Account)"
+                          : "Online (Current Account)"
+                        : "Online"
+                    }
                     valueStyle={{
-                      color: orderState?.paymentInfo?.razorpayOrderId === "OFFLINE" ? '#fa8c16' : '#52c41a',
+                      color: orderState?.paymentDestination === "CASH" ? '#fa8c16' : '#52c41a',
                       fontSize: '14px',
                       fontWeight: 600
                     }}

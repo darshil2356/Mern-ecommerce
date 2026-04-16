@@ -124,6 +124,7 @@ import { toast } from "react-toastify";
           <img
             src={item.images[0].url}
             alt={item.title}
+            loading="lazy"
             style={{ width: "100%", height: "100%", objectFit: "cover", transition: "transform 0.4s ease" }}
             onMouseEnter={e => (e.currentTarget.style.transform = "scale(1.05)")}
             onMouseLeave={e => (e.currentTarget.style.transform = "scale(1)")}
@@ -239,17 +240,18 @@ const Home = () => {
         setIsLoading(true);
         await Promise.all([
           dispatch(getAllBlogs()),
-          dispatch(getAllProducts())
+          dispatch(getAllProducts({ limit: 20 }))
         ]);
-        const bundlesRes = await axios.get(`${base_url}bundles/active`);
-        setActiveBundles(bundlesRes.data || []);
       } catch (error) {
         console.error('Data load error:', error);
-        setActiveBundles([]);
       } finally {
         setIsLoading(false);
       }
     };
+    // Fetch bundles separately so it doesn't block product/blog loading
+    axios.get(`${base_url}bundles/active`)
+      .then(res => setActiveBundles(res.data || []))
+      .catch(() => setActiveBundles([]));
     loadData();
   }, [dispatch]);
 

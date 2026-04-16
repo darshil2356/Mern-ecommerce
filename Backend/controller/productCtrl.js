@@ -430,6 +430,9 @@ const getAllProduct = asyncHandler(async (req, res) => {
         query = query.sort("-createdAt");
       }
 
+      const limit = parseInt(req.query.limit) || 20;
+      query = query.limit(limit);
+
       const products = await query;
       return res.json(products);
     }
@@ -443,6 +446,8 @@ const getAllProduct = asyncHandler(async (req, res) => {
 
     if (req.query.page || req.query.limit) {
       query = applyPagination(query, req.query.page, req.query.limit);
+    } else {
+      query = query.limit(50); // default safety limit
     }
 
     const product = await query.lean();

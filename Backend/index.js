@@ -1,5 +1,6 @@
 const bodyParser = require("body-parser");
 const express = require("express");
+const compression = require("compression");
 const dbConnect = require("./config/dbConnect");
 const { notFound, errorHandler } = require("./middlewares/errorHandler");
 const app = express();
@@ -68,6 +69,7 @@ const io = new Server(server, {
 
 dbConnect();
 initFirebase();
+app.use(compression());
 app.use(morgan("dev"));
 app.use(cors(corsOptions));
 app.use(bodyParser.json({ limit: "50mb" }));

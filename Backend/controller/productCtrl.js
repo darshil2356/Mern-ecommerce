@@ -422,19 +422,34 @@ const getAllProduct = asyncHandler(async (req, res) => {
         queryObj.price = { ...queryObj.price, $lte: parseInt(req.query["price[lte]"]) };
       }
       
-      let query = Product.find(queryObj);
+      const limit = parseInt(req.query.limit) || 200;
 
       if (req.query.sort) {
-        query = query.sort(req.query.sort.split(",").join(" "));
-      } else {
-        query = query.sort("-createdAt");
+        // User explicitly chose a sort — respect it
+        const products = await Product.find(queryObj)
+          .sort(req.query.sort.split(",").join(" "))
+          .limit(limit)
+          .lean();
+        return res.json(products);
       }
 
-      const limit = parseInt(req.query.limit) || 20;
-      query = query.limit(limit);
+      // Instagram-style algorithm: recency + popularity + small random shuffle
+      const allProducts = await Product.find(queryObj)
+        .select("title price images videos slug category brand tags sold totalrating ratings reelLikes createdAt inventory quantity sizeStock variants color")
+        .limit(limit)
+        .lean();
 
-      const products = await query;
-      return res.json(products);
+      const now = Date.now();
+      const scored = allProducts.map((p) => {
+        const ageHours = (now - new Date(p.createdAt).getTime()) / 3600000;
+        const recencyScore = Math.max(0, 100 - ageHours / 12); // decays over ~50 days
+        const popularityScore = Math.log1p(p.sold || 0) * 30 + Math.log1p(p.totalrating || 0) * 20 + Math.log1p(p.reelLikes || 0) * 10;
+        const randomScore = Math.random() * 15;
+        return { ...p, _score: recencyScore + popularityScore + randomScore };
+      });
+
+      scored.sort((a, b) => b._score - a._score);
+      return res.json(scored.map(({ _score, ...p }) => p));
     }
 
     // 👇 everything below is ADMIN / INTERNAL (no store=true)
@@ -692,12 +707,12 @@ const deleteReview = asyncHandler(async (req, res) => {
   }
 });
 
-// ─── REELS: cursor-based paginated feed (only products with videos) ───────────
+// ─── REELS: Instagram-style algorithm feed ────────────────────────────────────
 const getReels = asyncHandler(async (req, res) => {
   const limit = Math.min(parseInt(req.query.limit) || 10, 20);
-  const cursor = req.query.cursor;
+  const page = Math.max(parseInt(req.query.page) || 1, 1);
 
-  // Get logged-in user id if token present (optional auth)
+  // Optional auth
   let userId = null;
   try {
     const jwt = require("jsonwebtoken");
@@ -709,24 +724,34 @@ const getReels = asyncHandler(async (req, res) => {
     }
   } catch {}
 
-  const filter = { "videos.0": { $exists: true } };
-  if (cursor) filter._id = { $lt: cursor };
-
-  const reels = await Product.find(filter)
-    .select("title price images videos reelLikes reelLikedBy slug")
-    .sort({ reelLikes: -1, _id: -1 })
-    .limit(limit)
+  const allReels = await Product.find({ "videos.0": { $exists: true } })
+    .select("title price images videos reelLikes reelLikedBy slug createdAt")
     .lean();
 
-  // Attach per-user liked flag, strip reelLikedBy array from response
-  const reelsOut = reels.map((r) => ({
+  const now = Date.now();
+  // Score: likes weight + recency weight + small random shuffle
+  const scored = allReels.map((r) => {
+    const ageHours = (now - new Date(r.createdAt).getTime()) / 3600000;
+    const likesScore = Math.log1p(r.reelLikes || 0) * 40;
+    const recencyScore = Math.max(0, 100 - ageHours / 24); // decays over days
+    const randomScore = Math.random() * 20;
+    return { ...r, _score: likesScore + recencyScore + randomScore };
+  });
+
+  scored.sort((a, b) => b._score - a._score);
+
+  const total = scored.length;
+  const start = (page - 1) * limit;
+  const slice = scored.slice(start, start + limit);
+  const hasMore = start + limit < total;
+
+  const reelsOut = slice.map(({ _score, ...r }) => ({
     ...r,
     liked: userId ? (r.reelLikedBy || []).map(String).includes(userId) : false,
     reelLikedBy: undefined,
   }));
 
-  const nextCursor = reels.length === limit ? reels[reels.length - 1]._id : null;
-  res.json({ reels: reelsOut, nextCursor, hasMore: !!nextCursor });
+  res.json({ reels: reelsOut, nextCursor: hasMore ? page + 1 : null, hasMore });
 });
 
 // ─── REEL LIKE / UNLIKE ────────────────────────────────────────────────────────

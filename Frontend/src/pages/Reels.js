@@ -20,7 +20,7 @@ const LIMIT = 10;
 const Reels = () => {
   const navigate = useNavigate();
   const [reels, setReels] = useState([]);
-  const [nextCursor, setNextCursor] = useState(null);
+  const [nextPage, setNextPage] = useState(null);
   const [hasMore, setHasMore] = useState(true);
   const [loading, setLoading] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -35,20 +35,20 @@ const Reels = () => {
   const loadingRef = useRef(false);
   const observerRef = useRef(null);
 
-  const fetchReels = useCallback(async (cursor = null) => {
+  const fetchReels = useCallback(async (page = null) => {
     if (loadingRef.current) return;
     loadingRef.current = true;
     setLoading(true);
     try {
       const params = { limit: LIMIT };
-      if (cursor) params.cursor = cursor;
+      if (page) params.page = page;
       const cfg = getConfig();
       const { data } = await axios.get(`${base_url}product/reels`, {
         params,
         headers: cfg.headers,
       });
-      setReels((prev) => (cursor ? [...prev, ...data.reels] : data.reels));
-      setNextCursor(data.nextCursor);
+      setReels((prev) => (page ? [...prev, ...data.reels] : data.reels));
+      setNextPage(data.nextCursor);
       setHasMore(data.hasMore);
       setLikes((prev) => {
         const map = { ...prev };
@@ -102,9 +102,9 @@ const Reels = () => {
   // Auto-load more when near end
   useEffect(() => {
     if (currentIndex >= reels.length - 3 && hasMore && !loading) {
-      fetchReels(nextCursor);
+      fetchReels(nextPage);
     }
-  }, [currentIndex, reels.length, hasMore, loading, nextCursor, fetchReels]);
+  }, [currentIndex, reels.length, hasMore, loading, nextPage, fetchReels]);
 
   // Sync play/pause state changes (tap to pause/resume)
   useEffect(() => {
@@ -399,7 +399,7 @@ const Reels = () => {
         {hasMore && (
           <div style={{ textAlign: "center", padding: "20px" }}>
             <button
-              onClick={() => fetchReels(nextCursor)}
+              onClick={() => fetchReels(nextPage)}
               disabled={loading}
               style={{
                 background: "#d4af37",

@@ -33,6 +33,7 @@ const { initFirebase } = require("./config/firebaseAdmin");
 const trackingRouter = require("./routes/trackingRoute");
 const aiGrowthRouter = require("./routes/aiGrowthRoute");
 const marketIntelRouter = require("./routes/marketIntelRoute");
+const rojmelRouter = require("./routes/rojmelRoute");
 
 // Socket.io setup
 const http = require("http");
@@ -96,6 +97,7 @@ app.use("/api/notifications", notificationRouter);
 app.use("/api/tracking", trackingRouter);
 app.use("/api/ai/growth", aiGrowthRouter);
 app.use("/api/marketIntel", marketIntelRouter);
+app.use("/api/rojmel", rojmelRouter);
 
 app.get("/ppt", (req, res) => {
   res.sendFile(__dirname + "/public/ppt.html");

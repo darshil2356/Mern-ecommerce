@@ -42,6 +42,7 @@ import TrackingAnalytics from "./pages/TrackingAnalytics";
 import DropoffReports from "./pages/DropoffReports";
 import AiGrowthReport from "./pages/AiGrowthReport";
 import MarketIntelligence from "./pages/MarketIntelligence";
+import Rojmel from "./pages/Rojmel";
 
 function App() {
   return (
@@ -107,6 +108,7 @@ function App() {
           <Route path="dropoff-reports" element={<DropoffReports />} />
           <Route path="ai-growth" element={<AiGrowthReport />} />
           <Route path="market-intelligence" element={<MarketIntelligence />} />
+          <Route path="rojmel" element={<Rojmel />} />
         </Route>
       </Routes>
     </Router>

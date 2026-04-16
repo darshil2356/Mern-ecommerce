@@ -18,7 +18,7 @@ import { Link } from "react-router-dom";
 import { Outlet, useLocation } from "react-router-dom";
 import { ImBlog } from "react-icons/im";
 import { IoIosNotifications } from "react-icons/io";
-import { FaClipboardList, FaBloggerB, FaChartLine, FaBox, FaUsers, FaTags, FaFileAlt, FaCube, FaLink, FaMagic, FaCoins, FaEye, FaChartBar, FaRocket } from "react-icons/fa";
+import { FaClipboardList, FaBloggerB, FaChartLine, FaBox, FaUsers, FaTags, FaFileAlt, FaCube, FaLink, FaMagic, FaCoins, FaEye, FaChartBar, FaRocket, FaBook } from "react-icons/fa";
 import { SiBrandfolder } from "react-icons/si";
 import { BiCategoryAlt } from "react-icons/bi";
 import { Layout, Menu, theme, Drawer } from "antd";
@@ -203,6 +203,11 @@ const MainLayout = () => {
       key: "orders",
       icon: <FaClipboardList className="fs-5" />,
       label: "Orders",
+    },
+    {
+      key: "rojmel",
+      icon: <FaBook className="fs-5" />,
+      label: "Rojmel (Ledger)",
     },
     {
       key: "reports",

@@ -594,11 +594,11 @@
   gap: 12px;
 }
 
-.co-summary-bundle {
-  background: #f5f3ff;
-  border-radius: 12px;
-  padding: 10px;
-  border: 1px solid #ede9fe;
+.co-summary-free {
+  background: #f0fdf4;
+  border-radius: 10px;
+  padding: 8px 10px;
+  border: 1px dashed #86efac;
 }
 
 .co-summary-img {

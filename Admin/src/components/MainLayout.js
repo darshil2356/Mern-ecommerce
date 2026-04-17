@@ -146,6 +146,8 @@ const MainLayout = () => {
       children: [
         { key: "coupon", icon: <RiCouponLine />, label: "Add Coupon" },
         { key: "coupon-list", icon: <RiCouponLine />, label: "Coupon List" },
+        { key: "add-offer", icon: <FaTags />, label: "Add Offer" },
+        { key: "offer-list", icon: <FaTags />, label: "Offer List" },
         { key: "blog", icon: <ImBlog />, label: "Add Blog" },
         { key: "blog-list", icon: <FaBloggerB />, label: "Blog List" },
         { key: "blog-category", icon: <ImBlog />, label: "Blog Category" },

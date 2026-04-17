@@ -142,6 +142,10 @@ paymentInfo: {
         hsnCode: { type: String, default: null },
       },
     ],
+    // Offer fields
+    isFreeItem: { type: Boolean, default: false },
+    offerLabel: { type: String, default: null },
+    originalPrice: { type: Number, default: null },
   },
 ],
 

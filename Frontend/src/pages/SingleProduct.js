@@ -27,6 +27,7 @@ const SingleProduct = () => {
   const [productBundles, setProductBundles] = useState([]);
   const [loadingBundles, setLoadingBundles] = useState(false);
   const [addingBundle, setAddingBundle] = useState(null);
+  const [productOffers, setProductOffers] = useState([]);
   const [bundleSizeModal, setBundleSizeModal] = useState(null); // holds the bundle being configured
   const [bundleSelections, setBundleSelections] = useState({});
   // Review state
@@ -115,9 +116,20 @@ const SingleProduct = () => {
     fetchBundles();
   }, [getProductId]);
 
+  // Fetch active offers for this product
+  useEffect(() => {
+    if (!getProductId) return;
+    axios.get(`${base_url}offers/product/${getProductId}`)
+      .then(res => setProductOffers(res.data || []))
+      .catch(() => {});
+  }, [getProductId]);
+
   useEffect(() => {
     if (cartState && getProductId) {
-      const isAdded = cartState.some(item => item.productId?._id === getProductId || item.productId === getProductId);
+      // Only count non-free items as "already added"
+      const isAdded = cartState.some(
+        item => !item.isFreeItem && (item.productId?._id === getProductId || item.productId === getProductId)
+      );
       setAlreadyAdded(isAdded);
     }
   }, [cartState, getProductId]);
@@ -128,14 +140,12 @@ const SingleProduct = () => {
     } else if (availableSizes.length > 0 && size === null) {
       toast.error("Please choose Size");
     } else {
-      // Track add to cart
       trackingService.trackAddToCart(
         productState?._id,
         productState?.title,
         quantity,
         productState?.price
       );
-
       dispatch(
         addProdToCart({
           productId: productState?._id,
@@ -145,9 +155,7 @@ const SingleProduct = () => {
           price: productState?.price,
         })
       );
-      setTimeout(() => {
-        navigate("/cart");
-      }, 500);
+      setTimeout(() => { navigate("/cart"); }, 500);
     }
   };
 
@@ -605,13 +613,52 @@ const SingleProduct = () => {
               {/* Price & Rating */}
               <div className="d-flex align-items-center justify-content-between mb-4 pb-4" style={{ borderBottom: '1px solid #eee' }}>
                 <div>
-                  <span style={{ 
-                    fontSize: '36px', 
-                    fontWeight: 700, 
-                    color: '#d4af37'
-                  }}>
-                    ₹{productState?.price?.toLocaleString()}
-                  </span>
+                  {(() => {
+                    const origPrice = productState?.price;
+                    let displayPrice = origPrice;
+                    let offerApplied = null;
+                    for (const offer of productOffers) {
+                      if (offer.offerType === 'PERCENT_OFF') {
+                        displayPrice = Math.round(origPrice * (1 - offer.discountPercent / 100));
+                        offerApplied = offer; break;
+                      }
+                      if (offer.offerType === 'FLAT_OFF') {
+                        displayPrice = Math.max(0, origPrice - offer.discountAmount);
+                        offerApplied = offer; break;
+                      }
+                      if (offer.offerType === 'BUY_X_FOR_PRICE' && quantity >= offer.buyQty) {
+                        displayPrice = Math.round(offer.fixedPrice / offer.buyQty);
+                        offerApplied = offer; break;
+                      }
+                      if (offer.offerType === 'MIN_QTY_DISCOUNT' && quantity >= offer.minQty) {
+                        displayPrice = Math.round(origPrice * (1 - offer.discountPercent / 100));
+                        offerApplied = offer; break;
+                      }
+                    }
+                    const badgeText =
+                      !offerApplied ? null :
+                      offerApplied.offerType === 'PERCENT_OFF' ? `${offerApplied.discountPercent}% OFF` :
+                      offerApplied.offerType === 'FLAT_OFF' ? `₹${offerApplied.discountAmount} OFF` :
+                      offerApplied.offerType === 'BUY_X_FOR_PRICE' ? `Buy ${offerApplied.buyQty} for ₹${offerApplied.fixedPrice}` :
+                      offerApplied.offerType === 'MIN_QTY_DISCOUNT' ? `${offerApplied.discountPercent}% OFF` : null;
+                    return (
+                      <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' }}>
+                        <span style={{ fontSize: '36px', fontWeight: 700, color: '#d4af37' }}>
+                          ₹{displayPrice?.toLocaleString()}
+                        </span>
+                        {offerApplied && displayPrice < origPrice && (
+                          <span style={{ fontSize: '20px', color: '#aaa', textDecoration: 'line-through' }}>
+                            ₹{origPrice?.toLocaleString()}
+                          </span>
+                        )}
+                        {badgeText && (
+                          <span style={{ fontSize: '13px', background: '#dcfce7', color: '#15803d', padding: '3px 10px', borderRadius: 20, fontWeight: 700 }}>
+                            {badgeText}
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </div>
                 <div className="d-flex align-items-center gap-3">
                   <ReactStars
@@ -629,6 +676,51 @@ const SingleProduct = () => {
 
               {/* Inventory Status */}
               <div className="d-flex gap-2 mb-4 flex-wrap">
+                {/* Offer banners */}
+                {productOffers.length > 0 && (
+                  <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 8 }}>
+                    {productOffers.map((offer, i) => {
+                      const needsQty = (offer.offerType === 'MIN_QTY_DISCOUNT' && quantity < offer.minQty);
+                      const needsQtyBuy = (offer.offerType === 'BUY_X_FOR_PRICE' && quantity < offer.buyQty);
+                      const needsQtyFree = (offer.offerType === 'BUY_X_GET_Y_FREE' && quantity < offer.buyQty);
+                      const isUnlocked = !needsQty && !needsQtyBuy && !needsQtyFree;
+
+                      const offerDesc = offer.description || (
+                        offer.offerType === 'BUY_X_GET_Y_FREE' ? `Buy ${offer.buyQty} Get ${offer.getFreeQty} Free — free item auto-added to cart` :
+                        offer.offerType === 'BUY_X_FOR_PRICE' ? `Buy ${offer.buyQty} for ₹${offer.fixedPrice}` :
+                        offer.offerType === 'FLAT_OFF' ? `Flat ₹${offer.discountAmount} off` :
+                        offer.offerType === 'PERCENT_OFF' ? `${offer.discountPercent}% off on this product` :
+                        offer.offerType === 'MIN_QTY_DISCOUNT' ? `Buy ${offer.minQty}+ and get ${offer.discountPercent}% off` : ''
+                      );
+
+                      const hint =
+                        needsQty ? `⚠️ Add ${offer.minQty - quantity} more to unlock ${offer.discountPercent}% off` :
+                        needsQtyBuy ? `⚠️ Add ${offer.buyQty - quantity} more to unlock this offer` :
+                        needsQtyFree ? `⚠️ Add ${offer.buyQty - quantity} more to get ${offer.getFreeQty} free` : null;
+
+                      return (
+                        <div key={i} style={{
+                          background: isUnlocked ? 'linear-gradient(90deg, #fff7ed, #ffedd5)' : '#f9fafb',
+                          border: isUnlocked ? '1.5px dashed #fb923c' : '1.5px dashed #d1d5db',
+                          borderRadius: 10, padding: '10px 16px',
+                          display: 'flex', alignItems: 'flex-start', gap: 10,
+                        }}>
+                          <span style={{ fontSize: 20 }}>{isUnlocked ? '🎁' : '🔒'}</span>
+                          <div style={{ flex: 1 }}>
+                            <span style={{ fontWeight: 700, color: isUnlocked ? '#c2410c' : '#6b7280', fontSize: 14 }}>{offer.title}</span>
+                            <p style={{ margin: 0, fontSize: 12, color: isUnlocked ? '#9a3412' : '#9ca3af' }}>{offerDesc}</p>
+                            {hint && (
+                              <p style={{ margin: '4px 0 0', fontSize: 12, color: '#2563eb', fontWeight: 600 }}>{hint}</p>
+                            )}
+                          </div>
+                          {isUnlocked && (
+                            <span style={{ fontSize: 11, background: '#dcfce7', color: '#15803d', padding: '2px 8px', borderRadius: 20, fontWeight: 700, whiteSpace: 'nowrap' }}>ACTIVE</span>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
                 {productState?.inventory?.online && productState?.quantity > 0 && (
                   <span style={{ 
                     display: 'flex', 

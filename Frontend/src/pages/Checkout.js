@@ -75,6 +75,7 @@ const Checkout = () => {
   const userCoins = useSelector((s) => s?.auth?.coins) || 0;
 
   const [totalAmount, setTotalAmount] = useState(0);
+  const [offerDiscount, setOfferDiscount] = useState(0);
   const [useCoins, setUseCoins] = useState(false);
   const [coinAmount, setCoinAmount] = useState(0);
   const [currentStep, setCurrentStep] = useState(1);
@@ -83,7 +84,7 @@ const Checkout = () => {
   const [summaryOpen, setSummaryOpen] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState("online");
   // GST settings from backend
-  const [gstSettings, setGstSettings] = useState({ cgst: 0, sgst: 0, igst: 0, storeState: "Gujarat", taxIncluded: false });
+  const [gstSettings, setGstSettings] = useState({ cgst: 0, sgst: 0, igst: 0, storeState: "Gujarat", taxIncluded: false, shippingCharge: 100 });
   const [gstType, setGstType] = useState("NONE");
   const [cgstAmt, setCgstAmt] = useState(0);
   const [sgstAmt, setSgstAmt] = useState(0);
@@ -101,29 +102,53 @@ const Checkout = () => {
         igst: res.data.igst || 0,
         storeState: res.data.storeState || "Gujarat",
         taxIncluded: res.data.taxIncluded === true,
+        shippingCharge: res.data.shippingCharge ?? 100,
       });
     }).catch(() => {});
   }, [dispatch]);
 
   useEffect(() => {
-    if (!cartState?.length) { setTotalAmount(0); return; }
-    const total = cartState.reduce((s, i) => s + Number(i.quantity) * i.price, 0);
-    setTotalAmount(total);
-    // Track checkout started with real total and item details
+    if (!cartState?.length) { setTotalAmount(0); setOfferDiscount(0); return; }
+    let subtotal = 0;
+    let savings = 0;
+    cartState.forEach(i => {
+      if (i.isFreeItem) {
+        savings += Number(i.originalPrice || 0) * Number(i.quantity);
+      } else {
+        subtotal += Number(i.quantity) * Number(i.price);
+        if (i.offerLabel && i.originalPrice && i.originalPrice > i.price)
+          savings += (i.originalPrice - i.price) * i.quantity;
+      }
+    });
+    setTotalAmount(subtotal);
+    setOfferDiscount(savings);
     const items = cartState.map(i => ({
       productId: i.productId?._id || i.productId,
       productName: i.productId?.title || i.bundleTitle || 'Unknown',
       quantity: i.quantity,
       price: i.price,
     }));
-    trackingService.trackCheckoutStarted(items, total);
+    trackingService.trackCheckoutStarted(items, subtotal);
   }, [cartState]);
+
+  // Per-offer savings breakdown
+  const offerBreakdown = (cartState || []).reduce((acc, item) => {
+    const label = item.offerLabel;
+    if (!label) return acc;
+    let saving = 0;
+    if (item.isFreeItem) saving = Number(item.originalPrice || 0) * Number(item.quantity);
+    else if (item.originalPrice && item.originalPrice > item.price)
+      saving = (item.originalPrice - item.price) * item.quantity;
+    if (saving <= 0) return acc;
+    acc[label] = (acc[label] || 0) + saving;
+    return acc;
+  }, {});
 
   useEffect(() => {
     setCartProductState((cartState || []).map((item) =>
       item?.isBundle
         ? { product: item.productId?._id || null, quantity: item.quantity, color: null, size: null, price: item.price, isBundle: true, bundleId: item.bundleId, bundleTitle: item.bundleTitle, bundleProducts: item.bundleProducts || [] }
-        : { product: item.productId?._id || item.productId, quantity: item.quantity, color: item.color?._id || item.color, size: item.size || null, price: item.price }
+        : { product: item.productId?._id || item.productId, quantity: item.quantity, color: item.color?._id || item.color, size: item.size || null, price: item.price, isFreeItem: item.isFreeItem || false, offerLabel: item.offerLabel || null }
     ));
   }, [cartState]);
 
@@ -162,9 +187,9 @@ const Checkout = () => {
   }, [selectedState, totalAmount, gstSettings]);
 
   const taxAmount = gstType === "IGST" ? igstAmt : cgstAmt + sgstAmt;
-  const maxCoinDiscount = Math.min(userCoins, totalAmount + 100 + (gstSettings.taxIncluded ? 0 : taxAmount));
+  const maxCoinDiscount = Math.min(userCoins, totalAmount + gstSettings.shippingCharge + (gstSettings.taxIncluded ? 0 : taxAmount));
   const coinDiscount = useCoins ? Math.min(coinAmount, maxCoinDiscount) : 0;
-  const finalAmount = Math.max(0, totalAmount + 100 + (gstSettings.taxIncluded ? 0 : taxAmount) - coinDiscount);
+  const finalAmount = Math.max(0, totalAmount + gstSettings.shippingCharge + (gstSettings.taxIncluded ? 0 : taxAmount) - coinDiscount);
 
   const formik = useFormik({
     initialValues: { firstname: "", lastname: "", address: "", state: "", city: "", country: "", pincode: "", other: "" },
@@ -199,7 +224,7 @@ const Checkout = () => {
         shippingInfo: values,
         coinsUsed: useCoins ? coinAmount : 0,
         coinAmount: coinDiscount,
-        discountBreakdown: { directDiscount: 0, offerDiscount: 0, coinDiscount },
+        discountBreakdown: { directDiscount: 0, offerDiscount: offerDiscount, coinDiscount },
         gstBreakdown: { cgst: cgstAmt, sgst: sgstAmt, igst: igstAmt, cgstRate: gstSettings.cgst, sgstRate: gstSettings.sgst, igstRate: gstSettings.igst, gstType, taxableAmount: totalAmount },
       }));
       await dispatch(deleteUserCart(getConfig()));
@@ -225,18 +250,19 @@ const Checkout = () => {
 
       const { amount, id: order_id, currency } = result.data.order;
       const options = {
-        key: "rzp_test_HSSeDI22muUrLR",
+        key: process.env.REACT_APP_RAZORPAY_KEY_ID,
         amount, currency,
-        name: "Cart's Corner",
+        name: "Yashoda Fashion",
         description: "Secure Payment",
         order_id,
         handler: async (response) => {
           try {
             setCurrentStep(3);
-            const payRes = await axios.post(`${base_url}user/order/paymentVerification`, {
+            const payRes = await axios.post(`${base_url}user/order/payment-verification`, {
               orderCreationId: order_id,
               razorpayPaymentId: response.razorpay_payment_id,
               razorpayOrderId: response.razorpay_order_id,
+              razorpaySignature: response.razorpay_signature,
             }, getConfig());
             if (!payRes?.data) {
               trackingService.trackPaymentFailed(order_id, "Payment verification failed", "razorpay");
@@ -263,7 +289,7 @@ const Checkout = () => {
               shippingInfo: JSON.parse(localStorage.getItem("address")),
               coinsUsed: useCoins ? coinAmount : 0,
               coinAmount: coinDiscount,
-              discountBreakdown: { directDiscount: 0, offerDiscount: 0, coinDiscount },
+              discountBreakdown: { directDiscount: 0, offerDiscount: offerDiscount, coinDiscount },
               gstBreakdown: {
                 cgst: cgstAmt,
                 sgst: sgstAmt,
@@ -492,7 +518,7 @@ const Checkout = () => {
                   {/* Items */}
                   <div className="co-summary-items">
                     {cartState?.map((item, i) => (
-                      <div key={i} className={`co-summary-item${item?.isBundle ? " co-summary-bundle" : ""}`}>
+                      <div key={i} className={`co-summary-item${item?.isBundle ? " co-summary-bundle" : ""}${item?.isFreeItem ? " co-summary-free" : ""}`}>
                         <div className="co-summary-img">
                           {item?.isBundle
                             ? (item?.bundleProducts?.[0]?.image
@@ -504,7 +530,13 @@ const Checkout = () => {
                         </div>
                         <div className="co-summary-info">
                           <p className="co-summary-name">{item?.isBundle ? item?.bundleTitle : item?.productId?.title}</p>
-                          {!item?.isBundle && (
+                          {item?.isFreeItem && (
+                            <span style={{ fontSize: 10, fontWeight: 700, background: '#dcfce7', color: '#15803d', padding: '1px 7px', borderRadius: 10 }}>🎁 FREE</span>
+                          )}
+                          {item?.offerLabel && !item?.isFreeItem && (
+                            <span style={{ fontSize: 10, fontWeight: 600, background: '#fff7ed', color: '#c2410c', padding: '1px 7px', borderRadius: 10 }}>{item.offerLabel}</span>
+                          )}
+                          {!item?.isBundle && !item?.isFreeItem && (
                             <div className="co-summary-meta">
                               {item?.color && (
                                 <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
@@ -517,7 +549,7 @@ const Checkout = () => {
                           )}
                           {item?.isBundle && <span className="co-bundle-pill">Bundle</span>}
                         </div>
-                        <p className="co-summary-price">₹{(item?.quantity * item?.price)?.toLocaleString()}</p>
+                        <p className="co-summary-price">{item?.isFreeItem ? <span style={{ color: '#16a34a', fontWeight: 700 }}>FREE</span> : `₹${(item?.quantity * item?.price)?.toLocaleString()}`}</p>
                       </div>
                     ))}
                   </div>
@@ -525,12 +557,35 @@ const Checkout = () => {
                   {/* Totals */}
                   <div className="co-totals">
                     <div className="co-total-row">
+                      <span>MRP</span>
+                      <span style={{ textDecoration: offerDiscount > 0 ? 'line-through' : 'none', color: offerDiscount > 0 ? '#9ca3af' : undefined }}>₹{(totalAmount + offerDiscount)?.toLocaleString()}</span>
+                    </div>
+                    {offerDiscount > 0 && (
+                      <div className="co-total-row" style={{ flexDirection: 'column', alignItems: 'stretch', background: '#f0fdf4', borderRadius: 10, padding: '8px 10px', gap: 4 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span style={{ color: '#16a34a', fontWeight: 700 }}>🎁 Offer Savings</span>
+                          <span style={{ color: '#16a34a', fontWeight: 800 }}>−₹{offerDiscount.toLocaleString()}</span>
+                        </div>
+                        {Object.entries(offerBreakdown).map(([label, amt]) => (
+                          <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span style={{ color: '#15803d', fontSize: 11, display: 'flex', alignItems: 'center', gap: 4 }}>
+                              <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#22c55e', display: 'inline-block' }} />
+                              {label}
+                            </span>
+                            <span style={{ color: '#15803d', fontSize: 11, fontWeight: 700 }}>−₹{amt.toLocaleString()}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    <div className="co-total-row">
                       <span>Subtotal</span>
                       <span>₹{totalAmount?.toLocaleString()}</span>
                     </div>
                     <div className="co-total-row">
                       <span>Shipping</span>
-                      <span style={{ color: "#6b7280" }}>₹100</span>
+                      <span style={{ color: gstSettings.shippingCharge === 0 ? "#10b981" : "#6b7280" }}>
+                        {gstSettings.shippingCharge === 0 ? "Free" : `₹${gstSettings.shippingCharge}`}
+                      </span>
                     </div>
                     {gstType === "CGST_SGST" && cgstAmt > 0 && (
                       <div className="co-total-row" style={{ color: "#16a34a" }}>
@@ -583,6 +638,9 @@ const Checkout = () => {
             <div>
               <p className="co-sticky-label">Total Payable</p>
               <p className="co-sticky-amount">₹{finalAmount?.toLocaleString()}</p>
+              {offerDiscount > 0 && (
+                <p style={{ margin: 0, fontSize: 10, color: '#16a34a', fontWeight: 700, lineHeight: 1.2 }}>🎁 Saving ₹{offerDiscount.toLocaleString()}</p>
+              )}
             </div>
             <button type="submit" form="checkout-form" className="co-pay-btn co-sticky-pay" onClick={() => formik.handleSubmit()}>
               Pay Now <FiChevronRight size={16} />

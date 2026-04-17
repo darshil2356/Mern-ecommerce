@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Form, Input, Switch, Button, Card, message, Spin } from "antd";
 import {
   FaBuilding, FaEnvelope, FaStore, FaMapMarkerAlt, FaPhone,
-  FaMagic, FaSave, FaQuoteRight, FaPercentage,
+  FaMagic, FaSave, FaQuoteRight, FaPercentage, FaTruck,
 } from "react-icons/fa";
 import axios from "axios";
 import { base_url } from "../utils/baseUrl";
@@ -33,6 +33,7 @@ const Settings = () => {
         storeTagline: res.data.storeTagline || "Your One-Stop Shopping Destination",
         storeAddress: res.data.storeAddress || "",
         storePhone:   res.data.storePhone   || "",
+        shippingCharge: res.data.shippingCharge ?? 100,
       });
       setTaxIncluded(res.data.taxIncluded === true);
       setStoreState(res.data.storeState || "Gujarat");
@@ -52,6 +53,7 @@ const Settings = () => {
         cgst: parseFloat(values.cgst) || 0,
         sgst: parseFloat(values.sgst) || 0,
         igst: parseFloat(values.igst) || 0,
+        shippingCharge: parseFloat(values.shippingCharge) >= 0 ? parseFloat(values.shippingCharge) : 0,
         taxIncluded,
         storeState,
         onlinePaymentDestination,
@@ -178,6 +180,14 @@ const Settings = () => {
           </Form.Item>
           <Form.Item label="Store Address" name="storeAddress">
             <Input.TextArea rows={2} />
+          </Form.Item>
+          <Form.Item
+            label="Shipping Charge (₹)"
+            name="shippingCharge"
+            rules={[{ validator: (_, v) => (v === "" || v === null || v === undefined) ? Promise.reject("Enter shipping charge") : isNaN(Number(v)) || Number(v) < 0 ? Promise.reject("Must be ≥ 0") : Promise.resolve() }]}
+            extra="Set to 0 for free shipping. This charge is shown to customers at checkout."
+          >
+            <Input type="number" min={0} step={1} placeholder="e.g. 100" prefix={<FaTruck className="text-gray-400" />} />
           </Form.Item>
         </Card>
 

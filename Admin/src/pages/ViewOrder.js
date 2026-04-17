@@ -332,6 +332,12 @@ const ViewOrder = () => {
             {record.isBundle && (
               <span style={{ background: "#0f172a", color: "#fff", fontSize: 9, fontWeight: 700, padding: "2px 8px", borderRadius: 999, marginBottom: 6, display: "inline-block" }}>BUNDLE</span>
             )}
+            {record.isFreeItem && (
+              <span style={{ background: "#dcfce7", color: "#15803d", fontSize: 9, fontWeight: 700, padding: "2px 8px", borderRadius: 999, marginBottom: 6, display: "inline-block", marginLeft: record.isBundle ? 4 : 0 }}>🎁 FREE</span>
+            )}
+            {record.offerLabel && !record.isFreeItem && (
+              <span style={{ background: "#fff7ed", color: "#c2410c", fontSize: 9, fontWeight: 700, padding: "2px 8px", borderRadius: 999, marginBottom: 6, display: "inline-block", border: "1px dashed #fb923c" }}>🏷️ {record.offerLabel}</span>
+            )}
             <p style={{ margin: 0, fontWeight: 700, color: record.isBundle ? "#0f172a" : "inherit" }}>{text}</p>
             {record.isBundle && (
               <div style={{ marginTop: 6, display: "flex", flexDirection: "column", gap: 6 }}>
@@ -393,13 +399,17 @@ const ViewOrder = () => {
       title: "Price",
       dataIndex: "amount",
       align: "right",
-      render: (price) => `₹${price?.toFixed(2)}`,
+      render: (price, record) => record.isFreeItem
+        ? <span style={{ color: "#16a34a", fontWeight: 700 }}>FREE</span>
+        : <span>₹{price?.toFixed(2)}{record.originalPrice && record.originalPrice > price ? <span style={{ color: "#aaa", textDecoration: "line-through", fontSize: 11, marginLeft: 4 }}>₹{record.originalPrice?.toFixed(2)}</span> : null}</span>,
     },
     {
       title: "Total",
       dataIndex: "total",
       align: "right",
-      render: (total) => <strong>₹{total?.toFixed(2)}</strong>,
+      render: (total, record) => record.isFreeItem
+        ? <strong style={{ color: "#16a34a" }}>FREE</strong>
+        : <strong>₹{total?.toFixed(2)}</strong>,
     },
   ];
 
@@ -428,13 +438,16 @@ const ViewOrder = () => {
         product: product?.title || "N/A",
         brand: product?.brand || "N/A",
         barcode: product?.barcode || "N/A",
-          hsnCode: item?.hsnCode || product?.hsnCode || "-",
+        hsnCode: item?.hsnCode || product?.hsnCode || "-",
         color: item?.color,
         count: item?.quantity,
         amount: item?.price,
         total: (item?.price || 0) * (item?.quantity || 0),
         image: product?.images?.[0] || null,
         isBundle: false,
+        isFreeItem: item?.isFreeItem || false,
+        offerLabel: item?.offerLabel || null,
+        originalPrice: item?.originalPrice || null,
       });
     }
   }

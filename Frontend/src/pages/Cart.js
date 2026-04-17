@@ -54,8 +54,32 @@ const Cart = () => {
 
   useEffect(() => {
     if (!userCartState?.length) { setTotalAmount(0); return; }
-    setTotalAmount(userCartState.reduce((acc, item) => acc + Number(item.quantity) * Number(item.price), 0));
+    // Exclude free items from total
+    setTotalAmount(userCartState.reduce((acc, item) => {
+      if (item.isFreeItem) return acc;
+      return acc + Number(item.quantity) * Number(item.price);
+    }, 0));
   }, [userCartState]);
+
+  const offerSavings = userCartState?.reduce((acc, item) => {
+    if (item.isFreeItem) return acc + Number(item.originalPrice || 0) * Number(item.quantity);
+    if (item.offerLabel && item.originalPrice && item.originalPrice > item.price)
+      return acc + (item.originalPrice - item.price) * item.quantity;
+    return acc;
+  }, 0) || 0;
+
+  // Per-offer savings breakdown for the summary panel
+  const offerBreakdown = userCartState?.reduce((acc, item) => {
+    const label = item.offerLabel;
+    if (!label) return acc;
+    let saving = 0;
+    if (item.isFreeItem) saving = Number(item.originalPrice || 0) * Number(item.quantity);
+    else if (item.originalPrice && item.originalPrice > item.price)
+      saving = (item.originalPrice - item.price) * item.quantity;
+    if (saving <= 0) return acc;
+    acc[label] = (acc[label] || 0) + saving;
+    return acc;
+  }, {}) || {};
 
   const updateQuantity = (cartItemId, newQuantity) => {
     if (newQuantity < 1) return;
@@ -161,7 +185,29 @@ const Cart = () => {
 
                     /* ── REGULAR PRODUCT CARD ── */
                     return (
-                      <div key={index} style={{ ...s.card, opacity: isDeleting ? 0.4 : 1, transform: isDeleting ? 'scale(0.97)' : 'scale(1)' }}>
+                      <div key={index} style={{ ...s.card, opacity: isDeleting ? 0.4 : 1, transform: isDeleting ? 'scale(0.97)' : 'scale(1)', border: item.isFreeItem ? '1.5px solid #22c55e' : '1px solid #f3f4f6' }}>
+                        {/* Free item banner */}
+                        {item.isFreeItem && (
+                          <div style={s.freeBanner}>
+                            🎁 FREE ITEM — {item.offerLabel || 'Offer Applied'}
+                            {item.originalPrice > 0 && (
+                              <span style={{ marginLeft: 6, background: '#15803d', color: '#fff', fontSize: 10, fontWeight: 800, padding: '1px 7px', borderRadius: 20 }}>
+                                Worth ₹{(item.originalPrice * item.quantity).toLocaleString()}
+                              </span>
+                            )}
+                          </div>
+                        )}
+                        {/* Offer price-reduction banner */}
+                        {!item.isFreeItem && item.offerLabel && (
+                          <div style={s.offerBanner}>
+                            🏷️ {item.offerLabel}
+                            {item.originalPrice && item.originalPrice > item.price && (
+                              <span style={{ marginLeft: 6, background: '#c2410c', color: '#fff', fontSize: 10, fontWeight: 800, padding: '1px 7px', borderRadius: 20 }}>
+                                Save ₹{((item.originalPrice - item.price) * item.quantity).toLocaleString()}
+                              </span>
+                            )}
+                          </div>
+                        )}
                         <div className="d-flex gap-3">
                           {/* Image */}
                           <div style={s.productThumb}>
@@ -174,9 +220,12 @@ const Cart = () => {
                               <h6 style={{ color: '#111827', fontWeight: 700, fontSize: 14, marginBottom: 6, lineHeight: 1.3, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
                                 {item?.productId?.title}
                               </h6>
-                              <button style={s.deleteBtn} onClick={() => deleteACartProduct(item?._id)} disabled={isDeleting}>
-                                <AiFillDelete size={14} />
-                              </button>
+                              {/* Only allow delete on non-free items */}
+                              {!item.isFreeItem && (
+                                <button style={s.deleteBtn} onClick={() => deleteACartProduct(item?._id)} disabled={isDeleting}>
+                                  <AiFillDelete size={14} />
+                                </button>
+                              )}
                             </div>
 
                             {/* Color + Size */}
@@ -191,18 +240,36 @@ const Cart = () => {
                             {/* Price + Qty */}
                             <div className="d-flex align-items-center justify-content-between mt-1">
                               <div>
-                                <span style={{ color: '#6366f1', fontWeight: 800, fontSize: 16 }}>
-                                  ₹{(item?.quantity * item?.price)?.toLocaleString()}
-                                </span>
-                                <span style={{ color: '#9ca3af', fontSize: 11, marginLeft: 5 }}>
-                                  ₹{item?.price} each
-                                </span>
+                                {item.isFreeItem ? (
+                                  <span style={{ color: '#22c55e', fontWeight: 800, fontSize: 16 }}>FREE</span>
+                                ) : (
+                                  <>
+                                    <span style={{ color: '#6366f1', fontWeight: 800, fontSize: 16 }}>
+                                      ₹{(item?.quantity * item?.price)?.toLocaleString()}
+                                    </span>
+                                    {item.offerLabel && item.originalPrice && item.originalPrice > item.price ? (
+                                      <span style={{ color: '#9ca3af', fontSize: 11, marginLeft: 5, textDecoration: 'line-through' }}>
+                                        ₹{(item?.quantity * item.originalPrice)?.toLocaleString()}
+                                      </span>
+                                    ) : (
+                                      <span style={{ color: '#9ca3af', fontSize: 11, marginLeft: 5 }}>
+                                        ₹{item?.price} each
+                                      </span>
+                                    )}
+                                  </>
+                                )}
                               </div>
-                              <div style={s.qtyPillLight}>
-                                <button style={s.qtyBtnLight} onClick={() => updateQuantity(item._id, item.quantity - 1)} disabled={loading}><FiMinus size={12} /></button>
-                                <span style={{ color: '#111827', fontWeight: 700, fontSize: 14, minWidth: 22, textAlign: 'center' }}>{item?.quantity}</span>
-                                <button style={s.qtyBtnLight} onClick={() => updateQuantity(item._id, item.quantity + 1)} disabled={loading}><FiPlus size={12} /></button>
-                              </div>
+                              {/* Qty controls only for non-free items */}
+                              {!item.isFreeItem && (
+                                <div style={s.qtyPillLight}>
+                                  <button style={s.qtyBtnLight} onClick={() => updateQuantity(item._id, item.quantity - 1)} disabled={loading}><FiMinus size={12} /></button>
+                                  <span style={{ color: '#111827', fontWeight: 700, fontSize: 14, minWidth: 22, textAlign: 'center' }}>{item?.quantity}</span>
+                                  <button style={s.qtyBtnLight} onClick={() => updateQuantity(item._id, item.quantity + 1)} disabled={loading}><FiPlus size={12} /></button>
+                                </div>
+                              )}
+                              {item.isFreeItem && (
+                                <span style={s.freeQtyBadge}>×{item.quantity}</span>
+                              )}
                             </div>
                           </div>
                         </div>
@@ -226,12 +293,34 @@ const Cart = () => {
 
                   <div className="d-flex flex-column gap-3 mb-3">
                     <div style={s.summaryRow}>
-                      <span style={{ color: '#6b7280', fontSize: 14 }}>Subtotal ({userCartState.length} items)</span>
+                      <span style={{ color: '#6b7280', fontSize: 14 }}>MRP ({userCartState.length} items)</span>
+                      <span style={{ fontWeight: 600, color: offerSavings > 0 ? '#9ca3af' : '#111827', textDecoration: offerSavings > 0 ? 'line-through' : 'none' }}>₹{(totalAmount + offerSavings)?.toLocaleString()}</span>
+                    </div>
+                    {/* Offer savings breakdown */}
+                    {offerSavings > 0 && (
+                      <div style={{ background: '#f0fdf4', borderRadius: 10, padding: '10px 12px', border: '1px dashed #86efac' }}>
+                        <div style={{ ...s.summaryRow, marginBottom: Object.keys(offerBreakdown).length > 0 ? 6 : 0 }}>
+                          <span style={{ color: '#16a34a', fontSize: 13, fontWeight: 700 }}>🎁 Total Offer Savings</span>
+                          <span style={{ color: '#16a34a', fontWeight: 800, fontSize: 14 }}>-₹{offerSavings.toLocaleString()}</span>
+                        </div>
+                        {Object.entries(offerBreakdown).map(([label, amt]) => (
+                          <div key={label} style={{ ...s.summaryRow, marginTop: 4 }}>
+                            <span style={{ color: '#15803d', fontSize: 11, display: 'flex', alignItems: 'center', gap: 4 }}>
+                              <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#22c55e', display: 'inline-block' }} />
+                              {label}
+                            </span>
+                            <span style={{ color: '#15803d', fontSize: 11, fontWeight: 700 }}>-₹{amt.toLocaleString()}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    <div style={s.summaryRow}>
+                      <span style={{ color: '#6b7280', fontSize: 14 }}>Subtotal</span>
                       <span style={{ fontWeight: 600, color: '#111827' }}>₹{totalAmount?.toLocaleString()}</span>
                     </div>
                     <div style={s.summaryRow}>
                       <span style={{ color: '#6b7280', fontSize: 14 }}>Shipping</span>
-                      <span style={{ color: '#10b981', fontWeight: 600, fontSize: 14 }}>Free</span>
+                      <span style={{ color: '#10b981', fontWeight: 600, fontSize: 14 }}>Calculated at checkout</span>
                     </div>
                     <div style={s.summaryRow}>
                       <span style={{ color: '#6b7280', fontSize: 14 }}>Taxes</span>
@@ -282,6 +371,9 @@ const Cart = () => {
             <div>
               <p style={{ margin: 0, fontSize: 11, color: '#9ca3af', lineHeight: 1 }}>Total</p>
               <p style={{ margin: 0, fontSize: 20, fontWeight: 800, color: '#111827', lineHeight: 1.2 }}>₹{totalAmount?.toLocaleString()}</p>
+              {offerSavings > 0 && (
+                <p style={{ margin: 0, fontSize: 10, color: '#16a34a', fontWeight: 700, lineHeight: 1.2 }}>🎁 Saving ₹{offerSavings.toLocaleString()}</p>
+              )}
             </div>
             <Link to="/checkout" style={s.stickyCheckoutBtn}>
               Checkout <FiArrowRight size={16} style={{ marginLeft: 6 }} />
@@ -340,6 +432,23 @@ const s = {
   sizePill: {
     background: '#f3f4f6', color: '#374151', fontSize: 11,
     fontWeight: 700, padding: '2px 9px', borderRadius: 20,
+  },
+  freeBanner: {
+    background: 'linear-gradient(90deg, #dcfce7, #bbf7d0)',
+    color: '#15803d', fontSize: 11, fontWeight: 700,
+    padding: '5px 12px', borderRadius: '8px 8px 0 0',
+    marginBottom: 10, letterSpacing: '0.3px',
+  },
+  offerBanner: {
+    background: 'linear-gradient(90deg, #fff7ed, #ffedd5)',
+    color: '#c2410c', fontSize: 11, fontWeight: 700,
+    padding: '5px 12px', borderRadius: '8px 8px 0 0',
+    marginBottom: 10, letterSpacing: '0.3px',
+    border: '1px dashed #fb923c',
+  },
+  freeQtyBadge: {
+    background: '#dcfce7', color: '#15803d',
+    fontWeight: 700, fontSize: 13, padding: '4px 12px', borderRadius: 20,
   },
 
   qtyPillLight: {

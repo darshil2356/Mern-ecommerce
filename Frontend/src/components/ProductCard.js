@@ -5,16 +5,62 @@ import { useDispatch, useSelector } from "react-redux";
 import { addToWishlist } from "../features/products/productSlilce";
 import { AiFillHeart, AiOutlineHeart } from "react-icons/ai";
 import { motion } from "framer-motion";
+import axios from "axios";
+import { base_url } from "../utils/axiosConfig";
+
+// Compute discounted price from offer (qty=1 for card display)
+const getOfferDisplay = (offer, price) => {
+  if (!offer || !price) return null;
+  const { offerType, discountPercent, discountAmount, fixedPrice, buyQty, getFreeQty, minQty } = offer;
+  switch (offerType) {
+    case "PERCENT_OFF": {
+      const dp = Math.round(price * (1 - discountPercent / 100));
+      return { discountedPrice: dp, label: `${discountPercent}% OFF`, isFree: false };
+    }
+    case "FLAT_OFF": {
+      const dp = Math.max(0, price - discountAmount);
+      return { discountedPrice: dp, label: `₹${discountAmount} OFF`, isFree: false };
+    }
+    case "BUY_X_FOR_PRICE": {
+      const dp = Math.round(fixedPrice / buyQty);
+      return { discountedPrice: dp, label: `Buy ${buyQty} for ₹${fixedPrice}`, isFree: false };
+    }
+    case "MIN_QTY_DISCOUNT": {
+      return { discountedPrice: null, label: `Buy ${minQty}+ get ${discountPercent}% off`, isFree: false };
+    }
+    case "BUY_X_GET_Y_FREE": {
+      return { discountedPrice: null, label: `Buy ${buyQty} Get ${getFreeQty} Free`, isFree: true };
+    }
+    default: return null;
+  }
+};
 
 const ProductCard = ({ data }) => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
   const wishlistState = useSelector((state) => state?.auth?.wishlist?.wishlist);
   const [wishlist, setWishlist] = useState([]);
+  const [offerMap, setOfferMap] = useState({});
+
+  useEffect(() => { setWishlist(wishlistState || []); }, [wishlistState]);
 
   useEffect(() => {
-    setWishlist(wishlistState || []);
-  }, [wishlistState]);
+    if (!data?.length) return;
+    const fetchOffers = async () => {
+      const map = {};
+      await Promise.all(
+        data.map(async (item) => {
+          if (!item?._id) return;
+          try {
+            const res = await axios.get(`${base_url}offers/product/${item._id}`);
+            if (res.data?.length) map[item._id] = res.data[0];
+          } catch (_) {}
+        })
+      );
+      setOfferMap(map);
+    };
+    fetchOffers();
+  }, [data]);
 
   const isInWishlist = (id) => wishlist.some((item) => item?._id === id);
 
@@ -36,9 +82,9 @@ const ProductCard = ({ data }) => {
       {data.map((item, index) => {
         if (!item) return null;
         const inWish = isInWishlist(item._id);
-        const discount = item.priceOriginal && item.price
-          ? Math.round(((item.priceOriginal - item.price) / item.priceOriginal) * 100)
-          : null;
+        const offer = offerMap[item._id];
+        const offerDisplay = getOfferDisplay(offer, item.price);
+        const showDiscountedPrice = offerDisplay?.discountedPrice && offerDisplay.discountedPrice < item.price;
 
         return (
           <motion.div
@@ -52,20 +98,10 @@ const ProductCard = ({ data }) => {
             <div style={cardStyle}>
               {/* Image Area */}
               <div style={imageWrap}>
-                {/* Media */}
                 {item?.videos?.[0]?.url ? (
-                  <video
-                    src={item.videos[0].url}
-                    muted loop playsInline autoPlay
-                    style={mediaStyle}
-                  />
+                  <video src={item.videos[0].url} muted loop playsInline autoPlay style={mediaStyle} />
                 ) : item?.images?.[0]?.url ? (
-                  <img
-                    src={item.images[0].url}
-                    alt={item.title || "product"}
-                    style={mediaStyle}
-                    loading="lazy"
-                  />
+                  <img src={item.images[0].url} alt={item.title || "product"} style={mediaStyle} loading="lazy" />
                 ) : (
                   <div style={noMediaStyle}>No Image</div>
                 )}
@@ -74,21 +110,16 @@ const ProductCard = ({ data }) => {
                 <div style={badgesWrap}>
                   {item.tags === "new" && <span style={badgeNew}>New</span>}
                   {item.tags === "sale" && <span style={badgeSale}>Sale</span>}
-                  {discount >= 5 && item.tags !== "sale" && (
-                    <span style={badgeSale}>-{discount}%</span>
+                  {offerDisplay && (
+                    <span style={offerDisplay.isFree ? badgeFree : badgeOffer}>
+                      {offerDisplay.isFree ? "🎁 " : ""}{offerDisplay.label}
+                    </span>
                   )}
                 </div>
 
                 {/* Wishlist */}
-                <button
-                  onClick={(e) => toggleWish(item._id, e)}
-                  style={wishBtn}
-                  aria-label="Add to wishlist"
-                >
-                  {inWish
-                    ? <AiFillHeart size={18} color="#ef4444" />
-                    : <AiOutlineHeart size={18} color="#555" />
-                  }
+                <button onClick={(e) => toggleWish(item._id, e)} style={wishBtn} aria-label="Add to wishlist">
+                  {inWish ? <AiFillHeart size={18} color="#ef4444" /> : <AiOutlineHeart size={18} color="#555" />}
                 </button>
 
                 {/* Out of Stock overlay */}
@@ -101,14 +132,15 @@ const ProductCard = ({ data }) => {
 
               {/* Info */}
               <div style={infoWrap}>
-                {item.brand && (
-                  <p style={brandText}>{item.brand}</p>
-                )}
+                {item.brand && <p style={brandText}>{item.brand}</p>}
                 <p style={titleText}>{item.title}</p>
                 <div style={priceRow}>
-                  <span style={priceMain}>₹{item.price?.toLocaleString()}</span>
-                  {item.priceOriginal && (
-                    <span style={priceOld}>₹{item.priceOriginal?.toLocaleString()}</span>
+                  <span style={priceMain}>₹{(showDiscountedPrice ? offerDisplay.discountedPrice : item.price)?.toLocaleString()}</span>
+                  {showDiscountedPrice && (
+                    <span style={priceOld}>₹{item.price?.toLocaleString()}</span>
+                  )}
+                  {offerDisplay && !showDiscountedPrice && (
+                    <span style={offerHint}>{offerDisplay.label}</span>
                   )}
                 </div>
               </div>
@@ -120,145 +152,25 @@ const ProductCard = ({ data }) => {
   );
 };
 
-/* ── Styles ── */
-const cardStyle = {
-  background: "#fff",
-  borderRadius: 14,
-  overflow: "hidden",
-  boxShadow: "0 2px 10px rgba(0,0,0,0.06)",
-  height: "100%",
-  display: "flex",
-  flexDirection: "column",
-};
-
-const imageWrap = {
-  position: "relative",
-  aspectRatio: "1/1",
-  background: "#f5f5f5",
-  overflow: "hidden",
-};
-
-const mediaStyle = {
-  width: "100%",
-  height: "100%",
-  objectFit: "cover",
-  display: "block",
-};
-
-const noMediaStyle = {
-  width: "100%",
-  height: "100%",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  fontSize: 12,
-  color: "#bbb",
-};
-
-const badgesWrap = {
-  position: "absolute",
-  top: 8,
-  left: 8,
-  display: "flex",
-  flexDirection: "column",
-  gap: 4,
-};
-
-const badgeBase = {
-  padding: "3px 8px",
-  fontSize: 10,
-  fontWeight: 700,
-  textTransform: "uppercase",
-  letterSpacing: "0.5px",
-  borderRadius: 4,
-};
-
+const cardStyle = { background: "#fff", borderRadius: 14, overflow: "hidden", boxShadow: "0 2px 10px rgba(0,0,0,0.06)", height: "100%", display: "flex", flexDirection: "column" };
+const imageWrap = { position: "relative", aspectRatio: "1/1", background: "#f5f5f5", overflow: "hidden" };
+const mediaStyle = { width: "100%", height: "100%", objectFit: "cover", display: "block" };
+const noMediaStyle = { width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, color: "#bbb" };
+const badgesWrap = { position: "absolute", top: 8, left: 8, display: "flex", flexDirection: "column", gap: 4 };
+const badgeBase = { padding: "3px 8px", fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.5px", borderRadius: 4 };
 const badgeNew = { ...badgeBase, background: "#1a1a1a", color: "#fff" };
 const badgeSale = { ...badgeBase, background: "#ef4444", color: "#fff" };
-
-const wishBtn = {
-  position: "absolute",
-  top: 8,
-  right: 8,
-  width: 34,
-  height: 34,
-  borderRadius: "50%",
-  background: "rgba(255,255,255,0.92)",
-  border: "none",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  cursor: "pointer",
-  boxShadow: "0 2px 8px rgba(0,0,0,0.12)",
-  backdropFilter: "blur(4px)",
-};
-
-const outOfStockOverlay = {
-  position: "absolute",
-  inset: 0,
-  background: "rgba(0,0,0,0.35)",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-};
-
-const outOfStockText = {
-  background: "rgba(0,0,0,0.7)",
-  color: "#fff",
-  padding: "6px 14px",
-  borderRadius: 20,
-  fontSize: 11,
-  fontWeight: 600,
-  textTransform: "uppercase",
-  letterSpacing: "0.5px",
-};
-
-const infoWrap = {
-  padding: "6px 8px 8px",
-  flex: 1,
-  display: "flex",
-  flexDirection: "column",
-  gap: 2,
-};
-
-const brandText = {
-  fontSize: 10,
-  fontWeight: 700,
-  color: "#d4af37",
-  textTransform: "uppercase",
-  letterSpacing: "0.8px",
-  margin: 0,
-};
-
-const titleText = {
-  fontSize: 11,
-  fontWeight: 500,
-  color: "#1a1a1a",
-  lineHeight: 1.3,
-  margin: 0,
-  display: "-webkit-box",
-  WebkitLineClamp: 1,
-  WebkitBoxOrient: "vertical",
-  overflow: "hidden",
-};
-
-const priceRow = {
-  display: "flex",
-  alignItems: "center",
-  gap: 6,
-  marginTop: 4,
-};
-
-const priceMain = {
-  fontSize: 12,
-  fontWeight: 700,
-  color: "#1a1a1a",
-};
-
-const priceOld = {
-  fontSize: 10,
-  color: "#aaa",
-  textDecoration: "line-through",
-};
+const badgeOffer = { ...badgeBase, background: "#ff6b35", color: "#fff", maxWidth: 130, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" };
+const badgeFree = { ...badgeBase, background: "#16a34a", color: "#fff", maxWidth: 130, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" };
+const wishBtn = { position: "absolute", top: 8, right: 8, width: 34, height: 34, borderRadius: "50%", background: "rgba(255,255,255,0.92)", border: "none", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", boxShadow: "0 2px 8px rgba(0,0,0,0.12)", backdropFilter: "blur(4px)" };
+const outOfStockOverlay = { position: "absolute", inset: 0, background: "rgba(0,0,0,0.35)", display: "flex", alignItems: "center", justifyContent: "center" };
+const outOfStockText = { background: "rgba(0,0,0,0.7)", color: "#fff", padding: "6px 14px", borderRadius: 20, fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.5px" };
+const infoWrap = { padding: "6px 8px 8px", flex: 1, display: "flex", flexDirection: "column", gap: 2 };
+const brandText = { fontSize: 10, fontWeight: 700, color: "#d4af37", textTransform: "uppercase", letterSpacing: "0.8px", margin: 0 };
+const titleText = { fontSize: 11, fontWeight: 500, color: "#1a1a1a", lineHeight: 1.3, margin: 0, display: "-webkit-box", WebkitLineClamp: 1, WebkitBoxOrient: "vertical", overflow: "hidden" };
+const priceRow = { display: "flex", alignItems: "center", gap: 6, marginTop: 4, flexWrap: "wrap" };
+const priceMain = { fontSize: 12, fontWeight: 700, color: "#1a1a1a" };
+const priceOld = { fontSize: 10, color: "#aaa", textDecoration: "line-through" };
+const offerHint = { fontSize: 9, fontWeight: 700, color: "#ff6b35", background: "#fff3ee", padding: "2px 6px", borderRadius: 4 };
 
 export default ProductCard;

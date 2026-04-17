@@ -43,6 +43,8 @@ import DropoffReports from "./pages/DropoffReports";
 import AiGrowthReport from "./pages/AiGrowthReport";
 import MarketIntelligence from "./pages/MarketIntelligence";
 import Rojmel from "./pages/Rojmel";
+import AddOffer from "./pages/AddOffer";
+import Offerlist from "./pages/Offerlist";
 
 function App() {
   return (
@@ -109,6 +111,9 @@ function App() {
           <Route path="ai-growth" element={<AiGrowthReport />} />
           <Route path="market-intelligence" element={<MarketIntelligence />} />
           <Route path="rojmel" element={<Rojmel />} />
+          <Route path="add-offer" element={<AddOffer />} />
+          <Route path="offer/:id" element={<AddOffer />} />
+          <Route path="offer-list" element={<Offerlist />} />
         </Route>
       </Routes>
     </Router>

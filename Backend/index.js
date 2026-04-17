@@ -35,6 +35,7 @@ const trackingRouter = require("./routes/trackingRoute");
 const aiGrowthRouter = require("./routes/aiGrowthRoute");
 const marketIntelRouter = require("./routes/marketIntelRoute");
 const rojmelRouter = require("./routes/rojmelRoute");
+const offerRouter = require("./routes/offerRoute");
 
 // Socket.io setup
 const http = require("http");
@@ -75,7 +76,6 @@ app.use(cors(corsOptions));
 app.use(bodyParser.json({ limit: "50mb" }));
 app.use(bodyParser.urlencoded({ extended: false, limit: "50mb" }));
 app.use(cookieParser());
-app.use("/api/user/search", require("./routes/userRoute"));
 app.use("/api/user", require("./routes/userRoute"));
 app.use("/api/user", authRouter);
 app.use("/api/product", productRouter);
@@ -100,6 +100,7 @@ app.use("/api/tracking", trackingRouter);
 app.use("/api/ai/growth", aiGrowthRouter);
 app.use("/api/marketIntel", marketIntelRouter);
 app.use("/api/rojmel", rojmelRouter);
+app.use("/api/offers", offerRouter);
 
 app.get("/ppt", (req, res) => {
   res.sendFile(__dirname + "/public/ppt.html");

@@ -27,6 +27,12 @@ var cartSchema = new mongoose.Schema(
       type: String,
       default: null,
     },
+    // Offer free item fields
+    isFreeItem: { type: Boolean, default: false },
+    freeFromOfferId: { type: mongoose.Schema.Types.ObjectId, ref: "Offer", default: null },
+    freeFromCartItemId: { type: mongoose.Schema.Types.ObjectId, ref: "Cart", default: null },
+    offerLabel: { type: String, default: null },
+    originalPrice: { type: Number, default: null }, // original price before offer discount
     // Bundle fields
     isBundle: {
       type: Boolean,

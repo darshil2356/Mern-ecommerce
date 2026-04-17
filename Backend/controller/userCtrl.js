@@ -1269,18 +1269,104 @@ const getWishlist = asyncHandler(async (req, res) => {
 
 const userCart = asyncHandler(async (req, res) => {
   const { productId, color, quantity, price, size } = req.body;
-
   const { _id } = req.user;
   validateMongoDbId(_id);
   try {
+    const Offer = require("../models/offerModel");
+    const Product = require("../models/productModel");
+    const now = new Date();
+    const product = await Product.findById(productId).select("category");
+
+    // Find all active offers for this product/category (correct AND scoping)
+    const activeOffers = await Offer.find({
+      isActive: true,
+      startDate: { $lte: now },
+      endDate: { $gte: now },
+      $or: [
+        { applicableProducts: productId },
+        {
+          $and: [
+            { applicableProducts: { $size: 0 } },
+            {
+              $or: [
+                { applicableCategories: product?.category },
+                { applicableCategories: { $size: 0 } },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+
+    // Compute effective price and best non-free offer
+    let effectivePrice = price;
+    let appliedOfferLabel = null;
+    let appliedOfferId = null;
+    let bestDiscount = 0;
+
+    for (const offer of activeOffers) {
+      let discountedPrice = price;
+
+      if (offer.offerType === "BUY_X_FOR_PRICE" && quantity >= offer.buyQty) {
+        const sets = Math.floor(quantity / offer.buyQty);
+        const remainder = quantity % offer.buyQty;
+        const totalCost = sets * offer.fixedPrice + remainder * price;
+        discountedPrice = Math.round((totalCost / quantity) * 100) / 100;
+      } else if (offer.offerType === "FLAT_OFF") {
+        discountedPrice = Math.max(0, price - offer.discountAmount);
+      } else if (offer.offerType === "PERCENT_OFF") {
+        discountedPrice = Math.round(price * (1 - offer.discountPercent / 100) * 100) / 100;
+      } else if (offer.offerType === "MIN_QTY_DISCOUNT" && quantity >= offer.minQty) {
+        discountedPrice = Math.round(price * (1 - offer.discountPercent / 100) * 100) / 100;
+      } else {
+        continue; // BUY_X_GET_Y_FREE handled separately below
+      }
+
+      const discount = (price - discountedPrice) * quantity;
+      if (discount > bestDiscount) {
+        bestDiscount = discount;
+        effectivePrice = discountedPrice;
+        appliedOfferLabel = offer.title;
+        appliedOfferId = offer._id;
+      }
+    }
+
+    // Save main cart item
     let newCart = await new Cart({
       userId: _id,
       productId,
       color,
-      price,
+      price: effectivePrice,
       quantity,
       size,
+      offerLabel: appliedOfferLabel,
+      freeFromOfferId: appliedOfferId,
+      originalPrice: price, // always store original price for savings display
     }).save();
+
+    // BUY_X_GET_Y_FREE — auto-inject free items
+    for (const offer of activeOffers) {
+      if (offer.offerType === "BUY_X_GET_Y_FREE" && quantity >= offer.buyQty) {
+        const sets = Math.floor(quantity / offer.buyQty);
+        const freeQty = sets * offer.getFreeQty;
+        await Cart.deleteMany({ userId: _id, productId, isFreeItem: true, freeFromOfferId: offer._id });
+        await new Cart({
+          userId: _id,
+          productId,
+          color,
+          size,
+          price: 0,
+          quantity: freeQty,
+          isFreeItem: true,
+          freeFromOfferId: offer._id,
+          freeFromCartItemId: newCart._id,
+          offerLabel: offer.title,
+          originalPrice: price, // store original so frontend can show savings
+        }).save();
+        break;
+      }
+    }
+
     res.json(newCart);
   } catch (error) {
     throw new Error(error);
@@ -1449,11 +1535,13 @@ const removeProductFromCart = asyncHandler(async (req, res) => {
   const { cartItemId } = req.params;
   validateMongoDbId(_id);
   try {
+    // Also remove any free items that were triggered by this cart item
+    await Cart.deleteMany({ userId: _id, freeFromCartItemId: cartItemId });
+
     const deleteProductFromcart = await Cart.deleteOne({
       userId: _id,
       _id: cartItemId,
     });
-
     res.json(deleteProductFromcart);
   } catch (error) {
     throw new Error(error);
@@ -1479,12 +1567,98 @@ const updateProductQuantityFromCart = asyncHandler(async (req, res) => {
   const { cartItemId, newQuantity } = req.params;
   validateMongoDbId(_id);
   try {
-    const cartItem = await Cart.findOne({
-      userId: _id,
-      _id: cartItemId,
+    const cartItem = await Cart.findOne({ userId: _id, _id: cartItemId });
+    if (!cartItem) throw new Error("Cart item not found");
+    if (cartItem.isFreeItem) return res.json(cartItem); // never update free items directly
+
+    const qty = parseInt(newQuantity);
+    const Offer = require("../models/offerModel");
+    const Product = require("../models/productModel");
+    const now = new Date();
+    const product = await Product.findById(cartItem.productId).select("category");
+    const originalPrice = cartItem.originalPrice || cartItem.price;
+
+    // Re-fetch active offers with correct AND scoping
+    const activeOffers = await Offer.find({
+      isActive: true,
+      startDate: { $lte: now },
+      endDate: { $gte: now },
+      $or: [
+        { applicableProducts: cartItem.productId },
+        {
+          $and: [
+            { applicableProducts: { $size: 0 } },
+            {
+              $or: [
+                { applicableCategories: product?.category },
+                { applicableCategories: { $size: 0 } },
+              ],
+            },
+          ],
+        },
+      ],
     });
-    cartItem.quantity = newQuantity;
-    cartItem.save();
+
+    let effectivePrice = originalPrice;
+    let appliedOfferLabel = null;
+    let appliedOfferId = null;
+    let bestDiscount = 0;
+
+    for (const offer of activeOffers) {
+      let discountedPrice = originalPrice;
+      if (offer.offerType === "BUY_X_FOR_PRICE" && qty >= offer.buyQty) {
+        const sets = Math.floor(qty / offer.buyQty);
+        const remainder = qty % offer.buyQty;
+        const totalCost = sets * offer.fixedPrice + remainder * originalPrice;
+        discountedPrice = Math.round((totalCost / qty) * 100) / 100;
+      } else if (offer.offerType === "FLAT_OFF") {
+        discountedPrice = Math.max(0, originalPrice - offer.discountAmount);
+      } else if (offer.offerType === "PERCENT_OFF") {
+        discountedPrice = Math.round(originalPrice * (1 - offer.discountPercent / 100) * 100) / 100;
+      } else if (offer.offerType === "MIN_QTY_DISCOUNT" && qty >= offer.minQty) {
+        discountedPrice = Math.round(originalPrice * (1 - offer.discountPercent / 100) * 100) / 100;
+      } else {
+        continue;
+      }
+      const discount = (originalPrice - discountedPrice) * qty;
+      if (discount > bestDiscount) {
+        bestDiscount = discount;
+        effectivePrice = discountedPrice;
+        appliedOfferLabel = offer.title;
+        appliedOfferId = offer._id;
+      }
+    }
+
+    cartItem.quantity = qty;
+    cartItem.price = effectivePrice;
+    cartItem.originalPrice = originalPrice;
+    cartItem.offerLabel = appliedOfferLabel;
+    cartItem.freeFromOfferId = appliedOfferId;
+    await cartItem.save();
+
+    // Re-sync BUY_X_GET_Y_FREE free items
+    await Cart.deleteMany({ userId: _id, freeFromCartItemId: cartItemId, isFreeItem: true });
+    for (const offer of activeOffers) {
+      if (offer.offerType === "BUY_X_GET_Y_FREE" && qty >= offer.buyQty) {
+        const sets = Math.floor(qty / offer.buyQty);
+        const freeQty = sets * offer.getFreeQty;
+        await new Cart({
+          userId: _id,
+          productId: cartItem.productId,
+          color: cartItem.color,
+          size: cartItem.size,
+          price: 0,
+          quantity: freeQty,
+          isFreeItem: true,
+          freeFromOfferId: offer._id,
+          freeFromCartItemId: cartItem._id,
+          offerLabel: offer.title,
+          originalPrice,
+        }).save();
+        break;
+      }
+    }
+
     res.json(cartItem);
   } catch (error) {
     throw new Error(error);
@@ -2387,7 +2561,7 @@ const getSettings = asyncHandler(async (req, res) => {
 
   try {
     const user = await User.findById(_id).select(
-      "gstin email storeName storeTagline storeAddress storePhone cgst sgst igst storeState taxIncluded onlinePaymentDestination"
+      "gstin email storeName storeTagline storeAddress storePhone cgst sgst igst storeState taxIncluded onlinePaymentDestination shippingCharge"
     );
     res.json({
       gstin: user.gstin || "",
@@ -2402,6 +2576,7 @@ const getSettings = asyncHandler(async (req, res) => {
       storeState: user.storeState || "Gujarat",
       taxIncluded: user.taxIncluded === true,
       onlinePaymentDestination: user.onlinePaymentDestination || "CURRENT_ACCOUNT",
+      shippingCharge: user.shippingCharge ?? 100,
     });
   } catch (error) {
     throw new Error(error);
@@ -2415,7 +2590,7 @@ const updateSettings = asyncHandler(async (req, res) => {
   const {
     cgst, sgst, igst, storeState, taxIncluded,
     storeName, storeTagline, storeAddress, storePhone,
-    onlinePaymentDestination,
+    onlinePaymentDestination, shippingCharge,
   } = req.body;
 
   const updatedUser = await User.findByIdAndUpdate(
@@ -2431,6 +2606,7 @@ const updateSettings = asyncHandler(async (req, res) => {
       ...(storeAddress !== undefined && { storeAddress }),
       ...(storePhone   !== undefined && { storePhone }),
       ...(onlinePaymentDestination !== undefined && { onlinePaymentDestination }),
+      ...(shippingCharge !== undefined && { shippingCharge: parseFloat(shippingCharge) >= 0 ? parseFloat(shippingCharge) : 0 }),
     },
     { new: true }
   );

@@ -91,7 +91,8 @@ const OrderDetails = () => {
   const coinDiscount = b.coinDiscount || order.coinAmount || 0;
   const offerDiscount = b.offerDiscount || 0;
   const directDiscount = b.directDiscount || 0;
-  const totalDiscount = subtotal - paid;
+  const originalSubtotal = subtotal + offerDiscount;
+  const totalDiscount = originalSubtotal - paid;
 
   return (
     <>
@@ -354,20 +355,9 @@ const OrderDetails = () => {
                   return (
                     <div key={idx} style={{ borderBottom: border, padding: "20px" }}>
                       <div className="d-flex align-items-center gap-3">
-                        <div style={{ 
-                          width: 80, 
-                          height: 80, 
-                          borderRadius: 12, 
-                          overflow: "hidden", 
-                          flexShrink: 0, 
-                          background: "#f5f5f5" 
-                        }}>
+                        <div style={{ width: 80, height: 80, borderRadius: 12, overflow: "hidden", flexShrink: 0, background: "#f5f5f5" }}>
                           {item?.product?.images?.[0]?.url ? (
-                            <img 
-                              src={item.product.images[0].url} 
-                              alt="" 
-                              style={{ width: "100%", height: "100%", objectFit: "cover" }} 
-                            />
+                            <img src={item.product.images[0].url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                           ) : (
                             <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}>
                               <FiPackage style={{ color: "#ccc", fontSize: 32 }} />
@@ -375,35 +365,41 @@ const OrderDetails = () => {
                           )}
                         </div>
                         <div style={{ flex: 1 }}>
-                          <div style={{ fontWeight: 600, fontSize: 16, marginBottom: 6, color: "#0f172a" }}>
-                            {item?.product?.title || "Product"}
+                          <div className="d-flex align-items-center gap-2 flex-wrap mb-1">
+                            <span style={{ fontWeight: 600, fontSize: 16, color: "#0f172a" }}>
+                              {item?.product?.title || "Product"}
+                            </span>
+                            {item?.isFreeItem && (
+                              <span style={{ background: "#dcfce7", color: "#15803d", fontSize: 11, fontWeight: 700, padding: "2px 10px", borderRadius: 20 }}>🎁 FREE</span>
+                            )}
+                            {item?.offerLabel && !item?.isFreeItem && (
+                              <span style={{ background: "#fff7ed", color: "#c2410c", fontSize: 11, fontWeight: 700, padding: "2px 10px", borderRadius: 20, border: "1px dashed #fb923c" }}>🏷️ {item.offerLabel}</span>
+                            )}
                           </div>
                           <div className="d-flex align-items-center gap-3 flex-wrap">
                             {item?.color && (
                               <div style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
                                 <span style={{ width: 14, height: 14, borderRadius: "50%", background: getColorSwatch(item.color), border: "1px solid #ddd", flexShrink: 0 }} />
-                                <span style={{ fontSize: 14, color: "#64748b" }}>
-                                  {getReadableColorName(item.color)}
-                                </span>
+                                <span style={{ fontSize: 14, color: "#64748b" }}>{getReadableColorName(item.color)}</span>
                               </div>
                             )}
                             {(item?.hsnCode || item?.product?.hsnCode) && (
-                              <span style={{ fontSize: 14, color: "#64748b" }}>
-                                HSN: {item.hsnCode || item.product?.hsnCode}
-                              </span>
+                              <span style={{ fontSize: 14, color: "#64748b" }}>HSN: {item.hsnCode || item.product?.hsnCode}</span>
                             )}
-                            <span style={{ fontSize: 14, color: "#64748b" }}>
-                              Qty: {item.quantity}
-                            </span>
-                            <span style={{ fontSize: 14, color: "#64748b" }}>
-                              {fmt(item.price)} each
-                            </span>
+                            <span style={{ fontSize: 14, color: "#64748b" }}>Qty: {item.quantity}</span>
+                            {item?.isFreeItem ? (
+                              <span style={{ fontSize: 14, color: "#16a34a", fontWeight: 700 }}>FREE</span>
+                            ) : (
+                              <span style={{ fontSize: 14, color: "#64748b" }}>{fmt(item.price)} each</span>
+                            )}
                           </div>
                         </div>
                         <div style={{ textAlign: "right", flexShrink: 0 }}>
-                          <div style={{ fontWeight: 700, fontSize: 18, color: "#16a34a" }}>
-                            {fmt(item.price * item.quantity)}
-                          </div>
+                          {item?.isFreeItem ? (
+                            <div style={{ fontWeight: 700, fontSize: 18, color: "#16a34a" }}>FREE</div>
+                          ) : (
+                            <div style={{ fontWeight: 700, fontSize: 18, color: "#16a34a" }}>{fmt(item.price * item.quantity)}</div>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -421,13 +417,13 @@ const OrderDetails = () => {
                 <div className="row">
                   <div className="col-md-8">
                     <div className="d-flex justify-content-between mb-2">
-                      <span style={{ color: "#64748b", fontSize: 15 }}>Subtotal</span>
-                      <span style={{ fontWeight: 600, fontSize: 15 }}>{fmt(subtotal)}</span>
+                      <span style={{ color: "#64748b", fontSize: 15 }}>Subtotal (MRP)</span>
+                      <span style={{ fontWeight: 600, fontSize: 15, textDecoration: offerDiscount > 0 ? "line-through" : "none", color: offerDiscount > 0 ? "#9ca3af" : undefined }}>{fmt(originalSubtotal)}</span>
                     </div>
-                    {order.mode !== "OFFLINE" && (
+                    {offerDiscount > 0 && (
                       <div className="d-flex justify-content-between mb-2">
-                        <span style={{ color: "#64748b", fontSize: 15 }}>Shipping</span>
-                        <span style={{ fontWeight: 600, fontSize: 15 }}>₹100</span>
+                        <span style={{ color: "#f97316", fontSize: 15 }}>🎁 Offer Discount</span>
+                        <span style={{ color: "#f97316", fontWeight: 600, fontSize: 15 }}>-{fmt(offerDiscount)}</span>
                       </div>
                     )}
                     {directDiscount > 0 && (
@@ -436,10 +432,10 @@ const OrderDetails = () => {
                         <span style={{ color: "#22c55e", fontWeight: 600, fontSize: 15 }}>-{fmt(directDiscount)}</span>
                       </div>
                     )}
-                    {offerDiscount > 0 && (
+                    {order.mode !== "OFFLINE" && (
                       <div className="d-flex justify-content-between mb-2">
-                        <span style={{ color: "#64748b", fontSize: 15 }}>🎁 Offer Discount</span>
-                        <span style={{ color: "#f97316", fontWeight: 600, fontSize: 15 }}>-{fmt(offerDiscount)}</span>
+                        <span style={{ color: "#64748b", fontSize: 15 }}>Shipping</span>
+                        <span style={{ fontWeight: 600, fontSize: 15 }}>₹{order.gstBreakdown?.shippingCharge ?? (order.mode === "OFFLINE" ? 0 : 100)}</span>
                       </div>
                     )}
                     {coinDiscount > 0 && (

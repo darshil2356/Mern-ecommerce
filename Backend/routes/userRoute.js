@@ -15,6 +15,7 @@ const {
   deleteCustomerById,
 } = require("../controller/userCtrl");
 const { authMiddleware, isAdmin } = require("../middlewares/authMiddleware");
+const { checkout, paymentVerification } = require("../controller/paymentCtrl");
 
 
 
@@ -52,6 +53,10 @@ router.delete("/delete-customer/:id", authMiddleware, isAdmin, deleteCustomerByI
 
 // Get all referrals (for admin)
 router.get("/all-referrals", authMiddleware, isAdmin, getAllReferrals);
+
+// Payment routes
+router.post("/order/checkout", authMiddleware, checkout);
+router.post("/order/payment-verification", authMiddleware, paymentVerification);
 
 module.exports = router;
 

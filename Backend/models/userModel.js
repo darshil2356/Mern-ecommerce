@@ -104,6 +104,10 @@ var userSchema = new mongoose.Schema(
       enum: ["CURRENT_ACCOUNT", "OTHER_ACCOUNT"],
       default: "CURRENT_ACCOUNT",
     },
+    shippingCharge: {
+      type: Number,
+      default: 100,
+    },
     wishlist: [{ type: mongoose.Schema.Types.ObjectId, ref: "Product" }],
     refreshToken: {
       type: String,

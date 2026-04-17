@@ -19,6 +19,10 @@ const {
   loginAdmin,
   getWishlist,
   saveAddress,
+  getAddresses,
+  addAddress,
+  updateAddress,
+  deleteAddress,
   userCart,
   getUserCart,
 
@@ -130,6 +134,11 @@ router.delete("/:id", deleteaUser);
 
 router.put("/edit-user", authMiddleware, updatedUser);
 router.put("/save-address", authMiddleware, saveAddress);
+// Address book routes
+router.get("/addresses", authMiddleware, getAddresses);
+router.post("/addresses", authMiddleware, addAddress);
+router.put("/addresses/:addrId", authMiddleware, updateAddress);
+router.delete("/addresses/:addrId", authMiddleware, deleteAddress);
 router.put("/block-user/:id", authMiddleware, isAdmin, blockUser);
 router.put("/unblock-user/:id", authMiddleware, isAdmin, unblockUser);
 // Public GST settings — no auth needed (used by frontend checkout)

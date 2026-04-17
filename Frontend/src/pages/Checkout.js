@@ -9,7 +9,7 @@ import { useFormik } from "formik";
 import * as yup from "yup";
 import axios from "axios";
 import { base_url, getConfig } from "../utils/axiosConfig";
-import { createAnOrder, deleteUserCart, getUserCart, resetState } from "../features/user/userSlice";
+import { createAnOrder, deleteUserCart, getUserCart, resetState, getAddresses } from "../features/user/userSlice";
 import { getColorSwatch, getReadableColorName } from "../utils/colorDisplay";
 import trackingService from "../utils/trackingService";
 import "./Checkout.css";
@@ -73,6 +73,7 @@ const Checkout = () => {
   const cartState = useSelector((s) => s?.auth?.cartProducts);
   const authState = useSelector((s) => s?.auth);
   const userCoins = useSelector((s) => s?.auth?.coins) || 0;
+  const savedAddresses = useSelector((s) => s?.auth?.addresses || []);
 
   const [totalAmount, setTotalAmount] = useState(0);
   const [offerDiscount, setOfferDiscount] = useState(0);
@@ -93,6 +94,7 @@ const Checkout = () => {
 
   useEffect(() => {
     dispatch(getUserCart(getConfig()));
+    dispatch(getAddresses());
 
     // Fetch GST settings from public endpoint (no auth needed)
     axios.get(`${base_url}user/public-settings`).then(res => {
@@ -375,6 +377,45 @@ const Checkout = () => {
                       <p className="co-contact-email">{authState?.user?.email}</p>
                     </div>
                   </div>
+
+                  {/* Saved addresses picker */}
+                  {savedAddresses.length > 0 && (
+                    <div className="mb-3">
+                      <p className="co-label" style={{ marginBottom: 8 }}>Use a saved address</p>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                        {savedAddresses.map(addr => (
+                          <button
+                            key={addr._id}
+                            type="button"
+                            className="btn btn-sm"
+                            style={{
+                              borderRadius: 10,
+                              border: "1px solid #e2e8f0",
+                              background: "#f8fafc",
+                              fontSize: 12,
+                              textAlign: "left",
+                              padding: "6px 12px",
+                            }}
+                            onClick={() => {
+                              formik.setValues({
+                                firstname: addr.firstname || "",
+                                lastname: addr.lastname || "",
+                                address: addr.address || "",
+                                state: addr.state || "",
+                                city: addr.city || "",
+                                country: addr.country || "",
+                                pincode: addr.pincode || "",
+                                other: addr.other || "",
+                              });
+                              setSelectedState(addr.state || "");
+                            }}
+                          >
+                            <span className="fw-semibold">{addr.label}</span> — {addr.address}, {addr.city}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
 
                   <form onSubmit={formik.handleSubmit} className="co-form">
                     <div className="co-row">

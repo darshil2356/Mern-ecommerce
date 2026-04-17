@@ -43,6 +43,21 @@ var userSchema = new mongoose.Schema(
     address: {
       type: String,
     },
+    addresses: [
+      {
+        _id: { type: String },
+        label: { type: String, default: "Home" },
+        firstname: { type: String },
+        lastname: { type: String },
+        address: { type: String },
+        city: { type: String },
+        state: { type: String },
+        country: { type: String },
+        pincode: { type: String },
+        other: { type: String, default: "" },
+        isDefault: { type: Boolean, default: false },
+      },
+    ],
     gstin: {
       type: String,
       default: "",

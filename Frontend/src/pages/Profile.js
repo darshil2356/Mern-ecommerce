@@ -4,8 +4,8 @@ import Container from "../components/Container";
 import { useFormik } from "formik";
 import * as yup from "yup";
 import { useDispatch, useSelector } from "react-redux";
-import { updateProfile, getOrders, getMyReferrals, applyReferralCode, getReferralCode } from "../features/user/userSlice";
-import { FiEdit, FiCopy, FiCheck, FiShare2, FiUsers, FiGift, FiLink, FiUserCheck, FiShoppingBag, FiAward, FiStar, FiChevronRight, FiPackage } from "react-icons/fi";
+import { updateProfile, getOrders, getMyReferrals, applyReferralCode, getReferralCode, getAddresses, addAddress, updateAddress, deleteAddress } from "../features/user/userSlice";
+import { FiEdit, FiCopy, FiCheck, FiShare2, FiUsers, FiGift, FiLink, FiUserCheck, FiShoppingBag, FiAward, FiStar, FiChevronRight, FiPackage, FiMapPin, FiPlus, FiTrash2 } from "react-icons/fi";
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
 import { getColorSwatch, getReadableColorName } from "../utils/colorDisplay";
@@ -29,6 +29,8 @@ const Profile = () => {
   const [referralCodeInput, setReferralCodeInput] = useState("");
   const [isLoadingReferral, setIsLoadingReferral] = useState(false);
   const [coinFilter, setCoinFilter] = useState("all");
+  const [showAddrForm, setShowAddrForm] = useState(false);
+  const [editingAddr, setEditingAddr] = useState(null); // null = add new, obj = edit
 
   const getTokenFromLocalStorage = localStorage.getItem("customer")
     ? JSON.parse(localStorage.getItem("customer"))
@@ -51,6 +53,7 @@ const Profile = () => {
   const currentPage = ordersData?.page    || 0;
   const isOrdersLoading = useSelector((state) => state?.auth?.isLoading);
   const referralState = useSelector((state) => state.auth);
+  const savedAddresses = useSelector((state) => state.auth.addresses || []);
   const sentinelRef = useRef(null);
   
   // Get referral code from multiple sources: localStorage, userState, or referralState
@@ -91,6 +94,9 @@ const Profile = () => {
   useEffect(() => {
     if (activeTab === "orders") {
       dispatch(getOrders({ page: 1, limit: ORDERS_LIMIT }));
+    }
+    if (activeTab === "addresses") {
+      dispatch(getAddresses());
     }
   }, [activeTab, dispatch]);
 
@@ -1436,6 +1442,171 @@ const Profile = () => {
     </div>
   );
 
+  // ── Address book ──────────────────────────────────────────────────────────
+  const addrSchema = yup.object({
+    label: yup.string().required("Label required"),
+    firstname: yup.string().required("First name required"),
+    lastname: yup.string().required("Last name required"),
+    address: yup.string().required("Address required"),
+    city: yup.string().required("City required"),
+    state: yup.string().required("State required"),
+    country: yup.string().required("Country required"),
+    pincode: yup.string().required("Pincode required"),
+  });
+
+  const addrFormik = useFormik({
+    enableReinitialize: true,
+    initialValues: {
+      label: editingAddr?.label || "Home",
+      firstname: editingAddr?.firstname || "",
+      lastname: editingAddr?.lastname || "",
+      address: editingAddr?.address || "",
+      city: editingAddr?.city || "",
+      state: editingAddr?.state || "",
+      country: editingAddr?.country || "India",
+      pincode: editingAddr?.pincode || "",
+      other: editingAddr?.other || "",
+      isDefault: editingAddr?.isDefault || false,
+    },
+    validationSchema: addrSchema,
+    onSubmit: async (values, { resetForm }) => {
+      if (editingAddr) {
+        await dispatch(updateAddress({ addrId: editingAddr._id, data: values }));
+      } else {
+        await dispatch(addAddress(values));
+      }
+      resetForm();
+      setShowAddrForm(false);
+      setEditingAddr(null);
+    },
+  });
+
+  const renderAddresses = () => (
+    <div className="row">
+      <div className="col-12">
+        <div className="card border-0 p-4" style={{ borderRadius: 22, boxShadow: "0 20px 60px rgba(15,23,42,0.08)" }}>
+          <div className="d-flex justify-content-between align-items-center mb-4">
+            <h5 className="fw-bold mb-0">Saved Addresses</h5>
+            <button className="btn btn-warning btn-sm" style={{ borderRadius: 12 }}
+              onClick={() => { setEditingAddr(null); addrFormik.resetForm(); setShowAddrForm(true); }}>
+              <FiPlus className="me-1" /> Add New Address
+            </button>
+          </div>
+
+          {showAddrForm && (
+            <div className="card p-4 mb-4" style={{ borderRadius: 16, background: "#f8fafc", border: "1px solid #e2e8f0" }}>
+              <h6 className="fw-bold mb-3">{editingAddr ? "Edit Address" : "New Address"}</h6>
+              <form onSubmit={addrFormik.handleSubmit}>
+                <div className="row g-3">
+                  <div className="col-12 col-md-4">
+                    <label className="form-label small">Label</label>
+                    <select className="form-select" name="label" value={addrFormik.values.label} onChange={addrFormik.handleChange}>
+                      {["Home", "Work", "Other"].map(l => <option key={l}>{l}</option>)}
+                    </select>
+                  </div>
+                  <div className="col-12 col-md-4">
+                    <label className="form-label small">First Name</label>
+                    <input className="form-control" name="firstname" value={addrFormik.values.firstname} onChange={addrFormik.handleChange} onBlur={addrFormik.handleBlur} />
+                    {addrFormik.touched.firstname && <div className="text-danger small">{addrFormik.errors.firstname}</div>}
+                  </div>
+                  <div className="col-12 col-md-4">
+                    <label className="form-label small">Last Name</label>
+                    <input className="form-control" name="lastname" value={addrFormik.values.lastname} onChange={addrFormik.handleChange} onBlur={addrFormik.handleBlur} />
+                    {addrFormik.touched.lastname && <div className="text-danger small">{addrFormik.errors.lastname}</div>}
+                  </div>
+                  <div className="col-12">
+                    <label className="form-label small">Street Address</label>
+                    <input className="form-control" name="address" value={addrFormik.values.address} onChange={addrFormik.handleChange} onBlur={addrFormik.handleBlur} />
+                    {addrFormik.touched.address && <div className="text-danger small">{addrFormik.errors.address}</div>}
+                  </div>
+                  <div className="col-12">
+                    <label className="form-label small">Landmark / Apt (optional)</label>
+                    <input className="form-control" name="other" value={addrFormik.values.other} onChange={addrFormik.handleChange} />
+                  </div>
+                  <div className="col-12 col-md-4">
+                    <label className="form-label small">City</label>
+                    <input className="form-control" name="city" value={addrFormik.values.city} onChange={addrFormik.handleChange} onBlur={addrFormik.handleBlur} />
+                    {addrFormik.touched.city && <div className="text-danger small">{addrFormik.errors.city}</div>}
+                  </div>
+                  <div className="col-12 col-md-4">
+                    <label className="form-label small">State</label>
+                    <select className="form-select" name="state" value={addrFormik.values.state} onChange={addrFormik.handleChange} onBlur={addrFormik.handleBlur}>
+                      <option value="">Select State</option>
+                      {["Gujarat","Maharashtra","Delhi","Karnataka","Tamil Nadu","Rajasthan","Uttar Pradesh","West Bengal","Telangana","Punjab"].map(s => <option key={s}>{s}</option>)}
+                    </select>
+                    {addrFormik.touched.state && <div className="text-danger small">{addrFormik.errors.state}</div>}
+                  </div>
+                  <div className="col-12 col-md-2">
+                    <label className="form-label small">Pincode</label>
+                    <input className="form-control" name="pincode" value={addrFormik.values.pincode} onChange={addrFormik.handleChange} onBlur={addrFormik.handleBlur} />
+                    {addrFormik.touched.pincode && <div className="text-danger small">{addrFormik.errors.pincode}</div>}
+                  </div>
+                  <div className="col-12 col-md-2">
+                    <label className="form-label small">Country</label>
+                    <input className="form-control" name="country" value={addrFormik.values.country} onChange={addrFormik.handleChange} />
+                  </div>
+                  <div className="col-12">
+                    <div className="form-check">
+                      <input className="form-check-input" type="checkbox" id="isDefault" name="isDefault" checked={addrFormik.values.isDefault} onChange={addrFormik.handleChange} />
+                      <label className="form-check-label small" htmlFor="isDefault">Set as default address</label>
+                    </div>
+                  </div>
+                </div>
+                <div className="d-flex gap-2 mt-3">
+                  <button type="submit" className="btn btn-warning" style={{ borderRadius: 12 }}>Save Address</button>
+                  <button type="button" className="btn btn-outline-secondary" style={{ borderRadius: 12 }}
+                    onClick={() => { setShowAddrForm(false); setEditingAddr(null); addrFormik.resetForm(); }}>
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            </div>
+          )}
+
+          {savedAddresses.length === 0 && !showAddrForm && (
+            <div className="text-center py-5 text-muted">
+              <FiMapPin size={40} className="mb-3 opacity-25" />
+              <p>No saved addresses yet. Add one to speed up checkout!</p>
+            </div>
+          )}
+
+          <div className="row g-3">
+            {savedAddresses.map(addr => (
+              <div key={addr._id} className="col-12 col-md-6">
+                <div className="card h-100 p-3" style={{
+                  borderRadius: 16,
+                  border: addr.isDefault ? "2px solid #febd69" : "1px solid #e2e8f0",
+                  background: addr.isDefault ? "#fffbf0" : "#fff",
+                }}>
+                  <div className="d-flex justify-content-between align-items-start mb-2">
+                    <div className="d-flex align-items-center gap-2">
+                      <span className="badge" style={{ background: "#febd69", color: "#1a1a1a", borderRadius: 8, fontSize: 11 }}>{addr.label}</span>
+                      {addr.isDefault && <span className="badge bg-success" style={{ borderRadius: 8, fontSize: 10 }}>Default</span>}
+                    </div>
+                    <div className="d-flex gap-2">
+                      <button className="btn btn-sm btn-outline-secondary p-1" style={{ borderRadius: 8 }}
+                        onClick={() => { setEditingAddr(addr); setShowAddrForm(true); }}>
+                        <FiEdit size={13} />
+                      </button>
+                      <button className="btn btn-sm btn-outline-danger p-1" style={{ borderRadius: 8 }}
+                        onClick={() => dispatch(deleteAddress(addr._id))}>
+                        <FiTrash2 size={13} />
+                      </button>
+                    </div>
+                  </div>
+                  <p className="mb-1 fw-semibold">{addr.firstname} {addr.lastname}</p>
+                  <p className="mb-0 text-muted small">{addr.address}{addr.other ? `, ${addr.other}` : ""}</p>
+                  <p className="mb-0 text-muted small">{addr.city}, {addr.state} - {addr.pincode}</p>
+                  <p className="mb-0 text-muted small">{addr.country}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
   return (
     <>
       <BreadCrumb title="My Profile" />
@@ -1444,42 +1615,31 @@ const Profile = () => {
         {/* Tab Navigation */}
         <div className="row mb-4">
           <div className="col-12">
-            <ul className="nav nav-pills">
-              <li className="nav-item">
-                <button
-                  className={`nav-link ${activeTab === "profile" ? "active" : ""}`}
-                  onClick={() => setActiveTab("profile")}
-                  style={{ 
-                    borderRadius: "8px",
-                    marginRight: "8px",
-                    backgroundColor: activeTab === "profile" ? "#febd69" : "transparent",
-                    color: activeTab === "profile" ? "#1a1a1a" : "#1a1a1a",
-                    border: activeTab === "profile" ? "none" : "1px solid #ddd"
-                  }}
-                >
-                  Profile Info
-                </button>
-              </li>
-              <li className="nav-item">
-                <button
-                  className={`nav-link ${activeTab === "referrals" ? "active" : ""}`}
-                  onClick={() => setActiveTab("referrals")}
-                  style={{ 
-                    borderRadius: "8px",
-                    backgroundColor: activeTab === "referrals" ? "#febd69" : "transparent",
-                    color: activeTab === "referrals" ? "#1a1a1a" : "#1a1a1a",
-                    border: activeTab === "referrals" ? "none" : "1px solid #ddd"
-                  }}
-                >
-                  Referrals
-                </button>
-              </li>
+            <ul className="nav nav-pills gap-2">
+              {["profile", "addresses", "referrals"].map(tab => (
+                <li className="nav-item" key={tab}>
+                  <button
+                    className="nav-link"
+                    onClick={() => setActiveTab(tab)}
+                    style={{
+                      borderRadius: "8px",
+                      backgroundColor: activeTab === tab ? "#febd69" : "transparent",
+                      color: "#1a1a1a",
+                      border: activeTab === tab ? "none" : "1px solid #ddd",
+                      textTransform: "capitalize",
+                    }}
+                  >
+                    {tab === "profile" ? "Profile Info" : tab === "addresses" ? "My Addresses" : "Referrals"}
+                  </button>
+                </li>
+              ))}
             </ul>
           </div>
         </div>
 
         {/* Tab Content */}
         {activeTab === "profile" && renderProfileInfo()}
+        {activeTab === "addresses" && renderAddresses()}
         {activeTab === "referrals" && renderReferrals()}
       </Container>
     </>

@@ -189,6 +189,26 @@ const applyReferralCode = async (referralCode) => {
   }
 };
 
+const getAddresses = async () => {
+  const response = await axios.get(`${base_url}user/addresses`, getConfig());
+  return response.data;
+};
+
+const addAddress = async (data) => {
+  const response = await axios.post(`${base_url}user/addresses`, data, getConfig());
+  return response.data;
+};
+
+const updateAddress = async ({ addrId, data }) => {
+  const response = await axios.put(`${base_url}user/addresses/${addrId}`, data, getConfig());
+  return response.data;
+};
+
+const deleteAddress = async (addrId) => {
+  const response = await axios.delete(`${base_url}user/addresses/${addrId}`, getConfig());
+  return response.data;
+};
+
 export const authService = {
   register,
   login,
@@ -209,4 +229,8 @@ export const authService = {
   getReferralCode,
   getMyReferrals,
   applyReferralCode,
+  getAddresses,
+  addAddress,
+  updateAddress,
+  deleteAddress,
 };

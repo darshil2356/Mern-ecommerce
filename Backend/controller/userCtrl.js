@@ -1118,6 +1118,72 @@ const saveAddress = asyncHandler(async (req, res, next) => {
   }
 });
 
+// Get all saved addresses
+const getAddresses = asyncHandler(async (req, res) => {
+  const { _id } = req.user;
+  const user = await User.findById(_id).select("addresses");
+  res.json(user.addresses || []);
+});
+
+// Add a new address
+const addAddress = asyncHandler(async (req, res) => {
+  const { _id } = req.user;
+  const { label, firstname, lastname, address, city, state, country, pincode, other, isDefault } = req.body;
+  const user = await User.findById(_id);
+
+  const newAddr = {
+    _id: require("crypto").randomBytes(8).toString("hex"),
+    label: label || "Home",
+    firstname, lastname, address, city, state, country,
+    pincode: String(pincode),
+    other: other || "",
+    isDefault: isDefault || user.addresses.length === 0,
+  };
+
+  if (newAddr.isDefault) {
+    user.addresses.forEach(a => { a.isDefault = false; });
+  }
+  user.addresses.push(newAddr);
+  await user.save();
+  res.json(user.addresses);
+});
+
+// Update an address
+const updateAddress = asyncHandler(async (req, res) => {
+  const { _id } = req.user;
+  const { addrId } = req.params;
+  const { label, firstname, lastname, address, city, state, country, pincode, other, isDefault } = req.body;
+  const user = await User.findById(_id);
+
+  const idx = user.addresses.findIndex(a => a._id === addrId);
+  if (idx === -1) { res.status(404); throw new Error("Address not found"); }
+
+  if (isDefault) user.addresses.forEach(a => { a.isDefault = false; });
+
+  Object.assign(user.addresses[idx], {
+    label: label || user.addresses[idx].label,
+    firstname, lastname, address, city, state, country,
+    pincode: String(pincode),
+    other: other || "",
+    isDefault: isDefault || user.addresses[idx].isDefault,
+  });
+  await user.save();
+  res.json(user.addresses);
+});
+
+// Delete an address
+const deleteAddress = asyncHandler(async (req, res) => {
+  const { _id } = req.user;
+  const { addrId } = req.params;
+  const user = await User.findById(_id);
+
+  const wasDefault = user.addresses.find(a => a._id === addrId)?.isDefault;
+  user.addresses = user.addresses.filter(a => a._id !== addrId);
+  if (wasDefault && user.addresses.length > 0) user.addresses[0].isDefault = true;
+  await user.save();
+  res.json(user.addresses);
+});
+
 // Get all users
 
 const getallUser = asyncHandler(async (req, res) => {
@@ -3241,6 +3307,10 @@ module.exports = {
   loginAdmin,
   getWishlist,
   saveAddress,
+  getAddresses,
+  addAddress,
+  updateAddress,
+  deleteAddress,
   userCart,
   getUserCart,
   createOrder,

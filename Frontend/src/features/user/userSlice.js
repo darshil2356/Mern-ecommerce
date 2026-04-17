@@ -211,6 +211,38 @@ export const cancelOrder = createAsyncThunk(
   }
 );
 
+export const getAddresses = createAsyncThunk(
+  "user/addresses/get",
+  async (_, thunkAPI) => {
+    try { return await authService.getAddresses(); }
+    catch (error) { return thunkAPI.rejectWithValue(error); }
+  }
+);
+
+export const addAddress = createAsyncThunk(
+  "user/addresses/add",
+  async (data, thunkAPI) => {
+    try { return await authService.addAddress(data); }
+    catch (error) { return thunkAPI.rejectWithValue(error); }
+  }
+);
+
+export const updateAddress = createAsyncThunk(
+  "user/addresses/update",
+  async ({ addrId, data }, thunkAPI) => {
+    try { return await authService.updateAddress({ addrId, data }); }
+    catch (error) { return thunkAPI.rejectWithValue(error); }
+  }
+);
+
+export const deleteAddress = createAsyncThunk(
+  "user/addresses/delete",
+  async (addrId, thunkAPI) => {
+    try { return await authService.deleteAddress(addrId); }
+    catch (error) { return thunkAPI.rejectWithValue(error); }
+  }
+);
+
 export const logout = createAction("auth/logout");
 export const resetState = createAction("Reset_all");
 
@@ -237,6 +269,7 @@ const initialState = {
   coinTransactionsHasMore: false,
   coinTransactionsTotal: 0,
   appliedReferral: null,
+  addresses: [],
 };
 
 export const authSlice = createSlice({
@@ -682,6 +715,20 @@ export const authSlice = createSlice({
         state.message = action.error;
         toast.error(action.payload?.response?.data?.message || "Failed to cancel order");
       })
+      // Address reducers
+      .addCase(getAddresses.fulfilled, (state, action) => { state.addresses = action.payload; })
+      .addCase(addAddress.fulfilled, (state, action) => {
+        state.addresses = action.payload;
+        toast.success("Address saved!");
+      })
+      .addCase(updateAddress.fulfilled, (state, action) => {
+        state.addresses = action.payload;
+        toast.success("Address updated!");
+      })
+      .addCase(deleteAddress.fulfilled, (state, action) => {
+        state.addresses = action.payload;
+        toast.success("Address removed!");
+      })
       .addCase(logout, (state) => {
         state.user = null;
         state.isError = false;
@@ -696,6 +743,7 @@ export const authSlice = createSlice({
         state.referrals = [];
         state.coinTransactions = [];
         state.appliedReferral = null;
+        state.addresses = [];
       })
       .addCase(resetState, () => initialState);
   },

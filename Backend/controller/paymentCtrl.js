@@ -1,9 +1,15 @@
-const Razorpay = require("razorpay");
 const crypto = require("crypto");
-const instance = new Razorpay({
-  key_id: process.env.RAZORPAY_KEY_ID,
-  key_secret: process.env.RAZORPAY_KEY_SECRET,
-});
+
+const getRazorpayInstance = () => {
+  if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) {
+    throw new Error("Razorpay credentials are not configured");
+  }
+  const Razorpay = require("razorpay");
+  return new Razorpay({
+    key_id: process.env.RAZORPAY_KEY_ID,
+    key_secret: process.env.RAZORPAY_KEY_SECRET,
+  });
+};
 
 const checkout = async (req, res, next) => {
   try {
@@ -14,15 +20,13 @@ const checkout = async (req, res, next) => {
       throw new Error("Invalid amount for checkout");
     }
 
+    const instance = getRazorpayInstance();
     const option = {
       amount: Math.round(amount * 100),
       currency: "INR",
     };
     const order = await instance.orders.create(option);
-    res.json({
-      success: true,
-      order,
-    });
+    res.json({ success: true, order });
   } catch (error) {
     const err = new Error(error?.error?.description || error?.message || "Checkout failed");
     next(err);
@@ -34,9 +38,13 @@ const paymentVerification = async (req, res, next) => {
     const { orderCreationId, razorpayPaymentId, razorpayOrderId, razorpaySignature } = req.body;
     const orderId = orderCreationId || razorpayOrderId;
 
-    const crypto = require("crypto");
+    if (!process.env.RAZORPAY_KEY_SECRET) {
+      res.status(500);
+      throw new Error("Payment configuration error");
+    }
+
     const expectedSignature = crypto
-      .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET || "sRO0YkBxvgMg0PvWHJN16Uf7")
+      .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
       .update(`${orderId}|${razorpayPaymentId}`)
       .digest("hex");
 

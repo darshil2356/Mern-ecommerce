@@ -761,16 +761,20 @@ const loginUserCtrl = asyncHandler(async (req, res) => {
 
 const loginAdmin = asyncHandler(async (req, res) => {
   const { email, password } = req.body;
-  // check if user exists or not
   const findAdmin = await User.findOne({ email });
-  if (findAdmin.role !== "admin") throw new Error("Not Authorised");
-  if (findAdmin && (await findAdmin.isPasswordMatched(password))) {
+  if (!findAdmin) {
+    res.status(401);
+    throw new Error("Invalid Credentials");
+  }
+  if (findAdmin.role !== "admin") {
+    res.status(403);
+    throw new Error("Not Authorised");
+  }
+  if (await findAdmin.isPasswordMatched(password)) {
     const refreshToken = await generateRefreshToken(findAdmin?._id);
-    const updateuser = await User.findByIdAndUpdate(
+    await User.findByIdAndUpdate(
       findAdmin.id,
-      {
-        refreshToken: refreshToken,
-      },
+      { refreshToken: refreshToken },
       { new: true }
     );
     res.cookie("refreshToken", refreshToken, {
@@ -786,6 +790,7 @@ const loginAdmin = asyncHandler(async (req, res) => {
       token: generateToken(findAdmin?._id),
     });
   } else {
+    res.status(401);
     throw new Error("Invalid Credentials");
   }
 });
@@ -797,9 +802,10 @@ const handleRefreshToken = asyncHandler(async (req, res) => {
   if (!cookie?.refreshToken) throw new Error("No Refresh Token in Cookies");
   const refreshToken = cookie.refreshToken;
   const user = await User.findOne({ refreshToken });
-  if (!user) throw new Error(" No Refresh token present in db or not matched");
-  jwt.verify(refreshToken, process.env.JWT_SECRET, (err, decoded) => {
+  if (!user) throw new Error("No Refresh token present in db or not matched");
+  jwt.verify(refreshToken, process.env.REFRESH_TOKEN_SECRET || process.env.JWT_SECRET, (err, decoded) => {
     if (err || user.id !== decoded.id) {
+      res.status(401);
       throw new Error("There is something wrong with refresh token");
     }
     const accessToken = generateToken(user?._id);
@@ -819,16 +825,16 @@ const logout = asyncHandler(async (req, res) => {
       httpOnly: true,
       secure: true,
     });
-    return res.sendStatus(204); // forbidden
+    return res.sendStatus(204);
   }
-  await User.findOneAndUpdate(refreshToken, {
+  await User.findByIdAndUpdate(user._id, {
     refreshToken: "",
   });
   res.clearCookie("refreshToken", {
     httpOnly: true,
     secure: true,
   });
-  res.sendStatus(204); // forbidden
+  res.sendStatus(204);
 });
 
 const cancelOrder = asyncHandler(async (req, res) => {
@@ -1289,11 +1295,8 @@ const forgotPasswordToken = asyncHandler(async (req, res) => {
   if (!user) throw new Error("User not found with this email");
   try {
     const token = await user.createPasswordResetToken();
-
     await user.save();
-    console.log(token);
-    const resetURL = `Hi, Please follow this link to reset Your Password. This link is valid till 10 minutes from now. <a href='http://localhost:3000/reset-password/${token}'>Click Here</>`;
-
+    const resetURL = `Hi, Please follow this link to reset Your Password. This link is valid till 10 minutes from now. <a href='${process.env.CLIENT_URL || "http://localhost:3001"}/reset-password/${token}'>Click Here</a>`;
     const data = {
       to: email,
       text: "Hey User",
@@ -1301,7 +1304,7 @@ const forgotPasswordToken = asyncHandler(async (req, res) => {
       htm: resetURL,
     };
     sendEmail(data);
-    res.json(token);
+    res.json({ message: "Password reset email sent" });
   } catch (error) {
     throw new Error(error);
   }
@@ -2377,9 +2380,8 @@ const getYearlyTotalOrder = asyncHandler(async (req, res) => {
     {
       $group: {
         _id: null,
-        amount: { $sum: 1 },
-        amount: { $sum: "$totalPriceAfterDiscount" },
         count: { $sum: 1 },
+        amount: { $sum: "$totalPriceAfterDiscount" },
       },
     },
   ]);

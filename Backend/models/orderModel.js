@@ -152,11 +152,11 @@ paymentInfo: {
     
     paidAt: {
       type: Date,
-      default: Date.now(),
+      default: Date.now,
     },
     month: {
       type: Number,
-      default: new Date().getMonth(),
+      default: () => new Date().getMonth(),
     },
     totalPrice: {
       type: Number,

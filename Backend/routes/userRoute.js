@@ -21,14 +21,13 @@ const { checkout, paymentVerification } = require("../controller/paymentCtrl");
 
 
 const router = express.Router();
-router.get("/", searchUsers);
-
+router.get("/", authMiddleware, isAdmin, searchUsers);
 
 // Get all users (for admin panel)
-router.get("/all-users", getallUser);
+router.get("/all-users", authMiddleware, isAdmin, getallUser);
 
 // Create customer (admin)
-router.post("/create-customer", createUser);
+router.post("/create-customer", authMiddleware, isAdmin, createUser);
 
 // GSTIN routes - protected by auth middleware
 router.get("/gstin", authMiddleware, getGstin);

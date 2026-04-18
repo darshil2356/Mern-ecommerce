@@ -24,6 +24,7 @@ const Productlist = () => {
   // State for size-wise barcodes modal
   const [sizeBarcodesModalOpen, setSizeBarcodesModalOpen] = useState(false);
   const [productSizeBarcodes, setProductSizeBarcodes] = useState([]);
+  const [selectedRecord, setSelectedRecord] = useState(null);
 
   const showModal = (e) => {
     setOpen(true);
@@ -46,24 +47,23 @@ const Productlist = () => {
 
   // Show all barcodes for a product (size-wise only)
   const showSizeBarcodes = (record) => {
-    const barcodes = [];
-    // Only add size-wise barcodes (no main barcode)
-    const sizeItems = (record.sizeStock && record.sizeStock.length > 0)
-      ? record.sizeStock
-      : (record.variants || []).flatMap((variant) => variant.sizeStock || []);
+    const sizeItems =
+      record.sizeStock && record.sizeStock.length > 0
+        ? record.sizeStock
+        : (record.variants || []).flatMap((variant) => variant.sizeStock || []);
 
-    sizeItems.forEach((item) => {
-      if (item.barcode) {
-        barcodes.push({
-          size: item.size,
-          barcode: item.barcode,
-          quantity: item.quantity,
-        });
-      }
-    });
-    
+    const barcodes = sizeItems
+      .filter((item) => item.barcode)
+      .map((item) => ({
+        size: item.size,
+        barcode: item.barcode,
+        quantity: item.quantity,
+      }));
+
     setProductSizeBarcodes(barcodes);
     setSelectedTitle(record.title);
+    // store full record for productData
+    setSelectedRecord(record);
     setSizeBarcodesModalOpen(true);
   };
 
@@ -391,13 +391,15 @@ const Productlist = () => {
       title: filteredProducts[i].title,
       brand: filteredProducts[i].brand,
       barcode: filteredProducts[i].barcode,
-        hsnCode: filteredProducts[i].hsnCode || filteredProducts[i].productHsn || "",
+      hsnCode: filteredProducts[i].hsnCode || filteredProducts[i].productHsn || "",
       sizeStock: filteredProducts[i].sizeStock || [],
+      variants: filteredProducts[i].variants || [],
       category: filteredProducts[i].category,
       color: filteredProducts[i].color || null,
       images: filteredProducts[i].images,
       quantity: filteredProducts[i].quantity,
       price: `${filteredProducts[i].price}`,
+      mrp: filteredProducts[i].mrp || "",
       action: (
         <>
           <Link to={`/admin/product/${filteredProducts[i]._id}`} className="fs-3 text-success">
@@ -660,8 +662,8 @@ const Productlist = () => {
           onDownload={downloadBarcode}
           productData={{
             title: selectedTitle,
-            color: filteredProducts?.find(p => p.title === selectedTitle)?.color,
-            price: filteredProducts?.find(p => p.title === selectedTitle)?.price
+            color: selectedRecord?.color,
+            price: selectedRecord?.price,
           }}
         />
       </Modal>

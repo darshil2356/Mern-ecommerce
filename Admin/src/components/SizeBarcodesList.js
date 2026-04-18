@@ -1,15 +1,12 @@
 import React, { useEffect, useRef } from "react";
 import { Button, Tag, Space } from "antd";
 import { AiOutlineDownload, AiOutlinePrinter } from "react-icons/ai";
-import { FaPrint } from "react-icons/fa";
 import JsBarcode from "jsbarcode";
-import { getReadableColorName, getColorSwatch } from "../utils/colorDisplay";
 
-const SizeBarcodesList = ({ barcodes, onDownload, productData }) => {
+const SizeBarcodesList = ({ barcodes, productData }) => {
   const barcodeRefs = useRef([]);
 
   useEffect(() => {
-    // Generate barcodes when component mounts or barcodes change
     barcodeRefs.current.forEach((svg, index) => {
       if (svg && barcodes[index]) {
         try {
@@ -19,146 +16,130 @@ const SizeBarcodesList = ({ barcodes, onDownload, productData }) => {
             height: 30,
             displayValue: true,
             fontSize: 10,
-            margin: 0
+            margin: 2,
           });
         } catch (e) {
-          console.error("Error generating barcode:", e);
+          console.error("Barcode error:", e);
         }
       }
     });
   }, [barcodes]);
 
-  const downloadSticker = (item) => {
-    // Create a larger canvas for sticker printing
-    const canvas = document.createElement("canvas");
-    const ctx = canvas.getContext("2d");
-
-    // Set canvas size for sticker (3x1.5 inches at 300 DPI)
-    canvas.width = 900;  // 3 inches * 300 DPI
-    canvas.height = 450; // 1.5 inches * 300 DPI
-
-    // Fill background
-    ctx.fillStyle = "#ffffff";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-    // Add border
-    ctx.strokeStyle = "#000000";
-    ctx.lineWidth = 3;
-    ctx.strokeRect(15, 15, canvas.width - 30, canvas.height - 30);
-
-    // Add product title (truncated if too long)
-    ctx.fillStyle = "#000000";
-    ctx.font = "bold 24px Arial";
-    ctx.textAlign = "center";
-    const title = productData?.title || "Product";
-    const truncatedTitle = title.length > 20 ? title.substring(0, 17) + "..." : title;
-    ctx.fillText(truncatedTitle, canvas.width / 2, 50);
-
-    // Add product details
-    ctx.font = "18px Arial";
-    let yPos = 80;
-    if (productData) {
-      if (productData.price) {
-        ctx.fillText(`₹${productData.price}`, canvas.width / 2, yPos);
-        yPos += 25;
-      }
-      if (productData.color) {
-        ctx.fillText(`Color: ${getReadableColorName(productData.color)}`, canvas.width / 2, yPos);
-        yPos += 25;
-      }
-    }
-
-    // Add size
-    ctx.fillText(`Size: ${item.size}`, canvas.width / 2, yPos);
-    yPos += 25;
-
-    // Generate and add barcode
+  const buildStickerHTML = (item) => {
     const barcodeCanvas = document.createElement("canvas");
     JsBarcode(barcodeCanvas, item.barcode, {
       format: "CODE128",
-      width: 2,
-      height: 60,
-      displayValue: true,
-      fontSize: 16,
+      width: 3,
+      height: 90,
+      displayValue: false,
     });
+    const barcodeDataUrl = barcodeCanvas.toDataURL("image/png");
+    const productTitle = productData?.title || "Product";
+    const price = productData?.price ? `₹${productData.price}` : "";
 
-    // Center the barcode
-    const barcodeX = (canvas.width - barcodeCanvas.width) / 2;
-    ctx.drawImage(barcodeCanvas, barcodeX, yPos);
-
-    // Download the sticker
-    const link = document.createElement("a");
-    link.href = canvas.toDataURL("image/png");
-    link.download = `${truncatedTitle.replace(/[^a-zA-Z0-9]/g, '_')}_${item.size}_sticker.png`;
-    link.click();
-  };
-
-  const printBarcode = (item) => {
-    const printWindow = window.open("", "", "width=400,height=250");
-
-    printWindow.document.write(`
+    return `
       <html>
         <head>
-          <title>${productData?.title || "Product"} - ${item.size}</title>
+          <title>${productTitle} - ${item.size}</title>
           <style>
-            body {
-              text-align: center;
-              font-family: Arial, sans-serif;
-              margin: 0;
-              padding: 10px;
-            }
-            .barcode-container {
+            * { margin: 0; padding: 0; box-sizing: border-box; }
+            body { font-family: Arial, sans-serif; background: #fff; }
+            .sticker {
+              width: 9cm; height: 5cm;
               border: 2px solid #000;
-              padding: 15px;
-              margin: 10px auto;
-              width: 250px;
-              background: white;
+              padding: 8px 12px;
+              display: flex; flex-direction: column;
+              align-items: center; justify-content: center;
+              gap: 4px;
             }
-            .product-info {
-              margin-bottom: 10px;
-              font-size: 10px;
-            }
-            .barcode-title {
-              font-weight: bold;
-              margin-bottom: 5px;
+            .product-name { font-size: 13px; font-weight: bold; text-align: center; }
+            .price { font-size: 20px; font-weight: bold; color: #000; }
+            .meta { font-size: 11px; color: #333; }
+            .barcode-img { max-width: 100%; height: 55px; }
+            .barcode-code { font-size: 9px; font-family: monospace; color: #555; margin-top: 2px; }
+            @media print {
+              @page { margin: 0; size: 9cm 5cm; }
+              body { margin: 0; }
             }
           </style>
         </head>
         <body>
-          <div class="barcode-container">
-            <div class="product-info">
-              <div class="barcode-title">${productData?.title || "Product"} - ${item.size}</div>
-              ${productData ? `
-                <div>Price: ₹${productData.price}</div>
-                ${productData.color ? `<div>Color: ${getReadableColorName(productData.color)}</div>` : ''}
-              ` : ''}
-            </div>
-            <svg id="barcode"></svg>
-            <div style="margin-top: 5px; font-size: 8px; color: #666;">
-              ${item.barcode}
-            </div>
+          <div class="sticker">
+            <div class="product-name">${productTitle.length > 28 ? productTitle.substring(0, 25) + "..." : productTitle}</div>
+            ${price ? `<div class="price">${price}</div>` : ""}
+            <div class="meta">Size: ${item.size}</div>
+            <img class="barcode-img" src="${barcodeDataUrl}" />
+            <div class="barcode-code">${item.barcode}</div>
           </div>
-          <script src="https://cdn.jsdelivr.net/npm/jsbarcode/dist/JsBarcode.all.min.js"></script>
-          <script>
-            JsBarcode("#barcode", "${item.barcode}", {
-              format: "CODE128",
-              width: 2,
-              height: 50,
-              displayValue: false,
-              margin: 0
-            });
-            window.print();
-          </script>
         </body>
       </html>
-    `);
+    `;
+  };
 
+  const printSticker = (item) => {
+    const html = buildStickerHTML(item);
+    const printWindow = window.open("", "", "width=420,height=340");
+    printWindow.document.write(html);
     printWindow.document.close();
+    printWindow.onload = () => {
+      printWindow.focus();
+      printWindow.print();
+    };
+  };
+
+  const downloadSticker = (item) => {
+    const canvas = document.createElement("canvas");
+    const ctx = canvas.getContext("2d");
+    canvas.width = 1080;
+    canvas.height = 600;
+
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.strokeStyle = "#000";
+    ctx.lineWidth = 4;
+    ctx.strokeRect(10, 10, canvas.width - 20, canvas.height - 20);
+
+    ctx.fillStyle = "#000";
+    ctx.textAlign = "center";
+
+    let y = 65;
+    const productTitle = productData?.title || "Product";
+    ctx.font = "bold 34px Arial";
+    const truncated = productTitle.length > 28 ? productTitle.substring(0, 25) + "..." : productTitle;
+    ctx.fillText(truncated, canvas.width / 2, y);
+    y += 50;
+
+    if (productData?.price) {
+      ctx.font = "bold 52px Arial";
+      ctx.fillText(`₹${productData.price}`, canvas.width / 2, y);
+      y += 55;
+    }
+
+    ctx.font = "26px Arial";
+    ctx.fillText(`Size: ${item.size}`, canvas.width / 2, y);
+    y += 34;
+
+    const barcodeCanvas = document.createElement("canvas");
+    JsBarcode(barcodeCanvas, item.barcode, {
+      format: "CODE128",
+      width: 3,
+      height: 100,
+      displayValue: true,
+      fontSize: 22,
+    });
+
+    const barcodeX = (canvas.width - barcodeCanvas.width) / 2;
+    ctx.drawImage(barcodeCanvas, barcodeX, y + 8);
+
+    const link = document.createElement("a");
+    link.href = canvas.toDataURL("image/png");
+    link.download = `${truncated.replace(/[^a-zA-Z0-9]/g, "_")}_${item.size}_sticker.png`;
+    link.click();
   };
 
   if (!barcodes || barcodes.length === 0) {
     return (
-      <div className="text-center py-3 text-muted" style={{ fontSize: '12px' }}>
+      <div className="text-center py-3 text-muted" style={{ fontSize: "13px" }}>
         No barcodes available for this product
       </div>
     );
@@ -166,75 +147,64 @@ const SizeBarcodesList = ({ barcodes, onDownload, productData }) => {
 
   return (
     <div className="p-2">
-      <div className="mb-3 text-center">
-        <Space direction="vertical" size="small">
-          {productData?.color && (
-            <div>
-              <Tag color={getColorSwatch(productData.color)} style={{ fontSize: '12px' }}>
-                Color: {getReadableColorName(productData.color)}
-              </Tag>
-            </div>
-          )}
-          {productData?.price && (
-            <div style={{ fontSize: '14px', fontWeight: 'bold', color: '#52c41a' }}>
-              Price: ₹{productData.price}
-            </div>
-          )}
-        </Space>
-      </div>
+      {productData?.price && (
+        <div className="mb-3 text-center">
+          <span style={{ fontSize: "16px", fontWeight: "bold", color: "#000" }}>
+            ₹{productData.price}
+          </span>
+        </div>
+      )}
 
-      <p className="text-muted mb-3" style={{ fontSize: '12px' }}>
-        Barcodes for each size:
-      </p>
       <div className="row g-2">
         {barcodes.map((item, index) => (
           <div key={index} className="col-6">
-            <div className="card border" style={{ borderColor: '#d9d9d9' }}>
+            <div className="card border" style={{ borderColor: "#d9d9d9" }}>
               <div className="card-body text-center p-2">
-                <h6 className="mb-1">
-                  <Tag color="blue" style={{ fontSize: '11px', padding: '2px 6px' }}>
-                    Size: {item.size}
-                  </Tag>
-                </h6>
-                <p className="text-muted mb-1" style={{ fontSize: '10px' }}>
+                <Tag color="blue" style={{ fontSize: "11px", marginBottom: "4px" }}>
+                  Size: {item.size}
+                </Tag>
+                <p className="text-muted mb-1" style={{ fontSize: "10px" }}>
                   Stock: {item.quantity}
                 </p>
-                <div className="mb-1">
+                <div className="mb-1" style={{ overflow: "hidden" }}>
                   <svg
-                    ref={el => barcodeRefs.current[index] = el}
-                    id={`barcode-${index}`}
+                    ref={(el) => (barcodeRefs.current[index] = el)}
+                    style={{ maxWidth: "100%" }}
                   ></svg>
                 </div>
-                <p className="font-monospace fw-bold text-success mb-2" style={{ fontSize: '9px' }}>
+                <p className="font-monospace text-success mb-2" style={{ fontSize: "9px" }}>
                   {item.barcode}
                 </p>
-                <Space direction="vertical" size="small" style={{ width: '100%' }}>
+                <Space direction="vertical" size={4} style={{ width: "100%" }}>
                   <Button
                     type="primary"
                     size="small"
                     icon={<AiOutlineDownload />}
-                    onClick={() => onDownload(item.barcode)}
-                    style={{ backgroundColor: '#52c41a', borderColor: '#52c41a', fontSize: '10px', height: '24px', width: '100%' }}
+                    onClick={() => downloadSticker(item)}
+                    style={{
+                      backgroundColor: "#52c41a",
+                      borderColor: "#52c41a",
+                      fontSize: "10px",
+                      height: "26px",
+                      width: "100%",
+                    }}
                   >
                     Download
                   </Button>
                   <Button
                     type="primary"
                     size="small"
-                    icon={<FaPrint />}
-                    onClick={() => downloadSticker(item)}
-                    style={{ backgroundColor: '#fa8c16', borderColor: '#fa8c16', fontSize: '10px', height: '24px', width: '100%' }}
-                  >
-                    Sticker
-                  </Button>
-                  <Button
-                    type="primary"
-                    size="small"
                     icon={<AiOutlinePrinter />}
-                    onClick={() => printBarcode(item)}
-                    style={{ backgroundColor: '#722ed1', borderColor: '#722ed1', fontSize: '10px', height: '24px', width: '100%' }}
+                    onClick={() => printSticker(item)}
+                    style={{
+                      backgroundColor: "#722ed1",
+                      borderColor: "#722ed1",
+                      fontSize: "10px",
+                      height: "26px",
+                      width: "100%",
+                    }}
                   >
-                    Print
+                    Print Sticker
                   </Button>
                 </Space>
               </div>

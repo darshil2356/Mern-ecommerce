@@ -874,6 +874,7 @@ const Addproduct = () => {
                           <th>Size</th>
                           <th>Quantity</th>
                           <th>Barcode</th>
+                          <th>Action</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -890,7 +891,25 @@ const Addproduct = () => {
                                 style={{ width: "100px" }}
                               />
                             </td>
-                            <td>{item.barcode || "-"}</td>
+                            <td style={{ fontSize: "11px", fontFamily: "monospace", color: "#555" }}>
+                              {item.barcode || "-"}
+                            </td>
+                            <td>
+                              {item.barcode && (
+                                <Button
+                                  size="small"
+                                  type="primary"
+                                  style={{ backgroundColor: "#722ed1", borderColor: "#722ed1", fontSize: "11px" }}
+                                  onClick={() => {
+                                    setSelectedBarcode(item.barcode);
+                                    setSelectedBarcodeTitle(`${formik.values.title} - ${item.size}`);
+                                    setBarcodeModalOpen(true);
+                                  }}
+                                >
+                                  🏷️ Print
+                                </Button>
+                              )}
+                            </td>
                           </tr>
                         ))}
                       </tbody>
@@ -1295,6 +1314,11 @@ const Addproduct = () => {
         onClose={() => setBarcodeModalOpen(false)}
         barcode={selectedBarcode}
         title={selectedBarcodeTitle}
+        productData={{
+          price: formik.values.price,
+          color: formik.values.color,
+          size: selectedBarcodeTitle?.split(" - ").slice(-1)[0] || "",
+        }}
       />
 
       <style>{`

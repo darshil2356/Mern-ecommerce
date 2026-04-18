@@ -34,7 +34,7 @@ import { productUrl, categoryUrl } from "../utils/seoUrl";
       {/* Image area */}
       <div style={{ 
         position: "relative", 
-        height: "260px", 
+        height: "clamp(180px, 30vw, 260px)", 
         overflow: "hidden", 
         background: "var(--surface-2, #f8fafc)"
       }}>
@@ -120,7 +120,7 @@ import { productUrl, categoryUrl } from "../utils/seoUrl";
         transition: "all 0.3s ease",
       }}
     >
-      <div style={{ position: "relative", height: "260px", overflow: "hidden", background: "#f8f8f8" }}>
+      <div style={{ position: "relative", height: "clamp(180px, 30vw, 260px)", overflow: "hidden", background: "#f8f8f8" }}>
         {item?.images?.[0]?.url ? (
           <img
             src={item.images[0].url}
@@ -146,15 +146,15 @@ import { productUrl, categoryUrl } from "../utils/seoUrl";
           </span>
         )}
       </div>
-      <div style={{ padding: "16px 20px 20px" }}>
-        <p style={{ color: "#d4af37", fontSize: "11px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "1px", marginBottom: "6px" }}>
+      <div style={{ padding: "10px 12px 14px" }}>
+        <p style={{ color: "#d4af37", fontSize: "11px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "1px", marginBottom: "4px" }}>
           {item?.brand}
         </p>
-        <h5 style={{ fontFamily: "'Playfair Display', serif", fontSize: "15px", marginBottom: "10px", lineHeight: 1.4, color: "#1a1a1a" }}>
+        <h5 style={{ fontFamily: "'Playfair Display', serif", fontSize: "clamp(13px, 2vw, 15px)", marginBottom: "8px", lineHeight: 1.4, color: "#1a1a1a" }}>
           {item?.title?.length > 45 ? item.title.slice(0, 45) + "…" : item?.title}
         </h5>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <span style={{ fontSize: "20px", fontWeight: 700, color: "#1a1a1a" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 4 }}>
+          <span style={{ fontSize: "clamp(15px, 2.5vw, 20px)", fontWeight: 700, color: "#1a1a1a" }}>
             ₹{item?.price?.toLocaleString()}
           </span>
           <span style={{
@@ -172,7 +172,7 @@ import { productUrl, categoryUrl } from "../utils/seoUrl";
 // Section header component
 const SectionHeader = ({ icon, title, linkTo, linkText }) => (
   <div className="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
-    <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: "1.8rem", marginBottom: 0, display: "flex", alignItems: "center", gap: "10px" }}>
+    <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: "clamp(1.3rem, 3vw, 1.8rem)", marginBottom: 0, display: "flex", alignItems: "center", gap: "10px" }}>
       {icon}
       {title}
     </h2>
@@ -303,7 +303,7 @@ const Home = () => {
         breadcrumbs={[]}
       />
       {/* ── HERO ── */}
-      <div style={{ position: "relative", height: "88vh", minHeight: "580px", overflow: "hidden", background: "#111" }}>
+      <div style={{ position: "relative", height: "88vh", minHeight: "480px", overflow: "hidden", background: "#111" }}>
         <div style={{ position: "absolute", inset: 0, backgroundImage: "url(images/main-banner.jpg)", backgroundSize: "cover", backgroundPosition: "center", opacity: 0.45 }} />
         <div style={{ position: "absolute", inset: 0, background: "linear-gradient(120deg, rgba(10,10,10,0.92) 0%, rgba(10,10,10,0.25) 100%)" }} />
         <div style={{ position: "relative", height: "100%", display: "flex", alignItems: "center" }}>
@@ -314,17 +314,17 @@ const Home = () => {
                   <span style={{ display: "inline-block", background: "#d4af37", color: "#1a1a1a", padding: "7px 20px", borderRadius: "30px", fontSize: "11px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "2px", marginBottom: "22px" }}>
                     New Collection 2024
                   </span>
-                  <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: "clamp(2.4rem, 5vw, 4.2rem)", fontWeight: 700, color: "#fff", lineHeight: 1.1, marginBottom: "20px" }}>
+                  <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: "clamp(1.8rem, 5vw, 4.2rem)", fontWeight: 700, color: "#fff", lineHeight: 1.1, marginBottom: "16px" }}>
                     Discover Your <br /><span style={{ color: "#d4af37" }}>Style</span> Statement
                   </h1>
-                  <p style={{ fontSize: "17px", color: "rgba(255,255,255,0.75)", maxWidth: "480px", marginBottom: "32px", lineHeight: 1.8 }}>
+                  <p style={{ fontSize: "clamp(14px, 2vw, 17px)", color: "rgba(255,255,255,0.75)", maxWidth: "480px", marginBottom: "24px", lineHeight: 1.7 }}>
                     Explore our premium collection of contemporary fashion and discover your perfect look.
                   </p>
-                  <div style={{ display: "flex", gap: "14px", flexWrap: "wrap" }}>
-                    <button onClick={() => navigate("/product")} style={{ background: "#d4af37", color: "#1a1a1a", border: "none", padding: "15px 34px", borderRadius: "50px", fontSize: "13px", fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: "8px", textTransform: "uppercase", letterSpacing: "1px" }}>
+                  <div style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>
+                    <button onClick={() => navigate("/product")} style={{ background: "#d4af37", color: "#1a1a1a", border: "none", padding: "12px 28px", borderRadius: "50px", fontSize: "13px", fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: "8px", textTransform: "uppercase", letterSpacing: "1px" }}>
                       Shop Now <BsArrowRight />
                     </button>
-                    <button onClick={() => navigate("/reels")} style={{ background: "transparent", color: "#fff", border: "2px solid rgba(255,255,255,0.35)", padding: "13px 32px", borderRadius: "50px", fontSize: "13px", fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: "8px", textTransform: "uppercase", letterSpacing: "1px" }}>
+                    <button onClick={() => navigate("/reels")} style={{ background: "transparent", color: "#fff", border: "2px solid rgba(255,255,255,0.35)", padding: "10px 24px", borderRadius: "50px", fontSize: "13px", fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: "8px", textTransform: "uppercase", letterSpacing: "1px" }}>
                       <BsPlay /> Watch Reels
                     </button>
                   </div>
@@ -674,16 +674,16 @@ const Home = () => {
       )}
 
       {/* ── NEWSLETTER ── */}
-      <div style={{ background: "linear-gradient(135deg,#1a1a1a,#2d2d2d)", padding: "80px 20px", textAlign: "center" }}>
+      <div style={{ background: "linear-gradient(135deg,#1a1a1a,#2d2d2d)", padding: "60px 20px", textAlign: "center" }}>
         <Container>
           <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}>
-            <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: "2.4rem", color: "#fff", marginBottom: "14px" }}>Stay in Style</h2>
-            <p style={{ color: "rgba(255,255,255,0.65)", fontSize: "16px", maxWidth: "460px", margin: "0 auto 30px" }}>
+            <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: "clamp(1.6rem, 4vw, 2.4rem)", color: "#fff", marginBottom: "14px" }}>Stay in Style</h2>
+            <p style={{ color: "rgba(255,255,255,0.65)", fontSize: "15px", maxWidth: "460px", margin: "0 auto 24px" }}>
               Subscribe for exclusive offers, new arrivals, and style inspiration.
             </p>
-            <div style={{ display: "flex", maxWidth: "480px", margin: "0 auto", gap: "10px" }}>
-              <input type="email" placeholder="Enter your email" style={{ flex: 1, padding: "14px 22px", borderRadius: "50px", border: "none", fontSize: "15px" }} />
-              <button style={{ background: "#d4af37", color: "#1a1a1a", border: "none", padding: "14px 28px", borderRadius: "50px", fontSize: "13px", fontWeight: 700, cursor: "pointer", textTransform: "uppercase", whiteSpace: "nowrap" }}>
+            <div style={{ display: "flex", maxWidth: "480px", margin: "0 auto", gap: "10px", flexWrap: "wrap" }}>
+              <input type="email" placeholder="Enter your email" style={{ flex: 1, minWidth: "200px", padding: "13px 20px", borderRadius: "50px", border: "none", fontSize: "15px" }} />
+              <button style={{ background: "#d4af37", color: "#1a1a1a", border: "none", padding: "13px 24px", borderRadius: "50px", fontSize: "13px", fontWeight: 700, cursor: "pointer", textTransform: "uppercase", whiteSpace: "nowrap" }}>
                 Subscribe
               </button>
             </div>
@@ -971,7 +971,7 @@ const Home = () => {
                 <div style={{ fontSize: '0.875rem', color: '#64748b' }}>
                   All selections must be made before adding to cart
                 </div>
-                <div style={{ display: 'flex', gap: '1rem', flex: '1', minWidth: '280px', justifyContent: 'flex-end' }}>
+                <div style={{ display: 'flex', gap: '1rem', flex: '1', minWidth: 0, justifyContent: 'flex-end' }}>
                   <button
                     onClick={() => setBundleSizeModal(null)}
                     style={{

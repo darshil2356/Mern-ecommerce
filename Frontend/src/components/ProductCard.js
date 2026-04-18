@@ -94,6 +94,7 @@ const ProductCard = ({ data }) => {
             transition={{ delay: Math.min(index * 0.04, 0.25), duration: 0.3 }}
             onClick={() => navigate(productUrl(item))}
             style={{ cursor: "pointer" }}
+            className="store-product-item"
           >
             <div style={cardStyle}>
               {/* Image Area */}

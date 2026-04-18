@@ -1144,8 +1144,48 @@ footer {
 }
 
 /* ================================================
-   HOME WRAPPER CLASSES (Legacy Support)
+   HOME PAGE - MOBILE RESPONSIVE
    ================================================ */
+
+/* Services strip: stack on very small screens */
+@media (max-width: 480px) {
+  .home-wrapper-1 .d-flex.flex-wrap,
+  .py-4 .d-flex.flex-wrap {
+    justify-content: flex-start !important;
+  }
+}
+
+/* Bundle section padding on mobile */
+@media (max-width: 575px) {
+  /* Reduce section vertical padding */
+  .py-5 { padding-top: 2rem !important; padding-bottom: 2rem !important; }
+
+  /* Bundle modal footer: stack buttons */
+  .bundle-modal-footer {
+    flex-direction: column !important;
+  }
+
+  /* Newsletter input full width on mobile */
+  .newsletter-form {
+    flex-direction: column !important;
+  }
+  .newsletter-input {
+    border-radius: 50px !important;
+  }
+  .newsletter-btn {
+    border-radius: 50px !important;
+    width: 100%;
+  }
+}
+
+/* Shop the look: consistent card width on mobile */
+@media (max-width: 575px) {
+  .shop-the-look-item {
+    min-width: 240px !important;
+  }
+}
+
+
 
 .home-wrapper-1 {
   padding: var(--spacing-2xl) 0;
@@ -1374,36 +1414,51 @@ footer {
   to { transform: rotate(360deg); }
 }
 
-/* Desktop sidebar */
+/* Products grid — responsive columns */
+.store-products-grid {
+  display: grid !important;
+  gap: 10px !important;
+}
+
+/* Desktop: sidebar visible, 3 columns */
 @media (min-width: 992px) {
+  .store-products-grid {
+    grid-template-columns: repeat(3, 1fr) !important;
+  }
   .store-wrapper [style*="width: 260px"] {
     display: block !important;
   }
-
-  /* On desktop, products grid = 3 columns */
-  .store-wrapper [style*="gridTemplateColumns"] {
-    grid-template-columns: repeat(3, 1fr) !important;
-  }
 }
 
-/* Tablet: 2 columns, no sidebar */
+/* Tablet: 3 columns, no sidebar */
 @media (min-width: 576px) and (max-width: 991px) {
-  .store-wrapper [style*="gridTemplateColumns"] {
-    grid-template-columns: repeat(2, 1fr) !important;
+  .store-products-grid {
+    grid-template-columns: repeat(3, 1fr) !important;
   }
 }
 
 /* Mobile: 2 columns */
 @media (max-width: 575px) {
-  .store-wrapper [style*="gridTemplateColumns"] {
+  .store-products-grid {
     grid-template-columns: repeat(2, 1fr) !important;
-    gap: 10px !important;
+    gap: 8px !important;
+  }
+
+  /* Larger readable text on mobile product cards */
+  .store-product-item .product-title-text {
+    font-size: 12px !important;
+  }
+
+  /* Prevent container overflow on mobile */
+  .store-wrapper .container-xxl {
+    padding-left: 12px !important;
+    padding-right: 12px !important;
   }
 }
 
 /* Product card hover — desktop only */
 @media (hover: hover) {
-  .store-wrapper [style*="borderRadius: 14px"]:hover {
+  .store-product-item:hover > div {
     box-shadow: 0 8px 30px rgba(0,0,0,0.12) !important;
     transform: translateY(-4px);
     transition: all 0.25s ease;

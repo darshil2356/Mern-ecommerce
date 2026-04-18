@@ -288,7 +288,7 @@ const OurStore = () => {
                   <p style={{ color: "#888", marginTop: 12, fontSize: 14 }}>Loading products...</p>
                 </div>
               ) : productState?.length > 0 ? (
-                <div style={productsGrid}>
+                <div style={productsGrid} className="store-products-grid">
                   <ProductCard data={productState.slice(0, visibleCount)} grid={4} />
                   {visibleCount < productState.length && (
                     <div ref={sentinelRef} style={{ gridColumn: "1 / -1", height: 40 }} />
@@ -380,10 +380,10 @@ const priceInput = {
 };
 
 const topBar = {
-  display: "flex", alignItems: "center", gap: 12,
-  background: "#fff", borderRadius: 14, padding: "12px 16px",
+  display: "flex", alignItems: "center", gap: 8,
+  background: "#fff", borderRadius: 14, padding: "10px 12px",
   marginBottom: 16, boxShadow: "0 2px 12px rgba(0,0,0,0.06)",
-  position: "sticky", top: 70, zIndex: 50,
+  position: "sticky", top: 60, zIndex: 50, flexWrap: "wrap",
 };
 
 const filterBtn = {
@@ -405,7 +405,7 @@ const badge = {
 const sortSelect = {
   flex: 1, padding: "8px 12px", border: "1.5px solid #e0e0e0",
   borderRadius: 20, fontSize: 13, background: "#fff",
-  outline: "none", cursor: "pointer", maxWidth: 200,
+  outline: "none", cursor: "pointer", minWidth: 0,
 };
 
 const clearAllBtn = {
@@ -431,6 +431,7 @@ const productsGrid = {
   gridTemplateColumns: "repeat(4, 1fr)",
   gap: 10,
 };
+/* Note: .store-products-grid overrides columns via CSS for mobile/tablet */
 
 const loadingBox = {
   display: "flex", flexDirection: "column",

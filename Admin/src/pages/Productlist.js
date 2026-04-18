@@ -523,11 +523,12 @@ const Productlist = () => {
               <div>
                 <p className="text-muted mb-1" style={{ fontSize: "13px" }}>Total Value</p>
                 <h3 className="mb-0" style={{ fontWeight: 600 }}>
-                  ₹{productState?.reduce((sum, p) => sum + (productState?.reduce((sum, p) => {
-  const totalQty =
-    p.sizeStock?.reduce((s, item) => s + item.quantity, 0) || 0;
-  return sum + p.price * totalQty;
-}, 0)), 0).toLocaleString() || 0}
+                  ₹{(productState?.reduce((sum, p) => {
+                    const totalQty = p.sizeStock?.length > 0
+                      ? p.sizeStock.reduce((s, item) => s + Number(item.quantity || 0), 0)
+                      : (p.variants || []).flatMap(v => v.sizeStock || []).reduce((s, item) => s + Number(item.quantity || 0), 0) || Number(p.quantity || 0);
+                    return sum + (Number(p.price) || 0) * totalQty;
+                  }, 0) || 0).toLocaleString()}
                 </h3>
               </div>
               <div style={{
@@ -559,7 +560,7 @@ const Productlist = () => {
               <div>
                 <p className="text-muted mb-1" style={{ fontSize: "13px" }}>Out of Stock</p>
                 <h3 className="mb-0" style={{ fontWeight: 600, color: "#ff4d4f" }}>
-                  {productState?.filter(p => p.quantity === 0).length || 0}
+                  {productState?.filter(p => getEffectiveStock(p) === 0).length || 0}
                 </h3>
               </div>
               <div style={{

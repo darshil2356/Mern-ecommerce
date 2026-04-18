@@ -3,7 +3,7 @@ import productService from "./productService";
 
 export const getProducts = createAsyncThunk(
   "product/get-products",
-  async (thunkAPI) => {
+  async (_, thunkAPI) => {
     try {
       return await productService.getProducts();
     } catch (error) {

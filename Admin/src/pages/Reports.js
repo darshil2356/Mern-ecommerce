@@ -184,7 +184,7 @@ const Reports = () => {
         <div class="max-w-4xl mx-auto">
           <!-- Header -->
           <div class="text-center mb-8 border-b pb-4">
-            <h1 class="text-2xl font-bold text-gray-800">Cart Corner</h1>
+            <h1 class="text-2xl font-bold text-gray-800">Yashoda Fashion</h1>
             <p class="text-gray-600">${title}</p>
             <p class="text-sm text-gray-500">Generated on: ${new Date().toLocaleDateString('en-IN')}</p>
           </div>
@@ -648,7 +648,7 @@ const Reports = () => {
 
     let emailBody = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        <h2 style="color: #333;">Cart Corner - ${reportTitle}</h2>
+        <h2 style="color: #333;">Yashoda Fashion - ${reportTitle}</h2>
         <p>Please find attached the financial report for your reference.</p>
         
         <h3 style="color: #555;">Summary</h3>
@@ -682,7 +682,7 @@ const Reports = () => {
         </table>
         
         <p style="color: #666; font-size: 12px; margin-top: 30px;">
-          This is an automated report generated from Cart Corner system.<br>
+          This is an automated report generated from Yashoda Fashion system.<br>
           Generated on: ${new Date().toLocaleDateString('en-IN')} at ${new Date().toLocaleTimeString('en-IN')}
         </p>
       </div>

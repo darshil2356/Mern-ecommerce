@@ -81,7 +81,7 @@ const LiveBilling = () => {
   const [showSpinner, setShowSpinner]           = useState(false);
   const [showReferralOffer, setShowReferralOffer] = useState(false);
   const [referralCoinPercent, setReferralCoinPercent] = useState(10);
-  const [storeName, setStoreName]               = useState("Cart Corner");
+  const [storeName, setStoreName]               = useState("Yashoda Fashion");
   const [storeTagline, setStoreTagline]         = useState("Your One-Stop Shopping Destination");
   // Tax settings — persisted from backend, NOT reset after sale
   const [taxIncluded, setTaxIncluded]           = useState(false);
@@ -535,7 +535,7 @@ const LiveBilling = () => {
         setTaxIncluded(settingsRes.data.taxIncluded === true);
         setShowSpinner(spinRes.data.isEnabled === true);
         setOnlinePaymentDestinationConfig(settingsRes.data.onlinePaymentDestination || "CURRENT_ACCOUNT");
-        setStoreName(settingsRes.data.storeName || "Cart Corner");
+        setStoreName(settingsRes.data.storeName || "Yashoda Fashion");
         setStoreTagline(settingsRes.data.storeTagline || "Your One-Stop Shopping Destination");
       } catch (err) {
         console.error("Failed to fetch settings:", err);

@@ -318,7 +318,7 @@ const Header = () => {
 
           {/* Logo */}
           <Link to="/" className="h-logo">
-            Vogue<em>Craft</em>
+            Yashoda<em>Fashion</em>
           </Link>
 
           {/* Desktop Search */}

@@ -29,7 +29,7 @@ const Settings = () => {
         cgst:         res.data.cgst         || 0,
         sgst:         res.data.sgst         || 0,
         igst:         res.data.igst         || 0,
-        storeName:    res.data.storeName    || "Cart Corner",
+        storeName:    res.data.storeName    || "Yashoda Fashion",
         storeTagline: res.data.storeTagline || "Your One-Stop Shopping Destination",
         storeAddress: res.data.storeAddress || "",
         storePhone:   res.data.storePhone   || "",

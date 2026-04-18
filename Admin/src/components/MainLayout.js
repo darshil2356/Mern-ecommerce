@@ -177,7 +177,7 @@ const MainLayout = () => {
           </span>
           <span className="lg-logo">
             <span className="logo-icon"><FaChartLine /></span>
-            <span className="logo-text">Cart Corner</span>
+            <span className="logo-text">Yashoda Fashion</span>
           </span>
         </div>
       </div>

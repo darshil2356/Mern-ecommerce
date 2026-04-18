@@ -20,7 +20,7 @@ const PrintBillButton = ({
   subtotal = 0,
   invoiceNumber = null,
   gstin = "",
-  storeName = "Cart Corner",
+  storeName = "Yashoda Fashion",
   storeTagline = "Your One-Stop Shopping Destination"
 }) => {
   // Generate invoice number if not provided

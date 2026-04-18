@@ -3269,6 +3269,45 @@ const getAllReferrals = asyncHandler(async (req, res) => {
   }
 });
 
+// Request return/exchange (customer)
+const requestReturn = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { type, reason } = req.body;
+  const { _id: userId } = req.user;
+
+  const order = await Order.findOne({ _id: id, user: userId });
+  if (!order) { res.status(404); throw new Error("Order not found"); }
+  if (order.orderStatus !== "Delivered") { res.status(400); throw new Error("Return/Exchange only allowed after delivery"); }
+  if (order.returnRequest?.status && order.returnRequest.status !== "NONE") {
+    res.status(400); throw new Error("Return/Exchange request already submitted");
+  }
+  if (!type || !["RETURN", "EXCHANGE"].includes(type)) { res.status(400); throw new Error("Type must be RETURN or EXCHANGE"); }
+
+  order.returnRequest = { status: "PENDING", type, reason: reason || "", requestedAt: new Date() };
+  await order.save();
+  res.json({ success: true, returnRequest: order.returnRequest });
+});
+
+// Admin: update return request status
+const updateReturnRequest = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { status, adminNote } = req.body;
+  const validStatuses = ["APPROVED", "REJECTED", "COMPLETED"];
+  if (!validStatuses.includes(status)) { res.status(400); throw new Error("Invalid status"); }
+
+  const order = await Order.findById(id);
+  if (!order) { res.status(404); throw new Error("Order not found"); }
+  if (!order.returnRequest || order.returnRequest.status === "NONE") {
+    res.status(400); throw new Error("No return request found");
+  }
+
+  order.returnRequest.status = status;
+  order.returnRequest.adminNote = adminNote || "";
+  order.returnRequest.resolvedAt = new Date();
+  await order.save();
+  res.json({ success: true, returnRequest: order.returnRequest });
+});
+
 // Update customer (admin)
 const updateCustomerById = asyncHandler(async (req, res) => {
   const { id } = req.params;

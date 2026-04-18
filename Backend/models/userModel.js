@@ -100,7 +100,7 @@ var userSchema = new mongoose.Schema(
     },
     storeName: {
       type: String,
-      default: "Cart Corner",
+      default: "Yashoda Fashion",
     },
     storeTagline: {
       type: String,

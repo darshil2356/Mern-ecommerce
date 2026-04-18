@@ -9,35 +9,19 @@ const TermAndContions = () => {
     <>
       <Meta
         title="Terms & Conditions"
-        description="Read Yashoda Fashion's terms and conditions governing the use of our website, purchases, and services."
+        description="Read Yashoda Fashion's terms and conditions governing the use of our website, purchases, coin system, and services."
         keywords="terms and conditions, terms of service, Yashoda Fashion terms, user agreement"
         url="/term-conditions"
       />
       <BreadCrumb title="Terms & Conditions" />
-      
-      {/* Hero Section */}
-      <div 
-        style={{
-          background: 'linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%)',
-          padding: '60px 0',
-          marginTop: '-1px'
-        }}
-      >
+
+      <div style={{ background: "linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%)", padding: "60px 0", marginTop: "-1px" }}>
         <Container>
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="text-center"
-          >
-            <h1 style={{
-              fontFamily: "'Playfair Display', serif",
-              fontSize: '3rem',
-              color: '#fff',
-              marginBottom: '10px'
-            }}>
-              Terms & <span style={{ color: '#d4af37' }}>Conditions</span>
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="text-center">
+            <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: "3rem", color: "#fff", marginBottom: "10px" }}>
+              Terms & <span style={{ color: "#d4af37" }}>Conditions</span>
             </h1>
-            <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: '16px' }}>
+            <p style={{ color: "rgba(255,255,255,0.7)", fontSize: "16px" }}>
               Rules and regulations for using our website
             </p>
           </motion.div>
@@ -45,90 +29,121 @@ const TermAndContions = () => {
       </div>
 
       <Container className="py-5">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
-        >
-          <div style={{ 
-            background: '#fff', 
-            borderRadius: '16px', 
-            padding: '40px',
-            boxShadow: '0 4px 20px rgba(0,0,0,0.06)'
-          }}>
-            <div style={{ maxWidth: '800px', margin: '0 auto' }}>
-              <p style={{ color: '#666', lineHeight: 1.8, marginBottom: '20px' }}>
-                Last updated: {new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
+          <div style={{ background: "#fff", borderRadius: "16px", padding: "40px", boxShadow: "0 4px 20px rgba(0,0,0,0.06)" }}>
+            <div style={{ maxWidth: "800px", margin: "0 auto" }}>
+              <p style={{ color: "#666", lineHeight: 1.8, marginBottom: "20px" }}>
+                Last updated: {new Date().toLocaleDateString("en-IN", { year: "numeric", month: "long", day: "numeric" })}
               </p>
 
-              <h4 style={{ fontFamily: "'Playfair Display', serif", fontSize: '22px', marginBottom: '15px', marginTop: '30px' }}>
+              <h4 style={{ fontFamily: "'Playfair Display', serif", fontSize: "22px", marginBottom: "15px", marginTop: "30px" }}>
                 1. Acceptance of Terms
               </h4>
-              <p style={{ color: '#666', lineHeight: 1.8, marginBottom: '20px' }}>
-                By accessing and using this website, you accept and agree to be bound by the terms and provision of this agreement. If you do not agree to abide by these terms, please do not use this website.
+              <p style={{ color: "#666", lineHeight: 1.8, marginBottom: "20px" }}>
+                By accessing and using the Yashoda Fashion website, you agree to be bound by these Terms & Conditions. If you do not agree, please do not use this website. These terms apply to all visitors, registered users, and customers.
               </p>
 
-              <h4 style={{ fontFamily: "'Playfair Display', serif", fontSize: '22px', marginBottom: '15px', marginTop: '30px' }}>
-                2. Use License
+              <h4 style={{ fontFamily: "'Playfair Display', serif", fontSize: "22px", marginBottom: "15px", marginTop: "30px" }}>
+                2. User Account
               </h4>
-              <p style={{ color: '#666', lineHeight: 1.8, marginBottom: '20px' }}>
-                Permission is granted to temporarily use this website for personal, non-commercial transitory viewing only. This is the grant of a license, not a transfer of title, and under this license you may not: modify or copy the materials, use the materials for any commercial purpose or public display, attempt to reverse engineer any software contained on the website, or transfer the materials to another person or entity.
+              <p style={{ color: "#666", lineHeight: 1.8, marginBottom: "20px" }}>
+                To place an order, you must register with a valid mobile number. You are responsible for maintaining the confidentiality of your account credentials. You agree to notify us immediately of any unauthorized access to your account. Each mobile number can be registered only once.
               </p>
 
-              <h4 style={{ fontFamily: "'Playfair Display', serif", fontSize: '22px', marginBottom: '15px', marginTop: '30px' }}>
-                3. Product Information
+              <h4 style={{ fontFamily: "'Playfair Display', serif", fontSize: "22px", marginBottom: "15px", marginTop: "30px" }}>
+                3. Ordering & Payment
               </h4>
-              <p style={{ color: '#666', lineHeight: 1.8, marginBottom: '20px' }}>
-                We strive to provide accurate product descriptions and pricing. However, we do not warrant that product descriptions, pricing, or other content on this website is accurate, complete, reliable, current, or error-free. If a product is listed at an incorrect price, we reserve the right to refuse or cancel orders placed at the incorrect price.
+              <p style={{ color: "#666", lineHeight: 1.8, marginBottom: "20px" }}>
+                All orders are subject to product availability. Prices displayed on the website are inclusive of applicable GST. Payments are processed securely via <strong>Razorpay</strong>. We accept UPI, credit/debit cards, net banking, and other methods available at checkout. We reserve the right to cancel any order in case of pricing errors or stock unavailability.
               </p>
 
-              <h4 style={{ fontFamily: "'Playfair Display', serif", fontSize: '22px', marginBottom: '15px', marginTop: '30px' }}>
-                4. User Account
+              <h4 style={{ fontFamily: "'Playfair Display', serif", fontSize: "22px", marginBottom: "15px", marginTop: "30px" }}>
+                4. Coin System (Yashoda Coins)
               </h4>
-              <p style={{ color: '#666', lineHeight: 1.8, marginBottom: '20px' }}>
-                You are responsible for maintaining the confidentiality of your account and password. You agree to accept responsibility for all activities that occur under your account or password. You agree to notify us immediately of any unauthorized use of your account.
+              <p style={{ color: "#666", lineHeight: 1.8, marginBottom: "20px" }}>
+                Yashoda Fashion operates a coin-based loyalty system. Coins can be earned through:
+              </p>
+              <ul style={{ color: "#666", lineHeight: 2, paddingLeft: "20px", marginBottom: "20px" }}>
+                <li>Referrals – when a referred user makes a purchase</li>
+                <li>Spin Wheel – by spinning the reward wheel (when enabled)</li>
+                <li>Admin-credited adjustments</li>
+                <li>Approved refunds or cancellations</li>
+              </ul>
+              <p style={{ color: "#666", lineHeight: 1.8, marginBottom: "20px" }}>
+                Coins can be redeemed at checkout to reduce the payable amount on your next purchase. Coins have <strong>no monetary value</strong>, cannot be transferred to another account, and cannot be withdrawn as cash. Yashoda Fashion reserves the right to modify, expire, or cancel coins at any time.
               </p>
 
-              <h4 style={{ fontFamily: "'Playfair Display', serif", fontSize: '22px', marginBottom: '15px', marginTop: '30px' }}>
-                5. Ordering & Payment
+              <h4 style={{ fontFamily: "'Playfair Display', serif", fontSize: "22px", marginBottom: "15px", marginTop: "30px" }}>
+                5. Referral Program
               </h4>
-              <p style={{ color: '#666', lineHeight: 1.8, marginBottom: '20px' }}>
-                By placing an order, you agree to purchase the product(s) at the price shown. We accept all major credit/debit cards and other payment methods as shown at checkout. All payments are processed securely. We reserve the right to limit quantities, refuse orders, or cancel orders at our sole discretion.
+              <p style={{ color: "#666", lineHeight: 1.8, marginBottom: "20px" }}>
+                Each registered user receives a unique referral code. When a new user registers and makes a purchase using your referral code, you earn coins as per the active referral configuration. Referral coins are credited after the referred user's order is confirmed. Misuse of the referral system (e.g., self-referrals or fake accounts) will result in account suspension and forfeiture of all coins.
               </p>
 
-              <h4 style={{ fontFamily: "'Playfair Display', serif", fontSize: '22px', marginBottom: '15px', marginTop: '30px' }}>
-                6. Intellectual Property
+              <h4 style={{ fontFamily: "'Playfair Display', serif", fontSize: "22px", marginBottom: "15px", marginTop: "30px" }}>
+                6. Coupons & Offers
               </h4>
-              <p style={{ color: '#666', lineHeight: 1.8, marginBottom: '20px' }}>
-                This website contains material which is owned by or licensed to us. This material includes, but is not limited to, the design, layout, look, appearance, and graphics. Reproduction is prohibited other than in accordance with the copyright notice, which forms part of these terms and conditions.
+              <p style={{ color: "#666", lineHeight: 1.8, marginBottom: "20px" }}>
+                Coupon codes and promotional offers are time-limited and subject to specific terms. Only one coupon can be applied per order. Offers including free shipping promotions are available occasionally and are not guaranteed on every order. We reserve the right to withdraw any offer at any time without prior notice.
               </p>
 
-              <h4 style={{ fontFamily: "'Playfair Display', serif", fontSize: '22px', marginBottom: '15px', marginTop: '30px' }}>
-                7. Limitation of Liability
+              <h4 style={{ fontFamily: "'Playfair Display', serif", fontSize: "22px", marginBottom: "15px", marginTop: "30px" }}>
+                7. Shipping & Delivery
               </h4>
-              <p style={{ color: '#666', lineHeight: 1.8, marginBottom: '20px' }}>
-                In no event shall we be liable for any indirect, incidental, special, consequential, or punitive damages, including without limitation, loss of profits, data, use, goodwill, or other intangible losses, resulting from your access to or use of or inability to access or use the website.
+              <p style={{ color: "#666", lineHeight: 1.8, marginBottom: "20px" }}>
+                Orders are shipped via Shiprocket. Shipping charges are calculated at checkout based on your location and order. Delivery timelines are estimates and may vary. Please refer to our <strong>Shipping Policy</strong> for full details.
               </p>
 
-              <h4 style={{ fontFamily: "'Playfair Display', serif", fontSize: '22px', marginBottom: '15px', marginTop: '30px' }}>
-                8. Governing Law
+              <h4 style={{ fontFamily: "'Playfair Display', serif", fontSize: "22px", marginBottom: "15px", marginTop: "30px" }}>
+                8. Refund & Cancellation
               </h4>
-              <p style={{ color: '#666', lineHeight: 1.8, marginBottom: '20px' }}>
-                These terms and conditions are governed by and construed in accordance with the laws of India and you irrevocably submit to the exclusive jurisdiction of the courts in that location.
+              <p style={{ color: "#666", lineHeight: 1.8, marginBottom: "20px" }}>
+                We do not offer cash refunds. All approved refunds are issued as Yashoda Coins to your wallet. Orders can only be cancelled before dispatch. Please refer to our <strong>Refund Policy</strong> for complete details.
               </p>
 
-              <h4 style={{ fontFamily: "'Playfair Display', serif", fontSize: '22px', marginBottom: '15px', marginTop: '30px' }}>
-                9. Changes to Terms
+              <h4 style={{ fontFamily: "'Playfair Display', serif", fontSize: "22px", marginBottom: "15px", marginTop: "30px" }}>
+                9. Product Information
               </h4>
-              <p style={{ color: '#666', lineHeight: 1.8, marginBottom: '20px' }}>
-                We reserve the right, at our sole discretion, to modify or replace these terms at any time. What constitutes a material change will be determined at our sole discretion. By continuing to access or use our website after those revisions become effective, you agree to be bound by the revised terms.
+              <p style={{ color: "#666", lineHeight: 1.8, marginBottom: "20px" }}>
+                We strive to display accurate product images, descriptions, and pricing. However, actual product colors may slightly vary due to screen settings. We reserve the right to correct any pricing or description errors and cancel orders placed at incorrect prices.
               </p>
 
-              <h4 style={{ fontFamily: "'Playfair Display', serif", fontSize: '22px', marginBottom: '15px', marginTop: '30px' }}>
-                10. Contact Us
+              <h4 style={{ fontFamily: "'Playfair Display', serif", fontSize: "22px", marginBottom: "15px", marginTop: "30px" }}>
+                10. Intellectual Property
               </h4>
-              <p style={{ color: '#666', lineHeight: 1.8, marginBottom: '20px' }}>
-                If you have any questions about these Terms & Conditions, please contact us through our contact page or email us at support@example.com.
+              <p style={{ color: "#666", lineHeight: 1.8, marginBottom: "20px" }}>
+                All content on this website including images, logos, product descriptions, and design is the property of Yashoda Fashion. Reproduction, redistribution, or commercial use of any content without written permission is strictly prohibited.
+              </p>
+
+              <h4 style={{ fontFamily: "'Playfair Display', serif", fontSize: "22px", marginBottom: "15px", marginTop: "30px" }}>
+                11. Limitation of Liability
+              </h4>
+              <p style={{ color: "#666", lineHeight: 1.8, marginBottom: "20px" }}>
+                Yashoda Fashion shall not be liable for any indirect, incidental, or consequential damages arising from the use of our website or products. Our liability is limited to the value of the order placed by the customer.
+              </p>
+
+              <h4 style={{ fontFamily: "'Playfair Display', serif", fontSize: "22px", marginBottom: "15px", marginTop: "30px" }}>
+                12. Governing Law
+              </h4>
+              <p style={{ color: "#666", lineHeight: 1.8, marginBottom: "20px" }}>
+                These terms are governed by the laws of India. Any disputes shall be subject to the exclusive jurisdiction of the courts in Ahmedabad, Gujarat.
+              </p>
+
+              <h4 style={{ fontFamily: "'Playfair Display', serif", fontSize: "22px", marginBottom: "15px", marginTop: "30px" }}>
+                13. Changes to Terms
+              </h4>
+              <p style={{ color: "#666", lineHeight: 1.8, marginBottom: "20px" }}>
+                We reserve the right to update these terms at any time. Continued use of the website after changes are posted constitutes your acceptance of the revised terms.
+              </p>
+
+              <h4 style={{ fontFamily: "'Playfair Display', serif", fontSize: "22px", marginBottom: "15px", marginTop: "30px" }}>
+                14. Contact Us
+              </h4>
+              <p style={{ color: "#666", lineHeight: 1.8, marginBottom: "20px" }}>
+                For any questions about these Terms & Conditions:<br />
+                📧 <a href="mailto:darshilbavishi2356@gmail.com" style={{ color: "#d4af37" }}>darshilbavishi2356@gmail.com</a><br />
+                📞 <a href="tel:+917046252356" style={{ color: "#d4af37" }}>+91 70462 52356</a><br />
+                📍 B-204 Gajanan Flora, Opp Uma School, Nikol Naroda, Ahmedabad – 382350
               </p>
             </div>
           </div>
@@ -139,4 +154,3 @@ const TermAndContions = () => {
 };
 
 export default TermAndContions;
-

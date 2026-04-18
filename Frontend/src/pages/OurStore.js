@@ -193,8 +193,25 @@ const OurStore = () => {
         description={pageDesc}
         keywords={category ? `${category}, buy ${category} online, ${category} India, Yashoda Fashion` : "shop fashion online, buy clothes, premium clothing"}
         url={pageUrl}
+        breadcrumbs={
+          category
+            ? [
+                { name: "Shop", url: "/product" },
+                { name: category.charAt(0).toUpperCase() + category.slice(1), url: pageUrl },
+              ]
+            : [{ name: "Shop", url: "/product" }]
+        }
       />
-      <BreadCrumb title={category ? category.charAt(0).toUpperCase() + category.slice(1) : "Our Store"} />
+      <BreadCrumb
+        crumbs={
+          category
+            ? [
+                { name: "Shop", url: "/product" },
+                { name: category.charAt(0).toUpperCase() + category.slice(1), url: pageUrl },
+              ]
+            : [{ name: "Our Store", url: "/product" }]
+        }
+      />
 
       <div style={{ background: "#f7f7f7", minHeight: "100vh" }}>
         <Container class1="store-wrapper py-4">

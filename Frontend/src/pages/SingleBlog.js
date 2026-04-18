@@ -35,6 +35,8 @@ const SingleBlog = () => {
 
   const related = (allBlogs || []).filter(b => b._id !== getBlogId && b.category === blogState?.category).slice(0, 3);
   const siteUrl = "https://yashodafashion.in";
+  const blogSlug = blogState?.slug || getBlogId;
+  const blogUrl = `/blog/${blogSlug}`;
 
   const articleSchema = blogState ? {
     "@context": "https://schema.org",
@@ -46,7 +48,7 @@ const SingleBlog = () => {
     "publisher": { "@type": "Organization", "name": "Yashoda Fashion", "logo": { "@type": "ImageObject", "url": `${siteUrl}/logo512.png` } },
     "datePublished": blogState.createdAt,
     "dateModified": blogState.updatedAt || blogState.createdAt,
-    "mainEntityOfPage": { "@type": "WebPage", "@id": `${siteUrl}/blog/${getBlogId}` },
+    "mainEntityOfPage": { "@type": "WebPage", "@id": `${siteUrl}${blogUrl}` },
     "keywords": blogState.keywords || "",
   } : null;
 
@@ -58,12 +60,21 @@ const SingleBlog = () => {
           description={blogState.metaDescription || blogState.description?.replace(/<[^>]+>/g, "").slice(0, 160)}
           keywords={blogState.keywords}
           image={blogState.images?.[0]?.url}
-          url={`/blog/${getBlogId}`}
+          url={blogUrl}
           type="article"
           schema={articleSchema}
+          breadcrumbs={[
+            { name: "Blogs", url: "/blogs" },
+            { name: blogState.title, url: blogUrl },
+          ]}
         />
       )}
-      <BreadCrumb title={blogState?.title || "Blog"} />
+      <BreadCrumb
+        crumbs={[
+          { name: "Blogs", url: "/blogs" },
+          { name: blogState?.title || "Blog", url: blogUrl },
+        ]}
+      />
       <Container class1="blog-wrapper home-wrapper-2 py-5">
         <div className="row justify-content-center">
           <div className="col-12 col-lg-8">

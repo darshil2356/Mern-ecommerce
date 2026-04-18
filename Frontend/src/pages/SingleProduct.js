@@ -376,8 +376,27 @@ const SingleProduct = () => {
         price={productState?.price}
         brand={productState?.brand}
         availability={productState?.quantity > 0}
+        aggregateRating={
+          productState?.ratings?.length > 0
+            ? {
+                ratingValue: Number(productState.totalrating) || 0,
+                reviewCount: productState.ratings.length,
+              }
+            : null
+        }
+        breadcrumbs={[
+          { name: "Shop", url: "/product" },
+          ...(productState?.category ? [{ name: productState.category, url: `/product/category/${encodeURIComponent(productState.category.toLowerCase())}` }] : []),
+          { name: productState?.title || "Product", url: productUrl(productState) },
+        ]}
       />
-      <BreadCrumb title={productState?.title} />
+      <BreadCrumb
+        crumbs={[
+          { name: "Shop", url: "/product" },
+          ...(productState?.category ? [{ name: productState.category, url: `/product/category/${encodeURIComponent(productState.category.toLowerCase())}` }] : []),
+          { name: productState?.title || "Product", url: productUrl(productState) },
+        ]}
+      />
 
       {/* Product Gallery & Details Section */}
       <Container className="py-5">

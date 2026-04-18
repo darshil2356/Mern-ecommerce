@@ -300,6 +300,7 @@ const Home = () => {
         description="Yashoda Fashion – Shop the latest fashion trends, new arrivals, bundles, and exclusive deals online in India."
         keywords="fashion, clothing, online shopping, new arrivals, premium fashion, Yashoda Fashion, India"
         url="/"
+        breadcrumbs={[]}
       />
       {/* ── HERO ── */}
       <div style={{ position: "relative", height: "88vh", minHeight: "580px", overflow: "hidden", background: "#111" }}>

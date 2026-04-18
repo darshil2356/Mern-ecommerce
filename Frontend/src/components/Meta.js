@@ -12,8 +12,10 @@ const Meta = ({
   brand,
   availability,
   schema,
+  aggregateRating,
+  breadcrumbs, // array of { name, url }
 }) => {
-  const siteUrl = "https://yashodafashion.in"; // ← change to your domain
+  const siteUrl = "https://yashodafashion.in";
   const siteName = "Yashoda Fashion";
   const defaultDesc =
     "Yashoda Fashion – Premium Fashion & Clothing Brand. Shop the latest trends, new arrivals, and exclusive deals online.";
@@ -22,48 +24,80 @@ const Meta = ({
   const metaTitle = title ? `${title} | ${siteName}` : `${siteName} – Premium Fashion`;
   const metaDesc = description || defaultDesc;
   const metaImage = image || defaultImage;
-  const metaUrl = url ? `${siteUrl}${url}` : siteUrl;
+  const metaUrl = url ? (url.startsWith("http") ? url : `${siteUrl}${url}`) : siteUrl;
   const metaKeywords =
     keywords ||
     "fashion, clothing, online shopping, premium fashion, Yashoda Fashion, trendy clothes, new arrivals";
 
-  // Product structured data (JSON-LD) for product pages
-  const productSchema =
-    schema ||
-    (price
+  // Build product schema with optional aggregateRating
+  let productSchema = schema;
+  if (!productSchema) {
+    if (price) {
+      productSchema = {
+        "@context": "https://schema.org",
+        "@type": "Product",
+        name: title,
+        description: metaDesc,
+        image: metaImage,
+        brand: { "@type": "Brand", name: brand || siteName },
+        offers: {
+          "@type": "Offer",
+          priceCurrency: "INR",
+          price: price,
+          availability:
+            availability === false
+              ? "https://schema.org/OutOfStock"
+              : "https://schema.org/InStock",
+          url: metaUrl,
+        },
+        ...(aggregateRating && aggregateRating.reviewCount > 0
+          ? {
+              aggregateRating: {
+                "@type": "AggregateRating",
+                ratingValue: aggregateRating.ratingValue,
+                reviewCount: aggregateRating.reviewCount,
+                bestRating: 5,
+                worstRating: 1,
+              },
+            }
+          : {}),
+      };
+    } else {
+      productSchema = {
+        "@context": "https://schema.org",
+        "@type": "WebSite",
+        name: siteName,
+        url: siteUrl,
+        potentialAction: {
+          "@type": "SearchAction",
+          target: `${siteUrl}/product?search={search_term_string}`,
+          "query-input": "required name=search_term_string",
+        },
+      };
+    }
+  }
+
+  // BreadcrumbList schema
+  const breadcrumbSchema =
+    breadcrumbs && breadcrumbs.length > 0
       ? {
           "@context": "https://schema.org",
-          "@type": "Product",
-          name: title,
-          description: metaDesc,
-          image: metaImage,
-          brand: { "@type": "Brand", name: brand || siteName },
-          offers: {
-            "@type": "Offer",
-            priceCurrency: "INR",
-            price: price,
-            availability:
-              availability === false
-                ? "https://schema.org/OutOfStock"
-                : "https://schema.org/InStock",
-            url: metaUrl,
-          },
+          "@type": "BreadcrumbList",
+          itemListElement: [
+            { "@type": "ListItem", position: 1, name: "Home", item: siteUrl },
+            ...breadcrumbs.map((crumb, i) => ({
+              "@type": "ListItem",
+              position: i + 2,
+              name: crumb.name,
+              item: `${siteUrl}${crumb.url}`,
+            })),
+          ],
         }
-      : {
-          "@context": "https://schema.org",
-          "@type": "WebSite",
-          name: siteName,
-          url: siteUrl,
-          potentialAction: {
-            "@type": "SearchAction",
-            target: `${siteUrl}/product?search={search_term_string}`,
-            "query-input": "required name=search_term_string",
-          },
-        });
+      : null;
 
   return (
     <Helmet>
-      <html lang="en" />
+      <html lang="en-IN" />
       <meta charSet="utf-8" />
       <meta name="viewport" content="width=device-width, initial-scale=1.0" />
       <title>{metaTitle}</title>
@@ -91,8 +125,13 @@ const Meta = ({
       {price && <meta property="product:price:amount" content={price} />}
       {price && <meta property="product:price:currency" content="INR" />}
 
-      {/* JSON-LD Structured Data */}
+      {/* JSON-LD: Main schema (Product / Article / WebSite) */}
       <script type="application/ld+json">{JSON.stringify(productSchema)}</script>
+
+      {/* JSON-LD: BreadcrumbList */}
+      {breadcrumbSchema && (
+        <script type="application/ld+json">{JSON.stringify(breadcrumbSchema)}</script>
+      )}
     </Helmet>
   );
 };

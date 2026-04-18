@@ -106,6 +106,71 @@ app.get("/ppt", (req, res) => {
   res.sendFile(__dirname + "/public/ppt.html");
 });
 
+// Dynamic XML Sitemap — includes all online products and blogs
+app.get("/api/sitemap.xml", async (req, res) => {
+  try {
+    const Product = require("./models/productModel");
+    const Blog = require("./models/blogModel");
+    const base = "https://yashodafashion.in";
+
+    const [products, blogs] = await Promise.all([
+      Product.find({ "inventory.online": true }).select("slug _id updatedAt").lean(),
+      Blog.find().select("slug _id updatedAt").lean(),
+    ]);
+
+    const staticUrls = [
+      { loc: "/", priority: "1.0", changefreq: "daily" },
+      { loc: "/product", priority: "0.9", changefreq: "daily" },
+      { loc: "/blogs", priority: "0.8", changefreq: "weekly" },
+      { loc: "/bundles", priority: "0.8", changefreq: "weekly" },
+      { loc: "/reels", priority: "0.7", changefreq: "weekly" },
+      { loc: "/about", priority: "0.6", changefreq: "monthly" },
+      { loc: "/contact", priority: "0.6", changefreq: "monthly" },
+      { loc: "/privacy-policy", priority: "0.3", changefreq: "yearly" },
+      { loc: "/refund-policy", priority: "0.3", changefreq: "yearly" },
+      { loc: "/shipping-policy", priority: "0.3", changefreq: "yearly" },
+      { loc: "/term-conditions", priority: "0.3", changefreq: "yearly" },
+    ];
+
+    const productUrls = products.map((p) => ({
+      loc: `/product/${p.slug}-${p._id}`,
+      priority: "0.8",
+      changefreq: "weekly",
+      lastmod: p.updatedAt ? new Date(p.updatedAt).toISOString().split("T")[0] : undefined,
+    }));
+
+    const blogUrls = blogs.map((b) => ({
+      loc: `/blog/${b.slug || b._id}`,
+      priority: "0.7",
+      changefreq: "monthly",
+      lastmod: b.updatedAt ? new Date(b.updatedAt).toISOString().split("T")[0] : undefined,
+    }));
+
+    const allUrls = [...staticUrls, ...productUrls, ...blogUrls];
+
+    const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+${allUrls
+  .map(
+    (u) => `  <url>
+    <loc>${base}${u.loc}</loc>
+    <changefreq>${u.changefreq}</changefreq>
+    <priority>${u.priority}</priority>${u.lastmod ? `
+    <lastmod>${u.lastmod}</lastmod>` : ""}
+  </url>`
+  )
+  .join("\n")}
+</urlset>`;
+
+    res.setHeader("Content-Type", "application/xml");
+    res.setHeader("Cache-Control", "public, max-age=3600"); // cache 1 hour
+    res.send(xml);
+  } catch (err) {
+    console.error("Sitemap error:", err);
+    res.status(500).send("Sitemap generation failed");
+  }
+});
+
 // Socket.io connection handling
 io.on("connection", (socket) => {
   console.log("User connected:", socket.id);

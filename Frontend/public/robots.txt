@@ -6,4 +6,4 @@ Disallow: /checkout
 Disallow: /my-profile
 Disallow: /my-orders
 
-Sitemap: https://yashodafashion.in/sitemap.xml
+Sitemap: https://yashodafashion.in/api/sitemap.xml

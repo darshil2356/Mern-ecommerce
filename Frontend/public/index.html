@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en-IN">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -52,13 +52,23 @@
       rel="stylesheet"
     />
 
-    <!-- Bootstrap CSS -->
+    <!-- Bootstrap CSS — loaded async to avoid render-blocking (Core Web Vitals fix) -->
     <link
+      rel="preload"
       href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css"
-      rel="stylesheet"
+      as="style"
+      onload="this.onload=null;this.rel='stylesheet'"
       integrity="sha384-EVSTQN3/azprG1Anm3QDgpJLIm9Nao0Yz1ztcQTwFspd3yD65VohhpuuCOmLASjC"
       crossorigin="anonymous"
     />
+    <noscript>
+      <link
+        rel="stylesheet"
+        href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css"
+        integrity="sha384-EVSTQN3/azprG1Anm3QDgpJLIm9Nao0Yz1ztcQTwFspd3yD65VohhpuuCOmLASjC"
+        crossorigin="anonymous"
+      />
+    </noscript>
 
     <!-- Organization JSON-LD (site-wide) -->
     <script type="application/ld+json">
@@ -68,7 +78,10 @@
       "name": "Yashoda Fashion",
       "url": "https://yashodafashion.in",
       "logo": "https://yashodafashion.in/logo512.png",
-      "sameAs": [],
+      "sameAs": [
+        "https://www.instagram.com/yashodafashion",
+        "https://www.facebook.com/yashodafashion"
+      ],
       "contactPoint": {
         "@type": "ContactPoint",
         "contactType": "customer service",

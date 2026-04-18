@@ -1,94 +1,89 @@
 import React, { useEffect, useState } from "react";
-import { Table } from "antd";
 import { useDispatch, useSelector } from "react-redux";
-import { deleteAColor, getColors } from "../features/color/colorSlice";
+import { createColor, deleteAColor, getColors, getAColor, updateAColor } from "../features/color/colorSlice";
 import { BiEdit } from "react-icons/bi";
 import { AiFillDelete } from "react-icons/ai";
-import { Link } from "react-router-dom";
-import CustomModal from "../components/CustomModal";
 import { FaPlus, FaPalette } from "react-icons/fa";
+import CustomModal from "../components/CustomModal";
+import { Modal, Input, Button, Table } from "antd";
+import { toast } from "react-toastify";
 import { getColorSwatch, getReadableColorName } from "../utils/colorDisplay";
 
 const Colorlist = () => {
-  const [open, setOpen] = useState(false);
-  const [colorId, setcolorId] = useState("");
-  const showModal = (e) => {
-    setOpen(true);
-    setcolorId(e);
-  };
-
-  const hideModal = () => {
-    setOpen(false);
-  };
   const dispatch = useDispatch();
-  useEffect(() => {
-    dispatch(getColors());
-  }, []);
   const colorState = useSelector((state) => state.color.colors);
-  const data1 = [];
-  for (let i = 0; i < colorState.length; i++) {
-    data1.push({
-      key: i + 1,
-      Color: (
-        <div className="flex items-center gap-3">
-          <div
-            className="w-10 h-10 rounded-full shadow-md border-2 border-white"
-            style={{
-              backgroundColor: getColorSwatch(colorState[i]),
-            }}
-          ></div>
-          <span className="font-medium text-gray-700">{getReadableColorName(colorState[i])}</span>
-        </div>
-      ),
-      action: (
-        <div className="flex gap-3">
-          <Link
-            to={`/admin/color/${colorState[i]._id}`}
-            className="flex items-center justify-center w-10 h-10 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-600 hover:text-indigo-700 transition-all duration-200"
-          >
-            <BiEdit className="text-lg" />
-          </Link>
-          <button
-            className="flex items-center justify-center w-10 h-10 rounded-xl bg-red-50 hover:bg-red-100 text-red-500 hover:text-red-600 transition-all duration-200 border-0 cursor-pointer"
-            onClick={() => showModal(colorState[i]._id)}
-          >
-            <AiFillDelete className="text-lg" />
-          </button>
-        </div>
-      ),
-    });
-  }
-  const deleteColor = (e) => {
-    dispatch(deleteAColor(e));
 
-    setOpen(false);
-    setTimeout(() => {
-      dispatch(getColors());
-    }, 100);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [colorId, setColorId] = useState("");
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editId, setEditId] = useState(null);
+  const [name, setName] = useState("");
+  const [hex, setHex] = useState("#000000");
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => { dispatch(getColors()); }, []);
+
+  const openAdd = () => { setEditId(null); setName(""); setHex("#000000"); setModalOpen(true); };
+  const openEdit = async (id) => {
+    const res = await dispatch(getAColor(id)).unwrap();
+    setEditId(id);
+    setName(res.name || "");
+    setHex(res.hex || res.title || "#000000");
+    setModalOpen(true);
   };
+  const closeModal = () => { setModalOpen(false); setName(""); setHex("#000000"); setEditId(null); };
+
+  const handleSave = async () => {
+    if (!name.trim()) return toast.error("Color name is required");
+    setSaving(true);
+    try {
+      if (editId) {
+        await dispatch(updateAColor({ id: editId, colorData: { name: name.trim(), hex } })).unwrap();
+        toast.success("Color updated!");
+      } else {
+        await dispatch(createColor({ name: name.trim(), hex })).unwrap();
+        toast.success("Color added!");
+      }
+      dispatch(getColors());
+      closeModal();
+    } catch { toast.error("Something went wrong"); }
+    finally { setSaving(false); }
+  };
+
+  const handleDelete = () => {
+    dispatch(deleteAColor(colorId));
+    setDeleteOpen(false);
+    setTimeout(() => dispatch(getColors()), 100);
+  };
+
+  const data1 = colorState.map((c, i) => ({
+    key: i + 1,
+    color: (
+      <div className="flex items-center gap-3">
+        <div className="w-10 h-10 rounded-full shadow-md border-2 border-white" style={{ backgroundColor: getColorSwatch(c) }} />
+        <span className="font-medium text-gray-700">{getReadableColorName(c)}</span>
+      </div>
+    ),
+    action: (
+      <div className="flex gap-3">
+        <button onClick={() => openEdit(c._id)} className="flex items-center justify-center w-10 h-10 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-600 transition-all duration-200 border-0 cursor-pointer">
+          <BiEdit className="text-lg" />
+        </button>
+        <button onClick={() => { setDeleteOpen(true); setColorId(c._id); }} className="flex items-center justify-center w-10 h-10 rounded-xl bg-red-50 hover:bg-red-100 text-red-500 transition-all duration-200 border-0 cursor-pointer">
+          <AiFillDelete className="text-lg" />
+        </button>
+      </div>
+    ),
+  }));
 
   const columns = [
-    {
-      title: <span className="text-gray-600 font-semibold">S.No</span>,
-      dataIndex: "key",
-      width: 80,
-      align: "center",
-    },
-    {
-      title: <span className="text-gray-600 font-semibold">Color</span>,
-      dataIndex: "Color",
-    },
-    {
-      title: <span className="text-gray-600 font-semibold">Actions</span>,
-      dataIndex: "action",
-      align: "center",
-      width: 120,
-    },
+    { title: <span className="text-gray-600 font-semibold">S.No</span>, dataIndex: "key", width: 80, align: "center" },
+    { title: <span className="text-gray-600 font-semibold">Color</span>, dataIndex: "color" },
+    { title: <span className="text-gray-600 font-semibold">Actions</span>, dataIndex: "action", align: "center", width: 120 },
   ];
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-6">
-      {/* Header Section */}
       <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden mb-6">
         <div className="bg-gradient-to-r from-violet-600 to-violet-700 px-6 py-5">
           <div className="flex items-center justify-between">
@@ -101,62 +96,41 @@ const Colorlist = () => {
                 <p className="text-violet-200 text-sm">Manage your product colors</p>
               </div>
             </div>
-            <Link
-              to="/admin/color"
-              className="flex items-center gap-2 px-5 py-2.5 bg-white text-violet-600 rounded-xl font-semibold hover:bg-violet-50 transition-all duration-200 shadow-md"
-            >
-              <FaPlus className="text-sm" />
-              Add Color
-            </Link>
+            <button onClick={openAdd} className="flex items-center gap-2 px-5 py-2.5 bg-white text-violet-600 rounded-xl font-semibold hover:bg-violet-50 transition-all duration-200 shadow-md border-0 cursor-pointer">
+              <FaPlus className="text-sm" /> Add Color
+            </button>
           </div>
         </div>
       </div>
 
-      {/* Table Section */}
       <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
-        <div className="overflow-x-auto">
-          <Table 
-            columns={columns} 
-            dataSource={data1} 
-            pagination={{
-              pageSize: 10,
-              showSizeChanger: true,
-              showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} colors`,
-            }}
-            className="color-table"
-            rowClassName="hover:bg-gray-50 transition-colors"
-          />
-        </div>
+        <Table columns={columns} dataSource={data1} pagination={{ pageSize: 10, showSizeChanger: true, showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} colors` }} />
       </div>
 
-      <CustomModal
-        hideModal={hideModal}
-        open={open}
-        performAction={() => {
-          deleteColor(colorId);
-        }}
-        title="Are you sure you want to delete this color?"
-      />
+      <Modal
+        title={editId ? "Edit Color" : "Add Color"}
+        open={modalOpen}
+        onCancel={closeModal}
+        footer={[
+          <Button key="cancel" onClick={closeModal}>Cancel</Button>,
+          <Button key="save" type="primary" loading={saving} onClick={handleSave}>Save</Button>,
+        ]}
+        width={360}
+      >
+        <div className="mb-3">
+          <label className="fw-medium mb-1 d-block">Color Name</label>
+          <Input placeholder="e.g. Forest Green" value={name} onChange={(e) => setName(e.target.value)} onPressEnter={handleSave} autoFocus />
+        </div>
+        <div>
+          <label className="fw-medium mb-1 d-block">Color Hex</label>
+          <div className="d-flex align-items-center gap-2">
+            <input type="color" value={hex} onChange={(e) => setHex(e.target.value)} style={{ width: 48, height: 36, border: "none", cursor: "pointer", borderRadius: 6 }} />
+            <Input value={hex} onChange={(e) => setHex(e.target.value)} style={{ width: 120 }} />
+          </div>
+        </div>
+      </Modal>
 
-      <style>{`
-        .color-table .ant-table-thead > tr > th {
-          background: linear-gradient(to right, #f9fafb, #ffffff);
-          border-bottom: 2px solid #e5e7eb;
-          font-weight: 600;
-          color: #4b5563;
-        }
-        .color-table .ant-table-tbody > tr > td {
-          border-bottom: 1px solid #f3f4f6;
-          padding: 16px;
-        }
-        .color-table .ant-table-tbody > tr:hover > td {
-          background: #f9fafb;
-        }
-        .color-table .ant-pagination {
-          padding: 16px;
-          border-top: 1px solid #e5e7eb;
-        }
-      `}</style>
+      <CustomModal hideModal={() => setDeleteOpen(false)} open={deleteOpen} performAction={handleDelete} title="Are you sure you want to delete this color?" />
     </div>
   );
 };

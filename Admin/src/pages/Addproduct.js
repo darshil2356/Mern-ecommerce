@@ -11,6 +11,7 @@ import { getBrands } from "../features/brand/brandSlice";
 import { getCategories } from "../features/pcategory/pcategorySlice";
 import { getColors } from "../features/color/colorSlice";
 import { Select, Modal, Card, Input, Button } from "antd";
+import { getSizes } from "../features/size/sizeSlice";
 import Dropzone from "react-dropzone";
 import { clearUploads } from "../features/upload/uploadSlice";
 import JsBarcode from "jsbarcode";
@@ -18,6 +19,7 @@ import { FaEye, FaDownload, FaPlus, FaMinus, FaTrash, FaImage, FaVideo } from "r
 import { MdPrint, MdInventory, MdCategory, MdColorLens, MdAttachMoney } from "react-icons/md";
 import BarcodeModal from "../components/BarcodeModal";
 import AIProductGenerator from "../components/AIProductGenerator";
+import QuickAddModal from "../components/QuickAddModal";
 
 import {
   uploadImg,
@@ -79,6 +81,7 @@ const Addproduct = () => {
   const [barcodeModalOpen, setBarcodeModalOpen] = useState(false);
   const [selectedBarcode, setSelectedBarcode] = useState("");
   const [selectedBarcodeTitle, setSelectedBarcodeTitle] = useState("");
+  const [quickAddModal, setQuickAddModal] = useState(null); // "color" | "brand" | "category" | null
   const generatedBarcodesRef = useRef(new Set());
 
   // Client-side preview barcode generator: PRD-XXXXXXXX (8 uppercase hex chars)
@@ -118,11 +121,13 @@ const Addproduct = () => {
     dispatch(getBrands());
     dispatch(getCategories());
     dispatch(getColors());
+    dispatch(getSizes());
   }, []);
 
   const brandState = useSelector((state) => state.brand.brands);
   const catState = useSelector((state) => state.pCategory.pCategories);
   const colorState = useSelector((state) => state.color.colors);
+  const sizeState = useSelector((state) => state.size.sizes);
   const imgState = useSelector((state) => state?.upload?.images);
   const newProduct = useSelector((state) => state.product);
   const {
@@ -704,9 +709,10 @@ const Addproduct = () => {
 
             <div className="row g-3">
               <div className="col-md-6">
-                <label className="fw-medium mb-2 d-block" style={{ color: "#1a1a1a" }}>
-                  Brand <span className="text-danger">*</span>
-                </label>
+                <div className="d-flex justify-content-between align-items-center mb-2">
+                  <label className="fw-medium mb-0" style={{ color: "#1a1a1a" }}>Brand <span className="text-danger">*</span></label>
+                  <Button type="link" size="small" style={{ padding: 0, fontSize: 12 }} onClick={() => setQuickAddModal("brand")}>+ Add New</Button>
+                </div>
                 <Select
                   showSearch
                   size="large"
@@ -730,9 +736,10 @@ const Addproduct = () => {
               </div>
 
               <div className="col-md-6">
-                <label className="fw-medium mb-2 d-block" style={{ color: "#1a1a1a" }}>
-                  Category <span className="text-danger">*</span>
-                </label>
+                <div className="d-flex justify-content-between align-items-center mb-2">
+                  <label className="fw-medium mb-0" style={{ color: "#1a1a1a" }}>Category <span className="text-danger">*</span></label>
+                  <Button type="link" size="small" style={{ padding: 0, fontSize: 12 }} onClick={() => setQuickAddModal("category")}>+ Add New</Button>
+                </div>
                 <Select
                   showSearch
                   size="large"
@@ -826,9 +833,10 @@ const Addproduct = () => {
 
                 <div className="row g-3">
                   <div className="col-md-6">
-                    <label className="fw-medium mb-2 d-block" style={{ color: "#1a1a1a" }}>
-                      Color
-                    </label>
+                    <div className="d-flex justify-content-between align-items-center mb-2">
+                      <label className="fw-medium mb-0" style={{ color: "#1a1a1a" }}>Color</label>
+                      <Button type="link" size="small" style={{ padding: 0, fontSize: 12 }} onClick={() => setQuickAddModal("color")}>+ Add New</Button>
+                    </div>
                     <Select
                       showSearch
                       size="large"
@@ -840,10 +848,11 @@ const Addproduct = () => {
                     />
                   </div>
 
-                  <div className="col-md-6">
-                    <label className="fw-medium mb-2 d-block" style={{ color: "#1a1a1a" }}>
-                      Sizes
-                    </label>
+                      <div className="col-md-6">
+                    <div className="d-flex justify-content-between align-items-center mb-2">
+                      <label className="fw-medium mb-0" style={{ color: "#1a1a1a" }}>Sizes</label>
+                      <Button type="link" size="small" style={{ padding: 0, fontSize: 12 }} onClick={() => setQuickAddModal("size")}>+ Add New</Button>
+                    </div>
                     <Select
                       mode="multiple"
                       allowClear
@@ -852,15 +861,7 @@ const Addproduct = () => {
                       style={{ width: "100%" }}
                       value={(variant.sizeStock || []).map((s) => s.size)}
                       onChange={(selectedSizes) => setVariantSizes(variantIndex, selectedSizes)}
-                      options={[
-                        { label: "XS", value: "XS" },
-                        { label: "S", value: "S" },
-                        { label: "M", value: "M" },
-                        { label: "L", value: "L" },
-                        { label: "XL", value: "XL" },
-                        { label: "2XL", value: "2XL" },
-                        { label: "3XL", value: "3XL" },
-                      ]}
+                      options={sizeState.map((s) => ({ label: s.title, value: s.title }))}
                     />
                   </div>
                 </div>
@@ -1309,6 +1310,17 @@ const Addproduct = () => {
       </div>
 
       {/* Barcode Preview Modal */}
+      <QuickAddModal
+        type={quickAddModal || "color"}
+        open={!!quickAddModal}
+        onClose={() => setQuickAddModal(null)}
+        onCreated={(newItem) => {
+          if (quickAddModal === "brand") formik.setFieldValue("brand", newItem.title);
+          if (quickAddModal === "category") formik.setFieldValue("category", newItem.title);
+          // color & size: list auto-refreshes, user picks from dropdown
+        }}
+      />
+
       <BarcodeModal
         open={barcodeModalOpen}
         onClose={() => setBarcodeModalOpen(false)}

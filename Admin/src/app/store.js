@@ -16,6 +16,7 @@ import bundleReducer from "../features/bundle/bundleSlice";
 import marketIntelReducer from "../features/marketIntel/marketIntelSlice";
 import rojmelReducer from "../features/rojmel/rojmelSlice";
 import offerReducer from "../features/offer/offerSlice";
+import sizeReducer from "../features/size/sizeSlice";
 export const store = configureStore({
   reducer: {
     auth: authReducer,
@@ -33,5 +34,6 @@ export const store = configureStore({
     marketIntel: marketIntelReducer,
     rojmel: rojmelReducer,
     offer: offerReducer,
+    size: sizeReducer,
   },
 });

@@ -18,7 +18,7 @@ import { Link } from "react-router-dom";
 import { Outlet, useLocation } from "react-router-dom";
 import { ImBlog } from "react-icons/im";
 import { IoIosNotifications } from "react-icons/io";
-import { FaClipboardList, FaBloggerB, FaChartLine, FaBox, FaUsers, FaTags, FaFileAlt, FaCube, FaLink, FaMagic, FaCoins, FaEye, FaChartBar, FaRocket, FaBook } from "react-icons/fa";
+import { FaClipboardList, FaBloggerB, FaChartLine, FaBox, FaUsers, FaTags, FaFileAlt, FaCube, FaLink, FaMagic, FaCoins, FaEye, FaChartBar, FaRocket, FaBook, FaRuler } from "react-icons/fa";
 import { SiBrandfolder } from "react-icons/si";
 import { BiCategoryAlt } from "react-icons/bi";
 import { Layout, Menu, theme, Drawer } from "antd";
@@ -103,16 +103,12 @@ const MainLayout = () => {
       icon: <FaBox />,
       label: "Catalog",
       children: [
-        { key: "product", icon: <AiOutlineShoppingCart />, label: "Add Product" },
-        { key: "list-product", icon: <AiOutlineShoppingCart />, label: "Product List" },
-        { key: "add-bundle", icon: <FaCube />, label: "Add Bundle" },
-        { key: "list-bundle", icon: <FaCube />, label: "Bundle List" },
-        { key: "brand", icon: <SiBrandfolder />, label: "Brand" },
-        { key: "list-brand", icon: <SiBrandfolder />, label: "Brand List" },
-        { key: "category", icon: <BiCategoryAlt />, label: "Category" },
-        { key: "list-category", icon: <BiCategoryAlt />, label: "Category List" },
-        { key: "color", icon: <AiOutlineBgColors />, label: "Color" },
-        { key: "list-color", icon: <AiOutlineBgColors />, label: "Color List" },
+        { key: "list-product", icon: <AiOutlineShoppingCart />, label: "Products" },
+        { key: "list-bundle", icon: <FaCube />, label: "Bundles" },
+        { key: "list-brand", icon: <SiBrandfolder />, label: "Brands" },
+        { key: "list-category", icon: <BiCategoryAlt />, label: "Categories" },
+        { key: "list-color", icon: <AiOutlineBgColors />, label: "Colors" },
+        { key: "list-size", icon: <FaRuler />, label: "Sizes" },
       ],
     },
     {
@@ -144,14 +140,10 @@ const MainLayout = () => {
       icon: <FaTags />,
       label: "Marketing",
       children: [
-        { key: "coupon", icon: <RiCouponLine />, label: "Add Coupon" },
-        { key: "coupon-list", icon: <RiCouponLine />, label: "Coupon List" },
-        { key: "add-offer", icon: <FaTags />, label: "Add Offer" },
-        { key: "offer-list", icon: <FaTags />, label: "Offer List" },
-        { key: "blog", icon: <ImBlog />, label: "Add Blog" },
-        { key: "blog-list", icon: <FaBloggerB />, label: "Blog List" },
-        { key: "blog-category", icon: <ImBlog />, label: "Blog Category" },
-        { key: "blog-category-list", icon: <FaBloggerB />, label: "Blog Cat List" },
+        { key: "coupon-list", icon: <RiCouponLine />, label: "Coupons" },
+        { key: "offer-list", icon: <FaTags />, label: "Offers" },
+        { key: "blog-list", icon: <FaBloggerB />, label: "Blogs" },
+        { key: "blog-category-list", icon: <ImBlog />, label: "Blog Categories" },
       ],
     },
     {

@@ -306,65 +306,7 @@ const Customers = () => {
         title="Are you sure you want to delete this customer?"
       />
 
-      <style>{`
-        .admin-data-table .ant-table-thead > tr > th {
-          background: #f8fafc !important;
-          font-weight: 600 !important;
-          font-size: 12px !important;
-          color: #64748b !important;
-          text-transform: uppercase;
-          letter-spacing: 0.05em;
-          border-bottom: 1px solid #f1f5f9 !important;
-          padding: 12px 16px !important;
-        }
-        .admin-data-table .ant-table-tbody > tr > td {
-          border-bottom: 1px solid #f8fafc !important;
-          padding: 14px 16px !important;
-        }
-        .admin-data-table .ant-table-tbody > tr:hover > td {
-          background: #f8faff !important;
-        }
-        .admin-data-table .ant-table-tbody > tr:last-child > td {
-          border-bottom: none !important;
-        }
-        .admin-data-table .ant-pagination {
-          padding: 14px 20px !important;
-          margin: 0 !important;
-          background: #fafafa;
-          border-top: 1px solid #f1f5f9;
-        }
-        .admin-data-table .ant-pagination-item-active {
-          border-color: #3b82f6 !important;
-          background: #3b82f6 !important;
-        }
-        .admin-data-table .ant-pagination-item-active a {
-          color: white !important;
-        }
-        .customer-modal .ant-modal-content {
-          border-radius: 20px !important;
-          padding: 24px !important;
-        }
-        .customer-modal .ant-modal-header {
-          padding: 0 0 0 0 !important;
-          border: none !important;
-          margin-bottom: 0 !important;
-        }
-        .customer-modal .ant-modal-body {
-          padding: 0 !important;
-        }
-        .customer-modal .ant-form-item-label > label {
-          height: auto !important;
-        }
-        .customer-modal .ant-input-affix-wrapper,
-        .customer-modal .ant-input {
-          border-radius: 12px !important;
-        }
-        .customer-modal .ant-input-affix-wrapper:focus,
-        .customer-modal .ant-input-affix-wrapper-focused {
-          border-color: #3b82f6 !important;
-          box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1) !important;
-        }
-      `}</style>
+
     </div>
   );
 };

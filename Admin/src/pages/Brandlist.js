@@ -7,6 +7,7 @@ import CustomModal from "../components/CustomModal";
 import { FaPlus } from "react-icons/fa";
 import { SiBrandfolder } from "react-icons/si";
 import AdminDataTable from "../components/AdminDataTable";
+import AdminPageHeader from "../components/AdminPageHeader";
 import { Modal, Input, Button } from "antd";
 import { toast } from "react-toastify";
 
@@ -78,24 +79,17 @@ const Brandlist = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-6">
-      <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden mb-6">
-        <div className="bg-gradient-to-r from-indigo-600 to-indigo-700 px-6 py-5">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
-                <SiBrandfolder className="text-white text-xl" />
-              </div>
-              <div>
-                <h2 className="text-xl font-bold text-white">Brands</h2>
-                <p className="text-indigo-200 text-sm">Manage your product brands</p>
-              </div>
-            </div>
-            <button onClick={openAdd} className="flex items-center gap-2 px-5 py-2.5 bg-white text-indigo-600 rounded-xl font-semibold hover:bg-indigo-50 transition-all duration-200 shadow-md border-0 cursor-pointer">
-              <FaPlus className="text-sm" /> Add Brand
-            </button>
-          </div>
-        </div>
-      </div>
+      <AdminPageHeader
+        title="Brands"
+        description="Manage your product brands"
+        icon={<SiBrandfolder />}
+        gradient="from-indigo-600 to-indigo-700"
+        actionButton={
+          <button onClick={openAdd} className="flex items-center gap-2 px-5 py-2.5 bg-white text-indigo-600 rounded-xl font-semibold hover:bg-indigo-50 transition-all shadow-md border-0 cursor-pointer">
+            <FaPlus className="text-sm" /> Add Brand
+          </button>
+        }
+      />
 
       <AdminDataTable columns={columns} dataSource={data1} paginationOptions={{ showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} brands` }} />
 

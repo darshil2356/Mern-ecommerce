@@ -1,95 +1,67 @@
 import React, { useEffect, useState } from "react";
-import { Table } from "antd";
-import { BiEdit } from "react-icons/bi";
-import { AiFillDelete } from "react-icons/ai";
 import { useDispatch, useSelector } from "react-redux";
-import { Link } from "react-router-dom";
-import {
-  deleteABlogCat,
-  getCategories,
-  resetState,
-} from "../features/bcategory/bcategorySlice";
+import { deleteABlogCat, getCategories, resetState } from "../features/bcategory/bcategorySlice";
 import CustomModal from "../components/CustomModal";
-
-const columns = [
-  {
-    title: "SNo",
-    dataIndex: "key",
-  },
-  {
-    title: "Name",
-    dataIndex: "name",
-    sorter: (a, b) => a.name.length - b.name.length,
-  },
-
-  {
-    title: "Action",
-    dataIndex: "action",
-  },
-];
+import AdminPageHeader from "../components/AdminPageHeader";
+import AdminDataTable from "../components/AdminDataTable";
+import ActionButtons from "../components/ActionButtons";
+import { FaLayerGroup, FaPlus } from "react-icons/fa";
+import { Link } from "react-router-dom";
 
 const Blogcatlist = () => {
-  const [open, setOpen] = useState(false);
-  const [blogCatId, setblogCatId] = useState("");
-  const showModal = (e) => {
-    setOpen(true);
-    setblogCatId(e);
-  };
-
-  const hideModal = () => {
-    setOpen(false);
-  };
   const dispatch = useDispatch();
+  const [open, setOpen] = useState(false);
+  const [blogCatId, setBlogCatId] = useState("");
+
   useEffect(() => {
     dispatch(resetState());
     dispatch(getCategories());
   }, []);
+
   const bCatState = useSelector((state) => state.bCategory.bCategories);
-  console.log(bCatState);
-  const data1 = [];
-  for (let i = 0; i < bCatState.length; i++) {
-    data1.push({
-      key: i + 1,
-      name: bCatState[i].title,
-      action: (
-        <>
-          <Link
-            to={`/admin/blog-category/${bCatState[i]._id}`}
-            className=" fs-3 text-danger"
-          >
-            <BiEdit />
-          </Link>
-          <button
-            className="ms-3 fs-3 text-danger bg-transparent border-0"
-            onClick={() => showModal(bCatState[i]._id)}
-          >
-            <AiFillDelete />
-          </button>
-        </>
+
+  const data = bCatState.map((c, i) => ({
+    key: c._id,
+    sno: i + 1,
+    name: c.title,
+    _id: c._id,
+  }));
+
+  const columns = [
+    { title: "S.No", dataIndex: "sno", width: 80, align: "center" },
+    { title: "Category Name", dataIndex: "name", sorter: (a, b) => a.name.localeCompare(b.name), render: (t) => <span className="font-medium text-gray-800">{t}</span> },
+    {
+      title: "Actions", dataIndex: "_id", align: "center", width: 120,
+      render: (id) => (
+        <ActionButtons
+          editTo={`/admin/blog-category/${id}`}
+          onDelete={() => { setBlogCatId(id); setOpen(true); }}
+        />
       ),
-    });
-  }
-  const deleteBlogCategory = (e) => {
-    dispatch(deleteABlogCat(e));
+    },
+  ];
+
+  const deleteBlogCategory = () => {
+    dispatch(deleteABlogCat(blogCatId));
     setOpen(false);
-    setTimeout(() => {
-      dispatch(getCategories());
-    }, 100);
+    setTimeout(() => dispatch(getCategories()), 100);
   };
+
   return (
-    <div>
-      <h3 className="mb-4 title">Blog Categories</h3>
-      <div>
-        <Table columns={columns} dataSource={data1} />
-      </div>
-      <CustomModal
-        hideModal={hideModal}
-        open={open}
-        performAction={() => {
-          deleteBlogCategory(blogCatId);
-        }}
-        title="Are you sure you want to delete this blog category?"
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-6">
+      <AdminPageHeader
+        title="Blog Categories"
+        description="Manage your blog categories"
+        icon={<FaLayerGroup />}
+        gradient="from-teal-600 to-teal-700"
+        actionButton={
+          <Link to="/admin/blog-category" className="flex items-center gap-2 px-5 py-2.5 bg-white text-teal-600 rounded-xl font-semibold hover:bg-teal-50 transition-all shadow-md">
+            <FaPlus className="text-sm" /> Add Category
+          </Link>
+        }
       />
+      <AdminDataTable columns={columns} dataSource={data} paginationOptions={{ showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} categories` }} />
+      <CustomModal hideModal={() => setOpen(false)} open={open} performAction={deleteBlogCategory} title="Are you sure you want to delete this blog category?" />
     </div>
   );
 };

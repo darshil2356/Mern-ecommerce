@@ -5,7 +5,9 @@ import { useDispatch, useSelector } from "react-redux";
 import { createSize, deleteASize, getSizes, getASize, updateASize } from "../features/size/sizeSlice";
 import CustomModal from "../components/CustomModal";
 import { FaPlus, FaRuler } from "react-icons/fa";
-import { Modal, Input, Button, Table } from "antd";
+import { Modal, Input, Button } from "antd";
+import AdminDataTable from "../components/AdminDataTable";
+import AdminPageHeader from "../components/AdminPageHeader";
 import { toast } from "react-toastify";
 
 const Sizelist = () => {
@@ -74,28 +76,19 @@ const Sizelist = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-6">
-      <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden mb-6">
-        <div className="bg-gradient-to-r from-orange-500 to-orange-600 px-6 py-5">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
-                <FaRuler className="text-white text-xl" />
-              </div>
-              <div>
-                <h2 className="text-xl font-bold text-white">Sizes</h2>
-                <p className="text-orange-200 text-sm">Manage your product sizes</p>
-              </div>
-            </div>
-            <button onClick={openAdd} className="flex items-center gap-2 px-5 py-2.5 bg-white text-orange-600 rounded-xl font-semibold hover:bg-orange-50 transition-all duration-200 shadow-md border-0 cursor-pointer">
-              <FaPlus className="text-sm" /> Add Size
-            </button>
-          </div>
-        </div>
-      </div>
+      <AdminPageHeader
+        title="Sizes"
+        description="Manage your product sizes"
+        icon={<FaRuler />}
+        gradient="from-orange-500 to-orange-600"
+        actionButton={
+          <button onClick={openAdd} className="flex items-center gap-2 px-5 py-2.5 bg-white text-orange-600 rounded-xl font-semibold hover:bg-orange-50 transition-all shadow-md border-0 cursor-pointer">
+            <FaPlus className="text-sm" /> Add Size
+          </button>
+        }
+      />
 
-      <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
-        <Table columns={columns} dataSource={data1} pagination={{ pageSize: 10, showSizeChanger: true, showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} sizes` }} />
-      </div>
+      <AdminDataTable columns={columns} dataSource={data1} paginationOptions={{ showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} sizes` }} />
 
       <Modal
         title={editId ? "Edit Size" : "Add Size"}

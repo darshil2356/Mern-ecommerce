@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from "react";
-import { Table, Input, Button, Space, Tag, Tooltip, Avatar, Card, Modal } from "antd";
+import { Input, Button, Space, Tag, Tooltip, Avatar, Modal } from "antd";
+import AdminPageHeader from "../components/AdminPageHeader";
+import AdminDataTable from "../components/AdminDataTable";
 import { BiEdit } from "react-icons/bi";
 import { AiFillDelete, AiOutlineSearch, AiOutlineEye, AiOutlineDownload } from "react-icons/ai";
 import { useDispatch, useSelector } from "react-redux";
@@ -426,214 +428,55 @@ const Productlist = () => {
   };
 
   return (
-    <div style={{ backgroundColor: "#f5f5f5", minHeight: "100vh", padding: "24px" }}>
-      {/* Header Section */}
-      <Card
-        style={{
-          borderRadius: "12px",
-          border: "none",
-          boxShadow: "0 1px 3px rgba(0,0,0,0.08)",
-          marginBottom: "24px",
-        }}
-        bodyStyle={{ padding: "20px 24px" }}
-      >
-        <div className="d-flex justify-content-between align-items-center flex-wrap gap-3">
-          <div>
-            <h2 className="mb-1" style={{ fontWeight: 600, color: "#1a1a1a", fontSize: "24px" }}>
-              Products
-            </h2>
-            <p className="text-muted mb-0" style={{ fontSize: "14px" }}>
-              Manage your product inventory and catalog
-            </p>
-          </div>
-          <div className="d-flex gap-3 align-items-center">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-6">
+      <AdminPageHeader
+        title="Products"
+        description="Manage your product inventory and catalog"
+        icon={<MdInventory />}
+        gradient="from-indigo-600 to-indigo-700"
+        actionButton={
+          <div className="flex items-center gap-3">
             <Input
               placeholder="Search products..."
-              prefix={<AiOutlineSearch style={{ color: "#8c8c8c" }} />}
+              prefix={<AiOutlineSearch className="text-gray-400" />}
               value={searchText}
               onChange={(e) => setSearchText(e.target.value)}
-              style={{
-                width: "280px",
-                height: "40px",
-                borderRadius: "8px",
-                border: "1px solid #d9d9d9",
-              }}
               allowClear
+              className="rounded-xl"
+              style={{ width: 240 }}
             />
             <Link to="/admin/product">
-              <Button
-                type="primary"
-                style={{
-                  height: "40px",
-                  borderRadius: "8px",
-                  backgroundColor: "#1890ff",
-                  border: "none",
-                  fontWeight: 500,
-                }}
-              >
+              <button className="flex items-center gap-2 px-5 py-2.5 bg-white text-indigo-600 rounded-xl font-semibold hover:bg-indigo-50 transition-all shadow-md border-0 cursor-pointer">
                 + Add Product
-              </Button>
+              </button>
             </Link>
           </div>
-        </div>
-      </Card>
+        }
+      />
 
-      {/* Stats Cards */}
-      <div className="row g-3 mb-4">
-        <div className="col-md-3">
-          <Card
-            style={{
-              borderRadius: "12px",
-              border: "none",
-              boxShadow: "0 1px 3px rgba(0,0,0,0.08)",
-            }}
-            bodyStyle={{ padding: "20px" }}
-          >
-            <div className="d-flex justify-content-between align-items-center">
-              <div>
-                <p className="text-muted mb-1" style={{ fontSize: "13px" }}>Total Products</p>
-                <h3 className="mb-0" style={{ fontWeight: 600 }}>{productState?.length || 0}</h3>
-              </div>
-              <div style={{
-                width: "48px",
-                height: "48px",
-                borderRadius: "12px",
-                backgroundColor: "#e6f7ff",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                color: "#1890ff",
-                fontSize: "24px"
-              }}>
-                <MdInventory />
-              </div>
+      {/* Stats */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+        {[
+          { label: "Total Products", value: productState?.length || 0, icon: <MdInventory />, color: "text-indigo-600", bg: "bg-indigo-50" },
+          { label: "Total Value", value: `₹${(productState?.reduce((sum, p) => sum + (Number(p.price) || 0) * getEffectiveStock(p), 0) || 0).toLocaleString()}`, icon: "₹", color: "text-green-600", bg: "bg-green-50" },
+          { label: "Out of Stock", value: productState?.filter(p => getEffectiveStock(p) === 0).length || 0, icon: <MdOutlineInventory2 />, color: "text-red-500", bg: "bg-red-50" },
+          { label: "Categories", value: new Set(productState?.map(p => p.category)).size || 0, icon: "#", color: "text-orange-500", bg: "bg-orange-50" },
+        ].map((s) => (
+          <div key={s.label} className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 flex items-center gap-4">
+            <div className={`w-12 h-12 rounded-xl ${s.bg} flex items-center justify-center ${s.color} text-2xl flex-shrink-0`}>{s.icon}</div>
+            <div>
+              <p className="text-gray-400 text-xs font-medium mb-0.5">{s.label}</p>
+              <h3 className="text-2xl font-bold text-gray-800 leading-none">{s.value}</h3>
             </div>
-          </Card>
-        </div>
-        <div className="col-md-3">
-          <Card
-            style={{
-              borderRadius: "12px",
-              border: "none",
-              boxShadow: "0 1px 3px rgba(0,0,0,0.08)",
-            }}
-            bodyStyle={{ padding: "20px" }}
-          >
-            <div className="d-flex justify-content-between align-items-center">
-              <div>
-                <p className="text-muted mb-1" style={{ fontSize: "13px" }}>Total Value</p>
-                <h3 className="mb-0" style={{ fontWeight: 600 }}>
-                  ₹{(productState?.reduce((sum, p) => {
-                    const totalQty = p.sizeStock?.length > 0
-                      ? p.sizeStock.reduce((s, item) => s + Number(item.quantity || 0), 0)
-                      : (p.variants || []).flatMap(v => v.sizeStock || []).reduce((s, item) => s + Number(item.quantity || 0), 0) || Number(p.quantity || 0);
-                    return sum + (Number(p.price) || 0) * totalQty;
-                  }, 0) || 0).toLocaleString()}
-                </h3>
-              </div>
-              <div style={{
-                width: "48px",
-                height: "48px",
-                borderRadius: "12px",
-                backgroundColor: "#f6ffed",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                color: "#52c41a",
-                fontSize: "24px"
-              }}>
-                ₹
-              </div>
-            </div>
-          </Card>
-        </div>
-        <div className="col-md-3">
-          <Card
-            style={{
-              borderRadius: "12px",
-              border: "none",
-              boxShadow: "0 1px 3px rgba(0,0,0,0.08)",
-            }}
-            bodyStyle={{ padding: "20px" }}
-          >
-            <div className="d-flex justify-content-between align-items-center">
-              <div>
-                <p className="text-muted mb-1" style={{ fontSize: "13px" }}>Out of Stock</p>
-                <h3 className="mb-0" style={{ fontWeight: 600, color: "#ff4d4f" }}>
-                  {productState?.filter(p => getEffectiveStock(p) === 0).length || 0}
-                </h3>
-              </div>
-              <div style={{
-                width: "48px",
-                height: "48px",
-                borderRadius: "12px",
-                backgroundColor: "#fff1f0",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                color: "#ff4d4f",
-                fontSize: "24px"
-              }}>
-                <MdOutlineInventory2 />
-              </div>
-            </div>
-          </Card>
-        </div>
-        <div className="col-md-3">
-          <Card
-            style={{
-              borderRadius: "12px",
-              border: "none",
-              boxShadow: "0 1px 3px rgba(0,0,0,0.08)",
-            }}
-            bodyStyle={{ padding: "20px" }}
-          >
-            <div className="d-flex justify-content-between align-items-center">
-              <div>
-                <p className="text-muted mb-1" style={{ fontSize: "13px" }}>Categories</p>
-                <h3 className="mb-0" style={{ fontWeight: 600 }}>
-                  {new Set(productState?.map(p => p.category)).size || 0}
-                </h3>
-              </div>
-              <div style={{
-                width: "48px",
-                height: "48px",
-                borderRadius: "12px",
-                backgroundColor: "#fff7e6",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                color: "#fa8c16",
-                fontSize: "24px"
-              }}>
-                #
-              </div>
-            </div>
-          </Card>
-        </div>
+          </div>
+        ))}
       </div>
 
-      {/* Products Table */}
-      <Card
-        style={{
-          borderRadius: "12px",
-          border: "none",
-          boxShadow: "0 1px 3px rgba(0,0,0,0.08)",
-        }}
-        bodyStyle={{ padding: "0" }}
-      >
-        <Table
-          columns={columns}
-          dataSource={data1}
-          pagination={{
-            pageSize: 10,
-            showSizeChanger: true,
-            showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} products`,
-            pageSizeOptions: ["10", "20", "50", "100"],
-          }}
-          style={{ borderRadius: "12px" }}
-        />
-      </Card>
+      <AdminDataTable
+        columns={columns}
+        dataSource={data1}
+        paginationOptions={{ showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} products`, pageSizeOptions: ["10", "20", "50", "100"] }}
+      />
 
       <CustomModal
         hideModal={hideModal}
@@ -669,33 +512,7 @@ const Productlist = () => {
         />
       </Modal>
 
-      <style>{`
-        .ant-table-thead > tr > th {
-          background-color: #fafafa !important;
-          font-weight: 600 !important;
-          color: #1a1a1a !important;
-          border-bottom: 2px solid #f0f0f0 !important;
-        }
-        .ant-table-tbody > tr:hover > td {
-          background-color: #f5f5f5 !important;
-        }
-        .ant-table-tbody > tr > td {
-          border-bottom: 1px solid #f0f0f0 !important;
-          padding: 16px !important;
-        }
-        .ant-pagination {
-          padding: 16px 24px !important;
-          margin: 0 !important;
-          background: #fafafa;
-          border-top: 1px solid #f0f0f0;
-        }
-        .ant-pagination-item-active {
-          border-color: #1890ff !important;
-        }
-        .ant-pagination-item-active a {
-          color: #1890ff !important;
-        }
-      `}</style>
+
     </div>
   );
 };

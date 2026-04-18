@@ -5,7 +5,9 @@ import { useDispatch, useSelector } from "react-redux";
 import { createCategory, deleteAProductCategory, getCategories, getAProductCategory, updateAProductCategory, resetState } from "../features/pcategory/pcategorySlice";
 import CustomModal from "../components/CustomModal";
 import { FaPlus, FaTags } from "react-icons/fa";
-import { Modal, Input, Button, Table } from "antd";
+import { Modal, Input, Button } from "antd";
+import AdminDataTable from "../components/AdminDataTable";
+import AdminPageHeader from "../components/AdminPageHeader";
 import { toast } from "react-toastify";
 
 const Categorylist = () => {
@@ -76,28 +78,19 @@ const Categorylist = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-6">
-      <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden mb-6">
-        <div className="bg-gradient-to-r from-emerald-600 to-emerald-700 px-6 py-5">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
-                <FaTags className="text-white text-xl" />
-              </div>
-              <div>
-                <h2 className="text-xl font-bold text-white">Categories</h2>
-                <p className="text-emerald-200 text-sm">Manage your product categories</p>
-              </div>
-            </div>
-            <button onClick={openAdd} className="flex items-center gap-2 px-5 py-2.5 bg-white text-emerald-600 rounded-xl font-semibold hover:bg-emerald-50 transition-all duration-200 shadow-md border-0 cursor-pointer">
-              <FaPlus className="text-sm" /> Add Category
-            </button>
-          </div>
-        </div>
-      </div>
+      <AdminPageHeader
+        title="Categories"
+        description="Manage your product categories"
+        icon={<FaTags />}
+        gradient="from-emerald-600 to-emerald-700"
+        actionButton={
+          <button onClick={openAdd} className="flex items-center gap-2 px-5 py-2.5 bg-white text-emerald-600 rounded-xl font-semibold hover:bg-emerald-50 transition-all shadow-md border-0 cursor-pointer">
+            <FaPlus className="text-sm" /> Add Category
+          </button>
+        }
+      />
 
-      <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
-        <Table columns={columns} dataSource={data1} pagination={{ pageSize: 10, showSizeChanger: true, showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} categories` }} />
-      </div>
+      <AdminDataTable columns={columns} dataSource={data1} paginationOptions={{ showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} categories` }} />
 
       <Modal
         title={editId ? "Edit Category" : "Add Category"}

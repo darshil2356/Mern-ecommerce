@@ -1,53 +1,40 @@
 import React from "react";
 
-const Color = (props) => {
-  const { colorData, setColor } = props;
-  
-  // Handle case where colorData might be a single object or null
+const Color = ({ colorData, setColor, selectedColor }) => {
   const colors = Array.isArray(colorData) ? colorData : (colorData ? [colorData] : []);
-  
+
+  // Deduplicate by _id
+  const uniqueColors = colors.filter(
+    (item, idx, self) => item?._id && self.findIndex(c => c?._id === item._id) === idx
+  );
+
+  if (uniqueColors.length === 0) return null;
+
   return (
-    <>
-      <ul className="colors ps-0 d-flex flex-wrap gap-2">
-        {colors.length > 0 ? (
-          colors.map((item, index) => {
-            return (
-              <li
-                onClick={() => setColor(item?._id || item?._id)}
-                style={{ 
-                  backgroundColor: item?.title || item?.name || '#ccc',
-                  width: '28px',
-                  height: '28px',
-                  borderRadius: '50%',
-                  cursor: 'pointer',
-                  border: '2px solid #e5e5e5',
-                  transition: 'all 0.2s ease'
-                }}
-                key={index}
-                title={item?.title || item?.name}
-                onMouseEnter={(e) => {
-                  e.target.style.transform = 'scale(1.1)';
-                  e.target.style.borderColor = '#d4af37';
-                }}
-                onMouseLeave={(e) => {
-                  e.target.style.transform = 'scale(1)';
-                  e.target.style.borderColor = '#e5e5e5';
-                }}
-              ></li>
-            );
-          })
-        ) : (
-          <li style={{ 
-            backgroundColor: '#666', 
-            width: '28px', 
-            height: '28px', 
-            borderRadius: '50%',
-            cursor: 'not-allowed',
-            opacity: 0.5
-          }}></li>
-        )}
-      </ul>
-    </>
+    <ul className="colors ps-0 d-flex flex-wrap gap-2" style={{ listStyle: 'none', margin: 0 }}>
+      {uniqueColors.map((item, index) => {
+        const colorId = item?._id;
+        const isSelected = selectedColor === colorId;
+        return (
+          <li
+            key={colorId || index}
+            onClick={() => setColor(colorId)}
+            title={item?.title || item?.name}
+            style={{
+              backgroundColor: item?.title || item?.name || '#ccc',
+              width: '32px',
+              height: '32px',
+              borderRadius: '50%',
+              cursor: 'pointer',
+              border: isSelected ? '3px solid #d4af37' : '2px solid #e5e5e5',
+              boxShadow: isSelected ? '0 0 0 2px #fff, 0 0 0 4px #d4af37' : 'none',
+              transform: isSelected ? 'scale(1.15)' : 'scale(1)',
+              transition: 'all 0.2s ease',
+            }}
+          />
+        );
+      })}
+    </ul>
   );
 };
 

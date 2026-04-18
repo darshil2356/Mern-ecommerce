@@ -50,14 +50,26 @@ const SingleProduct = () => {
 
   const [isFilled, setIsFilled] = useState(false);
 
-  // Get available colors from variants or fallback to old color
-  const availableColors = productState?.variants?.length > 0 
-    ? productState.variants.map(v => v.color).filter(Boolean)
-    : (productState?.color ? [productState.color] : []);
+  // Get available colors from variants or fallback to old color (deduplicated by _id)
+  const availableColors = (() => {
+    const raw = productState?.variants?.length > 0
+      ? productState.variants
+          .filter(v => v.color && v.sizeStock?.some(s => s.quantity > 0))
+          .map(v => v.color)
+      : (productState?.color ? [productState.color] : []);
+    // Deduplicate by _id
+    const seen = new Set();
+    return raw.filter(c => {
+      const id = c?._id?.toString();
+      if (!id || seen.has(id)) return false;
+      seen.add(id);
+      return true;
+    });
+  })();
 
   // Get available sizes for selected color
   const availableSizes = color 
-    ? (productState?.variants?.find(v => v.color?._id === color || v.color === color)?.sizeStock || [])
+    ? (productState?.variants?.find(v => v.color?._id?.toString() === color || v.color?.toString() === color)?.sizeStock || [])
         .filter(s => s.quantity > 0)
         .map(s => ({ size: s.size, quantity: s.quantity }))
     : (productState?.sizeStock?.filter(s => s.quantity > 0) || []).map(s => ({ size: s.size, quantity: s.quantity }));
@@ -66,6 +78,29 @@ const SingleProduct = () => {
   const maxQuantity = size 
     ? availableSizes.find(s => s.size === size)?.quantity || 0
     : productState?.quantity || 0;
+
+  // Sizes already in cart for the selected productId + color
+  const cartSizesForColor = new Set(
+    (cartState || [])
+      .filter(item =>
+        !item.isFreeItem &&
+        (item.productId?._id === getProductId || item.productId === getProductId) &&
+        (color === null || (item.color?._id || item.color)?.toString() === color?.toString()) &&
+        item.size
+      )
+      .map(item => item.size)
+  );
+
+  // Determine if product has any stock (variants or top-level)
+  const hasAnyStock = (() => {
+    if (productState?.variants?.length > 0) {
+      return productState.variants.some(v => v.sizeStock?.some(s => s.quantity > 0));
+    }
+    if (productState?.sizeStock?.length > 0) {
+      return productState.sizeStock.some(s => s.quantity > 0);
+    }
+    return (productState?.quantity || 0) > 0;
+  })();
 
   // Check if product is in wishlist
   useEffect(() => {
@@ -126,16 +161,20 @@ const SingleProduct = () => {
 
   useEffect(() => {
     if (cartState && getProductId) {
-      // Only count non-free items as "already added"
+      // Only count non-free items as "already added" — match by productId AND color AND size
       const isAdded = cartState.some(
-        item => !item.isFreeItem && (item.productId?._id === getProductId || item.productId === getProductId)
+        item =>
+          !item.isFreeItem &&
+          (item.productId?._id === getProductId || item.productId === getProductId) &&
+          (color === null || (item.color?._id || item.color)?.toString() === color?.toString()) &&
+          (size === null || item.size === size)
       );
       setAlreadyAdded(isAdded);
     }
-  }, [cartState, getProductId]);
+  }, [cartState, getProductId, color, size]);
 
   const uploadCart = () => {
-    if (color === null) {
+    if (availableColors.length > 0 && color === null) {
       toast.error("Please choose Color");
     } else if (availableSizes.length > 0 && size === null) {
       toast.error("Please choose Size");
@@ -775,13 +814,20 @@ const SingleProduct = () => {
                   alignItems: 'center', 
                   gap: '6px',
                   fontSize: '13px',
-                  background: maxQuantity > 0 ? '#e0e7ff' : '#fee2e2',
-                  color: maxQuantity > 0 ? '#4338ca' : '#dc2626',
+                  background: !hasAnyStock ? '#fee2e2' : maxQuantity > 0 && maxQuantity <= 5 ? '#fff7ed' : '#e0e7ff',
+                  color: !hasAnyStock ? '#dc2626' : maxQuantity > 0 && maxQuantity <= 5 ? '#c2410c' : '#4338ca',
                   padding: '8px 16px',
                   borderRadius: '8px',
                   fontWeight: 600
                 }}>
-                  {maxQuantity > 0 ? `✓ ${maxQuantity} in stock` : '✕ Out of Stock'}
+                  {!hasAnyStock
+                    ? '✕ Out of Stock'
+                    : maxQuantity > 0 && maxQuantity <= 5
+                      ? `🔥 Only ${maxQuantity} left!`
+                      : maxQuantity > 0
+                        ? `✓ In Stock`
+                        : '✓ In Stock'
+                  }
                 </span>
               </div>
 
@@ -792,48 +838,70 @@ const SingleProduct = () => {
                   <span style={{ color: '#666' }}>{productState?.category}</span>
                 </div>
                 
-                {alreadyAdded === false && productState?.quantity > 0 && (
+                {hasAnyStock && availableColors.length > 0 && (
                   <div className="mb-3">
                     <h3 style={{ fontSize: '14px', fontWeight: 600, marginBottom: '12px' }}>Color:</h3>
                     <Color
                       setColor={setColor}
                       colorData={availableColors}
+                      selectedColor={color}
                     />
+                    {!color && (
+                      <p style={{ fontSize: '12px', color: '#e67e22', marginTop: '6px', marginBottom: 0 }}>
+                        Please select a color
+                      </p>
+                    )}
                   </div>
                 )}
 
-                {alreadyAdded === false && productState?.quantity > 0 && color && availableSizes.length > 0 && (
+                {hasAnyStock && color && availableSizes.length > 0 && (
                   <div className="mb-3">
                     <h3 style={{ fontSize: '14px', fontWeight: 600, marginBottom: '12px' }}>Size:</h3>
                     <div className="d-flex gap-2 flex-wrap">
-                      {availableSizes.map((sizeOption) => (
-                        <button
-                          key={sizeOption.size}
-                          onClick={() => setSize(sizeOption.size)}
-                          style={{
-                            padding: '8px 16px',
-                            border: `2px solid ${size === sizeOption.size ? '#d4af37' : '#e5e5e5'}`,
-                            backgroundColor: size === sizeOption.size ? '#d4af37' : '#fff',
-                            color: size === sizeOption.size ? '#fff' : '#333',
-                            borderRadius: '8px',
-                            cursor: 'pointer',
-                            fontWeight: 600,
-                            transition: 'all 0.2s',
-                          }}
-                          onMouseEnter={(e) => {
-                            if (size !== sizeOption.size) {
-                              e.target.style.borderColor = '#d4af37';
-                            }
-                          }}
-                          onMouseLeave={(e) => {
-                            if (size !== sizeOption.size) {
-                              e.target.style.borderColor = '#e5e5e5';
-                            }
-                          }}
-                        >
-                          {sizeOption.size} ({sizeOption.quantity})
-                        </button>
-                      ))}
+                      {availableSizes.map((sizeOption) => {
+                        const isSelected = size === sizeOption.size;
+                        const isInCart = cartSizesForColor.has(sizeOption.size);
+                        return (
+                          <button
+                            key={sizeOption.size}
+                            onClick={() => setSize(sizeOption.size)}
+                            style={{
+                              padding: '8px 16px',
+                              border: `2px solid ${isSelected ? '#d4af37' : isInCart ? '#22c55e' : '#e5e5e5'}`,
+                              backgroundColor: isSelected ? '#d4af37' : isInCart ? '#f0fdf4' : '#fff',
+                              color: isSelected ? '#fff' : isInCart ? '#15803d' : '#333',
+                              borderRadius: '8px',
+                              cursor: 'pointer',
+                              fontWeight: 600,
+                              transition: 'all 0.2s',
+                              position: 'relative',
+                            }}
+                          >
+                            {sizeOption.size}
+                            {sizeOption.quantity <= 5 && (
+                              <span style={{ display: 'block', fontSize: '10px', opacity: 0.8 }}>
+                                {sizeOption.quantity} left
+                              </span>
+                            )}
+                            {isInCart && !isSelected && (
+                              <span style={{
+                                position: 'absolute',
+                                top: '-8px',
+                                right: '-8px',
+                                background: '#22c55e',
+                                color: '#fff',
+                                fontSize: '9px',
+                                fontWeight: 700,
+                                padding: '1px 5px',
+                                borderRadius: '10px',
+                                whiteSpace: 'nowrap',
+                              }}>
+                                In Cart
+                              </span>
+                            )}
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
                 )}
@@ -841,7 +909,7 @@ const SingleProduct = () => {
 
               {/* Quantity & Add to Cart */}
               <div className="d-flex align-items-center gap-3 mb-4">
-                {alreadyAdded === false && maxQuantity > 0 && (
+                {hasAnyStock && (
                   <>
                     <div style={{
                       display: 'flex',
@@ -879,7 +947,7 @@ const SingleProduct = () => {
                         value={quantity}
                       />
                       <button
-                        onClick={() => setQuantity(Math.min(productState?.quantity || 10, quantity + 1))}
+                        onClick={() => setQuantity(Math.min(maxQuantity || 10, quantity + 1))}
                         style={{
                           background: '#f5f5f5',
                           border: 'none',
@@ -901,7 +969,7 @@ const SingleProduct = () => {
                   onClick={() => {
                     alreadyAdded ? navigate("/cart") : uploadCart();
                   }}
-                  disabled={productState?.quantity === 0}
+                  disabled={!hasAnyStock}
                   style={{
                     background: alreadyAdded ? '#1a1a1a' : '#d4af37',
                     color: alreadyAdded ? '#fff' : '#1a1a1a',
@@ -910,11 +978,11 @@ const SingleProduct = () => {
                     fontWeight: 600,
                     fontSize: '15px',
                     flex: 1,
-                    opacity: productState?.quantity === 0 ? 0.5 : 1,
-                    cursor: productState?.quantity === 0 ? 'not-allowed' : 'pointer'
+                    opacity: !hasAnyStock ? 0.5 : 1,
+                    cursor: !hasAnyStock ? 'not-allowed' : 'pointer'
                   }}
                 >
-                  {alreadyAdded ? "✓ Added to Cart" : productState?.quantity === 0 ? "Out of Stock" : "Add to Cart"}
+                  {alreadyAdded ? "✓ Added to Cart" : !hasAnyStock ? "Out of Stock" : "Add to Cart"}
                 </button>
               </div>
 

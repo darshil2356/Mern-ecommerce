@@ -1400,18 +1400,20 @@ const userCart = asyncHandler(async (req, res) => {
       }
     }
 
-    // Save main cart item
-    let newCart = await new Cart({
-      userId: _id,
-      productId,
-      color,
-      price: effectivePrice,
-      quantity,
-      size,
-      offerLabel: appliedOfferLabel,
-      freeFromOfferId: appliedOfferId,
-      originalPrice: price, // always store original price for savings display
-    }).save();
+    // Save main cart item — update if same product+color+size exists, else create new
+    let newCart = await Cart.findOneAndUpdate(
+      { userId: _id, productId, color: color || null, size: size || null, isFreeItem: { $ne: true } },
+      {
+        $set: {
+          price: effectivePrice,
+          quantity,
+          offerLabel: appliedOfferLabel,
+          freeFromOfferId: appliedOfferId,
+          originalPrice: price,
+        },
+      },
+      { upsert: true, new: true, setDefaultsOnInsert: true }
+    );
 
     // BUY_X_GET_Y_FREE — auto-inject free items
     for (const offer of activeOffers) {
@@ -1641,8 +1643,36 @@ const updateProductQuantityFromCart = asyncHandler(async (req, res) => {
     if (cartItem.isFreeItem) return res.json(cartItem); // never update free items directly
 
     const qty = parseInt(newQuantity);
+
+    // ── Stock validation ──────────────────────────────────────────────────────
+    const productForStock = await Product.findById(cartItem.productId).populate("variants.color");
+    if (productForStock) {
+      const colorId = cartItem.color?.toString();
+      const size = cartItem.size;
+      let availableStock = 0;
+
+      if (productForStock.variants?.length > 0 && colorId) {
+        const variant = productForStock.variants.find(
+          v => (v.color?._id || v.color)?.toString() === colorId
+        );
+        if (variant && size) {
+          availableStock = variant.sizeStock?.find(s => s.size === size)?.quantity ?? 0;
+        } else if (variant) {
+          availableStock = variant.sizeStock?.reduce((s, e) => s + (e.quantity || 0), 0) ?? 0;
+        }
+      } else if (productForStock.sizeStock?.length > 0 && size) {
+        availableStock = productForStock.sizeStock.find(s => s.size === size)?.quantity ?? 0;
+      } else {
+        availableStock = productForStock.quantity ?? 0;
+      }
+
+      if (qty > availableStock) {
+        res.status(400);
+        throw new Error(`Only ${availableStock} in stock`);
+      }
+    }
+    // ─────────────────────────────────────────────────────────────────────────
     const Offer = require("../models/offerModel");
-    const Product = require("../models/productModel");
     const now = new Date();
     const product = await Product.findById(cartItem.productId).select("category");
     const originalPrice = cartItem.originalPrice || cartItem.price;

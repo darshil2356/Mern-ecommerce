@@ -10,6 +10,7 @@ import { deleteCartProduct, getUserCart, updateCartProduct } from "../features/u
 import { getConfig } from "../utils/axiosConfig";
 import { getColorSwatch, getReadableColorName } from "../utils/colorDisplay";
 import trackingService from "../utils/trackingService";
+import { toast } from "react-toastify";
 
 const Cart = () => {
   const dispatch = useDispatch();
@@ -81,9 +82,34 @@ const Cart = () => {
     return acc;
   }, {}) || {};
 
-  const updateQuantity = (cartItemId, newQuantity) => {
+  const updateQuantity = (cartItemId, newQuantity, maxStock) => {
     if (newQuantity < 1) return;
+    if (maxStock !== undefined && newQuantity > maxStock) {
+      toast.error(`Only ${maxStock} in stock`);
+      return;
+    }
     setProductupdateDetail({ cartItemId, quantity: newQuantity });
+  };
+
+  // Get available stock for a cart item (checks variant+size or top-level)
+  const getItemStock = (item) => {
+    const product = item?.productId;
+    if (!product) return Infinity;
+    const colorId = (item?.color?._id || item?.color)?.toString();
+    const size = item?.size;
+    if (product.variants?.length > 0 && colorId) {
+      const variant = product.variants.find(v =>
+        (v.color?._id || v.color)?.toString() === colorId
+      );
+      if (variant && size) {
+        return variant.sizeStock?.find(s => s.size === size)?.quantity ?? 0;
+      }
+      if (variant) return variant.sizeStock?.reduce((s, e) => s + (e.quantity || 0), 0) ?? 0;
+    }
+    if (product.sizeStock?.length > 0 && size) {
+      return product.sizeStock.find(s => s.size === size)?.quantity ?? 0;
+    }
+    return product.quantity ?? Infinity;
   };
 
   const hasItems = userCartState && userCartState.length > 0;
@@ -176,7 +202,7 @@ const Cart = () => {
                             <div style={s.qtyPill}>
                               <button style={s.qtyBtnDark} onClick={() => updateQuantity(item._id, item.quantity - 1)} disabled={loading}><FiMinus size={12} /></button>
                               <span style={{ color: '#fff', fontWeight: 700, fontSize: 14, minWidth: 22, textAlign: 'center' }}>{item?.quantity}</span>
-                              <button style={s.qtyBtnDark} onClick={() => updateQuantity(item._id, item.quantity + 1)} disabled={loading}><FiPlus size={12} /></button>
+                              <button style={s.qtyBtnDark} onClick={() => updateQuantity(item._id, item.quantity + 1, getItemStock(item))} disabled={loading}><FiPlus size={12} /></button>
                             </div>
                           </div>
                         </div>
@@ -264,7 +290,17 @@ const Cart = () => {
                                 <div style={s.qtyPillLight}>
                                   <button style={s.qtyBtnLight} onClick={() => updateQuantity(item._id, item.quantity - 1)} disabled={loading}><FiMinus size={12} /></button>
                                   <span style={{ color: '#111827', fontWeight: 700, fontSize: 14, minWidth: 22, textAlign: 'center' }}>{item?.quantity}</span>
-                                  <button style={s.qtyBtnLight} onClick={() => updateQuantity(item._id, item.quantity + 1)} disabled={loading}><FiPlus size={12} /></button>
+                                  <button
+                                    style={{
+                                      ...s.qtyBtnLight,
+                                      opacity: item.quantity >= getItemStock(item) ? 0.4 : 1,
+                                      cursor: item.quantity >= getItemStock(item) ? 'not-allowed' : 'pointer',
+                                    }}
+                                    onClick={() => updateQuantity(item._id, item.quantity + 1, getItemStock(item))}
+                                    disabled={loading || item.quantity >= getItemStock(item)}
+                                  >
+                                    <FiPlus size={12} />
+                                  </button>
                                 </div>
                               )}
                               {item.isFreeItem && (

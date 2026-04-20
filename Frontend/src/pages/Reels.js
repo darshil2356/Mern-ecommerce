@@ -23,7 +23,7 @@ const Reels = () => {
   // ─── state ──────────────────────────────────────────────────────────────────
   const [reels, setReels]             = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [isMuted, setIsMuted]         = useState(true);
+  const [isMuted, setIsMuted]         = useState(false);
   const [paused, setPaused]           = useState(false);
   const [progress, setProgress]       = useState(0);
   const [likes, setLikes]             = useState({});
@@ -39,7 +39,7 @@ const Reels = () => {
   const containerRef    = useRef(null);
   const videoRefs       = useRef({});
   const loadingRef      = useRef(false);
-  const isMutedRef      = useRef(true);
+  const isMutedRef      = useRef(false);
   const currentIdxRef   = useRef(0);
   const reelsRef        = useRef([]);
   const hasMoreRef      = useRef(true);
@@ -90,7 +90,10 @@ const Reels = () => {
     const v = videoRefs.current[index];
     if (!v) return;
     v.muted = isMutedRef.current;
-    v.play().catch(() => {});
+    v.play().catch(() => {
+      v.muted = true;
+      v.play().catch(() => {});
+    });
   }, []);
 
   // ─── when active index changes: pause others, play current ───────────────────
@@ -363,7 +366,7 @@ const Reels = () => {
                     ref={(el) => {
                       if (!el) return;
                       videoRefs.current[index] = el;
-                      el.muted = true;
+                      el.muted = isMutedRef.current;
                     }}
                     src={item.videos?.[0]?.url}
                     playsInline

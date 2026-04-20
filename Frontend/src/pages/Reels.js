@@ -23,7 +23,7 @@ const Reels = () => {
   // ─── state ──────────────────────────────────────────────────────────────────
   const [reels, setReels]             = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [isMuted, setIsMuted]         = useState(false);
+  const [isMuted, setIsMuted]         = useState(true);
   const [paused, setPaused]           = useState(false);
   const [progress, setProgress]       = useState(0);
   const [likes, setLikes]             = useState({});
@@ -39,7 +39,7 @@ const Reels = () => {
   const containerRef    = useRef(null);
   const videoRefs       = useRef({});
   const loadingRef      = useRef(false);
-  const isMutedRef      = useRef(false);
+  const isMutedRef      = useRef(true);
   const currentIdxRef   = useRef(0);
   const reelsRef        = useRef([]);
   const hasMoreRef      = useRef(true);
@@ -125,7 +125,7 @@ const Reels = () => {
     Object.values(videoRefs.current).forEach(v => { if (v) v.muted = isMuted; });
   }, [isMuted]);
 
-  // ─── scroll handler ───────────────────────────────────────────────────────────
+  // ─── scroll: callback ref attaches listener the moment the element mounts ─────
   const handleScroll = useCallback(() => {
     const el = containerRef.current;
     if (!el) return;
@@ -134,6 +134,17 @@ const Reels = () => {
       setCurrentIndex(idx);
     }
   }, []);
+
+  // callback ref — fires when the DOM node is created (not just on effect deps)
+  const scrollContainerRef = useCallback((el) => {
+    if (containerRef.current) {
+      containerRef.current.removeEventListener("scroll", handleScroll);
+    }
+    containerRef.current = el;
+    if (el) {
+      el.addEventListener("scroll", handleScroll, { passive: true });
+    }
+  }, [handleScroll]);
 
   const scrollToIndex = useCallback((index) => {
     const el = containerRef.current;
@@ -299,10 +310,13 @@ const Reels = () => {
         <style>{`
           .rl-wrap  { width:100%; max-width:430px; height:100%; position:relative; }
           .rl-scroll{ height:100%; overflow-y:scroll; overflow-x:hidden;
-                      scroll-snap-type:y mandatory; scrollbar-width:none; }
+                      scroll-snap-type:y mandatory; scrollbar-width:none;
+                      -webkit-overflow-scrolling:touch;
+                      will-change:scroll-position; }
           .rl-scroll::-webkit-scrollbar { display:none }
           .rl-item  { height:100vh; height:100svh; scroll-snap-align:start;
-                      position:relative; overflow:hidden; flex-shrink:0; }
+                      position:relative; overflow:hidden; flex-shrink:0;
+                      transform:translateZ(0); }
           @keyframes heartPop {
             0%   { transform:translate(-50%,-50%) scale(0);   opacity:1 }
             40%  { transform:translate(-50%,-50%) scale(1.5); opacity:1 }
@@ -331,7 +345,7 @@ const Reels = () => {
           </div>
 
           {/* ── scroll container ─────────────────────────────────────────── */}
-          <div ref={containerRef} className="rl-scroll" onScroll={handleScroll}>
+          <div ref={scrollContainerRef} className="rl-scroll">
 
             {reels.map((item, index) => {
               const likeState = likes[item._id] || { liked: false, count: 0 };
@@ -365,20 +379,21 @@ const Reels = () => {
                   <video
                     ref={(el) => {
                       if (!el) return;
+                      const isNew = !videoRefs.current[index];
                       videoRefs.current[index] = el;
                       el.muted = isMutedRef.current;
+                      if (isNew && index === currentIdxRef.current) {
+                        el.play().catch(() => { el.muted = true; el.play().catch(() => {}); });
+                      }
                     }}
                     src={item.videos?.[0]?.url}
                     playsInline
-                    loop={false}
+                    loop
                     preload={Math.abs(index - currentIndex) <= 1 ? "auto" : "metadata"}
                     onTimeUpdate={() => {
                       if (!isActive) return;
                       const v = videoRefs.current[index];
                       if (v?.duration) setProgress((v.currentTime / v.duration) * 100);
-                    }}
-                    onEnded={() => {
-                      if (index < reels.length - 1) scrollToIndex(index + 1);
                     }}
                     style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
                   />
@@ -428,12 +443,12 @@ const Reels = () => {
                   }}>
                     {/* product avatar */}
                     <div style={{ width: "48px", height: "48px", borderRadius: "50%", border: "2px solid rgba(255,255,255,0.9)", overflow: "hidden", boxShadow: "0 2px 10px rgba(0,0,0,0.5)" }}>
-                      <img src={item.images?.[0]?.url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                      <img src={item.images?.[0]?.url} alt="" loading="lazy" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                     </div>
 
                     {/* like */}
                     <div onClick={(e) => handleLike(e, item._id)} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "5px", cursor: "pointer" }}>
-                      <div style={{ width: "48px", height: "48px", borderRadius: "50%", background: "rgba(255,255,255,0.12)", backdropFilter: "blur(10px)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "22px" }}>
+                      <div style={{ width: "48px", height: "48px", borderRadius: "50%", background: "rgba(0,0,0,0.35)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "22px" }}>
                         {likeState.liked
                           ? <BsHeartFill style={{ color: "#ff3b5c" }} />
                           : <BsHeart style={{ color: "#fff" }} />
@@ -446,7 +461,7 @@ const Reels = () => {
 
                     {/* share */}
                     <div onClick={(e) => handleShareOpen(e, item)} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "5px", cursor: "pointer" }}>
-                      <div style={{ width: "48px", height: "48px", borderRadius: "50%", background: "rgba(255,255,255,0.12)", backdropFilter: "blur(10px)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "20px" }}>
+                      <div style={{ width: "48px", height: "48px", borderRadius: "50%", background: "rgba(0,0,0,0.35)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "20px" }}>
                         <BsShare style={{ color: "#fff" }} />
                       </div>
                       <span style={{ color: "#fff", fontSize: "12px", fontWeight: 700, textShadow: "0 1px 4px rgba(0,0,0,0.9)" }}>Share</span>
@@ -469,8 +484,8 @@ const Reels = () => {
                       data-interactive
                       onClick={(e) => { e.stopPropagation(); navigate(productUrl(item)); }}
                       style={{
-                        background: "rgba(255,255,255,0.1)", backdropFilter: "blur(14px)",
-                        border: "1px solid rgba(255,255,255,0.18)",
+                        background: "rgba(0,0,0,0.55)",
+                        border: "1px solid rgba(255,255,255,0.15)",
                         borderRadius: "14px", padding: "10px 12px",
                         display: "flex", alignItems: "center", gap: "10px", cursor: "pointer",
                       }}

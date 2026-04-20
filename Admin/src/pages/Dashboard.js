@@ -29,7 +29,7 @@ const Dashboard = () => {
   const dashboardStats = useSelector((state) => state?.auth?.dashboardStats);
   const dailySalesData = useSelector((state) => state?.auth?.dailySalesData);
   
-  const [selectedMode, setSelectedMode] = useState("OFFLINE");
+  const [selectedMode, setSelectedMode] = useState("ALL");
   const [selectedFilter, setSelectedFilter] = useState(FILTERS.MONTH);
   const [dateRange, setDateRange] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -79,21 +79,28 @@ const Dashboard = () => {
     return () => clearTimeout(timer);
   }, [selectedFilter, selectedMode, dateRange]);
 
-  // Filter orders based on mode and date
+  // Filter orders based on mode and date (all filter types)
   const filteredOrders = useMemo(() => {
     if (!orderState) return [];
+    const now = dayjs();
     return orderState.filter((order) => {
       if (selectedMode !== "ALL" && (order.mode || "ONLINE") !== selectedMode) return false;
-      if (dateRange) {
-        const orderDate = dayjs(order.createdAt);
+      const orderDate = dayjs(order.createdAt);
+      if (selectedFilter === FILTERS.CUSTOM && dateRange) {
         const [start, end] = dateRange;
-        if (orderDate.isBefore(start.startOf("day")) || orderDate.isAfter(end.endOf("day"))) {
-          return false;
-        }
+        if (orderDate.isBefore(start.startOf("day")) || orderDate.isAfter(end.endOf("day"))) return false;
+      } else if (selectedFilter === FILTERS.TODAY) {
+        if (!orderDate.isSame(now, "day")) return false;
+      } else if (selectedFilter === FILTERS.WEEK) {
+        if (orderDate.isBefore(now.subtract(7, "day").startOf("day"))) return false;
+      } else if (selectedFilter === FILTERS.MONTH) {
+        if (!orderDate.isSame(now, "month")) return false;
+      } else if (selectedFilter === FILTERS.YEAR) {
+        if (!orderDate.isSame(now, "year")) return false;
       }
       return true;
     });
-  }, [orderState, selectedMode, dateRange]);
+  }, [orderState, selectedMode, dateRange, selectedFilter]);
 
   // Calculate stats from filtered orders (as fallback)
   const stats = useMemo(() => {
@@ -148,29 +155,42 @@ const Dashboard = () => {
       })));
     }
 
-    // Order status data
-    const statusCount = {};
-    filteredOrders.forEach((order) => {
-      const status = order.orderStatus || "Processing";
-      statusCount[status] = (statusCount[status] || 0) + 1;
-    });
-    setOrderStatusData(Object.keys(statusCount).map((status) => ({ type: status, value: statusCount[status] })));
+    // Order status data — prefer API data, fall back to frontend calculation
+    if (dashboardStats?.ordersByStatus?.length > 0) {
+      setOrderStatusData(dashboardStats.ordersByStatus.map((s) => ({
+        type: s._id || "Unknown",
+        value: s.count
+      })));
+    } else {
+      const statusCount = {};
+      filteredOrders.forEach((order) => {
+        const status = order.orderStatus || "Processing";
+        statusCount[status] = (statusCount[status] || 0) + 1;
+      });
+      setOrderStatusData(Object.keys(statusCount).map((status) => ({ type: status, value: statusCount[status] })));
+    }
 
-    // Payment mode distribution
-    const modeCount = {};
-    filteredOrders.forEach((order) => {
-      const mode = order.mode || "ONLINE";
-      if (!modeCount[mode]) {
-        modeCount[mode] = { count: 0, revenue: 0 };
-      }
-      modeCount[mode].count += 1;
-      modeCount[mode].revenue += order.totalPriceAfterDiscount || order.totalPrice || 0;
-    });
-    setPaymentModeData(Object.keys(modeCount).map((mode) => ({ 
-      type: mode, 
-      value: modeCount[mode].count,
-      revenue: modeCount[mode].revenue 
-    })));
+    // Payment mode distribution — prefer API data, fall back to frontend calculation
+    if (dashboardStats?.ordersByMode?.length > 0) {
+      setPaymentModeData(dashboardStats.ordersByMode.map((m) => ({
+        type: m._id || "ONLINE",
+        value: m.count,
+        revenue: m.revenue
+      })));
+    } else {
+      const modeCount = {};
+      filteredOrders.forEach((order) => {
+        const mode = order.mode || "ONLINE";
+        if (!modeCount[mode]) modeCount[mode] = { count: 0, revenue: 0 };
+        modeCount[mode].count += 1;
+        modeCount[mode].revenue += order.totalPriceAfterDiscount || order.totalPrice || 0;
+      });
+      setPaymentModeData(Object.keys(modeCount).map((mode) => ({
+        type: mode,
+        value: modeCount[mode].count,
+        revenue: modeCount[mode].revenue
+      })));
+    }
 
     // Hourly distribution
     if (dashboardStats?.hourlyData) {
@@ -542,8 +562,8 @@ const Dashboard = () => {
               <div style={{ position: "absolute", top: "-20px", right: "-20px", width: "100px", height: "100px", background: "rgba(168, 85, 247, 0.2)", borderRadius: "50%" }}></div>
               <div className="d-flex justify-content-between align-items-center">
                 <div>
-                  <p className="text-muted mb-1" style={{ fontSize: "13px", fontWeight: 500, color: "#64748b" }}>Order Status</p>
-                  <h3 className="mb-0" style={{ fontWeight: 700, color: "#7e22ce", fontSize: "26px" }}>{orderStatusData.length} Types</h3>
+                  <p className="text-muted mb-1" style={{ fontSize: "13px", fontWeight: 500, color: "#64748b" }}>Delivered Orders</p>
+                  <h3 className="mb-0" style={{ fontWeight: 700, color: "#7e22ce", fontSize: "26px" }}>{orderStatusData.find(s => s.type === "Delivered")?.value || 0}</h3>
                 </div>
                 <div style={{
                   width: "50px",
@@ -565,7 +585,7 @@ const Dashboard = () => {
               <div className="d-flex align-items-center gap-2">
                 <span style={{ color: "#22c55e", fontSize: "12px", fontWeight: 600, display: "flex", alignItems: "center", gap: "4px" }}><BsCheckCircle /> Active</span>
               </div>
-              <div className="mt-1" style={{ color: "#64748b", fontSize: "12px" }}>Processing to Delivered</div>
+              <div className="mt-1" style={{ color: "#64748b", fontSize: "12px" }}>{displayStats.totalOrders > 0 ? (((orderStatusData.find(s => s.type === "Delivered")?.value || 0) / displayStats.totalOrders) * 100).toFixed(1) : 0}% delivery rate</div>
             </div>
           </div>
         </Col>
@@ -644,7 +664,7 @@ const Dashboard = () => {
             </Card>
           </Col>
         ) : (
-          <Col xs={24} lg={8}>
+          <Col xs={24} lg={16}>
             <Card
               className="animate__animated animate__fadeInRight"
               title={<span style={{ fontWeight: 600, fontSize: "15px" }}><BsCart4 style={{ marginRight: 8, color: "#52c41a" }} />Sales Overview</span>}
@@ -657,10 +677,10 @@ const Dashboard = () => {
         )}
 
         {/* Top Products */}
-        <Col xs={24} lg={8}>
+        <Col xs={24} lg={12}>
           <Card
             className="animate__animated animate__fadeInLeft"
-            title={<span style={{ fontWeight: 600, fontSize: "15px" }}><BsExclamationTriangle style={{ marginRight: 8, color: "#f5222d" }} />Top Products</span>}
+            title={<span style={{ fontWeight: 600, fontSize: "15px" }}><BsLightning style={{ marginRight: 8, color: "#f5222d" }} />Top Products</span>}
             style={{ borderRadius: "20px", border: "none", boxShadow: "0 8px 24px rgba(0,0,0,0.08)" }}
             bodyStyle={{ padding: "16px", maxHeight: 320, overflow: "auto" }}
           >
@@ -686,7 +706,7 @@ const Dashboard = () => {
         </Col>
 
         {/* Top Customers */}
-        <Col xs={24} lg={8}>
+        <Col xs={24} lg={12}>
           <Card
             className="animate__animated animate__fadeInRight"
             title={<span style={{ fontWeight: 600, fontSize: "15px" }}><BsPeople style={{ marginRight: 8, color: "#1890ff" }} />Top Customers</span>}

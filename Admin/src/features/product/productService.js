@@ -38,7 +38,7 @@ const updateProduct = async (product) => {
 
       sizeStock: product.productData.sizeStock,
       hsnCode: product.productData.hsnCode,
-
+      reelUrl: product.productData.reelUrl || null,
     },
     
   );

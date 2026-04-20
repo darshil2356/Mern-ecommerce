@@ -88,6 +88,11 @@ var productSchema = new mongoose.Schema(
       },
     ],
 
+    reelUrl: {
+      type: String,
+      default: null,
+    },
+
     // color: [{ type: mongoose.Schema.Types.ObjectId, ref: "Color" }],
     color: {
       type: mongoose.Schema.Types.ObjectId,

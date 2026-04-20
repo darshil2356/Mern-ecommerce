@@ -65,6 +65,11 @@ let schema = yup.object().shape({
     online: yup.boolean(),
   }),
   videos: yup.array().optional(),
+  reelUrl: yup.string()
+    .url("Must be a valid URL")
+    .matches(/youtube\.com|youtu\.be/, "Must be a YouTube URL")
+    .nullable()
+    .optional(),
 });
 
 const Addproduct = () => {
@@ -76,6 +81,8 @@ const Addproduct = () => {
   const [images, setImages] = useState([]);
   const [videos, setVideos] = useState([]);
   const [previewBarcode, setPreviewBarcode] = useState("");
+  const imagesInitialized = useRef(false);
+  const videosInitialized = useRef(false);
   
   // Modal state for barcode view
   const [barcodeModalOpen, setBarcodeModalOpen] = useState(false);
@@ -158,6 +165,7 @@ const Addproduct = () => {
     attributes: productAttributes,
     seo: productSeo,
     shipping: productShipping,
+    reelUrl: productReelUrl,
   } = newProduct;
 
   const videoState = useSelector((state) => state?.upload?.videos);
@@ -251,6 +259,7 @@ const Addproduct = () => {
       },
       images: productImages || "",
       videos: productVideos || [],
+      reelUrl: productReelUrl || "",
     },
     validationSchema: schema,
     onSubmit: async (values) => {
@@ -331,8 +340,10 @@ const Addproduct = () => {
     if (getProductId) {
       if (imgState.length > 0) {
         formik.setFieldValue("images", imgState);
-      } else if (productImages) {
+      } else if (productImages && !imagesInitialized.current) {
+        // Only set from DB on first load — never restore after a manual delete
         formik.setFieldValue("images", productImages);
+        imagesInitialized.current = true;
       }
     } else {
       formik.setFieldValue("images", imgState);
@@ -341,8 +352,9 @@ const Addproduct = () => {
     if (getProductId) {
       if (videoState.length > 0) {
         formik.setFieldValue("videos", videoState);
-      } else if (productVideos) {
+      } else if (productVideos && !videosInitialized.current) {
         formik.setFieldValue("videos", productVideos);
+        videosInitialized.current = true;
       }
     } else {
       formik.setFieldValue("videos", videoState);
@@ -1249,7 +1261,24 @@ const Addproduct = () => {
                     >
                       <button
                         type="button"
-                        onClick={() => dispatch(delVideo(v.public_id))}
+                        onClick={async () => {
+                          await dispatch(delVideo(v.public_id));
+                          const updatedVideos = formik.values.videos.filter(
+                            (vid) => vid.public_id !== v.public_id
+                          );
+                          formik.setFieldValue("videos", updatedVideos);
+                          if (getProductId) {
+                            await dispatch(
+                              updateAProduct({
+                                id: getProductId,
+                                productData: {
+                                  ...formik.values,
+                                  videos: updatedVideos,
+                                },
+                              })
+                            );
+                          }
+                        }}
                         style={{
                           position: "absolute",
                           top: "4px",
@@ -1282,6 +1311,52 @@ const Addproduct = () => {
                     </div>
                   ))}
                 </div>
+              </div>
+            )}
+          </Card>
+
+          {/* Reel / YouTube URL Card */}
+          <Card
+            style={{
+              borderRadius: "12px",
+              border: "none",
+              boxShadow: "0 1px 3px rgba(0,0,0,0.08)",
+            }}
+            bodyStyle={{ padding: "24px" }}
+          >
+            <div className="d-flex align-items-center gap-2 mb-3">
+              <span style={{ fontSize: "18px" }}>▶️</span>
+              <h5 className="mb-0" style={{ fontWeight: 600 }}>YouTube Short / Reel URL</h5>
+            </div>
+            <p style={{ color: "#8c8c8c", fontSize: "13px", marginBottom: "12px" }}>
+              Paste a YouTube video or Short URL. It will appear in the product media gallery — no server storage needed.
+            </p>
+            <input
+              type="url"
+              name="reelUrl"
+              placeholder="https://www.youtube.com/watch?v=... or https://youtu.be/..."
+              value={formik.values.reelUrl}
+              onChange={formik.handleChange}
+              onBlur={formik.handleBlur}
+              style={{
+                width: "100%",
+                padding: "10px 14px",
+                borderRadius: "8px",
+                border: formik.touched.reelUrl && formik.errors.reelUrl
+                  ? "1px solid #ff4d4f"
+                  : "1px solid #d9d9d9",
+                fontSize: "14px",
+                outline: "none",
+              }}
+            />
+            {formik.touched.reelUrl && formik.errors.reelUrl && (
+              <div style={{ color: "#ff4d4f", fontSize: "12px", marginTop: "4px" }}>
+                {formik.errors.reelUrl}
+              </div>
+            )}
+            {formik.values.reelUrl && !formik.errors.reelUrl && (
+              <div style={{ marginTop: "12px", fontSize: "12px", color: "#52c41a" }}>
+                ✓ YouTube URL saved — video will appear in the product media gallery.
               </div>
             )}
           </Card>

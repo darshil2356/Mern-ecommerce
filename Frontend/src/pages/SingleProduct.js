@@ -297,7 +297,15 @@ const SingleProduct = () => {
     return false;
   };
 
-  // Build media array with images and videos
+  // Extract YouTube video ID from reelUrl
+  const getYouTubeId = (url) => {
+    if (!url) return null;
+    const m = url.match(/(?:youtube\.com\/(?:watch\?v=|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
+    return m ? m[1] : null;
+  };
+  const ytVideoId = getYouTubeId(productState?.reelUrl);
+
+  // Build media array with images, videos, and YouTube reel
   const media = [
     ...(productState?.images || []).map((i) => ({
       type: "image",
@@ -307,6 +315,7 @@ const SingleProduct = () => {
       type: "video",
       url: v.url,
     })),
+    ...(ytVideoId ? [{ type: "youtube", videoId: ytVideoId }] : []),
   ];
 
   // Get active media
@@ -452,7 +461,24 @@ const SingleProduct = () => {
               }}
             >
               <AnimatePresence mode="wait">
-                {activeMedia?.type === "video" ? (
+                {activeMedia?.type === "youtube" ? (
+                  <motion.div
+                    key={`youtube-${activeMediaIndex}`}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    style={{ width: "100%", height: "100%", background: "#000" }}
+                  >
+                    <iframe
+                      src={`https://www.youtube.com/embed/${activeMedia.videoId}?autoplay=1&mute=1&loop=1&playlist=${activeMedia.videoId}`}
+                      title="Product Reel"
+                      frameBorder="0"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen
+                      style={{ width: "100%", height: "100%", display: "block" }}
+                    />
+                  </motion.div>
+                ) : activeMedia?.type === "video" ? (
                   <motion.video
                     key={`video-${activeMediaIndex}`}
                     initial={{ opacity: 0 }}
@@ -526,12 +552,12 @@ const SingleProduct = () => {
               )}
 
               {/* Media Type Badge */}
-              {activeMedia?.type === "video" && (
+              {(activeMedia?.type === "video" || activeMedia?.type === "youtube") && (
                 <div style={{
                   position: 'absolute',
                   top: '15px',
                   left: '15px',
-                  background: 'rgba(0,0,0,0.7)',
+                  background: activeMedia?.type === "youtube" ? 'rgba(255,0,0,0.85)' : 'rgba(0,0,0,0.7)',
                   color: '#fff',
                   padding: '6px 14px',
                   borderRadius: '20px',
@@ -539,9 +565,10 @@ const SingleProduct = () => {
                   fontWeight: 600,
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '6px'
+                  gap: '6px',
+                  pointerEvents: 'none'
                 }}>
-                  <AiOutlinePlayCircle /> Video
+                  <AiOutlinePlayCircle /> {activeMedia?.type === "youtube" ? "Reel" : "Video"}
                 </div>
               )}
             </motion.div>
@@ -572,7 +599,26 @@ const SingleProduct = () => {
                       transition: 'all 0.2s ease'
                     }}
                   >
-                    {item.type === "video" ? (
+                    {item.type === "youtube" ? (
+                      <div style={{ position: 'relative', width: '100%', height: '100%', background: '#000' }}>
+                        <img
+                          src={`https://img.youtube.com/vi/${item.videoId}/mqdefault.jpg`}
+                          alt="YouTube Reel"
+                          style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                        />
+                        <div style={{
+                          position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          background: 'rgba(0,0,0,0.3)'
+                        }}>
+                          <div style={{
+                            background: 'rgba(255,0,0,0.9)', borderRadius: '50%', width: '30px', height: '30px',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center'
+                          }}>
+                            <AiOutlinePlayCircle style={{ color: '#fff', fontSize: '16px' }} />
+                          </div>
+                        </div>
+                      </div>
+                    ) : item.type === "video" ? (
                       <div style={{ position: 'relative', width: '100%', height: '100%' }}>
                         <video
                           src={item.url}

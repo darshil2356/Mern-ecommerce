@@ -781,8 +781,13 @@ const getReels = asyncHandler(async (req, res) => {
     }
   } catch {}
 
-  const allReels = await Product.find({ "videos.0": { $exists: true } })
-    .select("title price images videos reelLikes reelLikedBy slug createdAt")
+  const allReels = await Product.find({
+    $or: [
+      { "videos.0": { $exists: true } },
+      { reelUrl: { $exists: true, $ne: null, $ne: "" } },
+    ],
+  })
+    .select("title price images videos reelUrl reelLikes reelLikedBy slug createdAt")
     .lean();
 
   const now = Date.now();

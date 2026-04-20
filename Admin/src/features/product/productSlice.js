@@ -143,6 +143,7 @@ export const productSlice = createSlice({
         state.attributes = action.payload.attributes || {};
         state.seo = action.payload.seo || {};
         state.shipping = action.payload.shipping || {};
+        state.reelUrl = action.payload.reelUrl || "";
       })
       .addCase(getAProduct.rejected, (state, action) => {
         state.isLoading = false;

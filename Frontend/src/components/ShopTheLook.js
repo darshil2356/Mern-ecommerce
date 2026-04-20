@@ -4,6 +4,12 @@ import { getAllProducts } from "../features/products/productSlilce";
 import { motion } from "framer-motion";
 import { BsPlay, BsHeart, BsBag } from "react-icons/bs";
 
+const getYtId = (url) => {
+  if (!url) return null;
+  const m = url.match(/(?:youtube\.com\/(?:watch\?v=|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
+  return m ? m[1] : null;
+};
+
 const ShopTheLook = ({ navigate }) => {
   const dispatch = useDispatch();
   const videoRefs = useRef([]);
@@ -15,22 +21,26 @@ const ShopTheLook = ({ navigate }) => {
 
   const productState = useSelector((state) => state?.product?.product || []);
 
-  // Build video list from products with videos
+  // Build video list — include uploaded videos AND YouTube reelUrl products
   const dynamicVideos = productState
-    .filter(
-      (p) =>
-        p &&
-        Array.isArray(p?.videos) &&
-        p.videos.length > 0 &&
-        p.videos[0]?.url
-    )
-    .map((p) => ({
-      src: p.videos[0].url,
-      productId: p._id,
-      name: p.title,
-      price: p.price,
-      image: p.images?.[0]?.url
-    }));
+    .filter((p) => {
+      if (!p) return false;
+      const hasUploadedVideo = Array.isArray(p.videos) && p.videos.length > 0 && p.videos[0]?.url;
+      const hasYtReel = !!getYtId(p.reelUrl);
+      return hasUploadedVideo || hasYtReel;
+    })
+    .map((p) => {
+      const ytId = getYtId(p.reelUrl);
+      const hasUploadedVideo = Array.isArray(p.videos) && p.videos.length > 0 && p.videos[0]?.url;
+      return {
+        src: hasUploadedVideo ? p.videos[0].url : null,
+        ytId: hasUploadedVideo ? null : ytId,
+        productId: p._id,
+        name: p.title,
+        price: p.price,
+        image: p.images?.[0]?.url,
+      };
+    });
 
   // Auto-play management - handle Promise rejections
   useEffect(() => {
@@ -45,24 +55,17 @@ const ShopTheLook = ({ navigate }) => {
 
   useEffect(() => {
     if (!dynamicVideos.length) return;
-    
     videoRefs.current.forEach((video, index) => {
-      if (!video) return;
+      if (!video) return; // null = YouTube iframe slot, skip
       try {
         if (index === activeVideo) {
+          video.muted = true;
           video.currentTime = 0;
-          const playPromise = video.play();
-          if (playPromise !== undefined) {
-            playPromise.catch(() => {
-              // Ignore play interruption errors
-            });
-          }
+          video.play().catch(() => {});
         } else {
           video.pause();
         }
-      } catch (e) {
-        // Ignore errors
-      }
+      } catch (e) {}
     });
   }, [activeVideo, dynamicVideos.length]);
 
@@ -104,11 +107,30 @@ const ShopTheLook = ({ navigate }) => {
             }}
             onClick={() => navigate(`/product/${item.productId}`)}
           >
-            {/* Video */}
+            {/* Video / YouTube */}
+            {item.ytId ? (
+              index === activeVideo ? (
+                <iframe
+                  src={`https://www.youtube.com/embed/${item.ytId}?autoplay=1&mute=1&loop=1&playlist=${item.ytId}&playsinline=1&controls=0&rel=0`}
+                  title={item.name}
+                  frameBorder="0"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  style={{ width: "100%", height: "100%", display: "block", border: "none" }}
+                />
+              ) : (
+                <img
+                  src={`https://img.youtube.com/vi/${item.ytId}/hqdefault.jpg`}
+                  alt={item.name}
+                  style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                />
+              )
+            ) : (
             <video
-              ref={(el) => (videoRefs.current[index] = el)}
+              ref={(el) => {
+                videoRefs.current[index] = el;
+                if (el) el.muted = true; // fix React muted prop bug
+              }}
               src={item.src}
-              muted
               loop
               playsInline
               preload="auto"
@@ -119,6 +141,7 @@ const ShopTheLook = ({ navigate }) => {
                 transition: 'transform 0.5s ease'
               }}
             />
+            )}
 
             {/* Gradient Overlay */}
             <div style={{

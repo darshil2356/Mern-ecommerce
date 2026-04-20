@@ -393,14 +393,53 @@ const Home = () => {
   });
   const getColorSwatch = c => c?.hex || c?.title || "#d1d5db";
 
+  /* Track when we last successfully loaded data */
+  const lastFetchRef = useRef(0);
+
+  const loadData = useRef(async () => {});
+
   useEffect(() => {
     const load = async () => {
-      try { setIsLoading(true); await Promise.all([dispatch(getAllBlogs()), dispatch(getAllProducts({ limit: 20 }))]); }
-      catch (e) { console.error(e); } finally { setIsLoading(false); }
+      try {
+        setIsLoading(true);
+        await Promise.all([
+          dispatch(getAllBlogs()),
+          dispatch(getAllProducts({ limit: 20 })),
+        ]);
+        lastFetchRef.current = Date.now();
+      } catch (e) {
+        console.error(e);
+      } finally {
+        setIsLoading(false);
+      }
     };
+
+    loadData.current = load;
+
     axios.get(`${base_url}bundles/active`).then(r => setActiveBundles(r.data || [])).catch(() => {});
     load();
   }, [dispatch]);
+
+  /* ── Re-fetch when the user returns to this tab after ≥ 5 minutes ──
+     This fixes the "all APIs pending" issue caused by the backend server
+     sleeping on free-tier hosting while the tab was in the background.
+  ── */
+  useEffect(() => {
+    const STALE_MS = 5 * 60 * 1000; // 5 minutes
+
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") {
+        const stale = Date.now() - lastFetchRef.current > STALE_MS;
+        if (stale) {
+          loadData.current();
+          axios.get(`${base_url}bundles/active`).then(r => setActiveBundles(r.data || [])).catch(() => {});
+        }
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () => document.removeEventListener("visibilitychange", handleVisibility);
+  }, []);
 
   const products        = productState || [];
   const featuredProducts = products.filter(p => p?.tags === "featured");

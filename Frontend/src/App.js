@@ -9,6 +9,8 @@ import usePushNotification from "./utils/usePushNotification";
 import trackingService from "./utils/trackingService";
 import { PrivateRoutes } from "./routing/PrivateRoutes";
 import { OpenRoutes } from "./routing/OpenRoutes";
+import axios from "axios";
+import { base_url } from "./utils/axiosConfig";
 
 const Home = lazy(() => import("./pages/Home"));
 const About = lazy(() => import("./pages/About"));
@@ -43,6 +45,19 @@ function App() {
     trackingService.init(user?._id);
     return () => trackingService.destroy();
   }, [user]);
+
+  /* ── Keep-alive ping every 10 minutes ──────────────────────────────
+     Free-tier backends (Render, Railway) sleep after ~15 min idle.
+     A silent ping every 10 min keeps the server awake while anyone
+     has the site open, so users never hit a cold-start hang.
+  ─────────────────────────────────────────────────────────────────── */
+  useEffect(() => {
+    const ping = () => {
+      axios.get(`${base_url}product`, { params: { limit: 1 }, timeout: 8000 }).catch(() => {});
+    };
+    const id = setInterval(ping, 10 * 60 * 1000); // every 10 min
+    return () => clearInterval(id);
+  }, []);
 
   return (
     <>

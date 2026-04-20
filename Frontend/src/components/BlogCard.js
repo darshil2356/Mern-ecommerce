@@ -1,51 +1,65 @@
-import React from "react";
+import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 
+const BlogPlaceholder = ({ title }) => (
+  <div style={{
+    width: "100%", height: "100%",
+    background: "linear-gradient(135deg, #1a1a1a 0%, #2d1a0a 50%, #1a1a2e 100%)",
+    display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+    gap: 10, position: "relative", overflow: "hidden",
+  }}>
+    {/* Decorative circles */}
+    <div style={{ position: "absolute", top: -30, right: -30, width: 120, height: 120, borderRadius: "50%", border: "1px solid rgba(212,175,55,0.15)", pointerEvents: "none" }} />
+    <div style={{ position: "absolute", bottom: -20, left: -20, width: 80, height: 80, borderRadius: "50%", border: "1px solid rgba(212,175,55,0.1)", pointerEvents: "none" }} />
+    {/* Pen/article icon */}
+    <svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="rgba(212,175,55,0.7)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 20h9" /><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
+    </svg>
+    <p style={{ color: "rgba(212,175,55,0.7)", fontSize: "10px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "2px", margin: 0 }}>Style Journal</p>
+    {title && (
+      <p style={{ color: "rgba(255,255,255,0.4)", fontSize: "11px", textAlign: "center", padding: "0 16px", margin: 0, lineHeight: 1.4,
+        display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+        {title}
+      </p>
+    )}
+  </div>
+);
+
 const BlogCard = (props) => {
   const { id, title, description, image, date } = props;
-  
-  // Clean up description - remove HTML tags and limit length
-  const cleanDescription = description 
+  const [imgError, setImgError] = useState(false);
+
+  const cleanDescription = description
     ? description.replace(/<[^>]*>/g, '').substring(0, 100) + "..."
     : "No description available";
 
+  const showPlaceholder = !image || imgError;
+
   return (
     <motion.div
-      whileHover={{ y: -8 }}
+      whileHover={{ y: -6 }}
       transition={{ duration: 0.3 }}
       style={{
-        background: '#fff',
-        borderRadius: '16px',
-        overflow: 'hidden',
-        boxShadow: '0 4px 20px rgba(0,0,0,0.06)',
-        height: '100%',
-        display: 'flex',
-        flexDirection: 'column'
+        background: '#fff', borderRadius: '16px', overflow: 'hidden',
+        boxShadow: '0 4px 20px rgba(0,0,0,0.06)', height: '100%',
+        display: 'flex', flexDirection: 'column'
       }}
     >
       {/* Image */}
-      <div style={{ 
-        height: '200px', 
-        overflow: 'hidden',
-        position: 'relative'
-      }}>
-        <img
-          src={image || "images/blog-1.jpg"}
-          alt={title || "blog"}
-          style={{
-            width: '100%',
-            height: '100%',
-            objectFit: 'cover',
-            transition: 'transform 0.5s ease'
-          }}
-          onMouseOver={(e) => {
-            e.target.style.transform = 'scale(1.1)';
-          }}
-          onMouseOut={(e) => {
-            e.target.style.transform = 'scale(1)';
-          }}
-        />
+      <div style={{ height: '200px', overflow: 'hidden', position: 'relative', flexShrink: 0 }}>
+        {showPlaceholder ? (
+          <BlogPlaceholder title={title} />
+        ) : (
+          <img
+            src={image}
+            alt={title || "blog"}
+            style={{ width: '100%', height: '100%', objectFit: 'cover', transition: 'transform 0.5s ease' }}
+            onError={() => setImgError(true)}
+            onMouseOver={e => (e.target.style.transform = 'scale(1.08)')}
+            onMouseOut={e  => (e.target.style.transform = 'scale(1)')}
+          />
+        )}
       </div>
       
       {/* Content */}

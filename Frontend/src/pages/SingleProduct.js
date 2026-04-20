@@ -18,6 +18,7 @@ import trackingService from "../utils/trackingService";
 import { productUrl } from "../utils/seoUrl";
 
 const SingleProduct = () => {
+  const productState = useSelector((state) => state?.product?.singleproduct);
   const [color, setColor] = useState(null);
   const [size, setSize] = useState(null);
   const [quantity, setQuantity] = useState(1);
@@ -27,7 +28,7 @@ const SingleProduct = () => {
   const [productBundles, setProductBundles] = useState([]);
   const [loadingBundles, setLoadingBundles] = useState(false);
   const [addingBundle, setAddingBundle] = useState(null);
-  const [productOffers, setProductOffers] = useState([]);
+  const productOffers = productState?.offers || [];
   const [bundleSizeModal, setBundleSizeModal] = useState(null); // holds the bundle being configured
   const [bundleSelections, setBundleSelections] = useState({});
   // Review state
@@ -43,7 +44,6 @@ const SingleProduct = () => {
   const dispatch = useDispatch();
   const fileInputRef = useRef(null);
   
-  const productState = useSelector((state) => state?.product?.singleproduct);
   const productsState = useSelector((state) => state?.product?.product);
   const cartState = useSelector((state) => state?.auth?.cartProducts);
   const wishlistState = useSelector((state) => state?.auth?.wishlist?.wishlist);
@@ -151,13 +151,6 @@ const SingleProduct = () => {
     fetchBundles();
   }, [getProductId]);
 
-  // Fetch active offers for this product
-  useEffect(() => {
-    if (!getProductId) return;
-    axios.get(`${base_url}offers/product/${getProductId}`)
-      .then(res => setProductOffers(res.data || []))
-      .catch(() => {});
-  }, [getProductId]);
 
   useEffect(() => {
     if (cartState && getProductId) {

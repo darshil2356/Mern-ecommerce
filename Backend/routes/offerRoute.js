@@ -7,6 +7,7 @@ const {
   deleteOffer,
   applyOffers,
   getOffersForProduct,
+  getActiveOffers,
 } = require("../controller/offerCtrl");
 const { authMiddleware, isAdmin } = require("../middlewares/authMiddleware");
 
@@ -14,6 +15,7 @@ const router = express.Router();
 
 // Public / customer routes
 router.post("/apply", applyOffers);
+router.get("/active", getActiveOffers);
 router.get("/product/:productId", getOffersForProduct);
 
 // Admin routes

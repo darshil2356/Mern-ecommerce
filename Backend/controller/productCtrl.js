@@ -1,10 +1,65 @@
 //Backend/controller/productCtrl.js
 const Product = require("../models/productModel");
 const User = require("../models/userModel");
+const Offer = require("../models/offerModel");
 const asyncHandler = require("express-async-handler");
 const slugify = require("slugify");
 const validateMongoDbId = require("../utils/validateMongodbId");
 const { v4: uuidv4 } = require("uuid");
+
+// Fetch all active offers once and attach best matching offer to each product in the list
+const attachOffersToProducts = async (products) => {
+  if (!products.length) return products;
+  const now = new Date();
+  const activeOffers = await Offer.find({
+    isActive: true,
+    startDate: { $lte: now },
+    endDate: { $gte: now },
+  }).select("title description offerType buyQty getFreeQty fixedPrice discountAmount discountPercent minQty applicableProducts applicableCategories").lean();
+
+  if (!activeOffers.length) return products;
+
+  const productSpecific = {};
+  const categoryOffers = [];
+  const globalOffers = [];
+  activeOffers.forEach(offer => {
+    if (offer.applicableProducts?.length > 0) {
+      offer.applicableProducts.forEach(pid => {
+        const key = pid.toString();
+        if (!productSpecific[key]) productSpecific[key] = offer;
+      });
+    } else if (offer.applicableCategories?.length > 0) {
+      categoryOffers.push(offer);
+    } else {
+      globalOffers.push(offer);
+    }
+  });
+
+  return products.map(p => {
+    const pid = p._id.toString();
+    const offer =
+      productSpecific[pid] ||
+      categoryOffers.find(o => o.applicableCategories.includes(p.category)) ||
+      globalOffers[0] ||
+      null;
+    return offer ? { ...p, offer } : p;
+  });
+};
+
+// Attach ALL matching offers to a single product (for detail page)
+const attachOffersToProduct = async (productId, category) => {
+  const now = new Date();
+  return Offer.find({
+    isActive: true,
+    startDate: { $lte: now },
+    endDate: { $gte: now },
+    $or: [
+      { applicableProducts: productId },
+      { applicableProducts: { $size: 0 } },
+      ...(category ? [{ applicableCategories: category }] : []),
+    ],
+  }).select("title description offerType buyQty getFreeQty fixedPrice discountAmount discountPercent minQty").lean();
+};
 
 // Helper function to generate unique barcode
 const generateUniqueBarcode = async (prefix = "PRD") => {
@@ -386,7 +441,9 @@ const getaProduct = asyncHandler(async (req, res) => {
       findProduct.quantity = totalQuantity;
     }
     
-    res.json(findProduct);
+    const productObj = findProduct.toObject();
+    productObj.offers = await attachOffersToProduct(productObj._id, productObj.category);
+    res.json(productObj);
   } catch (error) {
     throw new Error(error);
   }
@@ -425,12 +482,11 @@ const getAllProduct = asyncHandler(async (req, res) => {
       const limit = parseInt(req.query.limit) || 200;
 
       if (req.query.sort) {
-        // User explicitly chose a sort — respect it
         const products = await Product.find(queryObj)
           .sort(req.query.sort.split(",").join(" "))
           .limit(limit)
           .lean();
-        return res.json(products);
+        return res.json(await attachOffersToProducts(products));
       }
 
       // Instagram-style algorithm: recency + popularity + small random shuffle
@@ -449,7 +505,8 @@ const getAllProduct = asyncHandler(async (req, res) => {
       });
 
       scored.sort((a, b) => b._score - a._score);
-      return res.json(scored.map(({ _score, ...p }) => p));
+      const withOffers = await attachOffersToProducts(scored.map(({ _score, ...p }) => p));
+      return res.json(withOffers);
     }
 
     // 👇 everything below is ADMIN / INTERNAL (no store=true)
@@ -478,7 +535,7 @@ const getAllProduct = asyncHandler(async (req, res) => {
       }
       return { ...prod, quantity };
     });
-    res.json(normalizedProducts);
+    res.json(await attachOffersToProducts(normalizedProducts));
   } catch (error) {
     throw new Error(error);
   }

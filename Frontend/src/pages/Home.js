@@ -17,6 +17,7 @@ import axios from "axios";
 import { base_url } from "../utils/axiosConfig";
 import { toast } from "react-toastify";
 import { productUrl, categoryUrl } from "../utils/seoUrl";
+import { getOfferDisplay } from "../components/ProductCard";
 
 // Reusable product card for home page sections
   const ProductSkeleton = () => (
@@ -105,7 +106,10 @@ import { productUrl, categoryUrl } from "../utils/seoUrl";
     </motion.div>
   );
 
-  const HomeProductCard = ({ item, navigate }) => (
+  const HomeProductCard = ({ item, navigate, offer }) => {
+    const offerDisplay = getOfferDisplay(offer, item?.price);
+    const showDiscountedPrice = offerDisplay?.discountedPrice && offerDisplay.discountedPrice < item?.price;
+    return (
     <motion.div
       whileHover={{ y: -6, boxShadow: "0 12px 40px rgba(0,0,0,0.12)" }}
       className="animate-fade-in"
@@ -135,16 +139,27 @@ import { productUrl, categoryUrl } from "../utils/seoUrl";
             <FiPackage style={{ fontSize: "48px", color: "#ddd" }} />
           </div>
         )}
-        {item?.tags && (
-          <span style={{
-            position: "absolute", top: "12px", left: "12px",
-            background: item.tags === "special" ? "#ef4444" : item.tags === "new" ? "#1a1a1a" : "#d4af37",
-            color: "#fff", padding: "4px 10px", fontSize: "10px", fontWeight: 700,
-            borderRadius: "4px", textTransform: "uppercase", letterSpacing: "0.5px",
-          }}>
-            {item.tags === "special" ? "SALE" : item.tags === "new" ? "NEW" : item.tags}
-          </span>
-        )}
+        <div style={{ position: "absolute", top: "12px", left: "12px", display: "flex", flexDirection: "column", gap: 4 }}>
+          {item?.tags && (
+            <span style={{
+              background: item.tags === "special" ? "#ef4444" : item.tags === "new" ? "#1a1a1a" : "#d4af37",
+              color: "#fff", padding: "4px 10px", fontSize: "10px", fontWeight: 700,
+              borderRadius: "4px", textTransform: "uppercase", letterSpacing: "0.5px",
+            }}>
+              {item.tags === "special" ? "SALE" : item.tags === "new" ? "NEW" : item.tags}
+            </span>
+          )}
+          {offerDisplay && (
+            <span style={{
+              background: offerDisplay.isFree ? "#16a34a" : "#ff6b35",
+              color: "#fff", padding: "4px 10px", fontSize: "10px", fontWeight: 700,
+              borderRadius: "4px", textTransform: "uppercase", letterSpacing: "0.5px",
+              maxWidth: 130, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+            }}>
+              {offerDisplay.isFree ? "🎁 " : ""}{offerDisplay.label}
+            </span>
+          )}
+        </div>
       </div>
       <div style={{ padding: "10px 12px 14px" }}>
         <p style={{ color: "#d4af37", fontSize: "11px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "1px", marginBottom: "4px" }}>
@@ -154,9 +169,21 @@ import { productUrl, categoryUrl } from "../utils/seoUrl";
           {item?.title?.length > 45 ? item.title.slice(0, 45) + "…" : item?.title}
         </h5>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 4 }}>
-          <span style={{ fontSize: "clamp(15px, 2.5vw, 20px)", fontWeight: 700, color: "#1a1a1a" }}>
-            ₹{item?.price?.toLocaleString()}
-          </span>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+            <span style={{ fontSize: "clamp(15px, 2.5vw, 20px)", fontWeight: 700, color: "#1a1a1a" }}>
+              ₹{(showDiscountedPrice ? offerDisplay.discountedPrice : item?.price)?.toLocaleString()}
+            </span>
+            {showDiscountedPrice && (
+              <span style={{ fontSize: "13px", color: "#aaa", textDecoration: "line-through" }}>
+                ₹{item?.price?.toLocaleString()}
+              </span>
+            )}
+            {offerDisplay && !showDiscountedPrice && (
+              <span style={{ fontSize: "10px", fontWeight: 700, color: "#ff6b35", background: "#fff3ee", padding: "2px 6px", borderRadius: 4 }}>
+                {offerDisplay.label}
+              </span>
+            )}
+          </div>
           <span style={{
             fontSize: "11px", padding: "3px 10px", borderRadius: "20px", fontWeight: 600,
             background: item?.quantity > 0 ? "#dcfce7" : "#fee2e2",
@@ -167,7 +194,8 @@ import { productUrl, categoryUrl } from "../utils/seoUrl";
         </div>
       </div>
     </motion.div>
-  );
+    );
+  };
 
 // Section header component
 const SectionHeader = ({ icon, title, linkTo, linkText }) => (
@@ -249,7 +277,6 @@ const Home = () => {
         setIsLoading(false);
       }
     };
-    // Fetch bundles separately so it doesn't block product/blog loading
     axios.get(`${base_url}bundles/active`)
       .then(res => setActiveBundles(res.data || []))
       .catch(() => setActiveBundles([]));
@@ -262,6 +289,7 @@ const Home = () => {
   const popularProducts = products.filter(p => p?.tags === "popular");
   const newArrivals = products.filter(p => p?.tags === "new");
   const categories = [...new Set(products.map(p => p.category))].filter(Boolean).slice(0, 6);
+
 
   // Open size modal or add directly
   const handleAddBundleToCart = (e, bundle) => {
@@ -586,7 +614,7 @@ const Home = () => {
               </div>
             )) : newArrivals.slice(0, 4).map((item, i) => (
               <div key={i} className="col-12 col-sm-6 col-lg-3">
-                <HomeProductCard item={item} navigate={navigate} />
+                <HomeProductCard item={item} navigate={navigate} offer={item.offer} />
               </div>
             ))}
           </div>
@@ -605,7 +633,7 @@ const Home = () => {
                 </div>
               )) : featuredProducts.slice(0, 4).map((item, i) => (
                 <div key={i} className="col-12 col-sm-6 col-lg-3">
-                  <HomeProductCard item={item} navigate={navigate} />
+                  <HomeProductCard item={item} navigate={navigate} offer={item.offer} />
                 </div>
               ))}
             </div>
@@ -624,7 +652,7 @@ const Home = () => {
               </div>
             )) : specialProducts.slice(0, 4).map((item, i) => (
               <div key={i} className="col-12 col-sm-6 col-lg-3">
-                <HomeProductCard item={item} navigate={navigate} />
+                <HomeProductCard item={item} navigate={navigate} offer={item.offer} />
               </div>
             ))}
           </div>
@@ -643,7 +671,7 @@ const Home = () => {
                 </div>
               )) : popularProducts.slice(0, 4).map((item, i) => (
                 <div key={i} className="col-12 col-sm-6 col-lg-3">
-                  <HomeProductCard item={item} navigate={navigate} />
+                  <HomeProductCard item={item} navigate={navigate} offer={item.offer} />
                 </div>
               ))}
             </div>

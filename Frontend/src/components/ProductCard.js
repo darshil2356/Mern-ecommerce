@@ -5,11 +5,8 @@ import { useDispatch, useSelector } from "react-redux";
 import { addToWishlist } from "../features/products/productSlilce";
 import { AiFillHeart, AiOutlineHeart } from "react-icons/ai";
 import { motion } from "framer-motion";
-import axios from "axios";
-import { base_url } from "../utils/axiosConfig";
 
-// Compute discounted price from offer (qty=1 for card display)
-const getOfferDisplay = (offer, price) => {
+export const getOfferDisplay = (offer, price) => {
   if (!offer || !price) return null;
   const { offerType, discountPercent, discountAmount, fixedPrice, buyQty, getFreeQty, minQty } = offer;
   switch (offerType) {
@@ -40,27 +37,8 @@ const ProductCard = ({ data }) => {
   const dispatch = useDispatch();
   const wishlistState = useSelector((state) => state?.auth?.wishlist?.wishlist);
   const [wishlist, setWishlist] = useState([]);
-  const [offerMap, setOfferMap] = useState({});
 
   useEffect(() => { setWishlist(wishlistState || []); }, [wishlistState]);
-
-  useEffect(() => {
-    if (!data?.length) return;
-    const fetchOffers = async () => {
-      const map = {};
-      await Promise.all(
-        data.map(async (item) => {
-          if (!item?._id) return;
-          try {
-            const res = await axios.get(`${base_url}offers/product/${item._id}`);
-            if (res.data?.length) map[item._id] = res.data[0];
-          } catch (_) {}
-        })
-      );
-      setOfferMap(map);
-    };
-    fetchOffers();
-  }, [data]);
 
   const isInWishlist = (id) => wishlist.some((item) => item?._id === id);
 
@@ -82,8 +60,7 @@ const ProductCard = ({ data }) => {
       {data.map((item, index) => {
         if (!item) return null;
         const inWish = isInWishlist(item._id);
-        const offer = offerMap[item._id];
-        const offerDisplay = getOfferDisplay(offer, item.price);
+        const offerDisplay = getOfferDisplay(item.offer, item.price);
         const showDiscountedPrice = offerDisplay?.discountedPrice && offerDisplay.discountedPrice < item.price;
 
         return (

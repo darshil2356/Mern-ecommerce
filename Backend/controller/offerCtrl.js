@@ -142,10 +142,24 @@ const getOffersForProduct = asyncHandler(async (req, res) => {
     endDate: { $gte: now },
     $or: [
       { applicableProducts: productId },
-      { applicableProducts: { $size: 0 } }, // global offers
+      { applicableProducts: { $size: 0 } },
     ],
   }).select("title description offerType buyQty getFreeQty fixedPrice discountAmount discountPercent minQty");
 
+  res.json(offers);
+});
+
+/**
+ * Get all currently active offers (for bulk client-side matching)
+ * GET /api/offers/active
+ */
+const getActiveOffers = asyncHandler(async (req, res) => {
+  const now = new Date();
+  const offers = await Offer.find({
+    isActive: true,
+    startDate: { $lte: now },
+    endDate: { $gte: now },
+  }).select("title description offerType buyQty getFreeQty fixedPrice discountAmount discountPercent minQty applicableProducts applicableCategories");
   res.json(offers);
 });
 
@@ -157,4 +171,5 @@ module.exports = {
   deleteOffer,
   applyOffers,
   getOffersForProduct,
+  getActiveOffers,
 };

@@ -11,30 +11,38 @@ const Color = ({ colorData, setColor, selectedColor }) => {
   if (uniqueColors.length === 0) return null;
 
   return (
-    <ul className="colors ps-0 d-flex flex-wrap gap-2" style={{ listStyle: 'none', margin: 0 }}>
+    <div className="d-flex flex-wrap gap-3">
       {uniqueColors.map((item, index) => {
         const colorId = item?._id;
         const isSelected = selectedColor === colorId;
+        const displayName = item?.name || item?.title || "";
+        const bgColor = item?.hex && item.hex.startsWith("#") ? item.hex : '#ccc';
         return (
-          <li
+          <div
             key={colorId || index}
             onClick={() => setColor(colorId)}
-            title={item?.title || item?.name}
-            style={{
-              backgroundColor: item?.title || item?.name || '#ccc',
-              width: '32px',
-              height: '32px',
-              borderRadius: '50%',
-              cursor: 'pointer',
-              border: isSelected ? '3px solid #d4af37' : '2px solid #e5e5e5',
-              boxShadow: isSelected ? '0 0 0 2px #fff, 0 0 0 4px #d4af37' : 'none',
-              transform: isSelected ? 'scale(1.15)' : 'scale(1)',
-              transition: 'all 0.2s ease',
-            }}
-          />
+            style={{ cursor: 'pointer', textAlign: 'center', width: '48px' }}
+          >
+            <div
+              style={{
+                backgroundColor: bgColor,
+                width: '32px',
+                height: '32px',
+                borderRadius: '50%',
+                margin: '0 auto 4px',
+                border: isSelected ? '3px solid #d4af37' : '2px solid #e5e5e5',
+                boxShadow: isSelected ? '0 0 0 2px #fff, 0 0 0 4px #d4af37' : 'none',
+                transform: isSelected ? 'scale(1.15)' : 'scale(1)',
+                transition: 'all 0.2s ease',
+              }}
+            />
+            <span style={{ fontSize: '10px', color: '#555', lineHeight: 1 }}>
+              {displayName}
+            </span>
+          </div>
         );
       })}
-    </ul>
+    </div>
   );
 };
 

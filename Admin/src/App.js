@@ -43,6 +43,7 @@ import MarketIntelligence from "./pages/MarketIntelligence";
 import Rojmel from "./pages/Rojmel";
 import AddOffer from "./pages/AddOffer";
 import Offerlist from "./pages/Offerlist";
+import ProductInquiries from "./pages/ProductInquiries";
 
 function App() {
   return (
@@ -107,6 +108,7 @@ function App() {
           <Route path="add-offer" element={<AddOffer />} />
           <Route path="offer/:id" element={<AddOffer />} />
           <Route path="offer-list" element={<Offerlist />} />
+          <Route path="product-inquiries" element={<ProductInquiries />} />
         </Route>
       </Routes>
     </Router>

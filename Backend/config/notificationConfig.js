@@ -95,6 +95,14 @@ const NOTIFICATION_EVENTS = {
     data: { screen: "store" },
   },
 
+  // ── Stock / Inquiry Events ─────────────────────────────────────────────────────
+  PRODUCT_RESTOCKED: {
+    event: "PRODUCT_RESTOCKED",
+    title: "🎉 Back in Stock!",
+    body: "{productName} is back in stock! Grab it before it sells out again.",
+    data: { screen: "product", productId: "{productId}" },
+  },
+
   // ── Account Events ────────────────────────────────────────────────────────────
   WELCOME: {
     event: "WELCOME",

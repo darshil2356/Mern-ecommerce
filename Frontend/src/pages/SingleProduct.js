@@ -16,6 +16,7 @@ import axios from "axios";
 import { base_url } from "../utils/axiosConfig";
 import trackingService from "../utils/trackingService";
 import { productUrl } from "../utils/seoUrl";
+import StockInquiryModal from "../components/StockInquiryModal";
 
 const SingleProduct = () => {
   const productState = useSelector((state) => state?.product?.singleproduct);
@@ -49,6 +50,7 @@ const SingleProduct = () => {
   const wishlistState = useSelector((state) => state?.auth?.wishlist?.wishlist);
 
   const [isFilled, setIsFilled] = useState(false);
+  const [showInquiryModal, setShowInquiryModal] = useState(false);
 
   // Get available colors from variants or fallback to old color (deduplicated by _id)
   const availableColors = (() => {
@@ -917,7 +919,7 @@ const SingleProduct = () => {
                             }}
                           >
                             {sizeOption.size}
-                            {sizeOption.quantity <= 5 && (
+                            {isSelected && sizeOption.quantity <= 5 && (
                               <span style={{ display: 'block', fontSize: '10px', opacity: 0.8 }}>
                                 {sizeOption.quantity} left
                               </span>
@@ -1023,6 +1025,29 @@ const SingleProduct = () => {
                 >
                   {alreadyAdded ? "✓ Added to Cart" : !hasAnyStock ? "Out of Stock" : "Add to Cart"}
                 </button>
+
+                {!hasAnyStock && (
+                  <button
+                    type="button"
+                    onClick={() => setShowInquiryModal(true)}
+                    style={{
+                      background: 'linear-gradient(135deg, #1a1a1a 0%, #333 100%)',
+                      color: '#fff',
+                      padding: '14px 24px',
+                      borderRadius: '12px',
+                      fontWeight: 700,
+                      fontSize: '14px',
+                      border: 'none',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    🛍️ I Want This Product
+                  </button>
+                )}
               </div>
 
               {/* Wishlist Button */}
@@ -1794,6 +1819,12 @@ const SingleProduct = () => {
           </div>
         )}
       </Container>
+
+      <StockInquiryModal
+        isOpen={showInquiryModal}
+        onClose={() => setShowInquiryModal(false)}
+        product={productState}
+      />
 
       {/* Zoom Modal */}
       {isZoomed && activeMedia?.type === "image" && (

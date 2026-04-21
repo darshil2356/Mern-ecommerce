@@ -162,6 +162,11 @@ const MainLayout = () => {
       label: "Enquiries",
     },
     {
+      key: "product-inquiries",
+      icon: <AiOutlineFileText />,
+      label: "Stock Inquiries",
+    },
+    {
       key: "signout",
       icon: <AiOutlineLogout />,
       label: "Sign Out",

@@ -47,8 +47,34 @@ const getBlog = asyncHandler(async (req, res) => {
 });
 const getAllBlogs = asyncHandler(async (req, res) => {
   try {
+    const getBlogs = await Blog.find({ isPublished: true }).sort({ createdAt: -1 });
+    res.json(getBlogs);
+  } catch (error) {
+    throw new Error(error);
+  }
+});
+
+const getAllBlogsAdmin = asyncHandler(async (req, res) => {
+  try {
     const getBlogs = await Blog.find().sort({ createdAt: -1 });
     res.json(getBlogs);
+  } catch (error) {
+    throw new Error(error);
+  }
+});
+
+const publishBlog = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  validateMongoDbId(id);
+  try {
+    const blog = await Blog.findById(id);
+    if (!blog) { res.status(404); throw new Error("Blog not found"); }
+    const updated = await Blog.findByIdAndUpdate(
+      id,
+      { isPublished: !blog.isPublished },
+      { new: true }
+    );
+    res.json(updated);
   } catch (error) {
     throw new Error(error);
   }
@@ -179,9 +205,11 @@ module.exports = {
   updateBlog,
   getBlog,
   getAllBlogs,
+  getAllBlogsAdmin,
   getBlogBySlug,
   deleteBlog,
   liketheBlog,
   disliketheBlog,
   uploadImages,
+  publishBlog,
 };

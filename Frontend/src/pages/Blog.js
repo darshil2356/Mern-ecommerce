@@ -40,11 +40,14 @@ const BlogCard = ({ blog }) => {
   );
 };
 
+const BLOGS_PER_PAGE = 6;
+
 const Blog = () => {
   const blogState = useSelector((state) => state?.blog?.blog);
   const dispatch = useDispatch();
   const [activeCategory, setActiveCategory] = useState("All");
   const [search, setSearch] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
 
   useEffect(() => { dispatch(getAllBlogs()); }, []);
 
@@ -53,6 +56,12 @@ const Blog = () => {
     const matchSearch = !search || b.title?.toLowerCase().includes(search.toLowerCase());
     return matchCat && matchSearch;
   });
+
+  const totalPages = Math.ceil(filtered.length / BLOGS_PER_PAGE);
+  const paginated = filtered.slice((currentPage - 1) * BLOGS_PER_PAGE, currentPage * BLOGS_PER_PAGE);
+
+  const handleCategoryChange = (cat) => { setActiveCategory(cat); setCurrentPage(1); };
+  const handleSearch = (e) => { setSearch(e.target.value); setCurrentPage(1); };
 
   return (
     <>
@@ -79,7 +88,7 @@ const Blog = () => {
               <h6 style={{ fontWeight: 700, marginBottom: 14, color: "#1a1a2e" }}>🔍 Search</h6>
               <input
                 value={search}
-                onChange={e => setSearch(e.target.value)}
+                onChange={handleSearch}
                 placeholder="Search blogs..."
                 style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "1px solid #e2e8f0", fontSize: 13, outline: "none" }}
               />
@@ -89,7 +98,7 @@ const Blog = () => {
               {CATEGORIES.map(cat => (
                 <div
                   key={cat}
-                  onClick={() => setActiveCategory(cat)}
+                  onClick={() => handleCategoryChange(cat)}
                   style={{ padding: "8px 12px", borderRadius: 8, marginBottom: 6, cursor: "pointer", fontSize: 13, fontWeight: activeCategory === cat ? 700 : 400, background: activeCategory === cat ? "linear-gradient(135deg,#667eea,#764ba2)" : "#f8fafc", color: activeCategory === cat ? "#fff" : "#374151", transition: "all 0.2s" }}
                 >
                   {cat}
@@ -102,13 +111,45 @@ const Blog = () => {
           <div className="col-12 col-md-9">
             {filtered.length === 0
               ? <div style={{ textAlign: "center", padding: 60, color: "#94a3b8" }}>No blogs found.</div>
-              : <div className="row g-3">
-                  {filtered.map(blog => (
-                    <div className="col-12 col-sm-6" key={blog._id}>
-                      <BlogCard blog={blog} />
+              : <>
+                  <div style={{ marginBottom: 12, fontSize: 13, color: "#94a3b8" }}>
+                    Showing {(currentPage - 1) * BLOGS_PER_PAGE + 1}–{Math.min(currentPage * BLOGS_PER_PAGE, filtered.length)} of {filtered.length} blogs
+                  </div>
+                  <div className="row g-3">
+                    {paginated.map(blog => (
+                      <div className="col-12 col-sm-6" key={blog._id}>
+                        <BlogCard blog={blog} />
+                      </div>
+                    ))}
+                  </div>
+                  {totalPages > 1 && (
+                    <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 8, marginTop: 36, flexWrap: "wrap" }}>
+                      <button
+                        onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                        disabled={currentPage === 1}
+                        style={{ padding: "8px 16px", borderRadius: 8, border: "1px solid #e2e8f0", background: currentPage === 1 ? "#f8fafc" : "#fff", color: currentPage === 1 ? "#cbd5e1" : "#374151", cursor: currentPage === 1 ? "not-allowed" : "pointer", fontSize: 13, fontWeight: 600 }}
+                      >
+                        ← Prev
+                      </button>
+                      {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                        <button
+                          key={page}
+                          onClick={() => setCurrentPage(page)}
+                          style={{ width: 36, height: 36, borderRadius: 8, border: "none", background: currentPage === page ? "linear-gradient(135deg,#667eea,#764ba2)" : "#f1f5f9", color: currentPage === page ? "#fff" : "#374151", cursor: "pointer", fontSize: 13, fontWeight: 700 }}
+                        >
+                          {page}
+                        </button>
+                      ))}
+                      <button
+                        onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                        disabled={currentPage === totalPages}
+                        style={{ padding: "8px 16px", borderRadius: 8, border: "1px solid #e2e8f0", background: currentPage === totalPages ? "#f8fafc" : "#fff", color: currentPage === totalPages ? "#cbd5e1" : "#374151", cursor: currentPage === totalPages ? "not-allowed" : "pointer", fontSize: 13, fontWeight: 600 }}
+                      >
+                        Next →
+                      </button>
                     </div>
-                  ))}
-                </div>
+                  )}
+                </>
             }
           </div>
         </div>

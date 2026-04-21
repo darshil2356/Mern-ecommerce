@@ -3,8 +3,12 @@ import { base_url } from "../../utils/baseUrl";
 import { config } from "../../utils/axiosconfig";
 
 const getBlogs = async () => {
-  const response = await axios.get(`${base_url}blog/`);
+  const response = await axios.get(`${base_url}blog/admin/all`, config);
+  return response.data;
+};
 
+const publishBlog = async (id) => {
+  const response = await axios.put(`${base_url}blog/publish/${id}`, {}, config);
   return response.data;
 };
 const createBlog = async (blog) => {
@@ -43,6 +47,7 @@ const blogService = {
   getBlog,
   updateBlog,
   deleteBlog,
+  publishBlog,
 };
 
 export default blogService;

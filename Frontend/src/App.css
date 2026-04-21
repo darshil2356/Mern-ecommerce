@@ -1465,3 +1465,7 @@ footer {
   }
 }
 
+/* Single Product — thumbnail scrollbar hide */
+.sp-thumbs::-webkit-scrollbar { display: none; }
+.sp-thumbs { -ms-overflow-style: none; scrollbar-width: none; }
+

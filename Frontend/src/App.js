@@ -11,7 +11,7 @@ import { PrivateRoutes } from "./routing/PrivateRoutes";
 import { OpenRoutes } from "./routing/OpenRoutes";
 import axios from "axios";
 import { base_url } from "./utils/axiosConfig";
-import { PremiumLoader } from "./components/GlobalLoader";
+
 
 const Home = lazy(() => import("./pages/Home"));
 const About = lazy(() => import("./pages/About"));
@@ -64,7 +64,7 @@ function App() {
     <>
       <BrowserRouter>
         <ScrollToTop />
-        <Suspense fallback={<PremiumLoader />}>
+        <Suspense fallback={null}>
         <Routes>
           <Route path="/" element={<Layout />}>
             <Route index element={<Home />} />

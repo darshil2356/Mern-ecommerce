@@ -18,7 +18,7 @@ import { base_url } from "../utils/axiosConfig";
 import trackingService from "../utils/trackingService";
 import { productUrl } from "../utils/seoUrl";
 import StockInquiryModal from "../components/StockInquiryModal";
-import { PremiumLoader } from "../components/GlobalLoader";
+
 
 const SingleProduct = () => {
   const productState = useSelector((state) => state?.product?.singleproduct);
@@ -388,9 +388,7 @@ const SingleProduct = () => {
     return displayPrice;
   };
 
-  if (!productState) {
-    return <PremiumLoader message="Loading product…" />;
-  }
+  if (!productState) return null;
 
   return (
     <>

@@ -13,7 +13,7 @@ import { createAnOrder, deleteUserCart, getUserCart, resetState, getAddresses } 
 import { getColorSwatch, getReadableColorName } from "../utils/colorDisplay";
 import trackingService from "../utils/trackingService";
 import "./Checkout.css";
-import { PremiumLoader } from "../components/GlobalLoader";
+
 
 const shippingSchema = yup.object({
   firstname: yup.string().required("First name is required"),
@@ -76,6 +76,7 @@ const Checkout = () => {
   const userCoins = useSelector((s) => s?.auth?.coins) || 0;
   const savedAddresses = useSelector((s) => s?.auth?.addresses || []);
   const checkoutLoading = useSelector((s) => s?.auth?.isLoading);
+  // checkoutLoading is handled by GlobalLoader globally — no local loader needed
 
   const [totalAmount, setTotalAmount] = useState(0);
   const [offerDiscount, setOfferDiscount] = useState(0);
@@ -328,7 +329,6 @@ const Checkout = () => {
 
   return (
     <>
-      {checkoutLoading && !cartState?.length && <PremiumLoader message="Loading checkout…" />}
       <div className="co-page">
         <Container class1="co-container">
 

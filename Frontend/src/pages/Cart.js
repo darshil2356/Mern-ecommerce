@@ -11,7 +11,7 @@ import { getConfig } from "../utils/axiosConfig";
 import { getColorSwatch, getReadableColorName } from "../utils/colorDisplay";
 import trackingService from "../utils/trackingService";
 import { toast } from "react-toastify";
-import { PremiumLoader } from "../components/GlobalLoader";
+
 
 const Cart = () => {
   const dispatch = useDispatch();
@@ -21,6 +21,7 @@ const Cart = () => {
   const [deletingItems, setDeletingItems] = useState(new Set());
   const userCartState = useSelector((state) => state.auth.cartProducts);
   const cartLoading = useSelector((state) => state.auth.isLoading);
+  // cartLoading is handled by GlobalLoader globally — no local loader needed
 
   useEffect(() => { dispatch(getUserCart(getConfig())); }, [dispatch]);
 
@@ -121,9 +122,6 @@ const Cart = () => {
       <Meta title="Shopping Cart" />
       <BreadCrumb title="Cart" />
 
-      {cartLoading && !userCartState?.length && <PremiumLoader message="Loading your cart…" />}
-
-      {/* Page background */}
       <div style={{ background: '#f7f8fa', minHeight: '100vh', paddingBottom: hasItems ? 170 : 94 }}>
         <Container class1="cart-wrapper py-3 py-md-5">
 

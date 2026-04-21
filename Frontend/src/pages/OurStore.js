@@ -8,7 +8,7 @@ import { getAllProducts, getCategoryTree } from "../features/products/productSli
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { AiOutlineFilter, AiOutlineClose } from "react-icons/ai";
 import { categoryUrl } from "../utils/seoUrl";
-import { PremiumLoader } from "../components/GlobalLoader";
+
 
 const OurStore = () => {
   const productState = useSelector((state) => state?.product?.product);
@@ -325,9 +325,7 @@ const OurStore = () => {
 
             {/* Products Grid */}
             <div style={{ flex: 1, minWidth: 0 }}>
-              {isLoading ? (
-                <PremiumLoader message="Loading products…" />
-              ) : productState?.length > 0 ? (
+              {isLoading ? null : productState?.length > 0 ? (
                 <div style={productsGrid} className="store-products-grid">
                   <ProductCard data={productState.slice(0, visibleCount)} grid={4} />
                   {visibleCount < productState.length && (

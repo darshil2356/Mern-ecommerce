@@ -11,6 +11,7 @@ import { getConfig } from "../utils/axiosConfig";
 import { getColorSwatch, getReadableColorName } from "../utils/colorDisplay";
 import trackingService from "../utils/trackingService";
 import { toast } from "react-toastify";
+import { PremiumLoader } from "../components/GlobalLoader";
 
 const Cart = () => {
   const dispatch = useDispatch();
@@ -19,6 +20,7 @@ const Cart = () => {
   const [loading, setLoading] = useState(false);
   const [deletingItems, setDeletingItems] = useState(new Set());
   const userCartState = useSelector((state) => state.auth.cartProducts);
+  const cartLoading = useSelector((state) => state.auth.isLoading);
 
   useEffect(() => { dispatch(getUserCart(getConfig())); }, [dispatch]);
 
@@ -118,6 +120,8 @@ const Cart = () => {
     <>
       <Meta title="Shopping Cart" />
       <BreadCrumb title="Cart" />
+
+      {cartLoading && !userCartState?.length && <PremiumLoader message="Loading your cart…" />}
 
       {/* Page background */}
       <div style={{ background: '#f7f8fa', minHeight: '100vh', paddingBottom: hasItems ? 170 : 94 }}>

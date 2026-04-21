@@ -18,6 +18,7 @@ import { base_url } from "../utils/axiosConfig";
 import trackingService from "../utils/trackingService";
 import { productUrl } from "../utils/seoUrl";
 import StockInquiryModal from "../components/StockInquiryModal";
+import { PremiumLoader } from "../components/GlobalLoader";
 
 const SingleProduct = () => {
   const productState = useSelector((state) => state?.product?.singleproduct);
@@ -388,16 +389,7 @@ const SingleProduct = () => {
   };
 
   if (!productState) {
-    return (
-      <Container class1="py-5">
-        <div className="text-center py-5">
-          <div className="spinner-border text-warning" role="status">
-            <span className="visually-hidden">Loading...</span>
-          </div>
-          <p className="mt-3">Loading product...</p>
-        </div>
-      </Container>
-    );
+    return <PremiumLoader message="Loading product…" />;
   }
 
   return (

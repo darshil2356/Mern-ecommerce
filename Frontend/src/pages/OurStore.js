@@ -8,6 +8,7 @@ import { getAllProducts, getCategoryTree } from "../features/products/productSli
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { AiOutlineFilter, AiOutlineClose } from "react-icons/ai";
 import { categoryUrl } from "../utils/seoUrl";
+import { PremiumLoader } from "../components/GlobalLoader";
 
 const OurStore = () => {
   const productState = useSelector((state) => state?.product?.product);
@@ -325,10 +326,7 @@ const OurStore = () => {
             {/* Products Grid */}
             <div style={{ flex: 1, minWidth: 0 }}>
               {isLoading ? (
-                <div style={loadingBox}>
-                  <div style={spinner} />
-                  <p style={{ color: "#888", marginTop: 12, fontSize: 14 }}>Loading products...</p>
-                </div>
+                <PremiumLoader message="Loading products…" />
               ) : productState?.length > 0 ? (
                 <div style={productsGrid} className="store-products-grid">
                   <ProductCard data={productState.slice(0, visibleCount)} grid={4} />
@@ -474,18 +472,6 @@ const productsGrid = {
   gap: 10,
 };
 /* Note: .store-products-grid overrides columns via CSS for mobile/tablet */
-
-const loadingBox = {
-  display: "flex", flexDirection: "column",
-  alignItems: "center", justifyContent: "center",
-  minHeight: 300,
-};
-
-const spinner = {
-  width: 36, height: 36, border: "3px solid #f0f0f0",
-  borderTop: "3px solid #d4af37", borderRadius: "50%",
-  animation: "spin 0.8s linear infinite",
-};
 
 const emptyBox = {
   display: "flex", flexDirection: "column",

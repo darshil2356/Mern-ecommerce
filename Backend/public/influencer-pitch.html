@@ -27,12 +27,12 @@
             height: 100vh;
             display: flex;
             flex-direction: column;
-            justify-content: center;
+            justify-content: flex-start;
             align-items: center;
             background: linear-gradient(135deg, #1a1a1a 0%, #2a2a2a 50%, #d4af37 100%);
             color: white;
             text-align: center;
-            padding: 2rem 2rem 90px;
+            padding: 1.5rem 1.5rem 70px;
             position: absolute;
             top: 0; left: 0;
             opacity: 0;
@@ -62,6 +62,7 @@
             z-index: 2;
             max-width: 1200px;
             width: 100%;
+            margin: auto;
         }
 
         .title-slide h1 {
@@ -376,14 +377,18 @@
             margin: 0.3rem;
         }
 
-        /* Navigation */
-        .navigation {
+        /* Navigation — full-width bottom bar, never covers content */
+        .bottom-nav {
             position: fixed;
-            bottom: 30px;
-            left: 50%;
-            transform: translateX(-50%);
+            bottom: 0; left: 0; right: 0;
+            height: 56px;
+            background: rgba(10,10,10,0.95);
+            backdrop-filter: blur(12px);
+            border-top: 1px solid rgba(212,175,55,0.35);
             display: flex;
-            gap: 20px;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 16px;
             z-index: 1000;
         }
 
@@ -391,35 +396,27 @@
             background: rgba(212,175,55,0.9);
             border: none;
             color: #1a1a1a;
-            padding: 15px 30px;
-            font-size: 1rem;
-            font-weight: 600;
-            border-radius: 25px;
+            padding: 10px 20px;
+            font-size: 0.95rem;
+            font-weight: 700;
+            border-radius: 8px;
             cursor: pointer;
-            transition: all 0.3s ease;
-            box-shadow: 0 4px 15px rgba(212,175,55,0.3);
-            min-height: 44px;
+            transition: all 0.2s ease;
+            min-height: 40px;
+            min-width: 80px;
             display: flex;
             align-items: center;
-            gap: 8px;
+            gap: 6px;
         }
 
-        .nav-btn:hover {
-            background: #d4af37;
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(212,175,55,0.4);
-        }
+        .nav-btn:hover { background: #d4af37; }
+        .nav-btn:disabled { opacity: 0.35; cursor: not-allowed; }
 
         .slide-counter {
-            position: fixed;
-            top: 30px;
-            right: 30px;
-            background: rgba(0,0,0,0.7);
-            color: white;
-            padding: 10px 20px;
-            border-radius: 20px;
-            font-weight: 600;
-            z-index: 1000;
+            font-weight: 700;
+            font-size: 1rem;
+            color: #d4af37;
+            letter-spacing: 1px;
         }
 
         /* Responsive */
@@ -431,10 +428,7 @@
                 grid-template-columns: 1fr;
                 gap: 1rem;
             }
-            .slide { padding: 1rem; }
-            .navigation { bottom: 20px; gap: 15px; }
-            .nav-btn { padding: 12px 25px; font-size: 0.9rem; }
-            .slide-counter { top: 20px; right: 20px; padding: 8px 15px; font-size: 0.8rem; }
+            .nav-btn { padding: 9px 16px; font-size: 0.88rem; min-width: 70px; }
         }
 
         @media (max-width: 480px) {
@@ -443,7 +437,6 @@
             .slide h2 { font-size: 1.7rem; }
             .commission-percent { font-size: 3rem; }
             .stat-number { font-size: 2.2rem; }
-            .nav-btn { padding: 10px 18px; font-size: 0.85rem; }
         }
     </style>
 </head>
@@ -803,18 +796,19 @@
 </div>
 
 <!-- Navigation -->
-<div class="navigation">
-    <button class="nav-btn" onclick="prevSlide()"><i class="fas fa-chevron-left"></i> Previous</button>
-    <button class="nav-btn" onclick="nextSlide()">Next <i class="fas fa-chevron-right"></i></button>
+<div class="bottom-nav">
+    <button class="nav-btn" id="prevBtn" onclick="prevSlide()"><i class="fas fa-chevron-left"></i> Prev</button>
+    <span class="slide-counter">1 / 11</span>
+    <button class="nav-btn" id="nextBtn" onclick="nextSlide()">Next <i class="fas fa-chevron-right"></i></button>
 </div>
-
-<div class="slide-counter">1 / 11</div>
 
 <script>
     let currentSlide = 1;
     const totalSlides = 11;
     const slides = document.querySelectorAll('.slide');
     const counter = document.querySelector('.slide-counter');
+    const prevBtn = document.getElementById('prevBtn');
+    const nextBtn = document.getElementById('nextBtn');
 
     document.addEventListener('DOMContentLoaded', function() {
         showSlide(1);
@@ -832,6 +826,8 @@
             activeSlide.scrollTop = 0;
             counter.textContent = `${slideNum} / ${totalSlides}`;
         }
+        prevBtn.disabled = slideNum === 1;
+        nextBtn.disabled = slideNum === totalSlides;
     }
 
     function nextSlide() {

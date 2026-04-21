@@ -615,28 +615,47 @@
         }
       }
 
-      .nav-button {
+      /* Bottom nav bar — replaces floating side buttons */
+      .nav-bar {
         position: fixed;
-        bottom: 20px;
+        bottom: 0; left: 0; right: 0;
+        height: 56px;
+        background: rgba(10,10,10,0.97);
+        backdrop-filter: blur(12px);
+        border-top: 1px solid var(--border);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 16px;
+        z-index: 1000;
+      }
+
+      .nav-button {
         background: var(--gold);
         color: var(--bg);
         border: none;
-        padding: 10px 15px;
-        border-radius: 50%;
+        padding: 8px 20px;
+        border-radius: 8px;
         cursor: pointer;
-        font-size: 18px;
-        z-index: 1000;
-        opacity: 0.8;
-        transition: opacity 0.3s;
+        font-size: 16px;
+        font-weight: 700;
+        min-height: 40px;
+        min-width: 80px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        transition: opacity 0.2s;
       }
-      .nav-button:hover {
-        opacity: 1;
-      }
-      .nav-button.prev {
-        left: 20px;
-      }
-      .nav-button.next {
-        right: 20px;
+      .nav-button:hover { opacity: 0.85; }
+      .nav-button:disabled { opacity: 0.3; cursor: not-allowed; }
+
+      .slide-indicator {
+        font-family: "JetBrains Mono", monospace;
+        font-size: 14px;
+        font-weight: 700;
+        color: var(--gold);
+        letter-spacing: 1px;
       }
 
       /* Enhanced Mobile CSS */
@@ -646,8 +665,7 @@
         }
 
         .slide {
-          padding: 15px;
-          min-height: calc(100vh - 20px);
+          padding: 15px 15px 70px;
         }
 
         .slide-header {
@@ -727,18 +745,9 @@
         }
 
         .nav-button {
-          width: 45px;
-          height: 45px;
-          font-size: 16px;
-          bottom: 15px;
-        }
-
-        .nav-button.prev {
-          left: 15px;
-        }
-
-        .nav-button.next {
-          right: 15px;
+          padding: 8px 14px;
+          font-size: 14px;
+          min-width: 65px;
         }
 
         .mini-toc {
@@ -793,7 +802,7 @@
 
       @media (max-width: 480px) {
         .slide {
-          padding: 10px;
+          padding: 10px 10px 70px;
         }
 
         .slide-header h1 {
@@ -818,9 +827,9 @@
         }
 
         .nav-button {
-          width: 40px;
-          height: 40px;
-          font-size: 14px;
+          padding: 7px 12px;
+          font-size: 13px;
+          min-width: 60px;
         }
 
         h2 {
@@ -4000,32 +4009,38 @@
 
     </div>
 
-    <button class="nav-button prev" id="prevBtn"><i class="fas fa-chevron-left"></i></button>
-    <button class="nav-button next" id="nextBtn"><i class="fas fa-chevron-right"></i></button>
+    <div class="nav-bar">
+      <button class="nav-button prev" id="prevBtn"><i class="fas fa-chevron-left"></i> Prev</button>
+      <span class="slide-indicator" id="slideIndicator">1 / 28</span>
+      <button class="nav-button next" id="nextBtn">Next <i class="fas fa-chevron-right"></i></button>
+    </div>
   </body>
   <script>
     let currentSlide = 0;
     const slides = document.querySelectorAll('.slide');
     const totalSlides = slides.length;
+    const indicator = document.getElementById('slideIndicator');
+    const prevBtn = document.getElementById('prevBtn');
+    const nextBtn = document.getElementById('nextBtn');
     let startX = 0, startY = 0;
 
     function showSlide(index) {
       slides.forEach((slide, i) => {
         slide.classList.toggle('active', i === index);
       });
-      // Scroll active slide back to top
       const active = slides[index];
       if (active) active.scrollTop = 0;
+      indicator.textContent = `${index + 1} / ${totalSlides}`;
+      prevBtn.disabled = index === 0;
+      nextBtn.disabled = index === totalSlides - 1;
     }
 
     function nextSlide() {
-      currentSlide = (currentSlide + 1) % totalSlides;
-      showSlide(currentSlide);
+      if (currentSlide < totalSlides - 1) { currentSlide++; showSlide(currentSlide); }
     }
 
     function prevSlide() {
-      currentSlide = (currentSlide - 1 + totalSlides) % totalSlides;
-      showSlide(currentSlide);
+      if (currentSlide > 0) { currentSlide--; showSlide(currentSlide); }
     }
 
     document.addEventListener('keydown', (e) => {

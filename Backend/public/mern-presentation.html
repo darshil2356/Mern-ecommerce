@@ -68,6 +68,8 @@
         padding: 40px 60px;
         overflow-y: auto;
         overflow-x: hidden;
+        -webkit-overflow-scrolling: touch;
+        padding-bottom: 70px;
         display: none;
         opacity: 0;
         transition: opacity 0.4s ease;
@@ -3535,6 +3537,467 @@
           </div>
         </div>
       </div>
+
+      <!-- SLIDE 23 — AI-Powered Module -->
+      <div class="slide" data-slide="23">
+        <div class="slide-header">
+          <div class="icon-badge"><i class="fas fa-robot"></i></div>
+          <h1>AI-Powered Module — Deep Dive</h1>
+          <div class="slide-num">23 / 28</div>
+        </div>
+        <div class="two-col">
+          <div>
+            <h3>Google Gemini Integration</h3>
+            <div class="code-box">
+<span class="kw">const</span> { GoogleGenerativeAI } = <span class="fn">require</span>(<span class="str">"@google/generative-ai"</span>);
+<span class="kw">const</span> genAI = <span class="kw">new</span> <span class="fn">GoogleGenerativeAI</span>(process.env.GEMINI_API_KEY);
+<span class="kw">const</span> model = genAI.<span class="fn">getGenerativeModel</span>({ model: <span class="str">"gemini-pro"</span> });
+            </div>
+            <h3>AI Product Generator</h3>
+            <div class="flow-step">
+              <div class="step-num">1</div>
+              <div class="step-content">Admin provides product name + category → calls <code>POST /api/products/ai-generate</code></div>
+            </div>
+            <div class="flow-step">
+              <div class="step-num">2</div>
+              <div class="step-content">Prompt builds context: category, brand, gender, age group → sends to Gemini</div>
+            </div>
+            <div class="flow-step">
+              <div class="step-num">3</div>
+              <div class="step-content">Gemini returns: title, description, material, fit, occasion, SEO meta title/description/keywords</div>
+            </div>
+            <div class="flow-step">
+              <div class="step-num">4</div>
+              <div class="step-content">Response parsed as JSON → pre-fills product form in admin panel for review before save</div>
+            </div>
+            <h3>Market Intelligence</h3>
+            <div class="flow-step">
+              <div class="step-num">1</div>
+              <div class="step-content"><code>POST /api/market-intel/generate</code> → fetches recent sales data + trends from DB</div>
+            </div>
+            <div class="flow-step">
+              <div class="step-num">2</div>
+              <div class="step-content">Sends aggregated data to Gemini with market analysis prompt</div>
+            </div>
+            <div class="flow-step">
+              <div class="step-num">3</div>
+              <div class="step-content">Stores result in <code>MarketIntel</code> model → admin retrieves via <code>GET /api/market-intel/latest</code></div>
+            </div>
+          </div>
+          <div>
+            <h3>Daily Blog Cron — 7:00 AM IST</h3>
+            <div class="code-box">
+<span class="cm">// cron/blogCron.js</span>
+<span class="fn">cron.schedule</span>(<span class="str">"0 1 * * *"</span>, <span class="kw">async</span> () => {
+  <span class="cm">// 1:00 UTC = 7:00 AM IST</span>
+  <span class="kw">const</span> topics = <span class="kw">await</span> <span class="fn">generateBlogTopics</span>();
+  <span class="kw">for</span> (<span class="kw">const</span> topic <span class="kw">of</span> topics) {
+    <span class="kw">const</span> content = <span class="kw">await</span> <span class="fn">generateBlogContent</span>(topic);
+    <span class="kw">await</span> Blog.<span class="fn">create</span>({
+      title: content.title,
+      description: content.body,
+      metaTitle: content.metaTitle,
+      metaDescription: content.metaDesc,
+      tags: content.keywords,
+      isAIGenerated: <span class="kw">true</span>,
+      status: <span class="str">"published"</span>
+    });
+  }
+}, { timezone: <span class="str">"Asia/Kolkata"</span> });
+            </div>
+            <h3>AI Growth Report</h3>
+            <div class="flow-step">
+              <div class="step-num">1</div>
+              <div class="step-content">Admin triggers <code>POST /api/growth-report/generate</code></div>
+            </div>
+            <div class="flow-step">
+              <div class="step-num">2</div>
+              <div class="step-content">Pulls: monthly revenue, top products, customer retention, order trends, category performance</div>
+            </div>
+            <div class="flow-step">
+              <div class="step-num">3</div>
+              <div class="step-content">Gemini analyses data → returns structured growth recommendations, risks, opportunities</div>
+            </div>
+            <div class="flow-step">
+              <div class="step-num">4</div>
+              <div class="step-content">Saved to <code>GrowthReport</code> model with timestamp → viewable in admin dashboard</div>
+            </div>
+            <div style="margin-top:10px; display:flex; gap:6px; flex-wrap:wrap;">
+              <span class="tag tag-purple">Gemini Pro</span>
+              <span class="tag tag-gold">Auto Blog Daily</span>
+              <span class="tag tag-green">AI Product Gen</span>
+              <span class="tag tag-cyan">Market Intel</span>
+              <span class="tag tag-blue">Growth Reports</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SLIDE 24 — Analytics & User Tracking -->
+      <div class="slide" data-slide="24">
+        <div class="slide-header">
+          <div class="icon-badge"><i class="fas fa-chart-line"></i></div>
+          <h1>Analytics & User Tracking — Deep Dive</h1>
+          <div class="slide-num">24 / 28</div>
+        </div>
+        <div class="two-col">
+          <div>
+            <h3>Session Model</h3>
+            <div class="code-box">
+{ userId: <span class="type">ObjectId</span>, <span class="cm">// null for anonymous</span>
+  sessionId: <span class="type">String</span>, <span class="cm">// unique UUID</span>
+  startTime: <span class="type">Date</span>,
+  lastActivity: <span class="type">Date</span>,
+  device: <span class="str">"mobile"</span> | <span class="str">"desktop"</span> | <span class="str">"tablet"</span>,
+  ip: <span class="type">String</span>,
+  userAgent: <span class="type">String</span>,
+  isActive: <span class="type">Boolean</span> }
+            </div>
+            <h3>Event Model — Tracked Event Types</h3>
+            <div class="field-grid">
+              <div class="field-item" style="border-left-color:var(--blue)"><span class="fname">page_view</span><span class="fdesc">Page visited</span></div>
+              <div class="field-item" style="border-left-color:var(--blue)"><span class="fname">product_view</span><span class="fdesc">Product opened</span></div>
+              <div class="field-item" style="border-left-color:var(--green)"><span class="fname">add_to_cart</span><span class="fdesc">Item added</span></div>
+              <div class="field-item" style="border-left-color:var(--red)"><span class="fname">remove_cart</span><span class="fdesc">Item removed</span></div>
+              <div class="field-item" style="border-left-color:var(--orange)"><span class="fname">checkout_start</span><span class="fdesc">Checkout begun</span></div>
+              <div class="field-item" style="border-left-color:var(--green)"><span class="fname">payment_success</span><span class="fdesc">Order placed</span></div>
+              <div class="field-item" style="border-left-color:var(--red)"><span class="fname">payment_fail</span><span class="fdesc">Payment failed</span></div>
+              <div class="field-item" style="border-left-color:var(--purple)"><span class="fname">rage_click</span><span class="fdesc">Repeated clicking</span></div>
+              <div class="field-item" style="border-left-color:var(--cyan)"><span class="fname">search</span><span class="fdesc">Search query</span></div>
+              <div class="field-item" style="border-left-color:var(--gold)"><span class="fname">wishlist_add</span><span class="fdesc">Wishlisted</span></div>
+              <div class="field-item" style="border-left-color:var(--red)"><span class="fname">abandoned_cart</span><span class="fdesc">Left with items</span></div>
+              <div class="field-item" style="border-left-color:var(--purple)"><span class="fname">signup / login</span><span class="fdesc">Auth events</span></div>
+            </div>
+          </div>
+          <div>
+            <h3>Dropoff Detection Logic</h3>
+            <div class="flow-step">
+              <div class="step-num">1</div>
+              <div class="step-content">Cron scans sessions with <code>checkout_start</code> but no <code>payment_success</code> within 30 min → flagged as checkout dropoff</div>
+            </div>
+            <div class="flow-step">
+              <div class="step-num">2</div>
+              <div class="step-content"><code>add_to_cart</code> with no checkout for 24hrs → cart abandonment issue created</div>
+            </div>
+            <div class="flow-step">
+              <div class="step-num">3</div>
+              <div class="step-content">3+ <code>rage_click</code> events in 10s → UX issue auto-flagged with page context</div>
+            </div>
+            <div class="flow-step">
+              <div class="step-num">4</div>
+              <div class="step-content">Issues saved to <code>Issue</code> model with severity: <code>low</code> / <code>medium</code> / <code>high</code> / <code>urgent</code></div>
+            </div>
+            <h3>Issue Model</h3>
+            <div class="code-box">
+{ userId: <span class="type">ObjectId</span>,
+  type: <span class="str">"stuck_checkout"</span> | <span class="str">"payment_failure"</span>
+       | <span class="str">"rage_click"</span> | <span class="str">"cart_abandon"</span>,
+  severity: <span class="str">"low"</span> | <span class="str">"medium"</span> | <span class="str">"high"</span> | <span class="str">"urgent"</span>,
+  status: <span class="str">"open"</span> | <span class="str">"in_progress"</span> | <span class="str">"resolved"</span>,
+  metadata: <span class="type">Mixed</span>, <span class="cm">// page, cart value, etc.</span>
+  followUpScheduled: <span class="type">Boolean</span>,
+  resolvedAt: <span class="type">Date</span> }
+            </div>
+            <h3>Real-time via Socket.io</h3>
+            <p style="font-size:12px; color:var(--light-gray);">Admin live-tracking dashboard receives heartbeat events every 30s. Active sessions, current pages, and ongoing issues stream in real-time via <code>socket.emit('session:update')</code>.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- SLIDE 25 — Notifications Module -->
+      <div class="slide" data-slide="25">
+        <div class="slide-header">
+          <div class="icon-badge"><i class="fas fa-bell"></i></div>
+          <h1>Multi-Channel Notifications — Deep Dive</h1>
+          <div class="slide-num">25 / 28</div>
+        </div>
+        <div class="two-col">
+          <div>
+            <h3>Notification Model</h3>
+            <div class="code-box">
+{ userId: <span class="type">ObjectId</span>,
+  title: <span class="type">String</span>,
+  message: <span class="type">String</span>,
+  channel: <span class="str">"push"</span> | <span class="str">"email"</span>
+          | <span class="str">"whatsapp"</span> | <span class="str">"sms"</span>
+          | <span class="str">"in_app"</span>,
+  priority: <span class="str">"low"</span> | <span class="str">"normal"</span>
+           | <span class="str">"high"</span> | <span class="str">"urgent"</span>,
+  status: <span class="str">"pending"</span> | <span class="str">"sent"</span>
+         | <span class="str">"delivered"</span> | <span class="str">"failed"</span>
+         | <span class="str">"read"</span>,
+  scheduledAt: <span class="type">Date</span>,
+  relatedEntity: { type: <span class="str">"order"</span> | <span class="str">"product"</span>
+                       | <span class="str">"cart"</span> | <span class="str">"promotion"</span>,
+                   id: <span class="type">ObjectId</span> },
+  metadata: <span class="type">Mixed</span> }
+            </div>
+            <h3>API Routes</h3>
+            <div class="api-route"><span class="method method-post">POST</span><span class="path">/api/notifications/subscribe</span></div>
+            <div class="api-route"><span class="method method-post">POST</span><span class="path">/api/notifications/unsubscribe</span></div>
+            <div class="api-route"><span class="method method-post">POST</span><span class="path">/api/notifications/send</span></div>
+            <div class="api-route"><span class="method method-post">POST</span><span class="path">/api/notifications/broadcast</span></div>
+            <div class="api-route"><span class="method method-get">GET</span><span class="path">/api/notifications/user/:id</span></div>
+          </div>
+          <div>
+            <h3>Firebase FCM — Push Flow</h3>
+            <div class="code-box">
+<span class="cm">// Subscribe device token</span>
+<span class="kw">const</span> subscribeUser = <span class="kw">async</span> (userId, fcmToken) => {
+  <span class="kw">await</span> User.<span class="fn">findByIdAndUpdate</span>(userId,
+    { $addToSet: { fcmTokens: fcmToken } }
+  );
+};
+
+<span class="cm">// Send push notification</span>
+<span class="kw">const</span> sendPush = <span class="kw">async</span> (tokens, title, body, data) => {
+  <span class="kw">const</span> message = {
+    notification: { title, body },
+    data, tokens,
+  };
+  <span class="kw">return</span> admin.messaging().<span class="fn">sendEachForMulticast</span>(message);
+};
+            </div>
+            <h3>Broadcast to All Users</h3>
+            <div class="flow-step">
+              <div class="step-num">1</div>
+              <div class="step-content">Admin calls <code>POST /api/notifications/broadcast</code> with title, message, priority</div>
+            </div>
+            <div class="flow-step">
+              <div class="step-num">2</div>
+              <div class="step-content">Backend fetches all users with <code>fcmTokens.length > 0</code> → batches into groups of 500 (FCM limit)</div>
+            </div>
+            <div class="flow-step">
+              <div class="step-num">3</div>
+              <div class="step-content">Each batch sent via <code>sendEachForMulticast()</code> → failed tokens removed from user document</div>
+            </div>
+            <div class="flow-step">
+              <div class="step-num">4</div>
+              <div class="step-content">Notification record saved with <code>status: "sent"</code> and delivery summary logged</div>
+            </div>
+            <div style="margin-top:10px; display:flex; gap:6px; flex-wrap:wrap;">
+              <span class="tag tag-orange">Firebase FCM</span>
+              <span class="tag tag-blue">Email (SMTP)</span>
+              <span class="tag tag-green">WhatsApp</span>
+              <span class="tag tag-purple">SMS</span>
+              <span class="tag tag-gold">In-App</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SLIDE 26 — Rojmel Financial Ledger -->
+      <div class="slide" data-slide="26">
+        <div class="slide-header">
+          <div class="icon-badge"><i class="fas fa-book"></i></div>
+          <h1>Rojmel — Financial Ledger — Deep Dive</h1>
+          <div class="slide-num">26 / 28</div>
+        </div>
+        <div class="two-col">
+          <div>
+            <h3>Rojmel Model</h3>
+            <div class="code-box">
+{ type: <span class="str">"income"</span> | <span class="str">"expense"</span>,
+  amount: <span class="type">Number</span>,
+  description: <span class="type">String</span>,
+  category: <span class="type">String</span>,
+  <span class="cm">// e.g. "sale", "shipping", "refund", "purchase"</span>
+  paymentMethod: <span class="str">"cash"</span> | <span class="str">"online"</span> | <span class="str">"cod"</span>,
+  voucherNumber: <span class="type">String</span>, <span class="cm">// auto-incremented</span>
+  referenceId: <span class="type">ObjectId</span>, <span class="cm">// linked Order _id</span>
+  referenceType: <span class="str">"order"</span> | <span class="str">"manual"</span>,
+  date: <span class="type">Date</span>,
+  notes: <span class="type">String</span>,
+  createdBy: <span class="type">ObjectId</span> <span class="cm">// admin user</span> }
+            </div>
+            <h3>Auto-Entry on Order Completion</h3>
+            <div class="flow-step">
+              <div class="step-num">1</div>
+              <div class="step-content">When order status → <code>"delivered"</code>, system auto-creates Rojmel income entry</div>
+            </div>
+            <div class="flow-step">
+              <div class="step-num">2</div>
+              <div class="step-content">Amount = order total. Method = <code>paymentMethod</code> from order. Reference = <code>order._id</code></div>
+            </div>
+            <div class="flow-step">
+              <div class="step-num">3</div>
+              <div class="step-content">Voucher number auto-incremented: <code>VCH-2024-0001</code>, <code>VCH-2024-0002</code>…</div>
+            </div>
+          </div>
+          <div>
+            <h3>API Routes</h3>
+            <div class="api-route"><span class="method method-post">POST</span><span class="path">/api/rojmel/</span></div>
+            <div class="api-route"><span class="method method-get">GET</span><span class="path">/api/rojmel/</span></div>
+            <div class="api-route"><span class="method method-get">GET</span><span class="path">/api/rojmel/summary</span></div>
+            <div class="api-route"><span class="method method-get">GET</span><span class="path">/api/rojmel/date-range</span></div>
+            <div class="api-route"><span class="method method-delete">DEL</span><span class="path">/api/rojmel/:id</span></div>
+            <h3>Summary Report Query</h3>
+            <div class="code-box">
+<span class="cm">// Total income vs expense for a date range</span>
+<span class="kw">const</span> summary = <span class="kw">await</span> Rojmel.<span class="fn">aggregate</span>([
+  { $match: { date: { $gte: startDate, $lte: endDate } } },
+  { $group: {
+    _id: <span class="str">"$type"</span>,
+    total: { $sum: <span class="str">"$amount"</span> },
+    count: { $sum: <span class="num">1</span> }
+  }},
+  { $project: { type: <span class="str">"$_id"</span>, total: <span class="num">1</span>, count: <span class="num">1</span> } }
+]);
+<span class="cm">// balance = income.total - expense.total</span>
+            </div>
+            <h3>Admin Ledger View</h3>
+            <p style="font-size:12px; color:var(--light-gray);">Admin sees paginated ledger with date filter, payment method filter, type filter (income/expense), running balance, and CSV export. Manual entries supported for offline cash transactions.</p>
+            <div style="margin-top:10px; display:flex; gap:6px; flex-wrap:wrap;">
+              <span class="tag tag-green">Income Tracking</span>
+              <span class="tag tag-red">Expense Tracking</span>
+              <span class="tag tag-gold">Voucher Numbers</span>
+              <span class="tag tag-blue">Order Linked</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SLIDE 27 — Offers Engine -->
+      <div class="slide" data-slide="27">
+        <div class="slide-header">
+          <div class="icon-badge"><i class="fas fa-percent"></i></div>
+          <h1>Offers Engine Module — Deep Dive</h1>
+          <div class="slide-num">27 / 28</div>
+        </div>
+        <div class="two-col">
+          <div>
+            <h3>Offer Model</h3>
+            <div class="code-box">
+{ name: <span class="type">String</span>,
+  type: <span class="str">"BUY_X_FOR_PRICE"</span>
+       | <span class="str">"BUY_X_GET_Y_FREE"</span>
+       | <span class="str">"FLAT_DISCOUNT"</span>
+       | <span class="str">"PERCENTAGE_DISCOUNT"</span>
+       | <span class="str">"MIN_QTY_DISCOUNT"</span>,
+  applicableTo: <span class="str">"product"</span> | <span class="str">"category"</span>,
+  productIds: [<span class="type">ObjectId</span>],
+  categoryIds: [<span class="type">ObjectId</span>],
+  buyQuantity: <span class="type">Number</span>, <span class="cm">// X in "Buy X"</span>
+  getQuantity: <span class="type">Number</span>, <span class="cm">// Y in "Get Y Free"</span>
+  fixedPrice: <span class="type">Number</span>,   <span class="cm">// for BUY_X_FOR_PRICE</span>
+  discountValue: <span class="type">Number</span>, <span class="cm">// flat ₹ or %</span>
+  minQuantity: <span class="type">Number</span>,
+  startDate: <span class="type">Date</span>,
+  endDate: <span class="type">Date</span>,
+  isActive: <span class="type">Boolean</span> }
+            </div>
+            <h3>API Routes</h3>
+            <div class="api-route"><span class="method method-post">POST</span><span class="path">/api/offers/</span></div>
+            <div class="api-route"><span class="method method-get">GET</span><span class="path">/api/offers/</span></div>
+            <div class="api-route"><span class="method method-get">GET</span><span class="path">/api/offers/active</span></div>
+            <div class="api-route"><span class="method method-put">PUT</span><span class="path">/api/offers/:id</span></div>
+            <div class="api-route"><span class="method method-delete">DEL</span><span class="path">/api/offers/:id</span></div>
+            <div class="api-route"><span class="method method-post">POST</span><span class="path">/api/offers/apply</span></div>
+          </div>
+          <div>
+            <h3>applyOffers() Logic at Checkout</h3>
+            <div class="flow-step">
+              <div class="step-num">1</div>
+              <div class="step-content">Load all active offers where <code>endDate >= now</code> and <code>isActive: true</code></div>
+            </div>
+            <div class="flow-step">
+              <div class="step-num">2</div>
+              <div class="step-content">For each cart item — check if product or its category matches any offer's <code>productIds</code> / <code>categoryIds</code></div>
+            </div>
+            <div class="flow-step">
+              <div class="step-num">3</div>
+              <div class="step-content"><strong>BUY_X_GET_Y_FREE:</strong> if qty >= buyQuantity, add freeQty items to order with price = 0. Tracked in <code>order.freeItems[]</code></div>
+            </div>
+            <div class="flow-step">
+              <div class="step-num">4</div>
+              <div class="step-content"><strong>BUY_X_FOR_PRICE:</strong> if qty >= X, override line total to <code>fixedPrice</code> regardless of individual price</div>
+            </div>
+            <div class="flow-step">
+              <div class="step-num">5</div>
+              <div class="step-content"><strong>FLAT / PERCENTAGE:</strong> compute discount → deducted from order subtotal before GST calculation</div>
+            </div>
+            <div class="flow-step">
+              <div class="step-num">6</div>
+              <div class="step-content">Best offer per item wins (no stacking). Discount breakdown saved in <code>order.discountBreakdown[]</code></div>
+            </div>
+            <div style="margin-top:10px; display:flex; gap:6px; flex-wrap:wrap;">
+              <span class="tag tag-green">Buy X Get Y Free</span>
+              <span class="tag tag-gold">Buy X For Price</span>
+              <span class="tag tag-orange">Flat Discount</span>
+              <span class="tag tag-purple">% Discount</span>
+              <span class="tag tag-blue">Min Qty</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SLIDE 28 — Enquiries & Customer Support -->
+      <div class="slide" data-slide="28">
+        <div class="slide-header">
+          <div class="icon-badge"><i class="fas fa-headset"></i></div>
+          <h1>Enquiries & Customer Support — Deep Dive</h1>
+          <div class="slide-num">28 / 28</div>
+        </div>
+        <div class="two-col">
+          <div>
+            <h3>Enquiry Model</h3>
+            <div class="code-box">
+{ name: <span class="type">String</span>,
+  email: <span class="type">String</span>,
+  mobile: <span class="type">String</span>,
+  comment: <span class="type">String</span>,
+  status: <span class="str">"new"</span> | <span class="str">"in_progress"</span>
+         | <span class="str">"resolved"</span> | <span class="str">"closed"</span>,
+  source: <span class="str">"contact_form"</span> | <span class="str">"product_page"</span>
+         | <span class="str">"order_issue"</span>,
+  relatedOrder: <span class="type">ObjectId</span>, <span class="cm">// optional</span>
+  adminNotes: <span class="type">String</span>,
+  resolvedAt: <span class="type">Date</span>,
+  createdAt: <span class="type">Date</span> }
+            </div>
+            <h3>API Routes</h3>
+            <div class="api-route"><span class="method method-post">POST</span><span class="path">/api/enquiry/</span><span class="tag tag-green" style="margin-left:6px">public</span></div>
+            <div class="api-route"><span class="method method-get">GET</span><span class="path">/api/enquiry/</span><span class="tag tag-gold" style="margin-left:6px">admin</span></div>
+            <div class="api-route"><span class="method method-put">PUT</span><span class="path">/api/enquiry/:id</span><span class="tag tag-gold" style="margin-left:6px">admin</span></div>
+            <div class="api-route"><span class="method method-delete">DEL</span><span class="path">/api/enquiry/:id</span><span class="tag tag-gold" style="margin-left:6px">admin</span></div>
+            <h3>No-Auth Public Submission</h3>
+            <p style="font-size:12px; color:var(--light-gray);">Enquiry creation endpoint is intentionally public (no JWT required) — any visitor can submit a support query from the Contact page without needing an account.</p>
+          </div>
+          <div>
+            <h3>Follow-Up Automation</h3>
+            <div class="flow-step">
+              <div class="step-num">1</div>
+              <div class="step-content">Admin configures follow-up rules: trigger type (<code>cart_abandon</code>, <code>post_purchase</code>, <code>enquiry_open</code>) + delay hours</div>
+            </div>
+            <div class="flow-step">
+              <div class="step-num">2</div>
+              <div class="step-content">Cron scans eligible users/issues every hour based on configured triggers and delay thresholds</div>
+            </div>
+            <div class="flow-step">
+              <div class="step-num">3</div>
+              <div class="step-content">Matching records trigger notification via selected channel (push, email, WhatsApp) with personalised template</div>
+            </div>
+            <div class="flow-step">
+              <div class="step-num">4</div>
+              <div class="step-content">Follow-up logged against user → prevents duplicate follow-ups within cooldown window</div>
+            </div>
+            <h3>Admin Enquiry Dashboard</h3>
+            <div class="field-grid">
+              <div class="field-item" style="border-left-color:var(--blue)"><span class="fname">Status Filter</span><span class="fdesc">new / in_progress / resolved</span></div>
+              <div class="field-item" style="border-left-color:var(--green)"><span class="fname">Quick Reply</span><span class="fdesc">Admin notes per enquiry</span></div>
+              <div class="field-item" style="border-left-color:var(--orange)"><span class="fname">Order Link</span><span class="fdesc">Jump to related order</span></div>
+              <div class="field-item" style="border-left-color:var(--purple)"><span class="fname">Bulk Update</span><span class="fdesc">Mark multiple resolved</span></div>
+            </div>
+            <div style="margin-top:10px; display:flex; gap:6px; flex-wrap:wrap;">
+              <span class="tag tag-green">Public Submission</span>
+              <span class="tag tag-gold">Admin Dashboard</span>
+              <span class="tag tag-blue">Follow-Up Automation</span>
+              <span class="tag tag-orange">Multi-Channel</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
     </div>
 
     <button class="nav-button prev" id="prevBtn"><i class="fas fa-chevron-left"></i></button>
@@ -3544,13 +4007,15 @@
     let currentSlide = 0;
     const slides = document.querySelectorAll('.slide');
     const totalSlides = slides.length;
-    let startX = 0;
-    let endX = 0;
+    let startX = 0, startY = 0;
 
     function showSlide(index) {
       slides.forEach((slide, i) => {
         slide.classList.toggle('active', i === index);
       });
+      // Scroll active slide back to top
+      const active = slides[index];
+      if (active) active.scrollTop = 0;
     }
 
     function nextSlide() {
@@ -3576,16 +4041,18 @@
 
     document.addEventListener('touchstart', (e) => {
       startX = e.touches[0].clientX;
-    });
+      startY = e.touches[0].clientY;
+    }, { passive: true });
 
     document.addEventListener('touchend', (e) => {
-      endX = e.changedTouches[0].clientX;
-      if (startX - endX > 50) {
-        nextSlide(); // swipe left
-      } else if (endX - startX > 50) {
-        prevSlide(); // swipe right
+      const diffX = startX - e.changedTouches[0].clientX;
+      const diffY = startY - e.changedTouches[0].clientY;
+      // Only navigate on horizontal swipe — vertical goes to content scroll
+      if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 60) {
+        if (diffX > 0) nextSlide();
+        else prevSlide();
       }
-    });
+    }, { passive: true });
 
     // Show first slide
     showSlide(0);

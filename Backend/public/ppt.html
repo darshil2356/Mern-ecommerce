@@ -3,14 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MERN Ecommerce Project - Professional Pitch Deck</title>
+    <title>FashionReels – Full Platform Pitch Deck</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
 
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -20,944 +16,902 @@
             height: 100vh;
         }
 
-        .presentation-container {
-            position: relative;
-            width: 100%;
-            height: 100vh;
-        }
+        .presentation-container { position: relative; width: 100%; height: 100vh; }
 
         .slide {
-            width: 100%;
-            height: 100vh;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
+            width: 100%; height: 100vh;
+            display: flex; flex-direction: column;
+            justify-content: center; align-items: center;
             background: linear-gradient(135deg, #1a1a1a 0%, #2a2a2a 50%, #d4af37 100%);
-            color: white;
-            text-align: center;
-            padding: 2rem;
-            position: absolute;
-            top: 0;
-            left: 0;
-            opacity: 0;
-            transform: translateY(50px);
-            transition: all 0.6s ease;
-            z-index: 1;
+            color: white; text-align: center;
+            padding: 2rem 2rem 90px;
+            position: absolute; top: 0; left: 0;
+            opacity: 0; transform: translateY(50px);
+            transition: all 0.6s ease; z-index: 1;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
         }
 
         .slide.active {
-            opacity: 1;
-            transform: translateY(0);
-            z-index: 10;
-            display: flex !important;
+            opacity: 1; transform: translateY(0);
+            z-index: 10; display: flex !important;
         }
 
         .slide::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(0,0,0,0.3);
-            z-index: 1;
+            content: ''; position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.3); z-index: 1;
         }
 
-        .slide-content {
-            z-index: 2;
-            max-width: 1200px;
-            width: 100%;
-        }
+        .slide-content { z-index: 2; max-width: 1200px; width: 100%; }
 
+        /* Typography */
         .title-slide h1 {
-            font-size: 4rem;
-            font-weight: 700;
-            margin-bottom: 1rem;
+            font-size: 4rem; font-weight: 700; margin-bottom: 1rem;
             text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
             background: linear-gradient(45deg, #d4af37, #fff);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
         }
+        .title-slide h2 { font-size: 2.2rem; margin-bottom: 1.5rem; font-weight: 300; }
+        .slide h2 { font-size: 2.6rem; margin-bottom: 1.2rem; font-weight: 600; text-shadow: 1px 1px 2px rgba(0,0,0,0.5); }
+        .slide h3 { font-size: 1.6rem; margin-bottom: 0.8rem; color: #d4af37; font-weight: 500; }
+        .slide p { font-size: 1.15rem; line-height: 1.8; max-width: 850px; margin: 0 auto 1.2rem; }
 
-        .title-slide h2 {
-            font-size: 2.5rem;
-            margin-bottom: 2rem;
-            font-weight: 300;
-        }
-
-        .slide h2 {
-            font-size: 3rem;
-            margin-bottom: 2rem;
-            font-weight: 600;
-            text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
-        }
-
-        .slide h3 {
-            font-size: 2rem;
-            margin-bottom: 1.5rem;
-            color: #d4af37;
-            font-weight: 500;
-        }
-
-        .slide p {
-            font-size: 1.3rem;
-            line-height: 1.8;
-            max-width: 800px;
-            margin: 0 auto 2rem;
-        }
-
+        /* Feature Grid */
         .features-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 2rem;
-            width: 100%;
-            margin-top: 2rem;
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 1.2rem; width: 100%; margin-top: 1.2rem;
         }
-
         .feature-card {
-            background: rgba(255,255,255,0.1);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255,255,255,0.2);
-            border-radius: 15px;
-            padding: 2rem;
-            text-align: center;
+            background: rgba(255,255,255,0.1); backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.2); border-radius: 15px;
+            padding: 1.5rem; text-align: center;
             transition: transform 0.3s ease, box-shadow 0.3s ease;
         }
+        .feature-card:hover { transform: translateY(-8px); box-shadow: 0 20px 40px rgba(0,0,0,0.3); }
+        .feature-icon { font-size: 2.5rem; color: #d4af37; margin-bottom: 0.8rem; }
+        .feature-title { font-size: 1.2rem; font-weight: 600; margin-bottom: 0.6rem; }
+        .feature-desc { font-size: 0.9rem; line-height: 1.6; opacity: 0.9; }
 
-        .feature-card:hover {
-            transform: translateY(-10px);
-            box-shadow: 0 20px 40px rgba(0,0,0,0.3);
-        }
-
-        .feature-icon {
-            font-size: 3rem;
-            color: #d4af37;
-            margin-bottom: 1rem;
-        }
-
-        .feature-title {
-            font-size: 1.5rem;
-            font-weight: 600;
-            margin-bottom: 1rem;
-        }
-
-        .feature-desc {
-            font-size: 1rem;
-            line-height: 1.6;
-            opacity: 0.9;
-        }
-
-        .tech-stack {
-            display: flex;
-            flex-wrap: wrap;
-            justify-content: center;
-            gap: 2rem;
-            margin-top: 2rem;
-        }
-
-        .tech-item {
-            background: rgba(255,255,255,0.1);
-            border-radius: 10px;
-            padding: 1rem 2rem;
-            font-weight: 600;
-            font-size: 1.1rem;
-            border: 1px solid rgba(212, 175, 55, 0.3);
-        }
-
+        /* Stats */
         .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 2rem;
-            width: 100%;
-            margin-top: 2rem;
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.2rem; width: 100%; margin-top: 1.2rem;
         }
-
         .stat-card {
-            background: rgba(255,255,255,0.1);
-            backdrop-filter: blur(10px);
-            border-radius: 15px;
-            padding: 2rem;
-            text-align: center;
+            background: rgba(255,255,255,0.1); backdrop-filter: blur(10px);
+            border-radius: 15px; padding: 1.8rem; text-align: center;
             border: 1px solid rgba(255,255,255,0.2);
         }
+        .stat-number { font-size: 2.5rem; font-weight: 700; color: #d4af37; margin-bottom: 0.4rem; }
+        .stat-label { font-size: 1rem; font-weight: 500; }
 
-        .stat-number {
-            font-size: 3rem;
-            font-weight: 700;
-            color: #d4af37;
-            margin-bottom: 0.5rem;
+        /* Module Cards */
+        .module-showcase {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 1.1rem; width: 100%; margin-top: 1.2rem;
+        }
+        .module-card {
+            background: rgba(255,255,255,0.1); backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.2); border-radius: 12px;
+            padding: 1.3rem; text-align: left; transition: all 0.3s ease;
+        }
+        .module-card:hover { transform: translateY(-5px); box-shadow: 0 15px 30px rgba(0,0,0,0.3); }
+        .module-header { display: flex; align-items: center; margin-bottom: 0.8rem; }
+        .module-icon { font-size: 1.6rem; color: #d4af37; margin-right: 0.8rem; width: 30px; }
+        .module-title { font-size: 1.1rem; font-weight: 600; }
+        .module-features { list-style: none; padding: 0; }
+        .module-features li { margin-bottom: 0.35rem; font-size: 0.85rem; opacity: 0.9; }
+        .module-features li::before { content: "✓"; color: #d4af37; margin-right: 0.4rem; font-weight: bold; }
+
+        /* Tech Stack */
+        .tech-stack { display: flex; flex-wrap: wrap; justify-content: center; gap: 1.2rem; margin-top: 1.5rem; }
+        .tech-item {
+            background: rgba(255,255,255,0.1); border-radius: 10px;
+            padding: 0.8rem 1.6rem; font-weight: 600; font-size: 1rem;
+            border: 1px solid rgba(212,175,55,0.3);
         }
 
-        .stat-label {
-            font-size: 1.2rem;
-            font-weight: 500;
+        /* Gold badge */
+        .gold-badge {
+            display: inline-block;
+            background: linear-gradient(135deg, #d4af37, #f0d060);
+            color: #1a1a1a; padding: 0.35rem 1rem;
+            border-radius: 20px; font-weight: 700; font-size: 0.85rem; margin: 0.25rem;
         }
 
+        /* AI highlight */
+        .ai-highlight {
+            background: linear-gradient(135deg, rgba(138,43,226,0.3), rgba(212,175,55,0.2));
+            border: 1px solid rgba(138,43,226,0.5);
+            border-radius: 15px; padding: 1.5rem; margin-top: 1.2rem;
+        }
+
+        /* Navigation */
         .navigation {
-            position: fixed;
-            bottom: 30px;
-            left: 50%;
-            transform: translateX(-50%);
-            display: flex;
-            gap: 20px;
-            z-index: 1000;
+            position: fixed; bottom: 30px; left: 50%;
+            transform: translateX(-50%); display: flex; gap: 20px; z-index: 1000;
         }
-
         .nav-btn {
-            background: rgba(212, 175, 55, 0.9);
-            border: none;
-            color: #1a1a1a;
-            padding: 15px 30px;
-            font-size: 1.1rem;
-            font-weight: 600;
-            border-radius: 25px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            box-shadow: 0 4px 15px rgba(212, 175, 55, 0.3);
-            min-height: 44px; /* iOS touch target minimum */
-            display: flex;
-            align-items: center;
-            gap: 8px;
+            background: rgba(212,175,55,0.9); border: none; color: #1a1a1a;
+            padding: 14px 28px; font-size: 1rem; font-weight: 600;
+            border-radius: 25px; cursor: pointer; transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(212,175,55,0.3); min-height: 44px;
+            display: flex; align-items: center; gap: 8px;
         }
-
-        .nav-btn:hover {
-            background: #d4af37;
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(212, 175, 55, 0.4);
-        }
+        .nav-btn:hover { background: #d4af37; transform: translateY(-2px); box-shadow: 0 6px 20px rgba(212,175,55,0.4); }
 
         .slide-counter {
-            position: fixed;
-            top: 30px;
-            right: 30px;
-            background: rgba(0,0,0,0.7);
-            color: white;
-            padding: 10px 20px;
-            border-radius: 20px;
-            font-weight: 600;
-            z-index: 1000;
+            position: fixed; top: 30px; right: 30px;
+            background: rgba(0,0,0,0.7); color: white;
+            padding: 10px 20px; border-radius: 20px; font-weight: 600; z-index: 1000;
         }
 
-        .module-showcase {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-            gap: 1.5rem;
-            width: 100%;
-            margin-top: 2rem;
-        }
-
-        .module-card {
-            background: rgba(255,255,255,0.1);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255,255,255,0.2);
-            border-radius: 12px;
-            padding: 1.5rem;
-            text-align: left;
-            transition: all 0.3s ease;
-        }
-
-        .module-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 15px 30px rgba(0,0,0,0.3);
-        }
-
-        .module-header {
-            display: flex;
-            align-items: center;
-            margin-bottom: 1rem;
-        }
-
-        .module-icon {
-            font-size: 2rem;
-            color: #d4af37;
-            margin-right: 1rem;
-            width: 40px;
-        }
-
-        .module-title {
-            font-size: 1.3rem;
-            font-weight: 600;
-        }
-
-        .module-features {
-            list-style: none;
-            padding: 0;
-        }
-
-        .module-features li {
-            margin-bottom: 0.5rem;
-            font-size: 0.9rem;
-            opacity: 0.9;
-        }
-
-        .module-features li::before {
-            content: "✓";
-            color: #d4af37;
-            margin-right: 0.5rem;
-            font-weight: bold;
-        }
-
+        /* Responsive */
         @media (max-width: 768px) {
-            .title-slide h1 {
-                font-size: 2.5rem;
-            }
-            .slide h2 {
-                font-size: 2rem;
-            }
-            .features-grid {
-                grid-template-columns: 1fr;
-                gap: 1rem;
-            }
-            .stats-grid {
-                grid-template-columns: 1fr;
-                gap: 1rem;
-            }
-            .module-showcase {
-                grid-template-columns: 1fr;
-                gap: 1rem;
-            }
-            .slide {
-                padding: 1rem;
-            }
-            .feature-card {
-                padding: 1.5rem;
-            }
-            .stat-card {
-                padding: 1.5rem;
-            }
-            .module-card {
-                padding: 1rem;
-            }
-            .tech-stack {
-                flex-wrap: wrap;
-                gap: 1rem;
-                justify-content: center;
-            }
-            .tech-item {
-                padding: 0.75rem 1.5rem;
-                font-size: 0.9rem;
-            }
-            .navigation {
-                bottom: 20px;
-                gap: 15px;
-            }
-            .nav-btn {
-                padding: 12px 25px;
-                font-size: 0.9rem;
-            }
-            .slide-counter {
-                top: 20px;
-                right: 20px;
-                padding: 8px 15px;
-                font-size: 0.8rem;
-            }
+            .title-slide h1 { font-size: 2.5rem; }
+            .slide h2 { font-size: 1.9rem; }
+            .features-grid, .stats-grid, .module-showcase { grid-template-columns: 1fr; gap: 0.8rem; }
+            .slide { padding: 1rem; }
+            .nav-btn { padding: 12px 22px; font-size: 0.9rem; }
+            .slide-counter { top: 20px; right: 20px; padding: 8px 14px; font-size: 0.8rem; }
         }
-
         @media (max-width: 480px) {
-            .title-slide h1 {
-                font-size: 2rem;
-            }
-            .title-slide h2 {
-                font-size: 1.5rem;
-            }
-            .slide h2 {
-                font-size: 1.8rem;
-            }
-            .slide h3 {
-                font-size: 1.5rem;
-            }
-            .slide p {
-                font-size: 1.1rem;
-                line-height: 1.6;
-            }
-            .feature-card {
-                padding: 1rem;
-            }
-            .feature-icon {
-                font-size: 2.5rem;
-                margin-bottom: 0.75rem;
-            }
-            .feature-title {
-                font-size: 1.2rem;
-            }
-            .feature-desc {
-                font-size: 0.9rem;
-            }
-            .stat-card {
-                padding: 1rem;
-            }
-            .stat-number {
-                font-size: 2.5rem;
-            }
-            .stat-label {
-                font-size: 1rem;
-            }
-            .module-card {
-                padding: 0.75rem;
-            }
-            .module-title {
-                font-size: 1.1rem;
-            }
-            .module-features li {
-                font-size: 0.8rem;
-            }
-            .tech-item {
-                padding: 0.5rem 1rem;
-                font-size: 0.8rem;
-            }
-            .nav-btn {
-                padding: 10px 20px;
-                font-size: 0.8rem;
-            }
-            .slide-counter {
-                padding: 6px 12px;
-                font-size: 0.7rem;
-            }
+            .title-slide h1 { font-size: 2rem; }
+            .title-slide h2 { font-size: 1.4rem; }
+            .slide h2 { font-size: 1.7rem; }
+            .stat-number { font-size: 2rem; }
+            .nav-btn { padding: 10px 18px; font-size: 0.85rem; }
         }
     </style>
 </head>
 <body>
-    <div class="presentation-container">
-    <!-- Title Slide -->
+<div class="presentation-container">
+
+    <!-- Slide 1: Title -->
     <div id="slide1" class="slide active">
         <div class="slide-content title-slide">
             <h1><i class="fas fa-shopping-bag"></i> FashionReels</h1>
-            <h2>Revolutionary Ecommerce with Reel-Based Shopping</h2>
-            <p>A TikTok-style video shopping experience transforming fashion retail</p>
-            <div style="margin-top: 3rem;">
-                <i class="fas fa-play-circle" style="font-size: 4rem; color: #d4af37;"></i>
+            <h2>India's Reel-Based Fashion Ecommerce Platform</h2>
+            <p>A full-featured, production-ready MERN ecommerce ecosystem — reel shopping, AI tools, advanced analytics, rewards, and enterprise-grade operations.</p>
+            <div style="margin-top: 2rem;">
+                <span class="gold-badge"><i class="fas fa-video"></i> Reel Shopping</span>
+                <span class="gold-badge"><i class="fas fa-robot"></i> AI Powered</span>
+                <span class="gold-badge"><i class="fas fa-chart-line"></i> Deep Analytics</span>
+                <span class="gold-badge"><i class="fas fa-gift"></i> Gamification</span>
+                <span class="gold-badge"><i class="fas fa-store"></i> Multi-Module</span>
             </div>
         </div>
     </div>
 
-    <!-- Problem Slide -->
+    <!-- Slide 2: The Problem -->
     <div id="slide2" class="slide">
         <div class="slide-content">
             <h2><i class="fas fa-exclamation-triangle"></i> The Problem</h2>
-            <p>Traditional ecommerce fails to engage modern shoppers</p>
+            <p>Traditional ecommerce fails the modern fashion shopper and seller.</p>
             <div class="features-grid">
                 <div class="feature-card">
                     <div class="feature-icon"><i class="fas fa-eye-slash"></i></div>
-                    <div class="feature-title">Poor Visualization</div>
-                    <div class="feature-desc">Static images can't show how clothes look in motion or real-life scenarios</div>
+                    <div class="feature-title">Static & Boring</div>
+                    <div class="feature-desc">Flat product images can't show how clothes look in motion. No engagement, no emotion.</div>
                 </div>
                 <div class="feature-card">
                     <div class="feature-icon"><i class="fas fa-search"></i></div>
-                    <div class="feature-title">Limited Discovery</div>
-                    <div class="feature-desc">Customers struggle to find products beyond basic search and categories</div>
+                    <div class="feature-title">Poor Discovery</div>
+                    <div class="feature-desc">Customers are stuck browsing endless categories. Discovery is slow and uninspiring.</div>
                 </div>
                 <div class="feature-card">
                     <div class="feature-icon"><i class="fas fa-chart-line"></i></div>
-                    <div class="feature-title">Low Engagement</div>
-                    <div class="feature-desc">Traditional shopping lacks the excitement of social media experiences</div>
+                    <div class="feature-title">No Retention Tools</div>
+                    <div class="feature-desc">Stores have no loyalty engine — no coins, no spin rewards, no referral incentives.</div>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon"><i class="fas fa-blind"></i></div>
+                    <div class="feature-title">Zero Visibility</div>
+                    <div class="feature-desc">Merchants can't see what users do, where they drop off, or why they don't buy.</div>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Solution Slide -->
+    <!-- Slide 3: Our Solution -->
     <div id="slide3" class="slide">
         <div class="slide-content">
             <h2><i class="fas fa-lightbulb"></i> Our Solution</h2>
-            <p>Reel-Based Shopping Platform</p>
-            <div class="features-grid">
-                <div class="feature-card">
-                    <div class="feature-icon"><i class="fas fa-video"></i></div>
-                    <div class="feature-title">TikTok-Style Videos</div>
-                    <div class="feature-desc">Vertical video feed for immersive product discovery</div>
-                </div>
-                <div class="feature-card">
-                    <div class="feature-icon"><i class="fas fa-shopping-cart"></i></div>
-                    <div class="feature-title">Shoppable Videos</div>
-                    <div class="feature-desc">Direct purchase buttons overlaid on video content</div>
-                </div>
-                <div class="feature-card">
-                    <div class="feature-icon"><i class="fas fa-mobile-alt"></i></div>
-                    <div class="feature-title">Mobile-First Design</div>
-                    <div class="feature-desc">Optimized for the 70% of shopping done on mobile devices</div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Core Features Slide -->
-    <div id="slide4" class="slide">
-        <div class="slide-content">
-            <h2><i class="fas fa-star"></i> Core Features</h2>
+            <p>A complete ecommerce platform built around video, intelligence, and engagement.</p>
             <div class="features-grid">
                 <div class="feature-card">
                     <div class="feature-icon"><i class="fas fa-film"></i></div>
-                    <div class="feature-title">Reel Shopping</div>
-                    <div class="feature-desc">Infinite scroll video feed with product overlays and shop buttons</div>
+                    <div class="feature-title">Reel-First Shopping</div>
+                    <div class="feature-desc">TikTok-style vertical video feed where users discover and buy products without leaving the reel.</div>
                 </div>
                 <div class="feature-card">
-                    <div class="feature-icon"><i class="fas fa-cogs"></i></div>
-                    <div class="feature-title">Smart Inventory</div>
-                    <div class="feature-desc">Real-time stock tracking with size/color variants</div>
+                    <div class="feature-icon"><i class="fas fa-robot"></i></div>
+                    <div class="feature-title">AI Built-In</div>
+                    <div class="feature-desc">AI generates products, blogs, growth reports, and market intelligence automatically.</div>
                 </div>
                 <div class="feature-card">
-                    <div class="feature-icon"><i class="fas fa-credit-card"></i></div>
-                    <div class="feature-title">Secure Payments</div>
-                    <div class="feature-desc">Razorpay integration with multiple payment options</div>
+                    <div class="feature-icon"><i class="fas fa-gamepad"></i></div>
+                    <div class="feature-title">Gamified Loyalty</div>
+                    <div class="feature-desc">Spin wheel, coins, referral earnings — customers come back because it's rewarding.</div>
                 </div>
                 <div class="feature-card">
-                    <div class="feature-icon"><i class="fas fa-chart-bar"></i></div>
-                    <div class="feature-title">Analytics Dashboard</div>
-                    <div class="feature-desc">Comprehensive business intelligence and reporting</div>
-                </div>
-                <div class="feature-card">
-                    <div class="feature-icon"><i class="fas fa-users"></i></div>
-                    <div class="feature-title">Loyalty System</div>
-                    <div class="feature-desc">Coins, rewards, and referral programs</div>
-                </div>
-                <div class="feature-card">
-                    <div class="feature-icon"><i class="fas fa-blog"></i></div>
-                    <div class="feature-title">Content Marketing</div>
-                    <div class="feature-desc">Integrated blog system for SEO and engagement</div>
+                    <div class="feature-icon"><i class="fas fa-eye"></i></div>
+                    <div class="feature-title">Full User Visibility</div>
+                    <div class="feature-desc">Session tracking, event logs, dropoff detection, issue resolution — see everything.</div>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Technology Stack Slide -->
+    <!-- Slide 4: Shopping Experience -->
+    <div id="slide4" class="slide">
+        <div class="slide-content">
+            <h2><i class="fas fa-shopping-cart"></i> Shopping Experience</h2>
+            <p>End-to-end customer journey — from discovery to doorstep.</p>
+            <div class="module-showcase">
+                <div class="module-card">
+                    <div class="module-header">
+                        <div class="module-icon"><i class="fas fa-video"></i></div>
+                        <div class="module-title">Reel Discovery</div>
+                    </div>
+                    <ul class="module-features">
+                        <li>Infinite scroll vertical video feed</li>
+                        <li>Like reels & follow products</li>
+                        <li>Shop directly from a reel</li>
+                        <li>Influencer content integration</li>
+                    </ul>
+                </div>
+                <div class="module-card">
+                    <div class="module-header">
+                        <div class="module-icon"><i class="fas fa-box"></i></div>
+                        <div class="module-title">Product Details</div>
+                    </div>
+                    <ul class="module-features">
+                        <li>Multiple images & product videos</li>
+                        <li>Color & size variant selector</li>
+                        <li>Verified customer reviews + photos</li>
+                        <li>Compare products feature</li>
+                    </ul>
+                </div>
+                <div class="module-card">
+                    <div class="module-header">
+                        <div class="module-icon"><i class="fas fa-shopping-basket"></i></div>
+                        <div class="module-title">Cart & Checkout</div>
+                    </div>
+                    <ul class="module-features">
+                        <li>Cart with color/size memory</li>
+                        <li>Bundle add-to-cart support</li>
+                        <li>Coupon & offer auto-apply</li>
+                        <li>GST-inclusive/exclusive pricing</li>
+                    </ul>
+                </div>
+                <div class="module-card">
+                    <div class="module-header">
+                        <div class="module-icon"><i class="fas fa-credit-card"></i></div>
+                        <div class="module-title">Payments</div>
+                    </div>
+                    <ul class="module-features">
+                        <li>Razorpay — UPI, Cards, Wallets</li>
+                        <li>HMAC-SHA256 payment verification</li>
+                        <li>Refund modes: cash, coins, online</li>
+                        <li>Offline/COD order support</li>
+                    </ul>
+                </div>
+                <div class="module-card">
+                    <div class="module-header">
+                        <div class="module-icon"><i class="fas fa-truck"></i></div>
+                        <div class="module-title">Delivery & Tracking</div>
+                    </div>
+                    <ul class="module-features">
+                        <li>Shiprocket — pan-India delivery</li>
+                        <li>Auto shipment creation</li>
+                        <li>Live order tracking for customers</li>
+                        <li>Automated status sync via cron</li>
+                    </ul>
+                </div>
+                <div class="module-card">
+                    <div class="module-header">
+                        <div class="module-icon"><i class="fas fa-heart"></i></div>
+                        <div class="module-title">Wishlist & Bundles</div>
+                    </div>
+                    <ul class="module-features">
+                        <li>Save products to wishlist</li>
+                        <li>Curated product bundles</li>
+                        <li>Bundle pricing with discounts</li>
+                        <li>Bundle stock management</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Slide 5: Catalog & Inventory -->
     <div id="slide5" class="slide">
         <div class="slide-content">
+            <h2><i class="fas fa-boxes"></i> Catalog & Inventory</h2>
+            <p>Enterprise-grade product management built for fashion.</p>
+            <div class="module-showcase">
+                <div class="module-card">
+                    <div class="module-header">
+                        <div class="module-icon"><i class="fas fa-tshirt"></i></div>
+                        <div class="module-title">Product Variants</div>
+                    </div>
+                    <ul class="module-features">
+                        <li>Color variants with images</li>
+                        <li>Size stock per color (XS–3XL)</li>
+                        <li>SKU management</li>
+                        <li>HSN code for GST compliance</li>
+                    </ul>
+                </div>
+                <div class="module-card">
+                    <div class="module-header">
+                        <div class="module-icon"><i class="fas fa-barcode"></i></div>
+                        <div class="module-title">Barcode System</div>
+                    </div>
+                    <ul class="module-features">
+                        <li>Barcode per product & size</li>
+                        <li>Barcode scanner lookup</li>
+                        <li>Bulk barcode printing</li>
+                        <li>POS barcode scanning</li>
+                    </ul>
+                </div>
+                <div class="module-card">
+                    <div class="module-header">
+                        <div class="module-icon"><i class="fas fa-layer-group"></i></div>
+                        <div class="module-title">Taxonomy</div>
+                    </div>
+                    <ul class="module-features">
+                        <li>Categories, brands, colors, sizes</li>
+                        <li>Full CRUD for all attributes</li>
+                        <li>Product filtering by any attribute</li>
+                        <li>SEO fields per product</li>
+                    </ul>
+                </div>
+                <div class="module-card">
+                    <div class="module-header">
+                        <div class="module-icon"><i class="fas fa-warehouse"></i></div>
+                        <div class="module-title">Inventory Control</div>
+                    </div>
+                    <ul class="module-features">
+                        <li>Real-time stock tracking</li>
+                        <li>Low stock alerts</li>
+                        <li>Stock check before purchase</li>
+                        <li>Material, fit, occasion attributes</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Slide 6: AI-Powered Features -->
+    <div id="slide6" class="slide">
+        <div class="slide-content">
+            <h2><i class="fas fa-robot"></i> AI-Powered Features</h2>
+            <p>Google Gemini AI baked into the platform — automating content, analysis, and growth.</p>
+            <div class="features-grid">
+                <div class="feature-card">
+                    <div class="feature-icon"><i class="fas fa-box-open"></i></div>
+                    <div class="feature-title">AI Product Generator</div>
+                    <div class="feature-desc">Admin can generate full product listings — title, description, attributes, SEO — instantly using AI.</div>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon"><i class="fas fa-pen-nib"></i></div>
+                    <div class="feature-title">Auto Blog Generation</div>
+                    <div class="feature-desc">2 SEO-optimized fashion blogs auto-generated every day at 7 AM via Gemini cron job.</div>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon"><i class="fas fa-chart-line"></i></div>
+                    <div class="feature-title">AI Growth Reports</div>
+                    <div class="feature-desc">AI analyses sales data and generates actionable growth recommendations for the business.</div>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon"><i class="fas fa-globe"></i></div>
+                    <div class="feature-title">Market Intelligence</div>
+                    <div class="feature-desc">AI monitors trends and generates market insights — what's selling, what's coming, what to stock.</div>
+                </div>
+            </div>
+            <div class="ai-highlight" style="margin-top: 1.2rem;">
+                <p style="margin: 0; font-size: 1rem;">
+                    <i class="fas fa-bolt" style="color: #d4af37;"></i>
+                    <strong>Powered by Google Gemini API</strong> — runs automatically in the background so the admin never has to do manual content work.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Slide 7: Offers, Discounts & Marketing -->
+    <div id="slide7" class="slide">
+        <div class="slide-content">
+            <h2><i class="fas fa-tags"></i> Offers, Discounts & Marketing</h2>
+            <p>A full marketing engine built into the platform.</p>
+            <div class="module-showcase">
+                <div class="module-card">
+                    <div class="module-header">
+                        <div class="module-icon"><i class="fas fa-ticket-alt"></i></div>
+                        <div class="module-title">Coupon System</div>
+                    </div>
+                    <ul class="module-features">
+                        <li>Create & manage coupon codes</li>
+                        <li>Fixed or percentage discounts</li>
+                        <li>Min order value conditions</li>
+                        <li>Expiry date & usage limits</li>
+                    </ul>
+                </div>
+                <div class="module-card">
+                    <div class="module-header">
+                        <div class="module-icon"><i class="fas fa-percent"></i></div>
+                        <div class="module-title">Offers Engine</div>
+                    </div>
+                    <ul class="module-features">
+                        <li>Buy X for Price</li>
+                        <li>Buy X Get Y Free</li>
+                        <li>Flat & percentage discounts</li>
+                        <li>Category or product-level offers</li>
+                    </ul>
+                </div>
+                <div class="module-card">
+                    <div class="module-header">
+                        <div class="module-icon"><i class="fas fa-box-open"></i></div>
+                        <div class="module-title">Product Bundles</div>
+                    </div>
+                    <ul class="module-features">
+                        <li>Curated multi-product bundles</li>
+                        <li>Bundle-specific pricing</li>
+                        <li>Discount vs individual pricing</li>
+                        <li>Bundle stock management</li>
+                    </ul>
+                </div>
+                <div class="module-card">
+                    <div class="module-header">
+                        <div class="module-icon"><i class="fas fa-blog"></i></div>
+                        <div class="module-title">Content Marketing</div>
+                    </div>
+                    <ul class="module-features">
+                        <li>Full blog CMS with categories</li>
+                        <li>Like / dislike / view count</li>
+                        <li>SEO meta tags per post</li>
+                        <li>AI auto-generation daily</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Slide 8: Rewards & Gamification -->
+    <div id="slide8" class="slide">
+        <div class="slide-content">
+            <h2><i class="fas fa-gamepad"></i> Rewards & Gamification</h2>
+            <p>Customers stay because every interaction is rewarding.</p>
+            <div class="features-grid">
+                <div class="feature-card">
+                    <div class="feature-icon"><i class="fas fa-dharmachakra"></i></div>
+                    <div class="feature-title">Spin Wheel</div>
+                    <div class="feature-desc">Probability-weighted spin with rewards: coins, discounts, free products. Daily spin limits. POS spin for walk-in customers.</div>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon"><i class="fas fa-coins"></i></div>
+                    <div class="feature-title">Coin System</div>
+                    <div class="feature-desc">Users earn coins on purchases and referrals. Coins redeemable on checkout. Monthly earning caps. Full transaction history.</div>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon"><i class="fas fa-user-friends"></i></div>
+                    <div class="feature-title">Referral Program</div>
+                    <div class="feature-desc">Every user gets a referral code. Referrer earns fixed/percentage rewards when referred user purchases. Lifetime tracking.</div>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon"><i class="fas fa-sliders-h"></i></div>
+                    <div class="feature-title">Fully Configurable</div>
+                    <div class="feature-desc">Admin controls all reward rules — coin value, referral reward type, spin segments, monthly caps — from the dashboard.</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Slide 9: Analytics & User Tracking -->
+    <div id="slide9" class="slide">
+        <div class="slide-content">
+            <h2><i class="fas fa-eye"></i> Analytics & User Tracking</h2>
+            <p>Know exactly what every customer does — and fix it before they leave.</p>
+            <div class="module-showcase">
+                <div class="module-card">
+                    <div class="module-header">
+                        <div class="module-icon"><i class="fas fa-desktop"></i></div>
+                        <div class="module-title">Session Tracking</div>
+                    </div>
+                    <ul class="module-features">
+                        <li>Session creation per user visit</li>
+                        <li>Device, IP, user agent logged</li>
+                        <li>Active session monitoring</li>
+                        <li>Real-time heartbeat via Socket.io</li>
+                    </ul>
+                </div>
+                <div class="module-card">
+                    <div class="module-header">
+                        <div class="module-icon"><i class="fas fa-mouse-pointer"></i></div>
+                        <div class="module-title">Event Tracking</div>
+                    </div>
+                    <ul class="module-features">
+                        <li>Page view, product view</li>
+                        <li>Add to cart, remove from cart</li>
+                        <li>Checkout start, payment success</li>
+                        <li>Rage click, search, filter events</li>
+                    </ul>
+                </div>
+                <div class="module-card">
+                    <div class="module-header">
+                        <div class="module-icon"><i class="fas fa-funnel-dollar"></i></div>
+                        <div class="module-title">Dropoff Reports</div>
+                    </div>
+                    <ul class="module-features">
+                        <li>Cart abandonment tracking</li>
+                        <li>Checkout dropoff analysis</li>
+                        <li>Payment failure detection</li>
+                        <li>Stuck checkout identification</li>
+                    </ul>
+                </div>
+                <div class="module-card">
+                    <div class="module-header">
+                        <div class="module-icon"><i class="fas fa-exclamation-circle"></i></div>
+                        <div class="module-title">Issue Detection</div>
+                    </div>
+                    <ul class="module-features">
+                        <li>Auto-detect user issues</li>
+                        <li>Severity levels (low to urgent)</li>
+                        <li>Follow-up automation</li>
+                        <li>Issue resolution workflows</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Slide 10: Admin Panel -->
+    <div id="slide10" class="slide">
+        <div class="slide-content">
+            <h2><i class="fas fa-tachometer-alt"></i> Admin Control Center</h2>
+            <p>40+ admin pages — every operation manageable from one dashboard.</p>
+            <div class="module-showcase">
+                <div class="module-card">
+                    <div class="module-header">
+                        <div class="module-icon"><i class="fas fa-store"></i></div>
+                        <div class="module-title">Store Operations</div>
+                    </div>
+                    <ul class="module-features">
+                        <li>Live billing & POS</li>
+                        <li>Order management & status</li>
+                        <li>Customer profiles & history</li>
+                        <li>Enquiry management</li>
+                    </ul>
+                </div>
+                <div class="module-card">
+                    <div class="module-header">
+                        <div class="module-icon"><i class="fas fa-boxes"></i></div>
+                        <div class="module-title">Catalog Management</div>
+                    </div>
+                    <ul class="module-features">
+                        <li>Add/edit products with variants</li>
+                        <li>Barcode generation & printing</li>
+                        <li>Bundle management</li>
+                        <li>AI product generator</li>
+                    </ul>
+                </div>
+                <div class="module-card">
+                    <div class="module-header">
+                        <div class="module-icon"><i class="fas fa-bell"></i></div>
+                        <div class="module-title">Notifications</div>
+                    </div>
+                    <ul class="module-features">
+                        <li>Push notifications (FCM)</li>
+                        <li>Broadcast to all users</li>
+                        <li>Email, WhatsApp, SMS channels</li>
+                        <li>Priority levels & scheduling</li>
+                    </ul>
+                </div>
+                <div class="module-card">
+                    <div class="module-header">
+                        <div class="module-icon"><i class="fas fa-cogs"></i></div>
+                        <div class="module-title">Platform Settings</div>
+                    </div>
+                    <ul class="module-features">
+                        <li>GST & tax configuration</li>
+                        <li>Referral & coin settings</li>
+                        <li>Spin wheel configuration</li>
+                        <li>Tracking & analytics config</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Slide 11: Business Intelligence & Finance -->
+    <div id="slide11" class="slide">
+        <div class="slide-content">
+            <h2><i class="fas fa-chart-bar"></i> Business Intelligence & Finance</h2>
+            <p>Full financial visibility — from daily sales to GST compliance.</p>
+            <div class="features-grid">
+                <div class="feature-card">
+                    <div class="feature-icon"><i class="fas fa-file-invoice-dollar"></i></div>
+                    <div class="feature-title">Sales Reports</div>
+                    <div class="feature-desc">Daily, monthly, yearly reports. Product-wise and customer-wise breakdowns. Date range filtering.</div>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon"><i class="fas fa-receipt"></i></div>
+                    <div class="feature-title">GST Reports</div>
+                    <div class="feature-desc">Full GST breakdown with CGST/SGST/IGST per order. HSN code tracking. Tax-inclusive and exclusive modes.</div>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon"><i class="fas fa-book"></i></div>
+                    <div class="feature-title">Rojmel — Financial Ledger</div>
+                    <div class="feature-desc">Income & expense tracking. Voucher numbering. Cash/online/COD payment tracking. Balance summary reports.</div>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon"><i class="fas fa-robot"></i></div>
+                    <div class="feature-title">AI Growth Analysis</div>
+                    <div class="feature-desc">AI-generated growth reports with recommendations. Market intelligence for trend forecasting and stock decisions.</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Slide 12: Integrations -->
+    <div id="slide12" class="slide">
+        <div class="slide-content">
+            <h2><i class="fas fa-plug"></i> Integrations & Infrastructure</h2>
+            <p>10+ production-grade integrations powering the platform.</p>
+            <div class="module-showcase">
+                <div class="module-card">
+                    <div class="module-header">
+                        <div class="module-icon"><i class="fas fa-rupee-sign"></i></div>
+                        <div class="module-title">Razorpay</div>
+                    </div>
+                    <ul class="module-features">
+                        <li>UPI, Cards, Net Banking, Wallets</li>
+                        <li>HMAC-SHA256 verification</li>
+                        <li>Refund processing</li>
+                    </ul>
+                </div>
+                <div class="module-card">
+                    <div class="module-header">
+                        <div class="module-icon"><i class="fas fa-truck"></i></div>
+                        <div class="module-title">Shiprocket</div>
+                    </div>
+                    <ul class="module-features">
+                        <li>Auto shipment creation</li>
+                        <li>Live tracking & status sync</li>
+                        <li>Webhook integration</li>
+                    </ul>
+                </div>
+                <div class="module-card">
+                    <div class="module-header">
+                        <div class="module-icon"><i class="fas fa-cloud"></i></div>
+                        <div class="module-title">Cloudinary</div>
+                    </div>
+                    <ul class="module-features">
+                        <li>Product images & videos</li>
+                        <li>Review photos</li>
+                        <li>Optimised media delivery</li>
+                    </ul>
+                </div>
+                <div class="module-card">
+                    <div class="module-header">
+                        <div class="module-icon"><i class="fas fa-bell"></i></div>
+                        <div class="module-title">Firebase (FCM)</div>
+                    </div>
+                    <ul class="module-features">
+                        <li>Web push notifications</li>
+                        <li>Broadcast & targeted</li>
+                        <li>Subscription management</li>
+                    </ul>
+                </div>
+                <div class="module-card">
+                    <div class="module-header">
+                        <div class="module-icon"><i class="fas fa-robot"></i></div>
+                        <div class="module-title">Google Gemini AI</div>
+                    </div>
+                    <ul class="module-features">
+                        <li>Blog auto-generation (daily cron)</li>
+                        <li>Product content generation</li>
+                        <li>Growth & market reports</li>
+                    </ul>
+                </div>
+                <div class="module-card">
+                    <div class="module-header">
+                        <div class="module-icon"><i class="fas fa-bolt"></i></div>
+                        <div class="module-title">Socket.io</div>
+                    </div>
+                    <ul class="module-features">
+                        <li>Real-time admin dashboard</li>
+                        <li>Live session monitoring</li>
+                        <li>Heartbeat & activity tracking</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Slide 13: Technology Stack -->
+    <div id="slide13" class="slide">
+        <div class="slide-content">
             <h2><i class="fas fa-code"></i> Technology Stack</h2>
-            <p>Modern, scalable MERN architecture</p>
+            <p>Modern, scalable MERN architecture with production-grade tooling.</p>
             <div class="tech-stack">
                 <div class="tech-item"><i class="fab fa-react"></i> React.js</div>
                 <div class="tech-item"><i class="fab fa-node-js"></i> Node.js</div>
                 <div class="tech-item"><i class="fas fa-database"></i> MongoDB</div>
                 <div class="tech-item"><i class="fab fa-js-square"></i> Express.js</div>
                 <div class="tech-item"><i class="fas fa-palette"></i> Tailwind CSS</div>
+                <div class="tech-item"><i class="fas fa-desktop"></i> Ant Design</div>
                 <div class="tech-item"><i class="fas fa-cloud"></i> Cloudinary</div>
                 <div class="tech-item"><i class="fas fa-shield-alt"></i> JWT Auth</div>
                 <div class="tech-item"><i class="fas fa-rupee-sign"></i> Razorpay</div>
+                <div class="tech-item"><i class="fas fa-truck"></i> Shiprocket</div>
+                <div class="tech-item"><i class="fas fa-fire"></i> Firebase FCM</div>
+                <div class="tech-item"><i class="fas fa-robot"></i> Gemini AI</div>
+                <div class="tech-item"><i class="fas fa-bolt"></i> Socket.io</div>
+                <div class="tech-item"><i class="fas fa-sync"></i> Redux Toolkit</div>
+            </div>
+            <div style="margin-top: 1.5rem;">
+                <span class="gold-badge">27 Data Models</span>
+                <span class="gold-badge">25+ API Route Groups</span>
+                <span class="gold-badge">40+ Admin Pages</span>
+                <span class="gold-badge">24+ Frontend Pages</span>
+                <span class="gold-badge">3 Cron Jobs</span>
             </div>
         </div>
     </div>
 
-    <!-- Modules Showcase Slide -->
-    <div id="slide6" class="slide">
-        <div class="slide-content">
-            <h2><i class="fas fa-puzzle-piece"></i> Platform Modules</h2>
-            <p>Comprehensive ecommerce ecosystem</p>
-            <div class="module-showcase">
-                <div class="module-card">
-                    <div class="module-header">
-                        <div class="module-icon"><i class="fas fa-user"></i></div>
-                        <div class="module-title">User Management</div>
-                    </div>
-                    <ul class="module-features">
-                        <li>Role-based authentication</li>
-                        <li>Profile management</li>
-                        <li>Loyalty points system</li>
-                        <li>Referral tracking</li>
-                    </ul>
-                </div>
-                <div class="module-card">
-                    <div class="module-header">
-                        <div class="module-icon"><i class="fas fa-box"></i></div>
-                        <div class="module-title">Product Catalog</div>
-                    </div>
-                    <ul class="module-features">
-                        <li>Advanced product variants</li>
-                        <li>Category & brand management</li>
-                        <li>Barcode integration</li>
-                        <li>Review & rating system</li>
-                    </ul>
-                </div>
-                <div class="module-card">
-                    <div class="module-header">
-                        <div class="module-icon"><i class="fas fa-shopping-cart"></i></div>
-                        <div class="module-title">Order Management</div>
-                    </div>
-                    <ul class="module-features">
-                        <li>Cart & wishlist</li>
-                        <li>Order tracking</li>
-                        <li>Payment processing</li>
-                        <li>Invoice generation</li>
-                    </ul>
-                </div>
-                <div class="module-card">
-                    <div class="module-header">
-                        <div class="module-icon"><i class="fas fa-tags"></i></div>
-                        <div class="module-title">Marketing Tools</div>
-                    </div>
-                    <ul class="module-features">
-                        <li>Coupon management</li>
-                        <li>Product bundles</li>
-                        <li>Spin wheel rewards</li>
-                        <li>Email campaigns</li>
-                    </ul>
-                </div>
-                <div class="module-card">
-                    <div class="module-header">
-                        <div class="module-icon"><i class="fas fa-truck"></i></div>
-                        <div class="module-title">Shipping & Logistics</div>
-                    </div>
-                    <ul class="module-features">
-                        <li>Shiprocket integration</li>
-                        <li>Tracking automation</li>
-                        <li>Multi-carrier support</li>
-                        <li>Delivery notifications</li>
-                    </ul>
-                </div>
-                <div class="module-card">
-                    <div class="module-header">
-                        <div class="module-icon"><i class="fas fa-chart-line"></i></div>
-                        <div class="module-title">Analytics & Reports</div>
-                    </div>
-                    <ul class="module-features">
-                        <li>Sales analytics</li>
-                        <li>Customer insights</li>
-                        <li>Performance metrics</li>
-                        <li>Export capabilities</li>
-                    </ul>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Market Opportunity Slide -->
-    <div id="slide7" class="slide">
+    <!-- Slide 14: Market Opportunity -->
+    <div id="slide14" class="slide">
         <div class="slide-content">
             <h2><i class="fas fa-chart-pie"></i> Market Opportunity</h2>
-            <p>Capturing the future of fashion retail</p>
+            <p>The convergence of social media and ecommerce is a trillion-dollar shift.</p>
             <div class="stats-grid">
                 <div class="stat-card">
-                    <div class="stat-number">$5T+</div>
-                    <div class="stat-label">Global Ecommerce Market</div>
+                    <div class="stat-number">$800B+</div>
+                    <div class="stat-label">Global Fashion Ecommerce Market</div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-number">$800B+</div>
-                    <div class="stat-label">Fashion Ecommerce Market</div>
+                    <div class="stat-number">$140B+</div>
+                    <div class="stat-label">India Ecommerce Market by 2027</div>
                 </div>
                 <div class="stat-card">
                     <div class="stat-number">25%</div>
                     <div class="stat-label">Social Commerce CAGR</div>
                 </div>
                 <div class="stat-card">
+                    <div class="stat-number">650M+</div>
+                    <div class="stat-label">Internet Users in India</div>
+                </div>
+                <div class="stat-card">
                     <div class="stat-number">70%</div>
-                    <div class="stat-label">Mobile Shopping Traffic</div>
+                    <div class="stat-label">Shopping Done on Mobile</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">1 Crore+</div>
+                    <div class="stat-label">Our Target — Shop Owners on Platform</div>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Business Model Slide -->
-    <div id="slide8" class="slide">
-        <div class="slide-content">
-            <h2><i class="fas fa-coins"></i> Business Model</h2>
-            <p>Multiple revenue streams for sustainable growth</p>
-            <div class="features-grid">
-                <div class="feature-card">
-                    <div class="feature-icon"><i class="fas fa-store"></i></div>
-                    <div class="feature-title">Direct Sales</div>
-                    <div class="feature-desc">Primary revenue from product sales with healthy margins</div>
-                </div>
-                <div class="feature-card">
-                    <div class="feature-icon"><i class="fas fa-handshake"></i></div>
-                    <div class="feature-title">Commission Model</div>
-                    <div class="feature-desc">White-label solution for other fashion brands</div>
-                </div>
-                <div class="feature-card">
-                    <div class="feature-icon"><i class="fas fa-ad"></i></div>
-                    <div class="feature-title">Advertising</div>
-                    <div class="feature-desc">Sponsored content in video feed and premium placements</div>
-                </div>
-                <div class="feature-card">
-                    <div class="feature-icon"><i class="fas fa-gift"></i></div>
-                    <div class="feature-title">Premium Features</div>
-                    <div class="feature-desc">Advanced analytics and custom integrations for enterprise clients</div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Development Status Slide -->
-    <div id="slide9" class="slide">
-        <div class="slide-content">
-            <h2><i class="fas fa-rocket"></i> Development Status</h2>
-            <p>Production-ready MVP with enterprise features</p>
-            <div class="features-grid">
-                <div class="feature-card">
-                    <div class="feature-icon"><i class="fas fa-check-circle"></i></div>
-                    <div class="feature-title">Core Platform</div>
-                    <div class="feature-desc">Complete MERN stack with all essential ecommerce features</div>
-                </div>
-                <div class="feature-card">
-                    <div class="feature-icon"><i class="fas fa-video"></i></div>
-                    <div class="feature-title">Reel Innovation</div>
-                    <div class="feature-desc">Unique video shopping feature fully implemented and tested</div>
-                </div>
-                <div class="feature-card">
-                    <div class="feature-icon"><i class="fas fa-shield-alt"></i></div>
-                    <div class="feature-title">Security & Performance</div>
-                    <div class="feature-desc">Production-grade security, optimized for scale</div>
-                </div>
-                <div class="feature-card">
-                    <div class="feature-icon"><i class="fas fa-mobile-alt"></i></div>
-                    <div class="feature-title">Mobile Optimized</div>
-                    <div class="feature-desc">Responsive design with native mobile experience</div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Competitive Advantage Slide -->
-    <div id="slide10" class="slide">
+    <!-- Slide 15: Competitive Advantage -->
+    <div id="slide15" class="slide">
         <div class="slide-content">
             <h2><i class="fas fa-trophy"></i> Competitive Advantage</h2>
-            <p>What sets FashionReels apart</p>
+            <p>What no other fashion ecommerce platform in India combines together.</p>
             <div class="features-grid">
                 <div class="feature-card">
-                    <div class="feature-icon"><i class="fas fa-magic"></i></div>
-                    <div class="feature-title">First-Mover Advantage</div>
-                    <div class="feature-desc">Pioneering reel-based shopping in fashion ecommerce</div>
+                    <div class="feature-icon"><i class="fas fa-video"></i></div>
+                    <div class="feature-title">Reel-Native Shopping</div>
+                    <div class="feature-desc">Video-first product discovery is built into the core — not bolted on. Competitors don't have this.</div>
                 </div>
                 <div class="feature-card">
-                    <div class="feature-icon"><i class="fas fa-code-branch"></i></div>
-                    <div class="feature-title">Full-Stack Ownership</div>
-                    <div class="feature-desc">Complete control over technology and user experience</div>
+                    <div class="feature-icon"><i class="fas fa-robot"></i></div>
+                    <div class="feature-title">AI Across the Stack</div>
+                    <div class="feature-desc">Products, blogs, growth, market intel — AI runs automatically. No manual content work needed.</div>
                 </div>
                 <div class="feature-card">
-                    <div class="feature-icon"><i class="fas fa-users-cog"></i></div>
-                    <div class="feature-title">Scalable Architecture</div>
-                    <div class="feature-desc">Built for millions of users with microservices-ready design</div>
+                    <div class="feature-icon"><i class="fas fa-eye"></i></div>
+                    <div class="feature-title">Deep Customer Intelligence</div>
+                    <div class="feature-desc">Session tracking, event analytics, dropoff detection, issue resolution — full 360° view of every customer.</div>
                 </div>
                 <div class="feature-card">
-                    <div class="feature-icon"><i class="fas fa-palette"></i></div>
-                    <div class="feature-title">Premium UX</div>
-                    <div class="feature-desc">Fashion-forward design that delights users</div>
+                    <div class="feature-icon"><i class="fas fa-gamepad"></i></div>
+                    <div class="feature-title">Loyalty + Influencer Engine</div>
+                    <div class="feature-desc">Spin wheel, coins, referrals, and influencer promo code commissions — retention is built in at every layer.</div>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon"><i class="fas fa-book"></i></div>
+                    <div class="feature-title">Full Financial Stack</div>
+                    <div class="feature-desc">GST compliance, Rojmel ledger, sales reports, AI growth analysis — everything a real business needs.</div>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon"><i class="fas fa-plug"></i></div>
+                    <div class="feature-title">Production-Grade Integrations</div>
+                    <div class="feature-desc">Razorpay, Shiprocket, Firebase, Cloudinary, Gemini, Socket.io — all live and running.</div>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Call to Action Slide -->
-    <div id="slide11" class="slide">
-        <div class="slide-content">
-            <h1><i class="fas fa-handshake"></i> Ready to Revolutionize Fashion Retail</h1>
-            <p>Join us in transforming how people shop for fashion</p>
-            <div style="margin-top: 3rem;">
-                <div class="feature-card" style="max-width: 600px; margin: 0 auto;">
+    <!-- Slide 16: Call to Action -->
+    <div id="slide16" class="slide">
+        <div class="slide-content title-slide">
+            <h1><i class="fas fa-rocket"></i> Let's Build the Future of Fashion Retail</h1>
+            <h2>Reel Shopping · AI · Loyalty · Analytics · 1 Crore+ Shop Owners</h2>
+            <p>FashionReels is not just an ecommerce store — it's a full ecosystem. Built, running, and ready to scale.</p>
+            <div style="margin-top: 2rem;">
+                <div class="feature-card" style="max-width: 650px; margin: 0 auto 1.5rem;">
                     <div class="feature-icon"><i class="fas fa-envelope"></i></div>
-                    <div class="feature-title">Let's Connect</div>
+                    <div class="feature-title">Get In Touch</div>
                     <div class="feature-desc">
-                        Demo available • Technical documentation ready<br>
-                        Investment opportunity • Partnership discussions welcome
+                        <i class="fas fa-envelope" style="color: #d4af37;"></i> darshilbavishi2356@gmail.com<br><br>
+                        Live demo available &nbsp;•&nbsp; Full technical documentation<br>
+                        Investment &amp; partnership discussions welcome
                     </div>
                 </div>
+                <div>
+                    <span class="gold-badge"><i class="fas fa-check"></i> Production Ready</span>
+                    <span class="gold-badge"><i class="fas fa-check"></i> 10+ Integrations</span>
+                    <span class="gold-badge"><i class="fas fa-check"></i> AI Powered</span>
+                    <span class="gold-badge"><i class="fas fa-check"></i> Fully Scalable</span>
+                </div>
             </div>
         </div>
     </div>
 
-        @media (max-width: 768px) {
-            .title-slide h1 {
-                font-size: 2.5rem;
-            }
-            .slide h2 {
-                font-size: 2rem;
-            }
-            .features-grid {
-                grid-template-columns: 1fr;
-                gap: 1rem;
-            }
-            .stats-grid {
-                grid-template-columns: 1fr;
-                gap: 1rem;
-            }
-            .module-showcase {
-                grid-template-columns: 1fr;
-                gap: 1rem;
-            }
-            .slide {
-                padding: 1rem;
-            }
-            .feature-card {
-                padding: 1.5rem;
-            }
-            .stat-card {
-                padding: 1.5rem;
-            }
-            .module-card {
-                padding: 1rem;
-            }
-            .tech-stack {
-                flex-wrap: wrap;
-                gap: 1rem;
-                justify-content: center;
-            }
-            .tech-item {
-                padding: 0.75rem 1.5rem;
-                font-size: 0.9rem;
-            }
-            .navigation {
-                bottom: 20px;
-                gap: 15px;
-            }
-            .nav-btn {
-                padding: 12px 25px;
-                font-size: 0.9rem;
-                min-height: 48px;
-                min-width: 120px;
-            }
-            .slide-counter {
-                top: 20px;
-                right: 20px;
-                padding: 8px 15px;
-                font-size: 0.8rem;
-            }
+</div>
+
+<!-- Navigation -->
+<div class="navigation">
+    <button class="nav-btn" onclick="prevSlide()"><i class="fas fa-chevron-left"></i> Previous</button>
+    <button class="nav-btn" onclick="nextSlide()">Next <i class="fas fa-chevron-right"></i></button>
+</div>
+
+<div class="slide-counter">1 / 16</div>
+
+<script>
+    let currentSlide = 1;
+    const totalSlides = 16;
+    const slides = document.querySelectorAll('.slide');
+    const counter = document.querySelector('.slide-counter');
+
+    document.addEventListener('DOMContentLoaded', function () { showSlide(1); });
+
+    function showSlide(n) {
+        slides.forEach(s => { s.classList.remove('active'); s.style.display = 'none'; });
+        const active = document.getElementById(`slide${n}`);
+        if (active) {
+            active.classList.add('active');
+            active.style.display = 'flex';
+            active.scrollTop = 0;
+            counter.textContent = `${n} / ${totalSlides}`;
         }
+    }
 
-        @media (max-width: 480px) {
-            .title-slide h1 {
-                font-size: 2rem;
-            }
-            .title-slide h2 {
-                font-size: 1.5rem;
-            }
-            .slide h2 {
-                font-size: 1.8rem;
-            }
-            .slide h3 {
-                font-size: 1.5rem;
-            }
-            .slide p {
-                font-size: 1.1rem;
-                line-height: 1.6;
-            }
-            .feature-card {
-                padding: 1rem;
-            }
-            .feature-icon {
-                font-size: 2.5rem;
-                margin-bottom: 0.75rem;
-            }
-            .feature-title {
-                font-size: 1.2rem;
-            }
-            .feature-desc {
-                font-size: 0.9rem;
-            }
-            .stat-card {
-                padding: 1rem;
-            }
-            .stat-number {
-                font-size: 2.5rem;
-            }
-            .stat-label {
-                font-size: 1rem;
-            }
-            .module-card {
-                padding: 0.75rem;
-            }
-            .module-title {
-                font-size: 1.1rem;
-            }
-            .module-features li {
-                font-size: 0.8rem;
-            }
-            .tech-item {
-                padding: 0.5rem 1rem;
-                font-size: 0.8rem;
-            }
-            .nav-btn {
-                padding: 10px 20px;
-                font-size: 0.8rem;
-                min-height: 44px;
-                min-width: 100px;
-            }
-            .slide-counter {
-                padding: 6px 12px;
-                font-size: 0.7rem;
-            }
+    function nextSlide() { if (currentSlide < totalSlides) { currentSlide++; showSlide(currentSlide); } }
+    function prevSlide() { if (currentSlide > 1) { currentSlide--; showSlide(currentSlide); } }
+
+    document.addEventListener('keydown', e => {
+        if (e.key === 'ArrowRight' || e.key === ' ') nextSlide();
+        else if (e.key === 'ArrowLeft') prevSlide();
+        else if (e.key === 'Home') { currentSlide = 1; showSlide(1); }
+        else if (e.key === 'End') { currentSlide = totalSlides; showSlide(totalSlides); }
+    });
+
+    let startX = 0, startY = 0;
+    document.addEventListener('touchstart', e => {
+        startX = e.touches[0].clientX;
+        startY = e.touches[0].clientY;
+    }, { passive: true });
+    document.addEventListener('touchend', e => {
+        const diffX = startX - e.changedTouches[0].clientX;
+        const diffY = startY - e.changedTouches[0].clientY;
+        if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 60) {
+            diffX > 0 ? nextSlide() : prevSlide();
         }
-    </style>
-</head>
-        <button class="nav-btn" onclick="prevSlide()"><i class="fas fa-chevron-left"></i> Previous</button>
-        <button class="nav-btn" onclick="nextSlide()">Next <i class="fas fa-chevron-right"></i></button>
-    </div>
-
-    <div class="slide-counter">1 / 11</div>
-
-    <script>
-        let currentSlide = 1;
-        const totalSlides = 11;
-        const slides = document.querySelectorAll('.slide');
-        const counter = document.querySelector('.slide-counter');
-
-        // Initialize first slide
-        document.addEventListener('DOMContentLoaded', function() {
-            showSlide(1);
-        });
-
-        function showSlide(slideNum) {
-            // Hide all slides
-            slides.forEach(slide => {
-                slide.classList.remove('active');
-                slide.style.display = 'none';
-            });
-
-            // Show active slide
-            const activeSlide = document.getElementById(`slide${slideNum}`);
-            if (activeSlide) {
-                activeSlide.classList.add('active');
-                activeSlide.style.display = 'flex';
-                counter.textContent = `${slideNum} / ${totalSlides}`;
-            }
-        }
-
-        function nextSlide() {
-            if (currentSlide < totalSlides) {
-                currentSlide++;
-                showSlide(currentSlide);
-            }
-        }
-
-        function prevSlide() {
-            if (currentSlide > 1) {
-                currentSlide--;
-                showSlide(currentSlide);
-            }
-        }
-
-        // Keyboard navigation
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'ArrowRight' || e.key === ' ') {
-                nextSlide();
-            } else if (e.key === 'ArrowLeft') {
-                prevSlide();
-            } else if (e.key === 'Home') {
-                currentSlide = 1;
-                showSlide(currentSlide);
-            } else if (e.key === 'End') {
-                currentSlide = totalSlides;
-                showSlide(currentSlide);
-            }
-        });
-
-        // Touch/swipe support for mobile
-        let startX = 0;
-        document.addEventListener('touchstart', (e) => {
-            startX = e.touches[0].clientX;
-        });
-
-        document.addEventListener('touchend', (e) => {
-            const endX = e.changedTouches[0].clientX;
-            const diffX = startX - endX;
-
-            if (Math.abs(diffX) > 50) {
-                if (diffX > 0) {
-                    nextSlide();
-                } else {
-                    prevSlide();
-                }
-            }
-        });
-    </script>
+    }, { passive: true });
+</script>
 </body>
 </html>

@@ -1,0 +1,866 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FashionReels – Influencer Partner Program</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #1a1a1a;
+            color: #333;
+            overflow: hidden;
+            height: 100vh;
+        }
+
+        .presentation-container {
+            position: relative;
+            width: 100%;
+            height: 100vh;
+        }
+
+        .slide {
+            width: 100%;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background: linear-gradient(135deg, #1a1a1a 0%, #2a2a2a 50%, #d4af37 100%);
+            color: white;
+            text-align: center;
+            padding: 2rem 2rem 90px;
+            position: absolute;
+            top: 0; left: 0;
+            opacity: 0;
+            transform: translateY(50px);
+            transition: all 0.6s ease;
+            z-index: 1;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .slide.active {
+            opacity: 1;
+            transform: translateY(0);
+            z-index: 10;
+            display: flex !important;
+        }
+
+        .slide::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.3);
+            z-index: 1;
+        }
+
+        .slide-content {
+            z-index: 2;
+            max-width: 1200px;
+            width: 100%;
+        }
+
+        .title-slide h1 {
+            font-size: 4rem;
+            font-weight: 700;
+            margin-bottom: 1rem;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+            background: linear-gradient(45deg, #d4af37, #fff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .title-slide h2 {
+            font-size: 2.2rem;
+            margin-bottom: 1.5rem;
+            font-weight: 300;
+        }
+
+        .title-slide .tagline {
+            font-size: 1.3rem;
+            color: #d4af37;
+            font-weight: 500;
+            margin-bottom: 2rem;
+        }
+
+        .slide h2 {
+            font-size: 2.8rem;
+            margin-bottom: 1.5rem;
+            font-weight: 600;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+        }
+
+        .slide h3 {
+            font-size: 1.8rem;
+            margin-bottom: 1rem;
+            color: #d4af37;
+            font-weight: 500;
+        }
+
+        .slide p {
+            font-size: 1.2rem;
+            line-height: 1.8;
+            max-width: 800px;
+            margin: 0 auto 1.5rem;
+        }
+
+        /* Feature Cards */
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1.5rem;
+            width: 100%;
+            margin-top: 1.5rem;
+        }
+
+        .feature-card {
+            background: rgba(255,255,255,0.1);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 15px;
+            padding: 1.8rem;
+            text-align: center;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .feature-card:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+        }
+
+        .feature-icon {
+            font-size: 2.8rem;
+            color: #d4af37;
+            margin-bottom: 1rem;
+        }
+
+        .feature-title {
+            font-size: 1.3rem;
+            font-weight: 600;
+            margin-bottom: 0.8rem;
+        }
+
+        .feature-desc {
+            font-size: 0.95rem;
+            line-height: 1.6;
+            opacity: 0.9;
+        }
+
+        /* Stats */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 1.5rem;
+            width: 100%;
+            margin-top: 1.5rem;
+        }
+
+        .stat-card {
+            background: rgba(255,255,255,0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 2rem;
+            text-align: center;
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+
+        .stat-number {
+            font-size: 2.8rem;
+            font-weight: 700;
+            color: #d4af37;
+            margin-bottom: 0.5rem;
+        }
+
+        .stat-label {
+            font-size: 1.1rem;
+            font-weight: 500;
+        }
+
+        /* Steps */
+        .steps-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 1.5rem;
+            width: 100%;
+            margin-top: 1.5rem;
+        }
+
+        .step-card {
+            background: rgba(255,255,255,0.1);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(212,175,55,0.4);
+            border-radius: 15px;
+            padding: 2rem;
+            text-align: center;
+            position: relative;
+            transition: transform 0.3s ease;
+        }
+
+        .step-card:hover { transform: translateY(-6px); }
+
+        .step-number {
+            width: 60px;
+            height: 60px;
+            background: linear-gradient(135deg, #d4af37, #f0d060);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: #1a1a1a;
+            margin: 0 auto 1rem;
+        }
+
+        .step-title {
+            font-size: 1.3rem;
+            font-weight: 600;
+            margin-bottom: 0.8rem;
+            color: #d4af37;
+        }
+
+        .step-desc {
+            font-size: 0.95rem;
+            line-height: 1.6;
+            opacity: 0.9;
+        }
+
+        /* Commission highlight */
+        .commission-highlight {
+            background: linear-gradient(135deg, rgba(212,175,55,0.3), rgba(212,175,55,0.1));
+            border: 2px solid #d4af37;
+            border-radius: 20px;
+            padding: 2.5rem;
+            margin: 1.5rem auto;
+            max-width: 700px;
+        }
+
+        .commission-percent {
+            font-size: 6rem;
+            font-weight: 900;
+            background: linear-gradient(45deg, #d4af37, #fff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            line-height: 1;
+        }
+
+        .commission-label {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-top: 0.5rem;
+            color: #fff;
+        }
+
+        .commission-sub {
+            font-size: 1rem;
+            opacity: 0.8;
+            margin-top: 0.5rem;
+        }
+
+        /* Earnings table */
+        .earnings-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            width: 100%;
+            margin-top: 1.5rem;
+        }
+
+        .earning-card {
+            background: rgba(255,255,255,0.08);
+            border: 1px solid rgba(212,175,55,0.3);
+            border-radius: 12px;
+            padding: 1.5rem;
+            text-align: center;
+        }
+
+        .earning-users {
+            font-size: 1.4rem;
+            font-weight: 700;
+            color: #d4af37;
+        }
+
+        .earning-spend {
+            font-size: 0.9rem;
+            opacity: 0.7;
+            margin: 0.3rem 0;
+        }
+
+        .earning-amount {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: #fff;
+        }
+
+        .earning-period {
+            font-size: 0.85rem;
+            opacity: 0.6;
+            margin-top: 0.2rem;
+        }
+
+        /* Module cards */
+        .module-showcase {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 1.2rem;
+            width: 100%;
+            margin-top: 1.5rem;
+        }
+
+        .module-card {
+            background: rgba(255,255,255,0.1);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 12px;
+            padding: 1.5rem;
+            text-align: left;
+            transition: all 0.3s ease;
+        }
+
+        .module-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 30px rgba(0,0,0,0.3);
+        }
+
+        .module-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+
+        .module-icon {
+            font-size: 1.8rem;
+            color: #d4af37;
+            margin-right: 1rem;
+            width: 35px;
+        }
+
+        .module-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+        }
+
+        .module-features {
+            list-style: none;
+            padding: 0;
+        }
+
+        .module-features li {
+            margin-bottom: 0.4rem;
+            font-size: 0.9rem;
+            opacity: 0.9;
+        }
+
+        .module-features li::before {
+            content: "✓";
+            color: #d4af37;
+            margin-right: 0.5rem;
+            font-weight: bold;
+        }
+
+        /* Gold badge */
+        .gold-badge {
+            display: inline-block;
+            background: linear-gradient(135deg, #d4af37, #f0d060);
+            color: #1a1a1a;
+            padding: 0.4rem 1.2rem;
+            border-radius: 20px;
+            font-weight: 700;
+            font-size: 0.9rem;
+            margin: 0.3rem;
+        }
+
+        /* Navigation */
+        .navigation {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 20px;
+            z-index: 1000;
+        }
+
+        .nav-btn {
+            background: rgba(212,175,55,0.9);
+            border: none;
+            color: #1a1a1a;
+            padding: 15px 30px;
+            font-size: 1rem;
+            font-weight: 600;
+            border-radius: 25px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(212,175,55,0.3);
+            min-height: 44px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .nav-btn:hover {
+            background: #d4af37;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(212,175,55,0.4);
+        }
+
+        .slide-counter {
+            position: fixed;
+            top: 30px;
+            right: 30px;
+            background: rgba(0,0,0,0.7);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 20px;
+            font-weight: 600;
+            z-index: 1000;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .title-slide h1 { font-size: 2.5rem; }
+            .slide h2 { font-size: 2rem; }
+            .commission-percent { font-size: 4rem; }
+            .features-grid, .steps-grid, .stats-grid, .earnings-grid, .module-showcase {
+                grid-template-columns: 1fr;
+                gap: 1rem;
+            }
+            .slide { padding: 1rem; }
+            .navigation { bottom: 20px; gap: 15px; }
+            .nav-btn { padding: 12px 25px; font-size: 0.9rem; }
+            .slide-counter { top: 20px; right: 20px; padding: 8px 15px; font-size: 0.8rem; }
+        }
+
+        @media (max-width: 480px) {
+            .title-slide h1 { font-size: 2rem; }
+            .title-slide h2 { font-size: 1.4rem; }
+            .slide h2 { font-size: 1.7rem; }
+            .commission-percent { font-size: 3rem; }
+            .stat-number { font-size: 2.2rem; }
+            .nav-btn { padding: 10px 18px; font-size: 0.85rem; }
+        }
+    </style>
+</head>
+<body>
+<div class="presentation-container">
+
+    <!-- Slide 1: Title -->
+    <div id="slide1" class="slide active">
+        <div class="slide-content title-slide">
+            <h1><i class="fas fa-star"></i> FashionReels</h1>
+            <h2>Influencer Partner Program</h2>
+            <p class="tagline">Earn Lifetime Commission. Just Post a Reel.</p>
+            <p>We are building India's largest reel-based fashion marketplace — <strong>1 Crore+ shop owners</strong> is the dream. Join early. Earn for life.</p>
+            <div style="margin-top: 2rem;">
+                <span class="gold-badge"><i class="fas fa-percentage"></i> 5% Lifetime Commission</span>
+                <span class="gold-badge"><i class="fas fa-infinity"></i> Every Purchase. Forever.</span>
+                <span class="gold-badge"><i class="fas fa-seedling"></i> Early Stage = Your Advantage</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Slide 2: Why Partner With Us -->
+    <div id="slide2" class="slide">
+        <div class="slide-content">
+            <h2><i class="fas fa-question-circle"></i> Why Partner With FashionReels?</h2>
+            <p>We built the platform around you — the influencer.</p>
+            <div class="features-grid">
+                <div class="feature-card">
+                    <div class="feature-icon"><i class="fas fa-video"></i></div>
+                    <div class="feature-title">Made for Reels</div>
+                    <div class="feature-desc">Our platform is TikTok-style video shopping. Your reels are the storefront — not an afterthought.</div>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon"><i class="fas fa-coins"></i></div>
+                    <div class="feature-title">Lifetime Earnings</div>
+                    <div class="feature-desc">Every user you bring buys again and again. You earn 5% on every single order — for life.</div>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon"><i class="fas fa-chart-line"></i></div>
+                    <div class="feature-title">Real-Time Dashboard</div>
+                    <div class="feature-desc">Track your referrals, earnings, and conversions live. Full transparency, no guessing.</div>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon"><i class="fas fa-users"></i></div>
+                    <div class="feature-title">Growing User Base</div>
+                    <div class="feature-desc">Your audience shops on a platform designed for mobile-first, video-driven discovery.</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Slide 3: How It Works -->
+    <div id="slide3" class="slide">
+        <div class="slide-content">
+            <h2><i class="fas fa-play-circle"></i> How It Works</h2>
+            <p>3 simple steps. Recurring income for life.</p>
+            <div class="steps-grid">
+                <div class="step-card">
+                    <div class="step-number">1</div>
+                    <div class="step-title">Get Your Promo Code</div>
+                    <div class="step-desc">We assign you a unique promo code — e.g. <strong>PRIYA10</strong>. Share it in your reels, bios, stories, anywhere.</div>
+                </div>
+                <div class="step-card">
+                    <div class="step-number">2</div>
+                    <div class="step-title">Post Your Reel</div>
+                    <div class="step-desc">Create content wearing our products. Add your promo code in the caption or video. Your followers shop using your code.</div>
+                </div>
+                <div class="step-card">
+                    <div class="step-number">3</div>
+                    <div class="step-title">Earn Every Time They Buy</div>
+                    <div class="step-desc">Once a user signs up using your code, you earn 5% on every order they ever place — today, next month, next year.</div>
+                </div>
+            </div>
+            <div style="margin-top: 1.5rem; padding: 1rem; background: rgba(212,175,55,0.15); border-radius: 12px; border: 1px solid rgba(212,175,55,0.4);">
+                <p style="margin: 0; font-size: 1.1rem;">
+                    <i class="fas fa-bolt" style="color: #d4af37;"></i>
+                    <strong>Zero upfront cost. No monthly fee. Just post and earn.</strong>
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Slide 4: The Promo Code System -->
+    <div id="slide4" class="slide">
+        <div class="slide-content">
+            <h2><i class="fas fa-tag"></i> Your Promo Code — How It Works</h2>
+            <p>Your promo code is your business card on our platform.</p>
+            <div class="features-grid">
+                <div class="feature-card">
+                    <div class="feature-icon"><i class="fas fa-id-badge"></i></div>
+                    <div class="feature-title">Unique Code for You</div>
+                    <div class="feature-desc">A custom code tied to your account — e.g. <strong>AYESHA15</strong> or <strong>ROHIT20</strong>. No one else can use it.</div>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon"><i class="fas fa-user-plus"></i></div>
+                    <div class="feature-title">User Signup Tracking</div>
+                    <div class="feature-desc">When a user signs up with your code, they are <strong>permanently linked</strong> to your account forever.</div>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon"><i class="fas fa-gift"></i></div>
+                    <div class="feature-title">Discount for Your Fans</div>
+                    <div class="feature-desc">Your promo code can give your audience a discount — making it a win-win for them to use your code.</div>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon"><i class="fas fa-sync-alt"></i></div>
+                    <div class="feature-title">Auto Commission on Every Order</div>
+                    <div class="feature-desc">Every time your referred user places an order, 5% commission is automatically credited to your wallet.</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Slide 5: Commission Structure -->
+    <div id="slide5" class="slide">
+        <div class="slide-content">
+            <h2><i class="fas fa-percentage"></i> Commission Structure</h2>
+            <p>Simple. Transparent. Lifetime.</p>
+            <div class="commission-highlight">
+                <div class="commission-percent">5%</div>
+                <div class="commission-label">Lifetime Commission on Every Purchase</div>
+                <div class="commission-sub">Every user you refer — every order they ever place — you earn 5%. Always.</div>
+            </div>
+            <div class="stats-grid" style="margin-top: 1.5rem;">
+                <div class="stat-card">
+                    <div class="stat-number"><i class="fas fa-infinity" style="font-size: 2rem;"></i></div>
+                    <div class="stat-label">Lifetime Tracking</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">0%</div>
+                    <div class="stat-label">Platform Fee for Influencers</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">7 Days</div>
+                    <div class="stat-label">Payout Cycle</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">UPI / Bank</div>
+                    <div class="stat-label">Direct Payout Methods</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Slide 6: Earnings Potential -->
+    <div id="slide6" class="slide">
+        <div class="slide-content">
+            <h2><i class="fas fa-rupee-sign"></i> Your Earnings Potential</h2>
+            <p>Here's what 5% lifetime commission looks like — based on projected order behaviour.</p>
+            <div class="earnings-grid">
+                <div class="earning-card">
+                    <div class="earning-users">50 Users</div>
+                    <div class="earning-spend">Avg ₹800/order × 2/month</div>
+                    <div class="earning-amount">₹4,000</div>
+                    <div class="earning-period">per month</div>
+                </div>
+                <div class="earning-card">
+                    <div class="earning-users">200 Users</div>
+                    <div class="earning-spend">Avg ₹1,000/order × 2/month</div>
+                    <div class="earning-amount">₹20,000</div>
+                    <div class="earning-period">per month</div>
+                </div>
+                <div class="earning-card">
+                    <div class="earning-users">500 Users</div>
+                    <div class="earning-spend">Avg ₹1,200/order × 2/month</div>
+                    <div class="earning-amount">₹60,000</div>
+                    <div class="earning-period">per month</div>
+                </div>
+                <div class="earning-card">
+                    <div class="earning-users">1,000 Users</div>
+                    <div class="earning-spend">Avg ₹1,500/order × 2/month</div>
+                    <div class="earning-amount">₹1,50,000</div>
+                    <div class="earning-period">per month</div>
+                </div>
+            </div>
+            <p style="margin-top: 1.5rem; font-size: 1rem; opacity: 0.8;">
+                <i class="fas fa-info-circle" style="color: #d4af37;"></i>
+                Projections based on realistic fashion ecommerce order patterns. The more your audience shops, the more you earn — <strong>every month, automatically.</strong>
+            </p>
+        </div>
+    </div>
+
+    <!-- Slide 7: Platform & Business Details -->
+    <div id="slide7" class="slide">
+        <div class="slide-content">
+            <h2><i class="fas fa-building"></i> About FashionReels</h2>
+            <p>A fully built, production-ready fashion ecommerce platform — live and growing.</p>
+            <div class="module-showcase">
+                <div class="module-card">
+                    <div class="module-header">
+                        <div class="module-icon"><i class="fas fa-film"></i></div>
+                        <div class="module-title">Reel-Based Shopping</div>
+                    </div>
+                    <ul class="module-features">
+                        <li>TikTok-style vertical video feed</li>
+                        <li>Shop products directly from reels</li>
+                        <li>Mobile-first, swipe-native design</li>
+                        <li>Influencer content drives discovery</li>
+                    </ul>
+                </div>
+                <div class="module-card">
+                    <div class="module-header">
+                        <div class="module-icon"><i class="fas fa-store"></i></div>
+                        <div class="module-title">What We Sell</div>
+                    </div>
+                    <ul class="module-features">
+                        <li>Men's & Women's Fashion</li>
+                        <li>Accessories & Footwear</li>
+                        <li>Multi-category product catalog</li>
+                        <li>Regular new product additions</li>
+                    </ul>
+                </div>
+                <div class="module-card">
+                    <div class="module-header">
+                        <div class="module-icon"><i class="fas fa-truck"></i></div>
+                        <div class="module-title">Logistics & Payments</div>
+                    </div>
+                    <ul class="module-features">
+                        <li>Pan-India delivery via Shiprocket</li>
+                        <li>Razorpay — UPI, Cards, Wallets</li>
+                        <li>Live order tracking for customers</li>
+                        <li>Automated invoice & returns</li>
+                    </ul>
+                </div>
+                <div class="module-card">
+                    <div class="module-header">
+                        <div class="module-icon"><i class="fas fa-code"></i></div>
+                        <div class="module-title">Built to Scale</div>
+                    </div>
+                    <ul class="module-features">
+                        <li>MERN stack — production-grade</li>
+                        <li>Secure JWT authentication</li>
+                        <li>Cloudinary media delivery</li>
+                        <li>Admin + analytics dashboard</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Slide 8: Vision — 1 Crore Shop Owners -->
+    <div id="slide8" class="slide">
+        <div class="slide-content">
+            <h2><i class="fas fa-flag"></i> Our Dream. Our Goal.</h2>
+            <p>We are early. And that is exactly why you should be here.</p>
+
+            <div class="commission-highlight" style="margin-bottom: 1.5rem;">
+                <div class="commission-percent" style="font-size: 4rem;">1 Crore+</div>
+                <div class="commission-label">Shop Owners on FashionReels</div>
+                <div class="commission-sub">This is our mission — to become India's largest reel-based multi-seller fashion marketplace.</div>
+            </div>
+
+            <div class="steps-grid" style="margin-top: 1rem;">
+                <div class="step-card">
+                    <div class="step-number"><i class="fas fa-seedling" style="font-size: 1.3rem;"></i></div>
+                    <div class="step-title">Early Stage Now</div>
+                    <div class="step-desc">We are building from ground zero — every early partner gets the best commission terms, the most attention, and rides the full growth curve.</div>
+                </div>
+                <div class="step-card">
+                    <div class="step-number"><i class="fas fa-store" style="font-size: 1.3rem;"></i></div>
+                    <div class="step-title">Multi-Seller Vision</div>
+                    <div class="step-desc">Any shop owner in India will be able to list on FashionReels. More sellers = more products = more for your audience to buy = more commission for you.</div>
+                </div>
+                <div class="step-card">
+                    <div class="step-number"><i class="fas fa-trophy" style="font-size: 1.3rem;"></i></div>
+                    <div class="step-title">First Partners Win Most</div>
+                    <div class="step-desc">When the platform grows to 1 crore sellers, the influencers who joined early will have the largest referred user bases — and the largest lifetime earnings.</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Slide 9: What You Get as an Influencer -->
+    <div id="slide9" class="slide">
+        <div class="slide-content">
+            <h2><i class="fas fa-gift"></i> What You Get as a Partner</h2>
+            <p>We invest in your success — because your success is our success.</p>
+            <div class="features-grid">
+                <div class="feature-card">
+                    <div class="feature-icon"><i class="fas fa-tachometer-alt"></i></div>
+                    <div class="feature-title">Personal Dashboard</div>
+                    <div class="feature-desc">Dedicated influencer dashboard — track referred users, earnings, order history, and payout status in real time.</div>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon"><i class="fas fa-box-open"></i></div>
+                    <div class="feature-title">Free PR Products</div>
+                    <div class="feature-desc">Top-performing partners receive free product samples to feature in reels — no purchase required.</div>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon"><i class="fas fa-headset"></i></div>
+                    <div class="feature-title">Dedicated Support</div>
+                    <div class="feature-desc">A dedicated partner manager to help you create content, resolve issues, and maximize your earnings.</div>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon"><i class="fas fa-level-up-alt"></i></div>
+                    <div class="feature-title">Tier Upgrades</div>
+                    <div class="feature-desc">As your referred user count grows, unlock higher commission tiers and exclusive partnership benefits.</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Slide 10: Eligibility & Getting Started -->
+    <div id="slide10" class="slide">
+        <div class="slide-content">
+            <h2><i class="fas fa-user-check"></i> Who Can Join?</h2>
+            <p>We welcome all creators — big and small.</p>
+            <div class="steps-grid">
+                <div class="step-card">
+                    <div class="step-number"><i class="fas fa-mobile-alt" style="font-size: 1.4rem;"></i></div>
+                    <div class="step-title">Any Platform</div>
+                    <div class="step-desc">Instagram, YouTube, Moj, Josh, Snapchat — wherever your audience is, your promo code works.</div>
+                </div>
+                <div class="step-card">
+                    <div class="step-number"><i class="fas fa-users" style="font-size: 1.4rem;"></i></div>
+                    <div class="step-title">Any Audience Size</div>
+                    <div class="step-desc">Nano (1K+), Micro (10K+), Macro (100K+) — all are welcome. Engaged audience beats big numbers.</div>
+                </div>
+                <div class="step-card">
+                    <div class="step-number"><i class="fas fa-tshirt" style="font-size: 1.4rem;"></i></div>
+                    <div class="step-title">Fashion Focused</div>
+                    <div class="step-desc">Fashion, lifestyle, beauty, and fitness creators are the best fit. Your content + our products = natural match.</div>
+                </div>
+                <div class="step-card">
+                    <div class="step-number"><i class="fas fa-flag-checkered" style="font-size: 1.4rem;"></i></div>
+                    <div class="step-title">How to Apply</div>
+                    <div class="step-desc">Fill a short form → get your promo code in 24 hrs → post your first reel → start earning.</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Slide 11: Call to Action -->
+    <div id="slide11" class="slide">
+        <div class="slide-content title-slide">
+            <h1><i class="fas fa-handshake"></i> Let's Build Together</h1>
+            <h2>Your Content. Our Platform. Shared Success.</h2>
+            <p>Join the FashionReels Influencer Partner Program and start earning lifetime commission on every sale you drive.</p>
+            <div style="margin-top: 2rem;">
+                <div class="feature-card" style="max-width: 650px; margin: 0 auto 1.5rem;">
+                    <div class="feature-icon"><i class="fas fa-envelope"></i></div>
+                    <div class="feature-title">Get In Touch</div>
+                    <div class="feature-desc">
+                        <i class="fas fa-envelope" style="color: #d4af37;"></i> darshilbavishi2356@gmail.com<br><br>
+                        Demo available &nbsp;•&nbsp; Onboarding within 24 hours<br>
+                        Free products for early partners &nbsp;•&nbsp; Unlimited earning potential
+                    </div>
+                </div>
+                <div>
+                    <span class="gold-badge"><i class="fas fa-percentage"></i> 5% Lifetime Commission</span>
+                    <span class="gold-badge"><i class="fas fa-rupee-sign"></i> Weekly Payouts</span>
+                    <span class="gold-badge"><i class="fas fa-rocket"></i> Start in 24 Hours</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<!-- Navigation -->
+<div class="navigation">
+    <button class="nav-btn" onclick="prevSlide()"><i class="fas fa-chevron-left"></i> Previous</button>
+    <button class="nav-btn" onclick="nextSlide()">Next <i class="fas fa-chevron-right"></i></button>
+</div>
+
+<div class="slide-counter">1 / 11</div>
+
+<script>
+    let currentSlide = 1;
+    const totalSlides = 11;
+    const slides = document.querySelectorAll('.slide');
+    const counter = document.querySelector('.slide-counter');
+
+    document.addEventListener('DOMContentLoaded', function() {
+        showSlide(1);
+    });
+
+    function showSlide(slideNum) {
+        slides.forEach(slide => {
+            slide.classList.remove('active');
+            slide.style.display = 'none';
+        });
+        const activeSlide = document.getElementById(`slide${slideNum}`);
+        if (activeSlide) {
+            activeSlide.classList.add('active');
+            activeSlide.style.display = 'flex';
+            activeSlide.scrollTop = 0;
+            counter.textContent = `${slideNum} / ${totalSlides}`;
+        }
+    }
+
+    function nextSlide() {
+        if (currentSlide < totalSlides) { currentSlide++; showSlide(currentSlide); }
+    }
+
+    function prevSlide() {
+        if (currentSlide > 1) { currentSlide--; showSlide(currentSlide); }
+    }
+
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'ArrowRight' || e.key === ' ') nextSlide();
+        else if (e.key === 'ArrowLeft') prevSlide();
+        else if (e.key === 'Home') { currentSlide = 1; showSlide(1); }
+        else if (e.key === 'End') { currentSlide = totalSlides; showSlide(totalSlides); }
+    });
+
+    let startX = 0, startY = 0;
+    document.addEventListener('touchstart', (e) => {
+        startX = e.touches[0].clientX;
+        startY = e.touches[0].clientY;
+    }, { passive: true });
+    document.addEventListener('touchend', (e) => {
+        const diffX = startX - e.changedTouches[0].clientX;
+        const diffY = startY - e.changedTouches[0].clientY;
+        if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 60) {
+            diffX > 0 ? nextSlide() : prevSlide();
+        }
+    }, { passive: true });
+</script>
+</body>
+</html>

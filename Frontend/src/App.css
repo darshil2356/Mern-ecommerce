@@ -1469,3 +1469,19 @@ footer {
 .sp-thumbs::-webkit-scrollbar { display: none; }
 .sp-thumbs { -ms-overflow-style: none; scrollbar-width: none; }
 
+/* ================================================
+   MOBILE BOTTOM NAVIGATION SPACING
+   ================================================ */
+
+/* Add bottom padding on mobile for bottom navigation */
+@media (max-width: 991px) {
+  body {
+    padding-bottom: calc(56px + env(safe-area-inset-bottom)) !important;
+  }
+  
+  /* Ensure footer doesn't overlap with bottom nav */
+  footer {
+    margin-bottom: calc(56px + env(safe-area-inset-bottom));
+  }
+}
+

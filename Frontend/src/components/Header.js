@@ -11,6 +11,7 @@ import { getAProduct, getAllProducts, getCategoryTree } from "../features/produc
 import { getUserCart, getMyReferrals } from "../features/user/userSlice";
 import { resetFirebaseMessaging } from "../utils/firebase";
 import { productUrl, categoryUrl } from "../utils/seoUrl";
+import BottomNavDebug from "./BottomNavDebug";
 
 const NAV_LINKS = [
   { to: "/", label: "Home" },
@@ -58,6 +59,7 @@ const Header = () => {
   const [expandedDrawerCats, setExpandedDrawerCats] = useState(new Set());
   const [mobCatOpen, setMobCatOpen] = useState(false);
   const [mobCatParent, setMobCatParent] = useState(null);
+  const [isMobile, setIsMobile] = useState(false);
   const megaRef = useRef(null);
   const catBtnRef = useRef(null);
 
@@ -69,6 +71,20 @@ const Header = () => {
   const config2 = {
     headers: { Authorization: `Bearer ${customerToken || ""}`, Accept: "application/json" },
   };
+
+  // Handle mobile detection and window resize
+  useEffect(() => {
+    const checkMobile = () => {
+      const mobile = window.innerWidth <= 991;
+      setIsMobile(mobile);
+      console.log('Bottom Nav Debug:', { width: window.innerWidth, isMobile: mobile });
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   useEffect(() => {
     if (!productState?.length) dispatch(getAllProducts());
@@ -129,6 +145,7 @@ const Header = () => {
 
   return (
     <>
+      <BottomNavDebug />
       <style>{`
         *, *::before, *::after { box-sizing: border-box; }
 
@@ -436,7 +453,6 @@ const Header = () => {
 
         /* Bottom nav bar */
         .h-bottomnav {
-          display:none;
           position:fixed; bottom:0; left:0; right:0;
           background:#fff; border-top:1px solid #ececec;
           z-index:1200;
@@ -484,8 +500,6 @@ const Header = () => {
           .h-logo   { font-size:19px; flex:1; text-align:center; }
           .h-mob-coins.logged { display:flex; }
           .h-mob-search.open  { display:flex; }
-          .h-bottomnav { display:flex; flex-direction:column; }
-          body { padding-bottom:calc(56px + env(safe-area-inset-bottom)); }
         }
         @media (max-width:360px) {
           .h-bn-lbl { display:none; }
@@ -815,54 +829,56 @@ const Header = () => {
       </div>
 
       {/* ── MOBILE BOTTOM NAV BAR ── */}
-      <nav className="h-bottomnav">
-        <div className="h-bottomnav-inner">
+      {isMobile && (
+        <nav className="h-bottomnav" style={{ display: 'block', visibility: 'visible' }}>
+          <div className="h-bottomnav-inner">
 
-          <NavLink to="/" end className={({ isActive }) => `h-bn-item${isActive ? " active" : ""}`}>
-            <span className="h-bn-icon">
-              <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
-            </span>
-            <span className="h-bn-lbl">Home</span>
-          </NavLink>
+            <NavLink to="/" end className={({ isActive }) => `h-bn-item${isActive ? " active" : ""}`}>
+              <span className="h-bn-icon">
+                <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
+              </span>
+              <span className="h-bn-lbl">Home</span>
+            </NavLink>
 
-          <button className="h-bn-cat" onClick={() => { setMobCatOpen(true); setMobCatParent(null); }}>
-            <span className="h-bn-icon">
-              <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M4 6h16v2H4zm0 5h16v2H4zm0 5h16v2H4z"/></svg>
-            </span>
-            <span className="h-bn-lbl">Categories</span>
-          </button>
+            <button className="h-bn-cat" onClick={() => { setMobCatOpen(true); setMobCatParent(null); }}>
+              <span className="h-bn-icon">
+                <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M4 6h16v2H4zm0 5h16v2H4zm0 5h16v2H4z"/></svg>
+              </span>
+              <span className="h-bn-lbl">Categories</span>
+            </button>
 
-          <NavLink to="/product" className={({ isActive }) => `h-bn-item${isActive ? " active" : ""}`}>
-            <span className="h-bn-icon">
-              <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M19 6h-2c0-2.76-2.24-5-5-5S7 3.24 7 6H5c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm-7-3c1.66 0 3 1.34 3 3H9c0-1.66 1.34-3 3-3zm0 10c-1.66 0-3-1.34-3-3h2c0 .55.45 1 1 1s1-.45 1-1h2c0 1.66-1.34 3-3 3z"/></svg>
-            </span>
-            <span className="h-bn-lbl">Shop</span>
-          </NavLink>
+            <NavLink to="/product" className={({ isActive }) => `h-bn-item${isActive ? " active" : ""}`}>
+              <span className="h-bn-icon">
+                <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M19 6h-2c0-2.76-2.24-5-5-5S7 3.24 7 6H5c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm-7-3c1.66 0 3 1.34 3 3H9c0-1.66 1.34-3 3-3zm0 10c-1.66 0-3-1.34-3-3h2c0 .55.45 1 1 1s1-.45 1-1h2c0 1.66-1.34 3-3 3z"/></svg>
+              </span>
+              <span className="h-bn-lbl">Shop</span>
+            </NavLink>
 
-          <NavLink to="/wishlist" className={({ isActive }) => `h-bn-item${isActive ? " active" : ""}`}>
-            <span className="h-bn-icon"><BsHeart size={20} /></span>
-            <span className="h-bn-lbl">Wishlist</span>
-          </NavLink>
+            <NavLink to="/wishlist" className={({ isActive }) => `h-bn-item${isActive ? " active" : ""}`}>
+              <span className="h-bn-icon"><BsHeart size={20} /></span>
+              <span className="h-bn-lbl">Wishlist</span>
+            </NavLink>
 
-          <NavLink to="/cart" className={({ isActive }) => `h-bn-item${isActive ? " active" : ""}`}>
-            <span className="h-bn-icon">
-              <BsCart3 size={20} />
-              {cartState?.length > 0 && (
-                <span style={{
-                  position:"absolute", top:-5, right:-6,
-                  background:"#d4af37", color:"#1a1a1a",
-                  borderRadius:"50%", width:15, height:15,
-                  fontSize:8, fontWeight:700,
-                  display:"flex", alignItems:"center", justifyContent:"center",
-                  lineHeight:1,
-                }}>{cartState.length}</span>
-              )}
-            </span>
-            <span className="h-bn-lbl">Cart</span>
-          </NavLink>
+            <NavLink to="/cart" className={({ isActive }) => `h-bn-item${isActive ? " active" : ""}`}>
+              <span className="h-bn-icon">
+                <BsCart3 size={20} />
+                {cartState?.length > 0 && (
+                  <span style={{
+                    position:"absolute", top:-5, right:-6,
+                    background:"#d4af37", color:"#1a1a1a",
+                    borderRadius:"50%", width:15, height:15,
+                    fontSize:8, fontWeight:700,
+                    display:"flex", alignItems:"center", justifyContent:"center",
+                    lineHeight:1,
+                  }}>{cartState.length}</span>
+                )}
+              </span>
+              <span className="h-bn-lbl">Cart</span>
+            </NavLink>
 
-        </div>
-      </nav>
+          </div>
+        </nav>
+      )}
 
       <style>{`
         @media (max-width:991px) { #mob-search-toggle { display:flex !important; } }

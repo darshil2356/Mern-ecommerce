@@ -8,9 +8,9 @@ import * as yup from "yup";
 import { useFormik } from "formik";
 import { useDispatch, useSelector } from "react-redux";
 import { getBrands } from "../features/brand/brandSlice";
-import { getCategories } from "../features/pcategory/pcategorySlice";
+import { getCategories, getCategoryTree } from "../features/pcategory/pcategorySlice";
 import { getColors } from "../features/color/colorSlice";
-import { Select, Modal, Card, Input, Button } from "antd";
+import { Select, Modal, Card, Input, Button, TreeSelect } from "antd";
 import { getSizes } from "../features/size/sizeSlice";
 import Dropzone from "react-dropzone";
 import { clearUploads } from "../features/upload/uploadSlice";
@@ -127,12 +127,14 @@ const Addproduct = () => {
   useEffect(() => {
     dispatch(getBrands());
     dispatch(getCategories());
+    dispatch(getCategoryTree());
     dispatch(getColors());
     dispatch(getSizes());
   }, []);
 
   const brandState = useSelector((state) => state.brand.brands);
   const catState = useSelector((state) => state.pCategory.pCategories);
+  const categoryTree = useSelector((state) => state.pCategory.categoryTree);
   const colorState = useSelector((state) => state.color.colors);
   const sizeState = useSelector((state) => state.size.sizes);
   const imgState = useSelector((state) => state?.upload?.images);
@@ -225,6 +227,7 @@ const Addproduct = () => {
       price: productPrice || "",
       brand: productBrand || "",
       category: productCategory || "",
+      categoryId: newProduct?.categoryId || null,
       tags: productTag || "",
       hsnCode: newProduct?.hsnCode || newProduct?.productHsn || "",
       subcategory: productSubcategory || "",
@@ -747,39 +750,71 @@ const Addproduct = () => {
                 )}
               </div>
 
-              <div className="col-md-6">
+              <div className="col-md-12">
                 <div className="d-flex justify-content-between align-items-center mb-2">
-                  <label className="fw-medium mb-0" style={{ color: "#1a1a1a" }}>Category <span className="text-danger">*</span></label>
+                  <label className="fw-medium mb-0" style={{ color: "#1a1a1a" }}>
+                    Category <span className="text-danger">*</span>
+                  </label>
                   <Button type="link" size="small" style={{ padding: 0, fontSize: 12 }} onClick={() => setQuickAddModal("category")}>+ Add New</Button>
                 </div>
-                <Select
+                {/* Cascading TreeSelect — shows full Amazon-style hierarchy */}
+                <TreeSelect
                   showSearch
                   size="large"
-                  placeholder="Select Category"
-                  optionFilterProp="children"
+                  placeholder="Select category (e.g. Women's Fashion → Sarees → Silk)"
+                  allowClear
                   style={{ width: "100%" }}
-                  value={formik.values.category || undefined}
-                  onChange={(value) => formik.setFieldValue("category", value)}
+                  dropdownStyle={{ maxHeight: 400, overflow: "auto", borderRadius: 12 }}
+                  value={formik.values.categoryId || undefined}
+                  onChange={(value, label, extra) => {
+                    // Find the selected node's title from flat list
+                    const selectedCat = catState.find((c) => c._id === value);
+                    formik.setFieldValue("categoryId", value || null);
+                    formik.setFieldValue("category", selectedCat?.title || label?.[0] || "");
+                  }}
                   onBlur={formik.handleBlur("category")}
-                  filterOption={(input, option) =>
-                    (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
+                  treeData={(() => {
+                    // Build tree structure for TreeSelect
+                    const buildNodes = (parentId) =>
+                      catState
+                        .filter((c) => String(c.parent?._id || c.parent || "") === String(parentId || ""))
+                        .map((c) => ({
+                          title: c.title,
+                          value: c._id,
+                          key: c._id,
+                          children: buildNodes(c._id),
+                        }));
+                    return buildNodes(null);
+                  })()}
+                  filterTreeNode={(input, node) =>
+                    node.title?.toLowerCase().includes(input.toLowerCase())
                   }
-                  options={catState.map((i) => ({
-                    label: i.title,
-                    value: i.title,
-                  }))}
                 />
+                {/* Show selected path breadcrumb */}
+                {formik.values.category && (
+                  <div style={{ marginTop: 6, display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                    <span style={{ fontSize: 12, color: "#6b7280" }}>Selected:</span>
+                    {(() => {
+                      const path = [];
+                      let cur = catState.find((c) => c._id === formik.values.categoryId);
+                      while (cur) {
+                        path.unshift(cur.title);
+                        cur = catState.find((c) => c._id === (cur.parent?._id || cur.parent));
+                      }
+                      return path.length > 0
+                        ? path.map((p, i) => (
+                          <span key={i} style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                            {i > 0 && <span style={{ color: "#d1d5db" }}>›</span>}
+                            <span style={{ fontSize: 12, background: "#f0f0ff", color: "#6366f1", padding: "2px 8px", borderRadius: 20, fontWeight: 600 }}>{p}</span>
+                          </span>
+                        ))
+                        : <span style={{ fontSize: 12, color: "#10b981" }}>{formik.values.category}</span>;
+                    })()}
+                  </div>
+                )}
                 {formik.touched.category && formik.errors.category && (
                   <span className="text-danger" style={{ fontSize: "12px" }}>{formik.errors.category}</span>
                 )}
-              </div>
-
-              <div className="col-md-6">
-                <label className="fw-medium mb-2 d-block" style={{ color: "#1a1a1a" }}>Subcategory</label>
-                <Input size="large" placeholder="e.g. T-Shirts" name="subcategory"
-                  value={formik.values.subcategory} onChange={formik.handleChange("subcategory")}
-                  style={{ borderRadius: "8px" }}
-                />
               </div>
 
               <div className="col-md-6">
@@ -1391,7 +1426,12 @@ const Addproduct = () => {
         onClose={() => setQuickAddModal(null)}
         onCreated={(newItem) => {
           if (quickAddModal === "brand") formik.setFieldValue("brand", newItem.title);
-          if (quickAddModal === "category") formik.setFieldValue("category", newItem.title);
+          if (quickAddModal === "category") {
+            formik.setFieldValue("category", newItem.title);
+            formik.setFieldValue("categoryId", newItem._id || null);
+            dispatch(getCategories());
+            dispatch(getCategoryTree());
+          }
           // color & size: list auto-refreshes, user picks from dropdown
         }}
       />

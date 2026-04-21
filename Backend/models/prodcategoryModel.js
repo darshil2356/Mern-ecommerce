@@ -1,19 +1,22 @@
-const mongoose = require("mongoose"); // Erase if already required
+const mongoose = require("mongoose");
 
-// Declare the Schema of the Mongo model
-var prodcategorySchema = new mongoose.Schema(
+const prodcategorySchema = new mongoose.Schema(
   {
-    title: {
-      type: String,
-      required: true,
-      unique: true,
-      index: true,
+    title: { type: String, required: true, trim: true },
+    slug: { type: String, required: true, unique: true, lowercase: true, trim: true },
+    parent: { type: mongoose.Schema.Types.ObjectId, ref: "PCategory", default: null },
+    image: {
+      public_id: { type: String },
+      url: { type: String },
     },
+    order: { type: Number, default: 0 },
   },
-  {
-    timestamps: true,
-  }
+  { timestamps: true }
 );
 
-//Export the model
+// Virtual: level (depth in tree)
+prodcategorySchema.virtual("level").get(function () {
+  return this.parent ? 2 : 1;
+});
+
 module.exports = mongoose.model("PCategory", prodcategorySchema);

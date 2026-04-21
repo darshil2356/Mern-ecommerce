@@ -4,9 +4,10 @@ import Meta from "../components/Meta";
 import ProductCard from "../components/ProductCard";
 import Container from "../components/Container";
 import { useDispatch, useSelector } from "react-redux";
-import { getAllProducts } from "../features/products/productSlilce";
+import { getAllProducts, getCategoryTree } from "../features/products/productSlilce";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { AiOutlineFilter, AiOutlineClose } from "react-icons/ai";
+import { categoryUrl } from "../utils/seoUrl";
 
 const OurStore = () => {
   const productState = useSelector((state) => state?.product?.product);
@@ -26,10 +27,16 @@ const OurStore = () => {
   const [visibleCount, setVisibleCount] = useState(20);
   const sentinelRef = useRef(null);
 
+  const categoryTree = useSelector((state) => state?.product?.categoryTree || []);
   const dispatch = useDispatch();
   const location = useLocation();
   const navigate = useNavigate();
   const { category: urlCategory } = useParams();
+  const pageUrl = category ? `/product/category/${encodeURIComponent(category)}` : "/product";
+
+  useEffect(() => {
+    if (!categoryTree.length) dispatch(getCategoryTree());
+  }, []); // eslint-disable-line
 
   useEffect(() => {
     // Support both URL param (/product/category/Saree or legacy /product/category/saree)
@@ -151,7 +158,7 @@ const OurStore = () => {
       {/* Price */}
       <div style={{ marginBottom: 28 }}>
         <p style={sectionLabel}>Price Range (₹)</p>
-        <div style={{ display: "flex",flexWrap : "wrap" , gap: 12 }}>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
           <input
             type="number"
             placeholder="Min"
@@ -179,13 +186,37 @@ const OurStore = () => {
     </div>
   );
 
+  // Find parent category and its siblings/children for subcategory chips
+  const activeParentNode = categoryTree.find(
+    (c) => c.title?.toLowerCase() === category?.toLowerCase() ||
+      c.children?.some((ch) => ch.title?.toLowerCase() === category?.toLowerCase())
+  );
+  const activeChildNode = activeParentNode?.children?.find(
+    (ch) => ch.title?.toLowerCase() === category?.toLowerCase()
+  );
+  // If viewing a child category, show siblings; if viewing parent, show its children
+  const subChips = activeChildNode
+    ? activeParentNode?.children || []
+    : activeParentNode?.children || [];
+  const breadcrumbCrumbs = category
+    ? activeChildNode
+      ? [
+        { name: "Shop", url: "/product" },
+        { name: activeParentNode.title, url: categoryUrl(activeParentNode.title) },
+        { name: category.charAt(0).toUpperCase() + category.slice(1), url: pageUrl },
+      ]
+      : [
+        { name: "Shop", url: "/product" },
+        { name: category.charAt(0).toUpperCase() + category.slice(1), url: pageUrl },
+      ]
+    : [{ name: "Our Store", url: "/product" }];
+
   const pageTitle = category
     ? `${category.charAt(0).toUpperCase() + category.slice(1)} – Shop Online`
     : "Shop All Products";
   const pageDesc = category
     ? `Buy ${category} online at Yashoda Fashion. Browse our premium ${category} collection with best prices and fast delivery.`
     : "Browse our full collection of premium fashion, clothing, and accessories.";
-  const pageUrl = category ? `/product/category/${encodeURIComponent(category)}` : "/product";
 
   return (
     <>
@@ -194,25 +225,35 @@ const OurStore = () => {
         description={pageDesc}
         keywords={category ? `${category}, buy ${category} online, ${category} India, Yashoda Fashion` : "shop fashion online, buy clothes, premium clothing"}
         url={pageUrl}
-        breadcrumbs={
-          category
-            ? [
-                { name: "Shop", url: "/product" },
-                { name: category.charAt(0).toUpperCase() + category.slice(1), url: pageUrl },
-              ]
-            : [{ name: "Shop", url: "/product" }]
-        }
+        breadcrumbs={breadcrumbCrumbs}
       />
-      <BreadCrumb
-        crumbs={
-          category
-            ? [
-                { name: "Shop", url: "/product" },
-                { name: category.charAt(0).toUpperCase() + category.slice(1), url: pageUrl },
-              ]
-            : [{ name: "Our Store", url: "/product" }]
-        }
-      />
+      <BreadCrumb crumbs={breadcrumbCrumbs} />
+
+      {/* Subcategory chips row */}
+      {subChips.length > 0 && (
+        <div style={subChipsBar}>
+          <div style={{ maxWidth: 1320, margin: "0 auto", padding: "0 20px", display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+            <span style={{ fontSize: 12, color: "#999", fontWeight: 600, whiteSpace: "nowrap" }}>Browse:</span>
+            {activeParentNode && (
+              <button
+                onClick={() => navigate(categoryUrl(activeParentNode.title))}
+                style={subChipStyle(category?.toLowerCase() === activeParentNode.title?.toLowerCase())}
+              >
+                All {activeParentNode.title}
+              </button>
+            )}
+            {subChips.map((ch) => (
+              <button
+                key={ch._id}
+                onClick={() => navigate(categoryUrl(ch.title))}
+                style={subChipStyle(category?.toLowerCase() === ch.title?.toLowerCase())}
+              >
+                {ch.title}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div style={{ background: "#f7f7f7", minHeight: "100vh" }}>
         <Container class1="store-wrapper py-4">
@@ -498,5 +539,25 @@ const sheetApplyBtn = {
   background: "#1a1a1a", color: "#fff",
   borderRadius: 12, fontSize: 14, fontWeight: 600, cursor: "pointer",
 };
+
+const subChipsBar = {
+  background: "#fff",
+  borderBottom: "1px solid #f0f0f0",
+  padding: "10px 0",
+  overflowX: "auto",
+};
+
+const subChipStyle = (active) => ({
+  padding: "6px 16px",
+  borderRadius: 20,
+  border: active ? "none" : "1.5px solid #e0e0e0",
+  background: active ? "#1a1a1a" : "#fff",
+  color: active ? "#d4af37" : "#555",
+  fontSize: 13,
+  fontWeight: active ? 700 : 400,
+  cursor: "pointer",
+  whiteSpace: "nowrap",
+  transition: "all 0.18s",
+});
 
 export default OurStore;

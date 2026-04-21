@@ -155,6 +155,7 @@ sizeStock: [
 ],
 
     subcategory: { type: String, trim: true },
+    categoryId: { type: mongoose.Schema.Types.ObjectId, ref: "PCategory", default: null },
     short_description: { type: String, trim: true },
     highlights: [{ type: String }],
     search_keywords: [{ type: String }],

@@ -2,10 +2,12 @@
 const Product = require("../models/productModel");
 const User = require("../models/userModel");
 const Offer = require("../models/offerModel");
+const Category = require("../models/prodcategoryModel");
 const asyncHandler = require("express-async-handler");
 const slugify = require("slugify");
 const validateMongoDbId = require("../utils/validateMongodbId");
 const { v4: uuidv4 } = require("uuid");
+const { getDescendantIds } = require("./prodcategoryCtrl");
 
 // Fetch all active offers once and attach best matching offer to each product in the list
 const attachOffersToProducts = async (products) => {
@@ -464,7 +466,29 @@ const getAllProduct = asyncHandler(async (req, res) => {
       
       // Add other filters if provided
       if (req.query.category) {
-        queryObj.category = { $regex: new RegExp(`^${req.query.category.replace(/[-]/g, '[\\s-]')}$`, 'i') };
+        const rawCat = req.query.category.replace(/-/g, " ").trim();
+        // Find matching category by title (case-insensitive) or by slug
+        const matchedCat = await Category.findOne({
+          $or: [
+            { title: { $regex: new RegExp(`^${rawCat}$`, "i") } },
+            { slug: req.query.category.toLowerCase() },
+          ],
+        });
+        if (matchedCat) {
+          // Get all descendant IDs so parent category shows child products too
+          const descendantIds = await getDescendantIds(matchedCat._id);
+          const allIds = [matchedCat._id, ...descendantIds];
+          // Collect titles for backward-compat string match
+          const allCats = await Category.find({ _id: { $in: allIds } }, "title").lean();
+          const titles = allCats.map((c) => c.title);
+          queryObj.$or = [
+            { categoryId: { $in: allIds } },
+            { category: { $in: titles } },
+          ];
+        } else {
+          // Fallback: plain case-insensitive string match (for products not yet linked to a category doc)
+          queryObj.category = { $regex: new RegExp(`^${rawCat}$`, "i") };
+        }
       }
       if (req.query.brand) {
         queryObj.brand = req.query.brand;

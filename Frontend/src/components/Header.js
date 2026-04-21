@@ -56,6 +56,8 @@ const Header = () => {
   const [catOpen, setCatOpen] = useState(false);
   const [hoveredParent, setHoveredParent] = useState(null);
   const [expandedDrawerCats, setExpandedDrawerCats] = useState(new Set());
+  const [mobCatOpen, setMobCatOpen] = useState(false);
+  const [mobCatParent, setMobCatParent] = useState(null);
   const megaRef = useRef(null);
   const catBtnRef = useRef(null);
 
@@ -357,31 +359,116 @@ const Header = () => {
         /* DRAWER */
         .h-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:2000; }
         .h-drawer {
-          position:fixed; top:0; left:0; height:100%; width:300px;
-          background:#1a1a1a; z-index:2001; overflow-y:auto;
-          padding:16px 0; transition:transform 0.3s ease;
+          position:fixed; top:0; left:0; height:100%; width:82vw; max-width:320px;
+          background:#fff; z-index:2001; overflow-y:auto;
+          padding:0; transition:transform 0.3s cubic-bezier(0.16,1,0.3,1);
+          display:flex; flex-direction:column;
         }
-        .h-drawer-close { background:none; border:none; color:#fff; font-size:26px; cursor:pointer; padding:0 20px 12px; display:block; }
-        .h-drawer-link { display:flex; align-items:center; padding:13px 24px; color:#ccc; text-decoration:none; font-size:15px; border-bottom:1px solid #2a2a2a; transition:color 0.2s; }
-        .h-drawer-link:hover { color:#d4af37; }
-        .h-drawer-logout { background:none; border:none; width:100%; text-align:left; padding:13px 24px; color:#ff6b6b; font-size:15px; cursor:pointer; margin-top:8px; }
+        .h-drawer-head {
+          background:#1a1a1a; padding:20px 20px 16px;
+          display:flex; align-items:center; justify-content:space-between; flex-shrink:0;
+        }
+        .h-drawer-close { background:none; border:none; color:#fff; font-size:24px; cursor:pointer; padding:0; line-height:1; }
+        .h-drawer-link {
+          display:flex; align-items:center; gap:12px;
+          padding:14px 20px; color:#333; text-decoration:none;
+          font-size:15px; border-bottom:1px solid #f0f0f0; transition:color 0.2s;
+          font-weight:500;
+        }
+        .h-drawer-link:hover { color:#d4af37; background:#fffbf0; }
+        .h-drawer-logout { background:none; border:none; width:100%; text-align:left; padding:14px 20px; color:#ff4444; font-size:15px; cursor:pointer; font-weight:500; border-top:1px solid #f0f0f0; margin-top:auto; }
 
-        /* Drawer nested categories */
-        .h-dcats { border-bottom:1px solid #2a2a2a; }
-        .h-dcat-header {
+        /* Mobile Category Bottom Sheet */
+        .h-mobcat-sheet {
+          position:fixed; bottom:0; left:0; right:0;
+          background:#fff; border-radius:20px 20px 0 0;
+          z-index:2100; max-height:88vh;
+          display:flex; flex-direction:column;
+          box-shadow:0 -8px 40px rgba(0,0,0,0.18);
+          transition:transform 0.35s cubic-bezier(0.16,1,0.3,1);
+        }
+        .h-mobcat-sheet.open  { transform:translateY(0); }
+        .h-mobcat-sheet.closed { transform:translateY(100%); }
+        .h-mobcat-handle { width:40px; height:4px; background:#e0e0e0; border-radius:2px; margin:12px auto 0; flex-shrink:0; }
+        .h-mobcat-head {
           display:flex; align-items:center; justify-content:space-between;
-          padding:12px 24px; color:#ccc; font-size:14px; font-weight:600;
-          cursor:pointer; transition:color 0.2s;
+          padding:14px 20px 12px; border-bottom:1px solid #f0f0f0; flex-shrink:0;
         }
-        .h-dcat-header:hover { color:#d4af37; }
-        .h-dcat-header.open { color:#d4af37; }
-        .h-dcat-children { background:#111; overflow:hidden; }
-        .h-dcat-child {
+        .h-mobcat-title { font-size:17px; font-weight:700; color:#1a1a1a; }
+        .h-mobcat-back {
+          background:none; border:none; color:#d4af37; font-size:14px;
+          font-weight:600; cursor:pointer; display:flex; align-items:center; gap:4px; padding:0;
+        }
+        .h-mobcat-body { overflow-y:auto; flex:1; padding:8px 0 24px; }
+
+        /* Parent category cards */
+        .h-mobcat-card {
+          display:flex; align-items:center; gap:14px;
+          padding:16px 20px; border-bottom:1px solid #f5f5f5;
+          cursor:pointer; transition:background 0.15s;
+          text-decoration:none;
+        }
+        .h-mobcat-card:active { background:#fffbf0; }
+        .h-mobcat-card-icon { font-size:26px; width:44px; height:44px; background:#f7f7f7; border-radius:12px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+        .h-mobcat-card-info { flex:1; min-width:0; }
+        .h-mobcat-card-name { font-size:15px; font-weight:600; color:#1a1a1a; }
+        .h-mobcat-card-sub { font-size:12px; color:#999; margin-top:2px; }
+        .h-mobcat-card-arrow { color:#ccc; flex-shrink:0; }
+
+        /* Sub category chips */
+        .h-mobcat-subs { padding:12px 16px; display:flex; flex-wrap:wrap; gap:10px; }
+        .h-mobcat-sub-chip {
           display:flex; align-items:center; gap:8px;
-          padding:10px 32px; color:#aaa; text-decoration:none;
-          font-size:14px; border-bottom:1px solid #1e1e1e; transition:color 0.2s;
+          padding:10px 16px; border-radius:12px;
+          background:#f7f7f7; border:1.5px solid transparent;
+          font-size:14px; font-weight:500; color:#333;
+          cursor:pointer; transition:all 0.15s; text-decoration:none;
+          width:calc(50% - 5px);
         }
-        .h-dcat-child:hover { color:#d4af37; }
+        .h-mobcat-sub-chip:active { background:#fff7e6; border-color:#d4af37; color:#d4af37; }
+        .h-mobcat-allbtn {
+          display:flex; align-items:center; justify-content:center; gap:8px;
+          margin:8px 16px 0; padding:14px; border-radius:14px;
+          background:#1a1a1a; color:#d4af37; font-size:15px; font-weight:700;
+          text-decoration:none; transition:background 0.2s;
+        }
+        .h-mobcat-allbtn:active { background:#333; color:#d4af37; }
+
+        /* Bottom nav bar */
+        .h-bottomnav {
+          display:none;
+          position:fixed; bottom:0; left:0; right:0;
+          background:#fff; border-top:1px solid #ececec;
+          z-index:1200;
+          height:calc(56px + env(safe-area-inset-bottom));
+          padding-bottom:env(safe-area-inset-bottom);
+          box-shadow:0 -2px 16px rgba(0,0,0,0.07);
+        }
+        .h-bottomnav-inner {
+          display:flex; height:56px; align-items:stretch;
+        }
+        .h-bn-item, .h-bn-cat {
+          flex:1; display:flex; flex-direction:column; align-items:center;
+          justify-content:center; gap:2px;
+          text-decoration:none; border:none; background:none;
+          cursor:pointer; color:#999;
+          font-size:9px; font-weight:600; letter-spacing:0.2px;
+          line-height:1; padding:0 2px; min-width:0;
+          -webkit-tap-highlight-color:transparent;
+          transition:color 0.15s, transform 0.12s;
+        }
+        .h-bn-item.active { color:#d4af37; }
+        .h-bn-item:active, .h-bn-cat:active { color:#d4af37; transform:scale(0.9); }
+        .h-bn-lbl {
+          display:block; width:100%; text-align:center;
+          overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+          font-size:9px; line-height:1;
+        }
+        .h-bn-icon {
+          width:24px; height:24px; display:flex;
+          align-items:center; justify-content:center;
+          flex-shrink:0; position:relative;
+        }
 
         /* ── MOBILE ── */
         @media (max-width:991px) {
@@ -397,6 +484,13 @@ const Header = () => {
           .h-logo   { font-size:19px; flex:1; text-align:center; }
           .h-mob-coins.logged { display:flex; }
           .h-mob-search.open  { display:flex; }
+          .h-bottomnav { display:flex; flex-direction:column; }
+          body { padding-bottom:calc(56px + env(safe-area-inset-bottom)); }
+        }
+        @media (max-width:360px) {
+          .h-bn-lbl { display:none; }
+          .h-bn-item, .h-bn-cat { justify-content:center; }
+          .h-bn-icon { width:26px; height:26px; }
         }
         @media (max-width:400px) {
           .h-icon  { padding:6px 7px; font-size:20px; }
@@ -601,78 +695,174 @@ const Header = () => {
         )}
       </nav>
 
-      {/* OVERLAY */}
-      {mobileOpen && <div className="h-overlay" onClick={closeMobile} />}
+      {/* OVERLAY — drawer + category sheet */}
+      {(mobileOpen || mobCatOpen) && (
+        <div className="h-overlay" onClick={() => { closeMobile(); setMobCatOpen(false); setMobCatParent(null); }} />
+      )}
 
       {/* MOBILE DRAWER */}
       <div className="h-drawer" style={{ transform: mobileOpen ? "translateX(0)" : "translateX(-100%)" }}>
-        <button className="h-drawer-close" onClick={closeMobile}><BsX /></button>
-
-        <div style={{ padding: "0 24px 14px", borderBottom: "1px solid #2a2a2a", marginBottom: 4 }}>
-          {isLoggedIn ? (
-            <>
-              <p style={{ color: "#d4af37", margin: 0, fontWeight: 700, fontSize: 15 }}>Hi, {authState?.user?.firstname}</p>
-              <p style={{ color: "#aaa", margin: "5px 0 0", fontSize: 13, display: "flex", alignItems: "center", gap: 5 }}>
-                <BsCoin color="#d4af37" size={13} />
-                {coinsState ? coinsState.toLocaleString() : "0"} coins
-              </p>
-            </>
-          ) : (
-            <Link to="/login" className="h-drawer-link" style={{ padding: 0, color: "#d4af37" }} onClick={closeMobile}>Login / Register →</Link>
-          )}
+        {/* Drawer header */}
+        <div className="h-drawer-head">
+          <div>
+            {isLoggedIn ? (
+              <>
+                <p style={{ color: "#d4af37", margin: 0, fontWeight: 700, fontSize: 15 }}>Hi, {authState?.user?.firstname} 👋</p>
+                <p style={{ color: "#aaa", margin: "4px 0 0", fontSize: 12, display: "flex", alignItems: "center", gap: 4 }}>
+                  <BsCoin color="#d4af37" size={12} /> {coinsState ? coinsState.toLocaleString() : "0"} coins
+                </p>
+              </>
+            ) : (
+              <Link to="/login" style={{ color: "#d4af37", fontWeight: 700, fontSize: 15, textDecoration: "none" }} onClick={closeMobile}>
+                Login / Register →
+              </Link>
+            )}
+          </div>
+          <button className="h-drawer-close" onClick={closeMobile}><BsX /></button>
         </div>
 
+        {/* Nav links */}
         {NAV_LINKS.map(({ to, label }) => (
-          <NavLink key={to} to={to} end={to === "/"} className={({ isActive }) => `h-drawer-link${isActive ? " h-navlink-active" : ""}`} onClick={closeMobile}>
+          <NavLink key={to} to={to} end={to === "/"}
+            className={({ isActive }) => `h-drawer-link${isActive ? " h-navlink-active" : ""}`}
+            onClick={closeMobile}>
             {label}
           </NavLink>
         ))}
 
-        {/* Nested categories in drawer */}
-        {(hasTree ? categoryTree : fallbackCats.map(t => ({ _id: t, title: t, children: [] }))).map((cat) => {
-          const hasChildren = cat.children?.length > 0;
-          const isExpanded = expandedDrawerCats.has(cat._id);
-          return (
-            <div key={cat._id} className="h-dcats">
-              <div
-                className={`h-dcat-header${isExpanded ? " open" : ""}`}
-                onClick={() => hasChildren ? toggleDrawerCat(cat._id) : (navigate(categoryUrl(cat.title)), closeMobile())}
-              >
-                <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <span>{catIcon(cat.title)}</span> {cat.title}
-                </span>
-                {hasChildren && (
-                  <BsChevronDown size={12} style={{ transition: "transform 0.2s", transform: isExpanded ? "rotate(180deg)" : "none" }} />
-                )}
-              </div>
-              {hasChildren && isExpanded && (
-                <div className="h-dcat-children">
-                  <Link to={categoryUrl(cat.title)} className="h-dcat-child" onClick={closeMobile}
-                    style={{ fontWeight: 600, color: "#d4af37" }}>
-                    All {cat.title}
-                  </Link>
-                  {cat.children.map((sub) => (
-                    <Link key={sub._id} to={categoryUrl(sub.title)} className="h-dcat-child" onClick={closeMobile}>
-                      <span>{catIcon(sub.title)}</span> {sub.title}
-                    </Link>
-                  ))}
-                </div>
-              )}
-            </div>
-          );
-        })}
-
-        <Link to="/wishlist" className="h-drawer-link" onClick={closeMobile}>❤️ Wishlist</Link>
+        <Link to="/wishlist" className="h-drawer-link" onClick={closeMobile}><BsHeart /> Wishlist</Link>
         <Link to="/cart" className="h-drawer-link" onClick={closeMobile}>
-          🛒 Cart {cartState?.length > 0 && `(${cartState.length})`}
+          <BsCart3 /> Cart {cartState?.length > 0 && `(${cartState.length})`}
         </Link>
         {isLoggedIn && (
           <>
-            <Link to="/my-profile" className="h-drawer-link" onClick={closeMobile}>👤 My Profile</Link>
+            <Link to="/my-profile" className="h-drawer-link" onClick={closeMobile}><BsPersonCircle /> My Profile</Link>
             <button className="h-drawer-logout" onClick={handleLogout}>🚪 Logout</button>
           </>
         )}
       </div>
+
+      {/* ── MOBILE CATEGORY BOTTOM SHEET ── */}
+      <div className={`h-mobcat-sheet ${mobCatOpen ? "open" : "closed"}`}>
+        <div className="h-mobcat-handle" />
+        <div className="h-mobcat-head">
+          {mobCatParent ? (
+            <button className="h-mobcat-back" onClick={() => setMobCatParent(null)}>
+              ← Back
+            </button>
+          ) : <span />}
+          <span className="h-mobcat-title">
+            {mobCatParent ? `${catIcon(mobCatParent.title)} ${mobCatParent.title}` : "Shop by Category"}
+          </span>
+          <button className="h-drawer-close" style={{ color: "#333" }}
+            onClick={() => { setMobCatOpen(false); setMobCatParent(null); }}>
+            <BsX />
+          </button>
+        </div>
+
+        <div className="h-mobcat-body">
+          {!mobCatParent ? (
+            /* Level 1 — parent categories as cards */
+            (hasTree ? categoryTree : fallbackCats.map(t => ({ _id: t, title: t, children: [] }))).map((cat) => (
+              <div
+                key={cat._id}
+                className="h-mobcat-card"
+                onClick={() => {
+                  if (cat.children?.length > 0) {
+                    setMobCatParent(cat);
+                  } else {
+                    navigate(categoryUrl(cat.title));
+                    setMobCatOpen(false);
+                  }
+                }}
+              >
+                <div className="h-mobcat-card-icon">{catIcon(cat.title)}</div>
+                <div className="h-mobcat-card-info">
+                  <div className="h-mobcat-card-name">{cat.title}</div>
+                  {cat.children?.length > 0 && (
+                    <div className="h-mobcat-card-sub">{cat.children.length} subcategories</div>
+                  )}
+                </div>
+                <BsChevronRight className="h-mobcat-card-arrow" size={16} />
+              </div>
+            ))
+          ) : (
+            /* Level 2 — subcategory chips */
+            <>
+              <Link
+                to={categoryUrl(mobCatParent.title)}
+                className="h-mobcat-allbtn"
+                onClick={() => { setMobCatOpen(false); setMobCatParent(null); }}
+              >
+                Shop All {mobCatParent.title} →
+              </Link>
+              <div className="h-mobcat-subs">
+                {mobCatParent.children.map((sub) => (
+                  <Link
+                    key={sub._id}
+                    to={categoryUrl(sub.title)}
+                    className="h-mobcat-sub-chip"
+                    onClick={() => { setMobCatOpen(false); setMobCatParent(null); }}
+                  >
+                    <span style={{ fontSize: 18 }}>{catIcon(sub.title)}</span>
+                    <span>{sub.title}</span>
+                  </Link>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* ── MOBILE BOTTOM NAV BAR ── */}
+      <nav className="h-bottomnav">
+        <div className="h-bottomnav-inner">
+
+          <NavLink to="/" end className={({ isActive }) => `h-bn-item${isActive ? " active" : ""}`}>
+            <span className="h-bn-icon">
+              <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
+            </span>
+            <span className="h-bn-lbl">Home</span>
+          </NavLink>
+
+          <button className="h-bn-cat" onClick={() => { setMobCatOpen(true); setMobCatParent(null); }}>
+            <span className="h-bn-icon">
+              <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M4 6h16v2H4zm0 5h16v2H4zm0 5h16v2H4z"/></svg>
+            </span>
+            <span className="h-bn-lbl">Categories</span>
+          </button>
+
+          <NavLink to="/product" className={({ isActive }) => `h-bn-item${isActive ? " active" : ""}`}>
+            <span className="h-bn-icon">
+              <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M19 6h-2c0-2.76-2.24-5-5-5S7 3.24 7 6H5c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm-7-3c1.66 0 3 1.34 3 3H9c0-1.66 1.34-3 3-3zm0 10c-1.66 0-3-1.34-3-3h2c0 .55.45 1 1 1s1-.45 1-1h2c0 1.66-1.34 3-3 3z"/></svg>
+            </span>
+            <span className="h-bn-lbl">Shop</span>
+          </NavLink>
+
+          <NavLink to="/wishlist" className={({ isActive }) => `h-bn-item${isActive ? " active" : ""}`}>
+            <span className="h-bn-icon"><BsHeart size={20} /></span>
+            <span className="h-bn-lbl">Wishlist</span>
+          </NavLink>
+
+          <NavLink to="/cart" className={({ isActive }) => `h-bn-item${isActive ? " active" : ""}`}>
+            <span className="h-bn-icon">
+              <BsCart3 size={20} />
+              {cartState?.length > 0 && (
+                <span style={{
+                  position:"absolute", top:-5, right:-6,
+                  background:"#d4af37", color:"#1a1a1a",
+                  borderRadius:"50%", width:15, height:15,
+                  fontSize:8, fontWeight:700,
+                  display:"flex", alignItems:"center", justifyContent:"center",
+                  lineHeight:1,
+                }}>{cartState.length}</span>
+              )}
+            </span>
+            <span className="h-bn-lbl">Cart</span>
+          </NavLink>
+
+        </div>
+      </nav>
 
       <style>{`
         @media (max-width:991px) { #mob-search-toggle { display:flex !important; } }

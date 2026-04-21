@@ -120,7 +120,7 @@ const Cart = () => {
       <BreadCrumb title="Cart" />
 
       {/* Page background */}
-      <div style={{ background: '#f7f8fa', minHeight: '100vh', paddingBottom: hasItems ? 100 : 24 }}>
+      <div style={{ background: '#f7f8fa', minHeight: '100vh', paddingBottom: hasItems ? 170 : 94 }}>
         <Container class1="cart-wrapper py-3 py-md-5">
 
           {/* ── Header ── */}
@@ -402,7 +402,7 @@ const Cart = () => {
 
       {/* ── Sticky Bottom Bar — Mobile only ── */}
       {hasItems && (
-        <div style={s.stickyBar} className="d-lg-none">
+        <div style={{...s.stickyBar, bottom: 56}} className="d-lg-none">
           <div style={s.stickyInner}>
             <div>
               <p style={{ margin: 0, fontSize: 11, color: '#9ca3af', lineHeight: 1 }}>Total</p>

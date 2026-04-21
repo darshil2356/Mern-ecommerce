@@ -6,7 +6,7 @@
 .co-page {
   background: #f7f8fa;
   min-height: 100vh;
-  padding-bottom: 90px; /* space for sticky bar on mobile */
+  padding-bottom: 140px; /* space for sticky bar + bottom nav on mobile */
 }
 
 .co-container {

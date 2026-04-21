@@ -674,7 +674,7 @@ const Checkout = () => {
 
       {/* ── Sticky Pay Bar — Mobile ── */}
       {currentStep === 1 && (
-        <div className="co-sticky-bar d-lg-none">
+        <div className="co-sticky-bar d-lg-none" style={{bottom: '56px'}}>
           <div className="co-sticky-inner">
             <div>
               <p className="co-sticky-label">Total Payable</p>

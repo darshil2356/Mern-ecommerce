@@ -464,7 +464,7 @@ const getAllProduct = asyncHandler(async (req, res) => {
       
       // Add other filters if provided
       if (req.query.category) {
-        queryObj.category = req.query.category;
+        queryObj.category = { $regex: new RegExp(`^${req.query.category.replace(/[-]/g, '[\\s-]')}$`, 'i') };
       }
       if (req.query.brand) {
         queryObj.brand = req.query.brand;

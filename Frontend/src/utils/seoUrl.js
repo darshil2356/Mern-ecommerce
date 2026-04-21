@@ -10,6 +10,6 @@ export const productUrl = (item) => {
   return `/product/${slug}-${item._id}`;
 };
 
-// Generate SEO-friendly category URL: /product/category/saree
+// Generate SEO-friendly category URL: /product/category/Saree
 export const categoryUrl = (cat) =>
-  `/product/category/${encodeURIComponent((cat || "").toLowerCase().replace(/\s+/g, "-"))}`;
+  `/product/category/${encodeURIComponent((cat || "").replace(/\s+/g, "-"))}`;

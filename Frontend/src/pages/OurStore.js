@@ -32,9 +32,10 @@ const OurStore = () => {
   const { category: urlCategory } = useParams();
 
   useEffect(() => {
-    // Support both URL param (/product/category/saree) and legacy state
+    // Support both URL param (/product/category/Saree or legacy /product/category/saree)
+    // Replace hyphens back to spaces so "Dress-Wear" → "Dress Wear"
     const incomingCategory = urlCategory
-      ? decodeURIComponent(urlCategory)
+      ? decodeURIComponent(urlCategory).replace(/-/g, " ")
       : location.state?.category || null;
     if (incomingCategory) {
       setCategory(incomingCategory);

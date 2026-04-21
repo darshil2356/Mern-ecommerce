@@ -36,6 +36,7 @@ const marketIntelRouter = require("./routes/marketIntelRoute");
 const rojmelRouter = require("./routes/rojmelRoute");
 const offerRouter = require("./routes/offerRoute");
 const sizeRouter = require("./routes/sizeRoute");
+const googleReviewRouter = require("./routes/googleReviewRoute");
 
 // Socket.io setup
 const http = require("http");
@@ -101,6 +102,7 @@ app.use("/api/marketIntel", marketIntelRouter);
 app.use("/api/rojmel", rojmelRouter);
 app.use("/api/offers", offerRouter);
 app.use("/api/size", sizeRouter);
+app.use("/api/google-review", googleReviewRouter);
 
 app.get("/ppt", (req, res) => {
   res.sendFile(__dirname + "/public/ppt.html");

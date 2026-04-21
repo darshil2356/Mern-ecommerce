@@ -19,6 +19,7 @@ import axios from "axios";
 import { base_url } from "../utils/axiosConfig";
 import { toast } from "react-toastify";
 import { productUrl, categoryUrl } from "../utils/seoUrl";
+import GoogleReviewSection from "../components/GoogleReviewSection";
 import { getOfferDisplay } from "../components/ProductCard";
 
 /* ─── All styles in one block ─── */
@@ -933,6 +934,11 @@ const Home = () => {
           </Container>
         </div>
       )}
+
+      {/* ════════════════════════════════════════
+          GOOGLE REVIEW
+      ════════════════════════════════════════ */}
+      <GoogleReviewSection />
 
       {/* ════════════════════════════════════════
           NEWSLETTER

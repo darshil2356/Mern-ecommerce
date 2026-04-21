@@ -11,7 +11,6 @@ import { getAProduct, getAllProducts, getCategoryTree } from "../features/produc
 import { getUserCart, getMyReferrals } from "../features/user/userSlice";
 import { resetFirebaseMessaging } from "../utils/firebase";
 import { productUrl, categoryUrl } from "../utils/seoUrl";
-import BottomNavDebug from "./BottomNavDebug";
 
 const NAV_LINKS = [
   { to: "/", label: "Home" },
@@ -77,7 +76,6 @@ const Header = () => {
     const checkMobile = () => {
       const mobile = window.innerWidth <= 991;
       setIsMobile(mobile);
-      console.log('Bottom Nav Debug:', { width: window.innerWidth, isMobile: mobile });
     };
     
     checkMobile();
@@ -145,7 +143,6 @@ const Header = () => {
 
   return (
     <>
-      <BottomNavDebug />
       <style>{`
         *, *::before, *::after { box-sizing: border-box; }
 

@@ -26,6 +26,7 @@ const getProducts = async (data = {}) => {
       ...(data.maxPrice && { "price[lte]": data.maxPrice }),
       ...(data.sort && { sort: data.sort }),
       limit: data.limit || 200,
+      store: "true",
     },
   });
 

@@ -454,7 +454,7 @@ const getAllProduct = asyncHandler(async (req, res) => {
     const queryObj = { ...req.query };
     
     // Remove helper params
-    const excludeFields = ["page", "sort", "limit", "fields"];
+    const excludeFields = ["page", "sort", "limit", "fields", "store"];
     excludeFields.forEach((el) => delete queryObj[el]);
 
     // 🔒 HARD GATE FOR PUBLIC STORE - but allow filters too!
@@ -491,7 +491,7 @@ const getAllProduct = asyncHandler(async (req, res) => {
 
       // Instagram-style algorithm: recency + popularity + small random shuffle
       const allProducts = await Product.find(queryObj)
-        .select("title price images videos slug category brand tags sold totalrating ratings reelLikes createdAt inventory quantity sizeStock variants color")
+        .select("title price images videos reelUrl slug category brand tags sold totalrating ratings reelLikes createdAt inventory quantity sizeStock variants color")
         .limit(limit)
         .lean();
 
@@ -782,6 +782,7 @@ const getReels = asyncHandler(async (req, res) => {
   } catch {}
 
   const allReels = await Product.find({
+    "inventory.online": true,
     $or: [
       { "videos.0": { $exists: true } },
       { reelUrl: { $exists: true, $ne: null, $ne: "" } },

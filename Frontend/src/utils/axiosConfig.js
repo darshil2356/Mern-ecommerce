@@ -12,5 +12,5 @@ export const getConfig = () => {
   };
 };
 
-// Legacy alias — always calls getConfig() so token is always fresh
-export const config = getConfig();
+// Legacy alias — kept as a getter so token is always fresh
+export const config = getConfig;

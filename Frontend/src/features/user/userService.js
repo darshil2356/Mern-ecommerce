@@ -18,6 +18,9 @@ const login = async (userData) => {
 
   if (response.data) {
     localStorage.setItem("customer", JSON.stringify(response.data));
+    if (response.data.token) {
+      localStorage.setItem("token", response.data.token);
+    }
   }
   return response.data;
 };

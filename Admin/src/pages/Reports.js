@@ -755,7 +755,7 @@ const Reports = () => {
                 <Col span={6}>
                   <Card>
                     <Statistic 
-                      title="Total Sales" 
+                      title="Gross Sales (excl. tax for tax-excluded orders)" 
                       value={monthlyReport.summary?.totalSales || 0}
                       prefix="₹"
                       precision={2}
@@ -945,7 +945,7 @@ const Reports = () => {
                 <Col span={6}>
                   <Card>
                     <Statistic 
-                      title="Total Sales" 
+                      title="Gross Sales (excl. tax for tax-excluded orders)" 
                       value={yearlyReport.summary?.totalSales || 0}
                       prefix="₹"
                       precision={2}
@@ -1073,7 +1073,7 @@ const Reports = () => {
                 <Col span={6}>
                   <Card>
                     <Statistic 
-                      title="Total Sales" 
+                      title="Gross Sales (excl. tax for tax-excluded orders)" 
                       value={dateRangeReport.summary?.totalSales || 0}
                       prefix="₹"
                       precision={2}
@@ -1175,6 +1175,15 @@ const Reports = () => {
 
           {gstReport && (
             <>
+              {/* Mixed GST mode warning */}
+              {gstReport.summary?.hasMixedGSTMode && (
+                <div style={{ background: '#fffbeb', border: '1px solid #f59e0b', borderRadius: 8, padding: '10px 16px', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <span style={{ fontSize: 18 }}>⚠️</span>
+                  <span style={{ color: '#92400e', fontSize: 13 }}>
+                    <strong>Mixed GST Mode detected:</strong> This period has <strong>{gstReport.summary.taxIncludedOrders}</strong> tax-included orders and <strong>{gstReport.summary.taxExcludedOrders}</strong> tax-excluded orders. Each invoice row is calculated correctly based on its own saved mode. Taxable values are all pre-tax bases.
+                  </span>
+                </div>
+              )}
               {/* Summary Cards */}
               <Row gutter={16} className="mb-4">
                 <Col span={6}>

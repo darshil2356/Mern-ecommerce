@@ -344,6 +344,8 @@ const getGSTReport = asyncHandler(async (req, res) => {
   let totalInvoiceValue = 0;
   let cgstSgstOrders = 0;
   let igstOrders = 0;
+  let taxIncludedOrders = 0;
+  let taxExcludedOrders = 0;
 
   const invoiceData = orders.map(order => {
     const gst = order.gstBreakdown || {};
@@ -354,8 +356,15 @@ const getGSTReport = asyncHandler(async (req, res) => {
     const taxIncluded = gst.taxIncluded === true;
 
     // taxableValue = pre-tax base amount (stored correctly in taxableAmount)
-    const rawSubtotal = gst.taxableAmount || order.totalPrice || 0;
-    const taxableValue = rawSubtotal;
+    // For old orders without taxableAmount, derive it:
+    // - taxIncluded: base = totalPrice - totalTax
+    // - taxExcluded: base = totalPrice
+    const storedTaxable = gst.taxableAmount || 0;
+    const taxableValue = storedTaxable > 0
+      ? storedTaxable
+      : taxIncluded
+        ? Math.max(0, (order.totalPrice || 0) - totalTax)
+        : (order.totalPrice || 0);
 
     totalTaxableValue += taxableValue;
     totalCGST += cgst;
@@ -365,6 +374,8 @@ const getGSTReport = asyncHandler(async (req, res) => {
 
     if (gst.gstType === "CGST_SGST") cgstSgstOrders++;
     else if (gst.gstType === "IGST") igstOrders++;
+    if (taxIncluded) taxIncludedOrders++;
+    else taxExcludedOrders++;
 
     return {
       invoiceNumber: order._id.toString().slice(-8).toUpperCase(),
@@ -394,6 +405,9 @@ const getGSTReport = asyncHandler(async (req, res) => {
       totalInvoices: orders.length,
       cgstSgstOrders,
       igstOrders,
+      taxIncludedOrders,
+      taxExcludedOrders,
+      hasMixedGSTMode: taxIncludedOrders > 0 && taxExcludedOrders > 0,
       totalTaxableValue: totalTaxableValue.toFixed(2),
       totalCGST: totalCGST.toFixed(2),
       totalSGST: totalSGST.toFixed(2),

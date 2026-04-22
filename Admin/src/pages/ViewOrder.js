@@ -471,11 +471,12 @@ const ViewOrder = () => {
   const sgstRate = gstBreakdown.sgstRate || 0;
   const igstRate = gstBreakdown.igstRate || 0;
   const gstType = gstBreakdown.gstType || "NONE";
+  const taxIncluded = gstBreakdown.taxIncluded === true;
   const hasGST = cgst > 0 || sgst > 0 || igst > 0;
-
-  // Shipping only applies to ONLINE orders
-  const shippingCost = isOffline ? 0 : 100;
   const gstTotal = cgst + sgst + igst;
+
+  // Shipping: read from stored gstBreakdown, fallback to 100 for online / 0 for offline
+  const shippingCost = isOffline ? 0 : (gstBreakdown.shippingCharge ?? 0);
 
   // Always trust DB totalPriceAfterDiscount as the final amount
   const finalTotal = orderState?.totalPriceAfterDiscount || 0;
@@ -1115,10 +1116,10 @@ const ViewOrder = () => {
                 </Table.Summary.Cell>
                 <Table.Summary.Cell align="right">
                   <div style={{
-                    color: '#6b7280',
+                    color: shippingCost === 0 ? '#16a34a' : '#6b7280',
                     fontWeight: 600
                   }}>
-                    ₹100.00
+                    {shippingCost === 0 ? 'Free' : `₹${shippingCost.toFixed(2)}`}
                   </div>
                 </Table.Summary.Cell>
               </Table.Summary.Row>
@@ -1247,62 +1248,90 @@ const ViewOrder = () => {
                 )
               )}
 
-              {/* GST/Tax Breakdown */}
-              {hasGST && gstType === "CGST_SGST" && cgst > 0 && (
-                <Table.Summary.Row>
-                  <Table.Summary.Cell colSpan={6}>
-                    <div style={{ color: '#16a34a', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      🏛️ CGST ({cgstRate}%){isOffline ? " (incl. in price)" : ""}
-                    </div>
-                  </Table.Summary.Cell>
-                  <Table.Summary.Cell align="right">
-                    <div style={{ color: '#16a34a', fontWeight: 600 }}>
-                      {isOffline ? "" : "+"}₹{cgst.toFixed(2)}
-                    </div>
-                  </Table.Summary.Cell>
-                </Table.Summary.Row>
-              )}
-              {hasGST && gstType === "CGST_SGST" && sgst > 0 && (
-                <Table.Summary.Row>
-                  <Table.Summary.Cell colSpan={6}>
-                    <div style={{ color: '#16a34a', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      🏛️ SGST ({sgstRate}%){isOffline ? " (incl. in price)" : ""}
-                    </div>
-                  </Table.Summary.Cell>
-                  <Table.Summary.Cell align="right">
-                    <div style={{ color: '#16a34a', fontWeight: 600 }}>
-                      {isOffline ? "" : "+"}₹{sgst.toFixed(2)}
-                    </div>
-                  </Table.Summary.Cell>
-                </Table.Summary.Row>
-              )}
-              {hasGST && gstType === "IGST" && igst > 0 && (
-                <Table.Summary.Row>
-                  <Table.Summary.Cell colSpan={6}>
-                    <div style={{ color: '#ea580c', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      🌐 IGST ({igstRate}%) — Inter-state{isOffline ? " (incl. in price)" : ""}
-                    </div>
-                  </Table.Summary.Cell>
-                  <Table.Summary.Cell align="right">
-                    <div style={{ color: '#ea580c', fontWeight: 600 }}>
-                      {isOffline ? "" : "+"}₹{igst.toFixed(2)}
-                    </div>
-                  </Table.Summary.Cell>
-                </Table.Summary.Row>
-              )}
+              {/* GST/Tax Breakdown — taxIncluded = already in price, else added on top */}
               {hasGST && (
-                <Table.Summary.Row>
-                  <Table.Summary.Cell colSpan={6}>
-                    <div style={{ color: '#722ed1', fontWeight: 700, fontSize: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      💼 Total GST{isOffline ? " (included in price)" : ""}
-                    </div>
-                  </Table.Summary.Cell>
-                  <Table.Summary.Cell align="right">
-                    <div style={{ color: '#722ed1', fontWeight: 700, fontSize: '16px' }}>
-                      ₹{(cgst + sgst + igst).toFixed(2)}
-                    </div>
-                  </Table.Summary.Cell>
-                </Table.Summary.Row>
+                taxIncluded ? (
+                  <Table.Summary.Row>
+                    <Table.Summary.Cell colSpan={7}>
+                      <div style={{ background: '#f0fdf4', border: '1px dashed #86efac', borderRadius: 10, padding: '10px 14px', margin: '4px 0' }}>
+                        <div style={{ color: '#15803d', fontWeight: 700, fontSize: 13, marginBottom: 6 }}>
+                          ✅ GST included in price — no extra charge to customer
+                        </div>
+                        {gstType === "CGST_SGST" && cgst > 0 && (
+                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: '#16a34a', marginBottom: 3 }}>
+                            <span>🏛️ CGST ({cgstRate}%) — included in price</span>
+                            <span>₹{cgst.toFixed(2)}</span>
+                          </div>
+                        )}
+                        {gstType === "CGST_SGST" && sgst > 0 && (
+                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: '#16a34a', marginBottom: 3 }}>
+                            <span>🏛️ SGST ({sgstRate}%) — included in price</span>
+                            <span>₹{sgst.toFixed(2)}</span>
+                          </div>
+                        )}
+                        {gstType === "IGST" && igst > 0 && (
+                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: '#16a34a' }}>
+                            <span>🌐 IGST ({igstRate}%) — included in price</span>
+                            <span>₹{igst.toFixed(2)}</span>
+                          </div>
+                        )}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: '#15803d', fontWeight: 700, marginTop: 6, borderTop: '1px solid #bbf7d0', paddingTop: 6 }}>
+                          <span>💼 Total GST (included)</span>
+                          <span>₹{gstTotal.toFixed(2)}</span>
+                        </div>
+                      </div>
+                    </Table.Summary.Cell>
+                  </Table.Summary.Row>
+                ) : (
+                  <>
+                    {gstType === "CGST_SGST" && cgst > 0 && (
+                      <Table.Summary.Row>
+                        <Table.Summary.Cell colSpan={6}>
+                          <div style={{ color: '#ea580c', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            🏛️ CGST ({cgstRate}%)
+                          </div>
+                        </Table.Summary.Cell>
+                        <Table.Summary.Cell align="right">
+                          <div style={{ color: '#ea580c', fontWeight: 600 }}>+₹{cgst.toFixed(2)}</div>
+                        </Table.Summary.Cell>
+                      </Table.Summary.Row>
+                    )}
+                    {gstType === "CGST_SGST" && sgst > 0 && (
+                      <Table.Summary.Row>
+                        <Table.Summary.Cell colSpan={6}>
+                          <div style={{ color: '#ea580c', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            🏛️ SGST ({sgstRate}%)
+                          </div>
+                        </Table.Summary.Cell>
+                        <Table.Summary.Cell align="right">
+                          <div style={{ color: '#ea580c', fontWeight: 600 }}>+₹{sgst.toFixed(2)}</div>
+                        </Table.Summary.Cell>
+                      </Table.Summary.Row>
+                    )}
+                    {gstType === "IGST" && igst > 0 && (
+                      <Table.Summary.Row>
+                        <Table.Summary.Cell colSpan={6}>
+                          <div style={{ color: '#ea580c', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            🌐 IGST ({igstRate}%) — Inter-state
+                          </div>
+                        </Table.Summary.Cell>
+                        <Table.Summary.Cell align="right">
+                          <div style={{ color: '#ea580c', fontWeight: 600 }}>+₹{igst.toFixed(2)}</div>
+                        </Table.Summary.Cell>
+                      </Table.Summary.Row>
+                    )}
+                    <Table.Summary.Row>
+                      <Table.Summary.Cell colSpan={6}>
+                        <div style={{ color: '#722ed1', fontWeight: 700, fontSize: 15, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          💼 Total GST
+                        </div>
+                      </Table.Summary.Cell>
+                      <Table.Summary.Cell align="right">
+                        <div style={{ color: '#722ed1', fontWeight: 700, fontSize: 15 }}>+₹{gstTotal.toFixed(2)}</div>
+                      </Table.Summary.Cell>
+                    </Table.Summary.Row>
+                  </>
+                )
               )}
 
               <Table.Summary.Row>

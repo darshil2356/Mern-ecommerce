@@ -941,6 +941,7 @@ const LiveBilling = () => {
             igstRate: igstPercent,
             gstType,
             taxableAmount: grandTotal,
+            taxIncluded,
           },
         },
         config

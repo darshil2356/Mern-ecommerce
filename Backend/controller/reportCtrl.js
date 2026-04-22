@@ -343,11 +343,19 @@ const getGSTReport = asyncHandler(async (req, res) => {
 
   const invoiceData = orders.map(order => {
     const gst = order.gstBreakdown || {};
-    const taxableValue = gst.taxableAmount || order.totalPrice || 0;
     const cgst = gst.cgst || 0;
     const sgst = gst.sgst || 0;
     const igst = gst.igst || 0;
     const totalTax = cgst + sgst + igst;
+    const taxIncluded = gst.taxIncluded === true;
+
+    // taxableValue = base amount before tax
+    // If tax-included: base = subtotal - tax component
+    // If tax-excluded: base = subtotal (tax is on top)
+    const rawSubtotal = gst.taxableAmount || order.totalPrice || 0;
+    const taxableValue = taxIncluded
+      ? Math.max(0, rawSubtotal - totalTax)
+      : rawSubtotal;
 
     totalTaxableValue += taxableValue;
     totalCGST += cgst;
@@ -364,6 +372,7 @@ const getGSTReport = asyncHandler(async (req, res) => {
       customerName: order.user ? `${order.user.firstname || ""} ${order.user.lastname || ""}`.trim() : "Walk-in Customer",
       gstin: order.user?.gstin || "N/A",
       gstType: gst.gstType || "NONE",
+      taxIncluded,
       taxableValue: taxableValue.toFixed(2),
       cgstRate: gst.cgstRate || 0,
       cgst: cgst.toFixed(2),

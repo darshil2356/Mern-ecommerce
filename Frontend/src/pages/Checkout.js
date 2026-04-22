@@ -230,7 +230,7 @@ const Checkout = () => {
         coinsUsed: useCoins ? coinAmount : 0,
         coinAmount: coinDiscount,
         discountBreakdown: { directDiscount: 0, offerDiscount: offerDiscount, coinDiscount },
-        gstBreakdown: { cgst: cgstAmt, sgst: sgstAmt, igst: igstAmt, cgstRate: gstSettings.cgst, sgstRate: gstSettings.sgst, igstRate: gstSettings.igst, gstType, taxableAmount: totalAmount },
+        gstBreakdown: { cgst: cgstAmt, sgst: sgstAmt, igst: igstAmt, cgstRate: gstSettings.cgst, sgstRate: gstSettings.sgst, igstRate: gstSettings.igst, gstType, taxableAmount: totalAmount, taxIncluded: gstSettings.taxIncluded, shippingCharge: gstSettings.shippingCharge },
       }));
       await dispatch(deleteUserCart(getConfig()));
       localStorage.removeItem("address");
@@ -304,6 +304,8 @@ const Checkout = () => {
                 igstRate: gstSettings.igst,
                 gstType,
                 taxableAmount: totalAmount,
+                taxIncluded: gstSettings.taxIncluded,
+                shippingCharge: gstSettings.shippingCharge,
               },
             }));
             await dispatch(deleteUserCart(getConfig()));
@@ -631,24 +633,57 @@ const Checkout = () => {
                         {gstSettings.shippingCharge === 0 ? "Free" : `₹${gstSettings.shippingCharge}`}
                       </span>
                     </div>
-                    {gstType === "CGST_SGST" && cgstAmt > 0 && (
-                      <div className="co-total-row" style={{ color: "#16a34a" }}>
-                        <span>CGST ({gstSettings.cgst}%)</span>
-                        <span>+₹{cgstAmt.toFixed(2)}</span>
-                      </div>
+
+                    {/* ── GST rows — behaviour differs by taxIncluded ── */}
+                    {gstSettings.taxIncluded ? (
+                      /* TAX INCLUDED: GST is already inside the price — show as info, not added */
+                      (cgstAmt > 0 || sgstAmt > 0 || igstAmt > 0) && (
+                        <div style={{ background: '#f0fdf4', border: '1px dashed #86efac', borderRadius: 10, padding: '10px 12px', margin: '4px 0' }}>
+                          <p style={{ margin: '0 0 6px', fontSize: 11, color: '#15803d', fontWeight: 700 }}>✅ GST Included in price (no extra charge)</p>
+                          {gstType === "CGST_SGST" && cgstAmt > 0 && (
+                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: '#16a34a', marginBottom: 3 }}>
+                              <span>CGST ({gstSettings.cgst}%) — included</span>
+                              <span>₹{cgstAmt.toFixed(2)}</span>
+                            </div>
+                          )}
+                          {gstType === "CGST_SGST" && sgstAmt > 0 && (
+                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: '#16a34a', marginBottom: 3 }}>
+                              <span>SGST ({gstSettings.sgst}%) — included</span>
+                              <span>₹{sgstAmt.toFixed(2)}</span>
+                            </div>
+                          )}
+                          {gstType === "IGST" && igstAmt > 0 && (
+                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: '#16a34a' }}>
+                              <span>IGST ({gstSettings.igst}%) — included</span>
+                              <span>₹{igstAmt.toFixed(2)}</span>
+                            </div>
+                          )}
+                        </div>
+                      )
+                    ) : (
+                      /* TAX EXCLUDED: GST added on top */
+                      <>
+                        {gstType === "CGST_SGST" && cgstAmt > 0 && (
+                          <div className="co-total-row" style={{ color: '#ea580c' }}>
+                            <span>CGST ({gstSettings.cgst}%)</span>
+                            <span>+₹{cgstAmt.toFixed(2)}</span>
+                          </div>
+                        )}
+                        {gstType === "CGST_SGST" && sgstAmt > 0 && (
+                          <div className="co-total-row" style={{ color: '#ea580c' }}>
+                            <span>SGST ({gstSettings.sgst}%)</span>
+                            <span>+₹{sgstAmt.toFixed(2)}</span>
+                          </div>
+                        )}
+                        {gstType === "IGST" && igstAmt > 0 && (
+                          <div className="co-total-row" style={{ color: '#ea580c' }}>
+                            <span>IGST ({gstSettings.igst}%) — Inter-state</span>
+                            <span>+₹{igstAmt.toFixed(2)}</span>
+                          </div>
+                        )}
+                      </>
                     )}
-                    {gstType === "CGST_SGST" && sgstAmt > 0 && (
-                      <div className="co-total-row" style={{ color: "#16a34a" }}>
-                        <span>SGST ({gstSettings.sgst}%)</span>
-                        <span>+₹{sgstAmt.toFixed(2)}</span>
-                      </div>
-                    )}
-                    {gstType === "IGST" && igstAmt > 0 && (
-                      <div className="co-total-row" style={{ color: "#ea580c" }}>
-                        <span>IGST ({gstSettings.igst}%) — Inter-state</span>
-                        <span>+₹{igstAmt.toFixed(2)}</span>
-                      </div>
-                    )}
+
                     {coinDiscount > 0 && (
                       <div className="co-total-row co-discount-row">
                         <span>Coin Discount</span>
@@ -657,7 +692,7 @@ const Checkout = () => {
                     )}
                     <div className="co-divider" />
                     <div className="co-total-row co-grand-total">
-                      <span>Total</span>
+                      <span>Total {gstSettings.taxIncluded && taxAmount > 0 && <span style={{ fontSize: 10, color: '#9ca3af', fontWeight: 400 }}>(incl. GST ₹{taxAmount.toFixed(2)})</span>}</span>
                       <span>₹{finalAmount?.toLocaleString()}</span>
                     </div>
                   </div>

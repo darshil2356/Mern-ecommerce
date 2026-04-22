@@ -335,8 +335,8 @@ const createOfflineOrder = asyncHandler(async (req, res) => {
   const directDiscountAmount = Math.max(0, discountAmount - offerDiscountAmount);
   const coinDiscountAmount = coinAmount || 0;
 
-  // Add GST on top when tax is excluded (tax-excluded mode: GST added to subtotal)
-  const gstTotal = gstBreakdown
+  // Add GST on top ONLY when tax is excluded (tax-included mode: price already contains GST)
+  const gstTotal = (!gstBreakdown?.taxIncluded && gstBreakdown)
     ? (gstBreakdown.cgst || 0) + (gstBreakdown.sgst || 0) + (gstBreakdown.igst || 0)
     : 0;
   const totalPriceAfterDiscount = totalPrice + gstTotal - discountAmount - coinDiscountAmount;

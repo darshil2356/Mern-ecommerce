@@ -315,8 +315,60 @@ const OrderDetails = () => {
               )}
               <div style={s.summaryRow}>
                 <span style={s.summaryLabel}>Shipping</span>
-                <span style={s.summaryVal}>₹{order.gstBreakdown?.shippingCharge ?? (order.mode === "OFFLINE" ? 0 : 100)}</span>
+                <span style={s.summaryVal}>₹{order.gstBreakdown?.shippingCharge ?? 0}</span>
               </div>
+
+              {/* GST rows — tax-included vs tax-excluded */}
+              {order.gstBreakdown?.taxIncluded ? (
+                /* TAX INCLUDED: already in price, show as info */
+                (() => {
+                  const gb = order.gstBreakdown;
+                  const hasTax = (gb.cgst > 0 || gb.sgst > 0 || gb.igst > 0);
+                  return hasTax ? (
+                    <div style={{ background: '#f0fdf4', border: '1px dashed #86efac', borderRadius: 10, padding: '10px 12px', margin: '6px 0' }}>
+                      <p style={{ margin: '0 0 6px', fontSize: 11, color: '#15803d', fontWeight: 700 }}>✅ GST included in price (no extra charge)</p>
+                      {gb.gstType === 'CGST_SGST' && gb.cgst > 0 && (
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: '#16a34a', marginBottom: 3 }}>
+                          <span>CGST ({gb.cgstRate || 0}%) — included</span><span>{fmt(gb.cgst)}</span>
+                        </div>
+                      )}
+                      {gb.gstType === 'CGST_SGST' && gb.sgst > 0 && (
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: '#16a34a' }}>
+                          <span>SGST ({gb.sgstRate || 0}%) — included</span><span>{fmt(gb.sgst)}</span>
+                        </div>
+                      )}
+                      {gb.gstType === 'IGST' && gb.igst > 0 && (
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: '#16a34a' }}>
+                          <span>IGST ({gb.igstRate || 0}%) — included</span><span>{fmt(gb.igst)}</span>
+                        </div>
+                      )}
+                    </div>
+                  ) : null;
+                })()
+              ) : (
+                /* TAX EXCLUDED: added on top */
+                <>
+                  {order.gstBreakdown?.gstType === 'CGST_SGST' && order.gstBreakdown?.cgst > 0 && (
+                    <div style={s.summaryRow}>
+                      <span style={{ ...s.summaryLabel, color: '#ea580c' }}>CGST ({order.gstBreakdown.cgstRate || 0}%)</span>
+                      <span style={{ ...s.summaryVal, color: '#ea580c' }}>+{fmt(order.gstBreakdown.cgst)}</span>
+                    </div>
+                  )}
+                  {order.gstBreakdown?.gstType === 'CGST_SGST' && order.gstBreakdown?.sgst > 0 && (
+                    <div style={s.summaryRow}>
+                      <span style={{ ...s.summaryLabel, color: '#ea580c' }}>SGST ({order.gstBreakdown.sgstRate || 0}%)</span>
+                      <span style={{ ...s.summaryVal, color: '#ea580c' }}>+{fmt(order.gstBreakdown.sgst)}</span>
+                    </div>
+                  )}
+                  {order.gstBreakdown?.gstType === 'IGST' && order.gstBreakdown?.igst > 0 && (
+                    <div style={s.summaryRow}>
+                      <span style={{ ...s.summaryLabel, color: '#ea580c' }}>IGST ({order.gstBreakdown.igstRate || 0}%) — Inter-state</span>
+                      <span style={{ ...s.summaryVal, color: '#ea580c' }}>+{fmt(order.gstBreakdown.igst)}</span>
+                    </div>
+                  )}
+                </>
+              )}
+
               {coinDiscount > 0 && (
                 <div style={s.summaryRow}>
                   <span style={s.summaryLabel}>🪙 Coins ({order.coinsUsed || coinDiscount})</span>
@@ -332,7 +384,14 @@ const OrderDetails = () => {
               <div style={{ height: 1, background: "#f3f4f6", margin: "12px 0" }} />
               <div style={s.summaryRow}>
                 <span style={{ fontWeight: 700, fontSize: 15, color: "#111827" }}>Total Paid</span>
-                <span style={{ fontWeight: 800, fontSize: 18, color: "#16a34a" }}>{fmt(paid)}</span>
+                <div style={{ textAlign: 'right' }}>
+                  <span style={{ fontWeight: 800, fontSize: 18, color: "#16a34a" }}>{fmt(paid)}</span>
+                  {order.gstBreakdown?.taxIncluded && (order.gstBreakdown?.cgst > 0 || order.gstBreakdown?.sgst > 0 || order.gstBreakdown?.igst > 0) && (
+                    <p style={{ margin: 0, fontSize: 10, color: '#9ca3af' }}>
+                      incl. GST {fmt((order.gstBreakdown.cgst || 0) + (order.gstBreakdown.sgst || 0) + (order.gstBreakdown.igst || 0))}
+                    </p>
+                  )}
+                </div>
               </div>
             </div>
           </div>

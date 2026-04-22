@@ -522,6 +522,7 @@ const Reports = () => {
         "Customer Name": inv.customerName || "Walk-in",
         "GSTIN": inv.gstin || "N/A",
         "GST Type": inv.gstType === 'IGST' ? 'Inter-state (IGST)' : inv.gstType === 'CGST_SGST' ? 'Intra-state (CGST+SGST)' : 'None',
+        "Tax Mode": inv.taxIncluded ? 'Tax Included in Price' : 'Tax Excluded (added on top)',
         "Taxable Value (₹)": inv.taxableValue || "0.00",
         "CGST Rate (%)": inv.gstType === 'CGST_SGST' ? (inv.cgstRate || 0) : 0,
         "CGST Amount (₹)": inv.gstType === 'CGST_SGST' ? (inv.cgst || "0.00") : "0.00",
@@ -1219,16 +1220,29 @@ const Reports = () => {
                     { title: 'Invoice #', dataIndex: 'invoiceNumber', width: 110 },
                     { title: 'Date', dataIndex: 'invoiceDate', render: (d) => dayjs(d).format('DD/MM/YYYY'), width: 100 },
                     { title: 'Customer', dataIndex: 'customerName', ellipsis: true },
-                    { title: 'Type', dataIndex: 'gstType', width: 100, render: (v) => (
-                      <Tag color={v === 'IGST' ? 'orange' : v === 'CGST_SGST' ? 'green' : 'default'}>
-                        {v === 'IGST' ? 'IGST' : v === 'CGST_SGST' ? 'CGST+SGST' : 'None'}
-                      </Tag>
+                    { title: 'GST Type', dataIndex: 'gstType', width: 120, render: (v, r) => (
+                      <span>
+                        <Tag color={v === 'IGST' ? 'orange' : v === 'CGST_SGST' ? 'green' : 'default'}>
+                          {v === 'IGST' ? 'IGST' : v === 'CGST_SGST' ? 'CGST+SGST' : 'None'}
+                        </Tag>
+                        {r.taxIncluded && <Tag color="blue" style={{ fontSize: 10 }}>Incl.</Tag>}
+                      </span>
                     )},
-                    { title: 'Taxable', dataIndex: 'taxableValue', align: 'right', width: 90 },
+                    { title: 'Taxable Value', dataIndex: 'taxableValue', align: 'right', width: 110, render: (v, r) => (
+                      <span>
+                        ₹{v}
+                        {r.taxIncluded && <span style={{ fontSize: 10, color: '#9ca3af', display: 'block' }}>excl. GST</span>}
+                      </span>
+                    )},
                     { title: 'CGST', dataIndex: 'cgst', align: 'right', width: 80, render: (v, r) => r.gstType === 'CGST_SGST' ? `₹${v}` : '-' },
                     { title: 'SGST', dataIndex: 'sgst', align: 'right', width: 80, render: (v, r) => r.gstType === 'CGST_SGST' ? `₹${v}` : '-' },
                     { title: 'IGST', dataIndex: 'igst', align: 'right', width: 80, render: (v, r) => r.gstType === 'IGST' ? `₹${v}` : '-' },
-                    { title: 'Total', dataIndex: 'invoiceValue', align: 'right', width: 90, render: (v) => <b>₹{v}</b> }
+                    { title: 'Invoice Total', dataIndex: 'invoiceValue', align: 'right', width: 110, render: (v, r) => (
+                      <span>
+                        <b>₹{v}</b>
+                        {r.taxIncluded && <span style={{ fontSize: 10, color: '#16a34a', display: 'block' }}>GST incl.</span>}
+                      </span>
+                    )}
                   ]}
                   pagination={{ pageSize: 20 }}
                   size="small"

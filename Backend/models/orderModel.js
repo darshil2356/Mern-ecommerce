@@ -180,6 +180,8 @@ paymentInfo: {
       igstRate: { type: Number, default: 0 },
       gstType:  { type: String, enum: ["CGST_SGST", "IGST", "NONE"], default: "NONE" },
       taxableAmount: { type: Number, default: 0 },
+      taxIncluded: { type: Boolean, default: false },
+      shippingCharge: { type: Number, default: 0 },
     },
     // Breakdown of how the discount was applied
     discountBreakdown: {

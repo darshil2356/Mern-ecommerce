@@ -940,7 +940,9 @@ const LiveBilling = () => {
             sgstRate: sgstPercent,
             igstRate: igstPercent,
             gstType,
-            taxableAmount: grandTotal,
+            taxableAmount: taxIncluded
+              ? Math.round((grandTotal / (1 + (cgstPercent + sgstPercent + igstPercent) / 100)) * 100) / 100
+              : grandTotal,
             taxIncluded,
           },
         },

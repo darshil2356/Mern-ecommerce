@@ -89,11 +89,15 @@ const Reports = () => {
   const handleDateRangeChange = (dates) => {
     if (dates) {
       setDateRange(dates);
-      dispatch(getDateRangeReportData({
-        startDate: dates[0].format("YYYY-MM-DD"),
-        endDate: dates[1].format("YYYY-MM-DD")
-        , paymentFilter
-      }));
+      const startDate = dates[0].format("YYYY-MM-DD");
+      const endDate = dates[1].format("YYYY-MM-DD");
+      if (activeTab === "products") {
+        dispatch(getProductWiseReportData({ startDate, endDate, paymentFilter }));
+      } else if (activeTab === "customers") {
+        dispatch(getCustomerWiseReportData({ startDate, endDate, paymentFilter }));
+      } else {
+        dispatch(getDateRangeReportData({ startDate, endDate, paymentFilter }));
+      }
     }
   };
 
@@ -406,7 +410,7 @@ const Reports = () => {
           "Unit Price (₹)": prices,
           "Sub Total (₹)": o.totalPrice || 0,
           "Discount (₹)": o.discountAmount || 0,
-          "Tax/GST (₹)": ((o.totalPriceAfterDiscount || 0) - (o.totalPrice || 0) + (o.discountAmount || 0)).toFixed(2),
+          "Tax/GST (₹)": ((o.gstBreakdown?.cgst || 0) + (o.gstBreakdown?.sgst || 0) + (o.gstBreakdown?.igst || 0)).toFixed(2),
           "Total Amount (₹)": o.totalPriceAfterDiscount || 0,
           "Payment Mode": o.mode === 'OFFLINE'
             ? (o.paymentDestination === 'CASH' ? 'Cash' : o.paymentDestination === 'OTHER_ACCOUNT' ? 'Online-Other' : 'Online-Current')

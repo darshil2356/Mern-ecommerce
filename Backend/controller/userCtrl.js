@@ -1863,18 +1863,22 @@ const createOrder = asyncHandler(async (req, res) => {
       }
     }
 
-    const order = await Order.create({
-      shippingInfo,
-      orderItems,
-      totalPrice,
-      totalPriceAfterDiscount,
-      discountBreakdown: discountBreakdown || {
+    const db = discountBreakdown || {
         directDiscount: 0,
         offerDiscount: (totalPrice - totalPriceAfterDiscount - (coinAmount || 0)) > 0
           ? (totalPrice - totalPriceAfterDiscount - (coinAmount || 0))
           : 0,
         coinDiscount: coinAmount || 0,
-      },
+      };
+    const computedDiscountAmount = (db.directDiscount || 0) + (db.offerDiscount || 0) + (db.coinDiscount || 0);
+
+    const order = await Order.create({
+      shippingInfo,
+      orderItems,
+      totalPrice,
+      totalPriceAfterDiscount,
+      discountAmount: computedDiscountAmount,
+      discountBreakdown: db,
       gstBreakdown: gstBreakdown || {
         cgst: 0, sgst: 0, igst: 0,
         cgstRate: 0, sgstRate: 0, igstRate: 0,

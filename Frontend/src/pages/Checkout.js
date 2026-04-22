@@ -230,7 +230,7 @@ const Checkout = () => {
         coinsUsed: useCoins ? coinAmount : 0,
         coinAmount: coinDiscount,
         discountBreakdown: { directDiscount: 0, offerDiscount: offerDiscount, coinDiscount },
-        gstBreakdown: { cgst: cgstAmt, sgst: sgstAmt, igst: igstAmt, cgstRate: gstSettings.cgst, sgstRate: gstSettings.sgst, igstRate: gstSettings.igst, gstType, taxableAmount: totalAmount, taxIncluded: gstSettings.taxIncluded, shippingCharge: gstSettings.shippingCharge },
+        gstBreakdown: { cgst: cgstAmt, sgst: sgstAmt, igst: igstAmt, cgstRate: gstSettings.cgst, sgstRate: gstSettings.sgst, igstRate: gstSettings.igst, gstType, taxableAmount: gstSettings.taxIncluded ? Math.round((totalAmount / (1 + (gstSettings.cgst + gstSettings.sgst + gstSettings.igst) / 100)) * 100) / 100 : totalAmount, taxIncluded: gstSettings.taxIncluded, shippingCharge: gstSettings.shippingCharge },
       }));
       await dispatch(deleteUserCart(getConfig()));
       localStorage.removeItem("address");
@@ -303,7 +303,9 @@ const Checkout = () => {
                 sgstRate: gstSettings.sgst,
                 igstRate: gstSettings.igst,
                 gstType,
-                taxableAmount: totalAmount,
+                taxableAmount: gstSettings.taxIncluded
+                  ? Math.round((totalAmount / (1 + (gstSettings.cgst + gstSettings.sgst + gstSettings.igst) / 100)) * 100) / 100
+                  : totalAmount,
                 taxIncluded: gstSettings.taxIncluded,
                 shippingCharge: gstSettings.shippingCharge,
               },

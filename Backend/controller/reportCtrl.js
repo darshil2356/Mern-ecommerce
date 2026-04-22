@@ -8,6 +8,10 @@ const monthNames = [
   "July","August","September","October","November","December"
 ];
 
+const getOrderDiscount = (o) =>
+  o.discountAmount ||
+  ((o.discountBreakdown?.directDiscount || 0) + (o.discountBreakdown?.offerDiscount || 0) + (o.discountBreakdown?.coinDiscount || 0));
+
 const buildPaymentFilter = (query) => {
   const paymentFilter = (query.paymentFilter || "all").toString().toLowerCase();
   switch (paymentFilter) {
@@ -73,7 +77,7 @@ const getMonthlyReport = asyncHandler(async (req, res) => {
 
   const totalOrders = activeOrders.length;
   const totalSales = activeOrders.reduce((sum, o) => sum + (o.totalPrice || 0), 0);
-  const totalDiscount = activeOrders.reduce((sum, o) => sum + (o.discountAmount || 0), 0);
+  const totalDiscount = activeOrders.reduce((sum, o) => sum + getOrderDiscount(o), 0);
   const netRevenue = activeOrders.reduce((sum, o) => sum + (o.totalPriceAfterDiscount || 0), 0);
 
   const { cancelledAmount, coinRefundAmount, cashRefundAmount } = buildCancelledSummary(cancelledOrders);
@@ -154,7 +158,7 @@ const getMonthlyReport = asyncHandler(async (req, res) => {
       customerMobile: order.user?.mobile || "N/A",
       items: order.orderItems.length,
       totalAmount: order.totalPrice,
-      discount: order.discountAmount || 0,
+      discount: getOrderDiscount(order),
       netAmount: order.totalPriceAfterDiscount,
       gstBreakdown: order.gstBreakdown || null,
       mode: order.mode,
@@ -195,7 +199,7 @@ const getYearlyReport = asyncHandler(async (req, res) => {
   const cancelledOrders = orders.filter(o => o.orderStatus === "Cancelled");
   const totalOrders = activeOrders.length;
   const totalSales = activeOrders.reduce((sum, o) => sum + (o.totalPrice || 0), 0);
-  const totalDiscount = activeOrders.reduce((sum, o) => sum + (o.discountAmount || 0), 0);
+  const totalDiscount = activeOrders.reduce((sum, o) => sum + getOrderDiscount(o), 0);
   const netRevenue = activeOrders.reduce((sum, o) => sum + (o.totalPriceAfterDiscount || 0), 0);
 
   const { cancelledAmount, coinRefundAmount, cashRefundAmount } = buildCancelledSummary(cancelledOrders);
@@ -241,7 +245,7 @@ const getYearlyReport = asyncHandler(async (req, res) => {
       customerMobile: order.user?.mobile || "N/A",
       items: order.orderItems.length,
       totalAmount: order.totalPrice,
-      discount: order.discountAmount || 0,
+      discount: getOrderDiscount(order),
       netAmount: order.totalPriceAfterDiscount,
       gstBreakdown: order.gstBreakdown || null,
       mode: order.mode,
@@ -271,7 +275,7 @@ const getDateRangeReport = asyncHandler(async (req, res) => {
   const cancelledOrders = orders.filter(o => o.orderStatus === "Cancelled");
   const totalOrders = activeOrders.length;
   const totalSales = activeOrders.reduce((sum, o) => sum + (o.totalPrice || 0), 0);
-  const totalDiscount = activeOrders.reduce((sum, o) => sum + (o.discountAmount || 0), 0);
+  const totalDiscount = activeOrders.reduce((sum, o) => sum + getOrderDiscount(o), 0);
   const netRevenue = activeOrders.reduce((sum, o) => sum + (o.totalPriceAfterDiscount || 0), 0);
 
   const { cancelledAmount, coinRefundAmount, cashRefundAmount } = buildCancelledSummary(cancelledOrders);
@@ -307,7 +311,7 @@ const getDateRangeReport = asyncHandler(async (req, res) => {
       customerMobile: order.user?.mobile || "N/A",
       items: order.orderItems.length,
       totalAmount: order.totalPrice,
-      discount: order.discountAmount || 0,
+      discount: getOrderDiscount(order),
       netAmount: order.totalPriceAfterDiscount,
       gstBreakdown: order.gstBreakdown || null,
       mode: order.mode,
@@ -349,13 +353,9 @@ const getGSTReport = asyncHandler(async (req, res) => {
     const totalTax = cgst + sgst + igst;
     const taxIncluded = gst.taxIncluded === true;
 
-    // taxableValue = base amount before tax
-    // If tax-included: base = subtotal - tax component
-    // If tax-excluded: base = subtotal (tax is on top)
+    // taxableValue = pre-tax base amount (stored correctly in taxableAmount)
     const rawSubtotal = gst.taxableAmount || order.totalPrice || 0;
-    const taxableValue = taxIncluded
-      ? Math.max(0, rawSubtotal - totalTax)
-      : rawSubtotal;
+    const taxableValue = rawSubtotal;
 
     totalTaxableValue += taxableValue;
     totalCGST += cgst;

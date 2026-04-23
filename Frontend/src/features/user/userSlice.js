@@ -245,6 +245,7 @@ export const deleteAddress = createAsyncThunk(
 
 export const logout = createAction("auth/logout");
 export const resetState = createAction("Reset_all");
+export const resetAuthFlags = createAction("auth/resetFlags");
 
 const getCustomerfromLocalStorage = localStorage.getItem("customer")
   ? JSON.parse(localStorage.getItem("customer"))
@@ -745,7 +746,13 @@ export const authSlice = createSlice({
         state.appliedReferral = null;
         state.addresses = [];
       })
-      .addCase(resetState, () => initialState);
+      .addCase(resetState, () => initialState)
+      .addCase(resetAuthFlags, (state) => {
+        state.isError = false;
+        state.isSuccess = false;
+        state.isLoading = false;
+        state.message = "";
+      });
   },
 });
 

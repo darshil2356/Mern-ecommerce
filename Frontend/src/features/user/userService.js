@@ -1,10 +1,11 @@
 import axios from "axios";
-import { base_url, config, getConfig } from "../../utils/axiosConfig";
+import axiosInstance, { base_url, getConfig } from "../../utils/axiosConfig";
+
+// ── Public (no auth needed) ──────────────────────────────────────────────────
 
 const register = async (userData) => {
   const response = await axios.post(`${base_url}user/register`, userData);
   if (response.data) {
-    // Auto-login: save user data to localStorage just like login does
     localStorage.setItem("customer", JSON.stringify(response.data));
     if (response.data.token) {
       localStorage.setItem("token", response.data.token);
@@ -15,7 +16,6 @@ const register = async (userData) => {
 
 const login = async (userData) => {
   const response = await axios.post(`${base_url}user/login`, userData);
-
   if (response.data) {
     localStorage.setItem("customer", JSON.stringify(response.data));
     if (response.data.token) {
@@ -25,190 +25,116 @@ const login = async (userData) => {
   return response.data;
 };
 
+const forgotPasswordToken = async (data) => {
+  const response = await axios.post(`${base_url}user/forgot-password-token`, data);
+  return response.data;
+};
+
+const resetPass = async (data) => {
+  const response = await axios.put(`${base_url}user/reset-password/${data.token}`, {
+    password: data?.password,
+  });
+  return response.data;
+};
+
+// ── Authenticated (go through axiosInstance → interceptor handles refresh) ───
+
 const getUserWislist = async () => {
-  const response = await axios.get(`${base_url}user/wishlist`, getConfig());
-  if (response.data) {
-    return response.data;
-  }
+  const response = await axiosInstance.get("user/wishlist");
+  return response.data;
 };
 
 const addToCart = async (cartData) => {
-  const response = await axios.post(`${base_url}user/cart`, cartData, getConfig());
-  if (response.data) {
-    return response.data;
-  }
+  const response = await axiosInstance.post("user/cart", cartData);
+  return response.data;
 };
 
 const addBundleToCart = async ({ bundleId, selectedOptions }) => {
-  const response = await axios.post(`${base_url}user/cart/bundle`, { bundleId, selectedOptions }, getConfig());
-  if (response.data) {
-    return response.data;
-  }
+  const response = await axiosInstance.post("user/cart/bundle", { bundleId, selectedOptions });
+  return response.data;
 };
 
-const getCart = async (data) => {
-  const response = await axios.get(`${base_url}user/cart`, getConfig());
-  if (response.data) {
-    return response.data;
-  }
+const getCart = async () => {
+  const response = await axiosInstance.get("user/cart");
+  return response.data;
 };
 
 const removeProductFromCart = async (data) => {
-  const response = await axios.delete(
-    `${base_url}user/delete-product-cart/${data.id}`,
-
-    data.config2
-  );
-  if (response.data) {
-    return response.data;
-  }
+  const response = await axiosInstance.delete(`user/delete-product-cart/${data.id}`);
+  return response.data;
 };
 
 const updateProductFromCart = async (cartDetail) => {
-  const response = await axios.delete(
-    `${base_url}user/update-product-cart/${cartDetail.cartItemId}/${cartDetail.quantity}`,
-    getConfig()
+  const response = await axiosInstance.delete(
+    `user/update-product-cart/${cartDetail.cartItemId}/${cartDetail.quantity}`
   );
-  if (response.data) {
-    return response.data;
-  }
+  return response.data;
 };
 
 const createOrder = async (orderDetail) => {
-  const response = await axios.post(
-    `${base_url}user/cart/create-order/`,
-    orderDetail,
-    getConfig()
-  );
-  if (response.data) {
-    return response.data;
-  }
+  const response = await axiosInstance.post("user/cart/create-order/", orderDetail);
+  return response.data;
 };
 
 const getUserOrders = async ({ page = 1, limit = 10 } = {}) => {
-  const response = await axios.get(
-    `${base_url}user/getmyorders?page=${page}&limit=${limit}`,
-    getConfig()
-  );
-  if (response.data) {
-    return response.data;
-  }
+  const response = await axiosInstance.get(`user/getmyorders?page=${page}&limit=${limit}`);
+  return response.data;
 };
 
 const getUserSingleOrder = async (id) => {
-  const response = await axios.get(
-    `${base_url}user/getmyorder/${id}`,
-    getConfig()
-  );
-  if (response.data) {
-    return response.data;
-  }
+  const response = await axiosInstance.get(`user/getmyorder/${id}`);
+  return response.data;
 };
 
 const cancelOrder = async ({ id, cancelReason }) => {
-  const response = await axios.put(
-    `${base_url}user/cancel-order/${id}`,
-    { cancelReason },
-    getConfig()
-  );
+  const response = await axiosInstance.put(`user/cancel-order/${id}`, { cancelReason });
   return response.data;
 };
 
 const updateUser = async (data) => {
-  const response = await axios.put(
-    `${base_url}user/edit-user`,
-    data.data,
-    getConfig()
-  );
-  if (response.data) {
-    return response.data;
-  }
+  const response = await axiosInstance.put("user/edit-user", data.data);
+  return response.data;
 };
 
-const forgotPasswordToken = async (data) => {
-  const response = await axios.post(
-    `${base_url}user/forgot-password-token`,
-    data
-  );
-
-  if (response.data) {
-    return response.data;
-  }
+const emptyCart = async () => {
+  const response = await axiosInstance.delete("user/empty-cart");
+  return response.data;
 };
 
-const resetPass = async (data) => {
-  const response = await axios.put(
-    `${base_url}user/reset-password/${data.token}`,
-    {
-      password: data?.password,
-    }
-  );
-
-  if (response.data) {
-    return response.data;
-  }
-};
-
-const emptyCart = async (data) => {
-  const response = await axios.delete(`${base_url}user/empty-cart`, getConfig());
-
-  if (response.data) {
-    return response.data;
-  }
-};
-
-// Referral functions
 const getReferralCode = async () => {
-  console.log("Fetching referral code...");
-  const response = await axios.get(`${base_url}user/referral-code`, getConfig());
-  console.log("Referral code response:", response.data);
-  if (response.data) {
-    return response.data;
-  }
+  const response = await axiosInstance.get("user/referral-code");
+  return response.data;
 };
 
 const getMyReferrals = async ({ page = 1, limit = 10 } = {}) => {
-  console.log("Fetching my referrals...");
-  const config = getConfig();
-  console.log("Config being used:", config);
-  const response = await axios.get(
-    `${base_url}user/my-referrals?txnPage=${page}&txnLimit=${limit}`,
-    config
+  const response = await axiosInstance.get(
+    `user/my-referrals?txnPage=${page}&txnLimit=${limit}`
   );
-  console.log("My referrals response:", response.data);
-  if (response.data) {
-    return response.data;
-  }
+  return response.data;
 };
 
 const applyReferralCode = async (referralCode) => {
-  const response = await axios.post(
-    `${base_url}user/apply-referral`,
-    { referralCode },
-    getConfig()
-  );
-  if (response.data) {
-    return response.data;
-  }
+  const response = await axiosInstance.post("user/apply-referral", { referralCode });
+  return response.data;
 };
 
 const getAddresses = async () => {
-  const response = await axios.get(`${base_url}user/addresses`, getConfig());
+  const response = await axiosInstance.get("user/addresses");
   return response.data;
 };
 
 const addAddress = async (data) => {
-  const response = await axios.post(`${base_url}user/addresses`, data, getConfig());
+  const response = await axiosInstance.post("user/addresses", data);
   return response.data;
 };
 
 const updateAddress = async ({ addrId, data }) => {
-  const response = await axios.put(`${base_url}user/addresses/${addrId}`, data, getConfig());
+  const response = await axiosInstance.put(`user/addresses/${addrId}`, data);
   return response.data;
 };
 
 const deleteAddress = async (addrId) => {
-  const response = await axios.delete(`${base_url}user/addresses/${addrId}`, getConfig());
+  const response = await axiosInstance.delete(`user/addresses/${addrId}`);
   return response.data;
 };
 

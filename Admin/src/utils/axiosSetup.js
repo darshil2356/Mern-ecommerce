@@ -1,15 +1,2 @@
-import axios from "axios";
-import { store } from "../app/store";
-import { logout } from "../features/auth/authSlice";
-
-axios.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    if (error.response?.status === 401) {
-      localStorage.removeItem("user");
-      store.dispatch(logout());
-      window.location.replace("/");
-    }
-    return Promise.reject(error);
-  }
-);
+// Refresh + retry logic is handled in axiosconfig.js via the `api` instance.
+// This file is intentionally left empty to avoid duplicate interceptors.

@@ -1,10 +1,10 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import Meta from "../components/Meta";
 import { useFormik } from "formik";
 import * as yup from "yup";
 import { useDispatch, useSelector } from "react-redux";
-import { loginUser } from "../features/user/userSlice";
+import { loginUser, resetState } from "../features/user/userSlice";
 import { AiOutlineMobile, AiOutlineMail, AiOutlineLock, AiOutlineEye, AiOutlineEyeInvisible } from "react-icons/ai";
 
 const emailSchema = yup.object({
@@ -26,11 +26,13 @@ const Login = () => {
   const authState = useSelector((state) => state.auth);
   const dispatch = useDispatch();
   const navigate = useNavigate();
+  const loginAttempted = useRef(false);
 
   const formik = useFormik({
     initialValues: { email: "", mobile: "", password: "" },
     validationSchema: loginMode === "email" ? emailSchema : mobileSchema,
     onSubmit: (values) => {
+      loginAttempted.current = true;
       const payload =
         loginMode === "email"
           ? { email: values.email, password: values.password }
@@ -44,8 +46,13 @@ const Login = () => {
     formik.resetForm();
   };
 
+  // Clear stale isSuccess on mount so previous actions don't trigger redirect
   useEffect(() => {
-    if (authState.isSuccess && authState.user !== null) {
+    dispatch(resetState());
+  }, [dispatch]);
+
+  useEffect(() => {
+    if (loginAttempted.current && authState.isSuccess && authState.user !== null) {
       navigate("/", { replace: true });
     }
   }, [authState.isSuccess, authState.user, navigate]);

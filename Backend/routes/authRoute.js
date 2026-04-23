@@ -25,11 +25,8 @@ const {
   deleteAddress,
   userCart,
   getUserCart,
-
   createOrder,
   registerUser,
-   
-
   removeProductFromCart,
   updateProductQuantityFromCart,
   getMyOrders,
@@ -53,6 +50,7 @@ const {
   addBundleToCart,
   cancelOrder,
   adminCancelOrder,
+  searchUsers,
 } = require("../controller/userCtrl");
 
 
@@ -74,6 +72,7 @@ router.post("/check-stock", authMiddleware, isAdmin, checkStock);
 
 
 router.get("/my-referrals", authMiddleware, getMyReferrals);
+router.get("/search", authMiddleware, isAdmin, searchUsers);
 
 // Customer offer routes
 router.get("/customer-offer", authMiddleware, isAdmin, getCustomerOffer);
@@ -129,8 +128,6 @@ router.delete(
 
 router.delete("/empty-cart", authMiddleware, emptyCart);
 
-router.delete("/:id", authMiddleware, isAdmin, deleteaUser);
-
 router.put("/edit-user", authMiddleware, updatedUser);
 router.put("/save-address", authMiddleware, saveAddress);
 // Address book routes
@@ -140,7 +137,8 @@ router.put("/addresses/:addrId", authMiddleware, updateAddress);
 router.delete("/addresses/:addrId", authMiddleware, deleteAddress);
 router.put("/block-user/:id", authMiddleware, isAdmin, blockUser);
 router.put("/unblock-user/:id", authMiddleware, isAdmin, unblockUser);
-// Public GST settings — no auth needed (used by frontend checkout)
+
+// Public GST settings — no auth needed
 router.get("/public-settings", async (req, res) => {
   try {
     const User = require("../models/userModel");
@@ -158,14 +156,13 @@ router.get("/public-settings", async (req, res) => {
   }
 });
 
-router.get("/:id", authMiddleware, isAdmin, getaUser);
-
 // Referral routes
 router.get("/referral-code", authMiddleware, generateReferralCode);
-
 router.post("/apply-referral", authMiddleware, applyReferral);
-
-// Admin: Get all referrals
 router.get("/all-referrals", authMiddleware, isAdmin, getAllReferrals);
+
+// Wildcard routes — must be last
+router.delete("/:id", authMiddleware, isAdmin, deleteaUser);
+router.get("/:id", authMiddleware, isAdmin, getaUser);
 
 module.exports = router;

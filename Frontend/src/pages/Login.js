@@ -4,7 +4,7 @@ import Meta from "../components/Meta";
 import { useFormik } from "formik";
 import * as yup from "yup";
 import { useDispatch, useSelector } from "react-redux";
-import { loginUser, resetAuthFlags } from "../features/user/userSlice";
+import { loginUser } from "../features/user/userSlice";
 import { AiOutlineMobile, AiOutlineMail, AiOutlineLock, AiOutlineEye, AiOutlineEyeInvisible } from "react-icons/ai";
 
 const emailSchema = yup.object({
@@ -46,12 +46,7 @@ const Login = () => {
     formik.resetForm();
   };
 
-  // Reset only flags (isSuccess/isError) on mount — never wipe user/state
-  useEffect(() => {
-    dispatch(resetAuthFlags());
-    return () => dispatch(resetAuthFlags());
-  }, [dispatch]);
-
+  // Navigate after successful login (only when user actually submitted)
   useEffect(() => {
     if (loginAttempted.current && authState.isSuccess && authState.user !== null) {
       navigate("/", { replace: true });

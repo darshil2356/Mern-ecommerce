@@ -1,6 +1,4 @@
 import axios from "axios";
-import { store } from "../app/store";
-import { logout } from "../features/user/userSlice";
 
 /* ─────────────────────────────────────────────
    1. Global timeout — 20 s
@@ -32,19 +30,6 @@ axios.interceptors.response.use(
       if (config._retryCount <= MAX_RETRIES) {
         await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY_MS));
         return axios(config);
-      }
-    }
-
-    /* ── 401: force logout ── */
-    if (error.response?.status === 401) {
-      const customer = localStorage.getItem("customer");
-      if (customer) {
-        localStorage.removeItem("customer");
-        localStorage.removeItem("token");
-        store.dispatch(logout());
-        if (window.location.pathname !== "/login") {
-          window.location.replace("/login");
-        }
       }
     }
 

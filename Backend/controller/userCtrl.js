@@ -742,6 +742,8 @@ const loginUserCtrl = asyncHandler(async (req, res) => {
 
   res.cookie("refreshToken", refreshToken, {
     httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
     maxAge: 72 * 60 * 60 * 1000,
   });
   
@@ -779,6 +781,8 @@ const loginAdmin = asyncHandler(async (req, res) => {
     );
     res.cookie("refreshToken", refreshToken, {
       httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
       maxAge: 72 * 60 * 60 * 1000,
     });
     res.json({
@@ -823,16 +827,16 @@ const logout = asyncHandler(async (req, res) => {
   if (!user) {
     res.clearCookie("refreshToken", {
       httpOnly: true,
-      secure: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
     });
     return res.sendStatus(204);
   }
-  await User.findByIdAndUpdate(user._id, {
-    refreshToken: "",
-  });
+  await User.findByIdAndUpdate(user._id, { refreshToken: "" });
   res.clearCookie("refreshToken", {
     httpOnly: true,
-    secure: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
   });
   res.sendStatus(204);
 });

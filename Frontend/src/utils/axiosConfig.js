@@ -6,17 +6,25 @@ export const base_url = process.env.REACT_APP_BASE_URL;
 const axiosInstance = axios.create({ baseURL: base_url });
 
 let isRefreshing = false;
-let failedQueue = []; // queue requests that came in while refresh was in progress
+let failedQueue = [];
 
 const processQueue = (error, token = null) => {
   failedQueue.forEach((prom) => {
-    if (error) {
-      prom.reject(error);
-    } else {
-      prom.resolve(token);
-    }
+    if (error) prom.reject(error);
+    else prom.resolve(token);
   });
   failedQueue = [];
+};
+
+const clearSessionAndLogout = () => {
+  localStorage.removeItem("customer");
+  localStorage.removeItem("token");
+  // Lazy import to break circular dependency: axiosConfig → store → productSlice → productService → axiosConfig
+  import("../app/store").then(({ store }) => {
+    import("../features/user/userSlice").then(({ logout }) => {
+      store.dispatch(logout());
+    });
+  });
 };
 
 // Attach fresh token before every request
@@ -37,14 +45,12 @@ axiosInstance.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config;
 
-    // Only handle 401, and don't retry refresh endpoint itself
     if (
       error.response?.status === 401 &&
       !originalRequest._retry &&
-      !originalRequest.url?.includes("/user/refresh")
+      !originalRequest.url?.includes("user/refresh")
     ) {
       if (isRefreshing) {
-        // Queue this request until refresh completes
         return new Promise((resolve, reject) => {
           failedQueue.push({ resolve, reject });
         })
@@ -59,14 +65,11 @@ axiosInstance.interceptors.response.use(
       isRefreshing = true;
 
       try {
-        // Refresh token is in httpOnly cookie — backend reads it automatically
         const { data } = await axios.get(`${base_url}user/refresh`, {
           withCredentials: true,
         });
 
         const newToken = data.accessToken;
-
-        // Update localStorage with new token
         const customer = localStorage.getItem("customer")
           ? JSON.parse(localStorage.getItem("customer"))
           : {};
@@ -79,14 +82,16 @@ axiosInstance.interceptors.response.use(
         return axiosInstance(originalRequest);
       } catch (refreshError) {
         processQueue(refreshError, null);
-        // Refresh failed — clear session and redirect to login
-        localStorage.removeItem("customer");
-        localStorage.removeItem("token");
-        window.location.href = "/login";
+        clearSessionAndLogout();
         return Promise.reject(refreshError);
       } finally {
         isRefreshing = false;
       }
+    }
+
+    // For any other 401 (e.g. refresh endpoint itself failed)
+    if (error.response?.status === 401) {
+      clearSessionAndLogout();
     }
 
     return Promise.reject(error);

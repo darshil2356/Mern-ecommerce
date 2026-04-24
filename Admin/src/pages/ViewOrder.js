@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import {
   Card, Row, Col, Tag, Button, Divider, Descriptions, Timeline,
   Space, Alert, Typography, Progress, Avatar, List, Table,
-  Badge, Steps, Statistic, Modal, Input
+  Badge, Steps, Statistic, Modal, Input, message
 } from "antd";
 import { useDispatch, useSelector } from "react-redux";
 import { Link, useLocation, useNavigate } from "react-router-dom";
@@ -17,6 +17,9 @@ import {
 import { getaOrder, adminCancelAOrder } from "../features/auth/authSlice";
 import dayjs from "dayjs";
 import { getColorSwatch, getReadableColorName } from "../utils/colorDisplay";
+import { base_url } from "../utils/baseUrl";
+import { config } from "../utils/axiosconfig";
+import axios from "axios";
 
 const { Title, Text } = Typography;
 const { Step } = Steps;
@@ -288,6 +291,91 @@ const ViewOrder = () => {
   const navigate = useNavigate();
   const [cancelModalOpen, setCancelModalOpen] = useState(false);
   const [cancelReason, setCancelReason] = useState("");
+
+  const printBill = async () => {
+    try {
+      const [pickupRes, settingsRes] = await Promise.all([
+        axios.get(`${base_url}shiprocket/pickup-address`, config).catch(() => ({ data: { address: null } })),
+        axios.get(`${base_url}user/settings`, config).catch(() => ({ data: {} })),
+      ]);
+      const order = orderState;
+      const pickup = pickupRes.data.address;
+      const settings = settingsRes.data;
+      const invoiceNum = order._id.slice(-8).toUpperCase();
+      const dateStr = new Date(order.createdAt).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+      const customerName = order.user ? `${order.user.firstname || ""} ${order.user.lastname || ""}`.trim() : "Walk-in Customer";
+      const storeName = settings.storeName || "Yashoda Fashion";
+      const storeAddress = settings.storeAddress || (pickup ? `${pickup.address}, ${pickup.city}, ${pickup.state} - ${pickup.pincode}` : "");
+      const storePhone = settings.storePhone || pickup?.phone || "";
+      const gstin = settings.gstin || "";
+      const gst = order.gstBreakdown || {};
+      const cgst = gst.cgst || 0; const sgst = gst.sgst || 0; const igst = gst.igst || 0;
+      const cgstRate = gst.cgstRate || 0; const sgstRate = gst.sgstRate || 0; const igstRate = gst.igstRate || 0;
+      const gstType = gst.gstType || "NONE";
+      const taxIncluded = gst.taxIncluded === true;
+      const gstTotal = cgst + sgst + igst;
+      const shipping = order.mode === "OFFLINE" ? 0 : (gst.shippingCharge ?? 0);
+      const discount = order.discountAmount || 0;
+      const subtotal = order.totalPrice || 0;
+      const finalTotal = order.totalPriceAfterDiscount || 0;
+      const breakdown = order.discountBreakdown || {};
+      const shippingAddr = order.shippingInfo
+        ? `${order.shippingInfo.address || ""}, ${order.shippingInfo.city || ""}, ${order.shippingInfo.state || ""} - ${order.shippingInfo.pincode || ""}`
+        : "N/A";
+      const itemRows = order.orderItems.map((item, i) => {
+        const title = item.isBundle ? (item.bundleTitle || "Bundle") : (item.product?.title || "Product");
+        const hsn = item.hsnCode || item.product?.hsnCode || "-";
+        const qty = item.quantity; const rate = item.price; const amt = qty * rate;
+        return `<tr style="border-bottom:1px solid #f0f0f0">
+          <td style="padding:10px 8px;color:#666;font-size:13px">${i+1}</td>
+          <td style="padding:10px 8px;font-size:13px;font-weight:600">${title}${item.isFreeItem ? ' <span style="background:#dcfce7;color:#15803d;font-size:10px;padding:2px 6px;border-radius:4px;font-weight:700">FREE</span>' : ""}</td>
+          <td style="padding:10px 8px;font-size:12px;color:#888;font-family:monospace">${hsn}</td>
+          <td style="padding:10px 8px;text-align:center;font-size:13px">${qty}</td>
+          <td style="padding:10px 8px;text-align:right;font-size:13px">${item.isFreeItem ? "FREE" : "₹"+rate.toFixed(2)}</td>
+          <td style="padding:10px 8px;text-align:right;font-size:13px;font-weight:700">${item.isFreeItem ? "FREE" : "₹"+amt.toFixed(2)}</td>
+        </tr>`;
+      }).join("");
+      const gstRows = gstTotal > 0 ? (taxIncluded
+        ? `<tr><td colspan="5" style="padding:6px 8px;color:#15803d;font-size:12px">✅ GST included in price</td><td style="padding:6px 8px;text-align:right;color:#15803d;font-size:12px">₹${gstTotal.toFixed(2)}</td></tr>`
+        : (gstType === "CGST_SGST"
+          ? `<tr><td colspan="5" style="padding:6px 8px;color:#ea580c;font-size:12px">CGST (${cgstRate}%)</td><td style="padding:6px 8px;text-align:right;color:#ea580c;font-size:12px">+₹${cgst.toFixed(2)}</td></tr><tr><td colspan="5" style="padding:6px 8px;color:#ea580c;font-size:12px">SGST (${sgstRate}%)</td><td style="padding:6px 8px;text-align:right;color:#ea580c;font-size:12px">+₹${sgst.toFixed(2)}</td></tr>`
+          : `<tr><td colspan="5" style="padding:6px 8px;color:#ea580c;font-size:12px">IGST (${igstRate}%)</td><td style="padding:6px 8px;text-align:right;color:#ea580c;font-size:12px">+₹${igst.toFixed(2)}</td></tr>`)
+      ) : "";
+      const win = window.open("", "_blank");
+      if (!win) return;
+      win.document.write(`<!DOCTYPE html><html><head><title>Invoice #${invoiceNum}</title>
+<style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:'Segoe UI',Arial,sans-serif;background:#f5f5f5;padding:20px}.page{max-width:720px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.1)}@media print{body{background:#fff;padding:0}.page{box-shadow:none;border-radius:0}.no-print{display:none}}</style></head><body>
+<div class="page">
+  <div style="background:linear-gradient(135deg,#1a1a2e,#16213e);color:#fff;padding:28px 32px;display:flex;justify-content:space-between;align-items:flex-start">
+    <div><div style="font-size:26px;font-weight:900;letter-spacing:-0.5px">${storeName}</div>${storeAddress ? `<div style="font-size:12px;color:#94a3b8;margin-top:4px;max-width:280px">${storeAddress}</div>` : ""}${storePhone ? `<div style="font-size:12px;color:#94a3b8;margin-top:2px">📞 ${storePhone}</div>` : ""}${gstin ? `<div style="font-size:11px;color:#64748b;margin-top:4px;font-family:monospace">GSTIN: ${gstin}</div>` : ""}</div>
+    <div style="text-align:right"><div style="font-size:22px;font-weight:900;color:#818cf8;letter-spacing:1px">INVOICE</div><div style="font-size:14px;color:#94a3b8;margin-top:4px;font-family:monospace">#${invoiceNum}</div><div style="font-size:12px;color:#64748b;margin-top:2px">${dateStr}</div><div style="margin-top:8px;background:${order.orderStatus==="Delivered"?"#059669":order.orderStatus==="Cancelled"?"#dc2626":"#d97706"};color:#fff;padding:4px 12px;border-radius:20px;font-size:11px;font-weight:700;display:inline-block">${order.orderStatus}</div></div>
+  </div>
+  <div style="display:flex;gap:0;border-bottom:1px solid #f0f0f0">
+    <div style="flex:1;padding:20px 32px;border-right:1px solid #f0f0f0"><div style="font-size:11px;font-weight:700;color:#6366f1;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">Bill To</div><div style="font-weight:700;font-size:15px;color:#0f172a">${customerName}</div>${order.user?.mobile ? `<div style="font-size:13px;color:#64748b;margin-top:4px">📞 ${order.user.mobile}</div>` : ""}${order.user?.email ? `<div style="font-size:12px;color:#94a3b8;margin-top:2px">${order.user.email}</div>` : ""}</div>
+    <div style="flex:1;padding:20px 32px"><div style="font-size:11px;font-weight:700;color:#10b981;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">Ship To</div><div style="font-size:13px;color:#374151;line-height:1.6">${shippingAddr}</div></div>
+  </div>
+  ${pickup ? `<div style="background:#f8fafc;padding:14px 32px;border-bottom:1px solid #f0f0f0;display:flex;align-items:center;gap:12px"><div style="font-size:11px;font-weight:700;color:#f59e0b;text-transform:uppercase;letter-spacing:1px;white-space:nowrap">Pickup From</div><div style="font-size:12px;color:#64748b">${pickup.name} — ${pickup.address}${pickup.address2 ? ", "+pickup.address2 : ""}, ${pickup.city}, ${pickup.state} - ${pickup.pincode}${pickup.phone ? " | 📞 "+pickup.phone : ""}</div></div>` : ""}
+  <div style="padding:0 32px"><table style="width:100%;border-collapse:collapse;margin-top:20px"><thead><tr style="background:#0f172a;color:#e2e8f0"><th style="padding:12px 8px;text-align:left;font-size:11px;font-weight:700;letter-spacing:0.5px">#</th><th style="padding:12px 8px;text-align:left;font-size:11px;font-weight:700;letter-spacing:0.5px">ITEM</th><th style="padding:12px 8px;text-align:left;font-size:11px;font-weight:700;letter-spacing:0.5px">HSN</th><th style="padding:12px 8px;text-align:center;font-size:11px;font-weight:700;letter-spacing:0.5px">QTY</th><th style="padding:12px 8px;text-align:right;font-size:11px;font-weight:700;letter-spacing:0.5px">RATE</th><th style="padding:12px 8px;text-align:right;font-size:11px;font-weight:700;letter-spacing:0.5px">AMOUNT</th></tr></thead><tbody>${itemRows}</tbody></table></div>
+  <div style="padding:16px 32px 28px"><table style="width:100%;border-collapse:collapse;margin-left:auto;max-width:320px">
+    <tr><td style="padding:6px 8px;color:#64748b;font-size:13px">Subtotal</td><td style="padding:6px 8px;text-align:right;font-size:13px">₹${subtotal.toFixed(2)}</td></tr>
+    ${shipping > 0 ? `<tr><td style="padding:6px 8px;color:#64748b;font-size:13px">🚚 Shipping</td><td style="padding:6px 8px;text-align:right;font-size:13px">₹${shipping.toFixed(2)}</td></tr>` : (order.mode !== "OFFLINE" ? `<tr><td style="padding:6px 8px;color:#16a34a;font-size:13px">🚚 Shipping</td><td style="padding:6px 8px;text-align:right;color:#16a34a;font-size:13px">Free</td></tr>` : "")}
+    ${breakdown.directDiscount > 0 ? `<tr><td style="padding:6px 8px;color:#16a34a;font-size:13px">🏷️ Direct Discount</td><td style="padding:6px 8px;text-align:right;color:#16a34a;font-size:13px">-₹${breakdown.directDiscount.toFixed(2)}</td></tr>` : ""}
+    ${breakdown.offerDiscount > 0 ? `<tr><td style="padding:6px 8px;color:#f59e0b;font-size:13px">🎁 Offer Discount</td><td style="padding:6px 8px;text-align:right;color:#f59e0b;font-size:13px">-₹${breakdown.offerDiscount.toFixed(2)}</td></tr>` : ""}
+    ${breakdown.coinDiscount > 0 ? `<tr><td style="padding:6px 8px;color:#7c3aed;font-size:13px">🪙 Coin Discount</td><td style="padding:6px 8px;text-align:right;color:#7c3aed;font-size:13px">-₹${breakdown.coinDiscount.toFixed(2)}</td></tr>` : (discount > 0 && !breakdown.directDiscount && !breakdown.offerDiscount ? `<tr><td style="padding:6px 8px;color:#16a34a;font-size:13px">💰 Discount</td><td style="padding:6px 8px;text-align:right;color:#16a34a;font-size:13px">-₹${discount.toFixed(2)}</td></tr>` : "")}
+    ${gstRows}
+    <tr style="border-top:2px solid #0f172a"><td style="padding:12px 8px;font-size:17px;font-weight:900;color:#0f172a">TOTAL</td><td style="padding:12px 8px;text-align:right;font-size:17px;font-weight:900;color:#6366f1">₹${finalTotal.toFixed(2)}</td></tr>
+  </table></div>
+  <div style="background:#f8fafc;padding:16px 32px;border-top:1px solid #f0f0f0;display:flex;justify-content:space-between;align-items:center">
+    <div><span style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:1px">Payment</span><span style="margin-left:10px;font-size:13px;font-weight:700;color:${order.paymentInfo?.razorpayPaymentId && order.paymentInfo.razorpayPaymentId !== "OFFLINE" ? "#059669" : "#d97706"}">${order.paymentInfo?.razorpayPaymentId && order.paymentInfo.razorpayPaymentId !== "OFFLINE" ? "✅ Paid Online" : order.mode === "OFFLINE" && order.paymentDestination === "CASH" ? "💵 Cash" : "🏦 Online Transfer"}</span></div>
+    ${order.trackingId ? `<div style="font-size:12px;color:#6366f1">🚚 Tracking: <strong>${order.trackingId}</strong>${order.courierName ? " via "+order.courierName : ""}</div>` : ""}
+  </div>
+  <div style="padding:16px 32px;text-align:center;border-top:1px solid #f0f0f0"><div style="font-size:12px;color:#94a3b8">Thank you for shopping with <strong>${storeName}</strong> 🛍️</div><div style="font-size:11px;color:#cbd5e1;margin-top:4px">This is a computer-generated invoice. No signature required.</div></div>
+  <div class="no-print" style="padding:16px 32px;text-align:center;background:#f8fafc"><button onclick="window.print()" style="background:#6366f1;color:#fff;border:none;padding:10px 32px;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer">🖨️ Print Invoice</button></div>
+</div></body></html>`);
+      win.document.close();
+      setTimeout(() => win.print(), 600);
+    } catch (e) { console.error(e); message.error("Failed to print bill"); }
+  };
   
   useEffect(() => {
     dispatch(getaOrder(orderId));
@@ -1057,6 +1145,7 @@ const ViewOrder = () => {
         extra={
           <Button
             icon={<PrinterOutlined />}
+            onClick={printBill}
             style={{
               borderRadius: '8px',
               border: '2px solid #667eea',

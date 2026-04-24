@@ -1,10 +1,11 @@
 import React, { useEffect, useState, useMemo } from "react";
-import { Table, Button, Select, Tag, message, Space, Tooltip, Input, DatePicker, Badge, Avatar, Modal } from "antd";
+import { Table, Button, Select, Tag, message, Space, Tooltip, Input, DatePicker, Badge, Avatar, Modal, Dropdown } from "antd";
 import {
   FilterOutlined, EyeOutlined, PrinterOutlined, RocketOutlined,
   SearchOutlined, ShoppingOutlined, CarOutlined, CheckCircleOutlined,
   ClockCircleOutlined, CloseCircleOutlined, SyncOutlined, ThunderboltOutlined,
-  UserOutlined, ReloadOutlined, TrophyOutlined, FireOutlined, StopOutlined
+  UserOutlined, ReloadOutlined, TrophyOutlined, FireOutlined, StopOutlined,
+  DownOutlined, EditOutlined
 } from "@ant-design/icons";
 import { useDispatch, useSelector } from "react-redux";
 import { Link } from "react-router-dom";
@@ -79,36 +80,183 @@ const Orders = () => {
     finally { setBulkLoading(false); }
   };
 
+  const handleBulkStatusChange = async (newStatus) => {
+    if (!selectedRowKeys.length) { message.warning("Select orders first"); return; }
+    setBulkLoading(true);
+    try {
+      const res = await axios.put(`${base_url}orders/bulk-update-status`, { orderIds: selectedRowKeys, status: newStatus }, config);
+      const ok = res.data.results.filter(r => r.success).length;
+      const failed = res.data.results.filter(r => !r.success).length;
+      if (ok > 0) message.success(`${ok} order(s) updated to "${newStatus}"${failed > 0 ? `, ${failed} skipped (locked)` : ""}`);
+      else message.warning(`No orders updated — all may be locked`);
+      setSelectedRowKeys([]);
+      dispatch(getOrders());
+    } catch { message.error("Bulk status update failed"); }
+    finally { setBulkLoading(false); }
+  };
+
   const printOrderBill = async (orderId) => {
     try {
-      const res = await axios.get(`${base_url}user/getaOrder/${orderId}`, config);
-      const order = res.data.orders;
+      const [orderRes, pickupRes, settingsRes] = await Promise.all([
+        axios.get(`${base_url}user/getaOrder/${orderId}`, config),
+        axios.get(`${base_url}shiprocket/pickup-address`, config).catch(() => ({ data: { address: null } })),
+        axios.get(`${base_url}user/settings`, config).catch(() => ({ data: {} })),
+      ]);
+      const order = orderRes.data.orders;
+      const pickup = pickupRes.data.address;
+      const settings = settingsRes.data;
       const invoiceNum = order._id.slice(-8).toUpperCase();
       const dateStr = new Date(order.createdAt).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
       const customerName = order.user ? `${order.user.firstname || ""} ${order.user.lastname || ""}`.trim() : "Walk-in Customer";
+      const storeName = settings.storeName || "Yashoda Fashion";
+      const storeAddress = settings.storeAddress || (pickup ? `${pickup.address}, ${pickup.city}, ${pickup.state} - ${pickup.pincode}` : "");
+      const storePhone = settings.storePhone || pickup?.phone || "";
+      const gstin = settings.gstin || "";
+
+      const gst = order.gstBreakdown || {};
+      const cgst = gst.cgst || 0; const sgst = gst.sgst || 0; const igst = gst.igst || 0;
+      const cgstRate = gst.cgstRate || 0; const sgstRate = gst.sgstRate || 0; const igstRate = gst.igstRate || 0;
+      const gstType = gst.gstType || "NONE";
+      const taxIncluded = gst.taxIncluded === true;
+      const gstTotal = cgst + sgst + igst;
+      const shipping = order.mode === "OFFLINE" ? 0 : (gst.shippingCharge ?? 0);
+      const discount = order.discountAmount || 0;
+      const subtotal = order.totalPrice || 0;
+      const finalTotal = order.totalPriceAfterDiscount || 0;
+      const breakdown = order.discountBreakdown || {};
+
+      const shippingAddr = order.shippingInfo
+        ? `${order.shippingInfo.address || ""}, ${order.shippingInfo.city || ""}, ${order.shippingInfo.state || ""} - ${order.shippingInfo.pincode || ""}`
+        : "N/A";
+
+      const itemRows = order.orderItems.map((item, i) => {
+        const title = item.isBundle ? (item.bundleTitle || "Bundle") : (item.product?.title || "Product");
+        const hsn = item.hsnCode || item.product?.hsnCode || "-";
+        const qty = item.quantity;
+        const rate = item.price;
+        const amt = qty * rate;
+        return `<tr style="border-bottom:1px solid #f0f0f0">
+          <td style="padding:10px 8px;color:#666;font-size:13px">${i+1}</td>
+          <td style="padding:10px 8px;font-size:13px;font-weight:600">${title}${item.isFreeItem ? ' <span style="background:#dcfce7;color:#15803d;font-size:10px;padding:2px 6px;border-radius:4px;font-weight:700">FREE</span>' : ""}</td>
+          <td style="padding:10px 8px;font-size:12px;color:#888;font-family:monospace">${hsn}</td>
+          <td style="padding:10px 8px;text-align:center;font-size:13px">${qty}</td>
+          <td style="padding:10px 8px;text-align:right;font-size:13px">${item.isFreeItem ? "FREE" : "₹"+rate.toFixed(2)}</td>
+          <td style="padding:10px 8px;text-align:right;font-size:13px;font-weight:700">${item.isFreeItem ? "FREE" : "₹"+amt.toFixed(2)}</td>
+        </tr>`;
+      }).join("");
+
+      const gstRows = gstTotal > 0 ? (taxIncluded
+        ? `<tr><td colspan="5" style="padding:6px 8px;color:#15803d;font-size:12px">✅ GST included in price</td><td style="padding:6px 8px;text-align:right;color:#15803d;font-size:12px">₹${gstTotal.toFixed(2)}</td></tr>`
+        : (gstType === "CGST_SGST"
+          ? `<tr><td colspan="5" style="padding:6px 8px;color:#ea580c;font-size:12px">CGST (${cgstRate}%)</td><td style="padding:6px 8px;text-align:right;color:#ea580c;font-size:12px">+₹${cgst.toFixed(2)}</td></tr>
+             <tr><td colspan="5" style="padding:6px 8px;color:#ea580c;font-size:12px">SGST (${sgstRate}%)</td><td style="padding:6px 8px;text-align:right;color:#ea580c;font-size:12px">+₹${sgst.toFixed(2)}</td></tr>`
+          : `<tr><td colspan="5" style="padding:6px 8px;color:#ea580c;font-size:12px">IGST (${igstRate}%)</td><td style="padding:6px 8px;text-align:right;color:#ea580c;font-size:12px">+₹${igst.toFixed(2)}</td></tr>`)
+      ) : "";
+
       const win = window.open("", "_blank");
       if (!win) return;
-      win.document.write(`<!DOCTYPE html><html><head><title>Invoice - ${invoiceNum}</title>
-        <script src="https://cdn.tailwindcss.com"></script></head>
-        <body class="bg-gray-50 p-6">
-        <div class="max-w-2xl mx-auto bg-white rounded-2xl shadow-xl overflow-hidden">
-        <div class="bg-gradient-to-r from-indigo-600 to-purple-600 text-white p-8">
-          <h1 class="text-3xl font-black tracking-tight">INVOICE</h1>
-          <p class="text-indigo-200 mt-1">#${invoiceNum} &bull; ${dateStr}</p>
-        </div>
-        <div class="p-8">
-          <p class="text-gray-600 mb-6"><span class="font-semibold text-gray-900">Bill To:</span> ${customerName}</p>
-          <table class="w-full text-sm border-collapse">
-            <thead><tr class="bg-indigo-50 text-indigo-700"><th class="p-3 text-left rounded-l-lg">#</th><th class="p-3 text-left">Item</th><th class="p-3 text-left">HSN</th><th class="p-3 text-center">Qty</th><th class="p-3 text-right">Rate</th><th class="p-3 text-right rounded-r-lg">Amount</th></tr></thead>
-            <tbody>${order.orderItems.map((item, i) => `<tr class="border-b border-gray-100"><td class="p-3 text-gray-500">${i+1}</td><td class="p-3 font-medium">${item.product?.title || "Product"}</td><td class="p-3 text-left">${item.hsnCode || item.product?.hsnCode || "-"}</td><td class="p-3 text-center">${item.quantity}</td><td class="p-3 text-right">₹${item.price.toFixed(2)}</td><td class="p-3 text-right font-semibold">₹${(item.quantity*item.price).toFixed(2)}</td></tr>`).join("")}</tbody>
-          </table>
-          <div class="mt-6 text-right border-t pt-4">
-            ${order.discountAmount > 0 ? `<p class="text-green-600 mb-1">Discount: -₹${order.discountAmount.toFixed(2)}</p>` : ""}
-            <p class="text-2xl font-black text-indigo-600">Total: ₹${order.totalPriceAfterDiscount.toFixed(2)}</p>
-          </div>
-        </div></div></body></html>`);
+      win.document.write(`<!DOCTYPE html><html><head><title>Invoice #${invoiceNum}</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family: 'Segoe UI', Arial, sans-serif; background:#f5f5f5; padding:20px; }
+  .page { max-width:720px; margin:0 auto; background:#fff; border-radius:12px; overflow:hidden; box-shadow:0 4px 20px rgba(0,0,0,0.1); }
+  @media print { body{background:#fff;padding:0} .page{box-shadow:none;border-radius:0} .no-print{display:none} }
+</style></head><body>
+<div class="page">
+  <!-- Header -->
+  <div style="background:linear-gradient(135deg,#1a1a2e,#16213e);color:#fff;padding:28px 32px;display:flex;justify-content:space-between;align-items:flex-start">
+    <div>
+      <div style="font-size:26px;font-weight:900;letter-spacing:-0.5px">${storeName}</div>
+      ${storeAddress ? `<div style="font-size:12px;color:#94a3b8;margin-top:4px;max-width:280px">${storeAddress}</div>` : ""}
+      ${storePhone ? `<div style="font-size:12px;color:#94a3b8;margin-top:2px">📞 ${storePhone}</div>` : ""}
+      ${gstin ? `<div style="font-size:11px;color:#64748b;margin-top:4px;font-family:monospace">GSTIN: ${gstin}</div>` : ""}
+    </div>
+    <div style="text-align:right">
+      <div style="font-size:22px;font-weight:900;color:#818cf8;letter-spacing:1px">INVOICE</div>
+      <div style="font-size:14px;color:#94a3b8;margin-top:4px;font-family:monospace">#${invoiceNum}</div>
+      <div style="font-size:12px;color:#64748b;margin-top:2px">${dateStr}</div>
+      <div style="margin-top:8px;background:${order.orderStatus==="Delivered"?"#059669":order.orderStatus==="Cancelled"?"#dc2626":"#d97706"};color:#fff;padding:4px 12px;border-radius:20px;font-size:11px;font-weight:700;display:inline-block">${order.orderStatus}</div>
+    </div>
+  </div>
+
+  <!-- Bill To / Ship To -->
+  <div style="display:flex;gap:0;border-bottom:1px solid #f0f0f0">
+    <div style="flex:1;padding:20px 32px;border-right:1px solid #f0f0f0">
+      <div style="font-size:11px;font-weight:700;color:#6366f1;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">Bill To</div>
+      <div style="font-weight:700;font-size:15px;color:#0f172a">${customerName}</div>
+      ${order.user?.mobile ? `<div style="font-size:13px;color:#64748b;margin-top:4px">📞 ${order.user.mobile}</div>` : ""}
+      ${order.user?.email ? `<div style="font-size:12px;color:#94a3b8;margin-top:2px">${order.user.email}</div>` : ""}
+    </div>
+    <div style="flex:1;padding:20px 32px">
+      <div style="font-size:11px;font-weight:700;color:#10b981;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">Ship To</div>
+      <div style="font-size:13px;color:#374151;line-height:1.6">${shippingAddr}</div>
+    </div>
+  </div>
+
+  ${pickup ? `
+  <!-- Pickup / Seller Address -->
+  <div style="background:#f8fafc;padding:14px 32px;border-bottom:1px solid #f0f0f0;display:flex;align-items:center;gap:12px">
+    <div style="font-size:11px;font-weight:700;color:#f59e0b;text-transform:uppercase;letter-spacing:1px;white-space:nowrap">Pickup From</div>
+    <div style="font-size:12px;color:#64748b">${pickup.name} — ${pickup.address}${pickup.address2 ? ", "+pickup.address2 : ""}, ${pickup.city}, ${pickup.state} - ${pickup.pincode}${pickup.phone ? " | 📞 "+pickup.phone : ""}</div>
+  </div>` : ""}
+
+  <!-- Items Table -->
+  <div style="padding:0 32px">
+    <table style="width:100%;border-collapse:collapse;margin-top:20px">
+      <thead>
+        <tr style="background:#0f172a;color:#e2e8f0">
+          <th style="padding:12px 8px;text-align:left;font-size:11px;font-weight:700;letter-spacing:0.5px;border-radius:0">#</th>
+          <th style="padding:12px 8px;text-align:left;font-size:11px;font-weight:700;letter-spacing:0.5px">ITEM</th>
+          <th style="padding:12px 8px;text-align:left;font-size:11px;font-weight:700;letter-spacing:0.5px">HSN</th>
+          <th style="padding:12px 8px;text-align:center;font-size:11px;font-weight:700;letter-spacing:0.5px">QTY</th>
+          <th style="padding:12px 8px;text-align:right;font-size:11px;font-weight:700;letter-spacing:0.5px">RATE</th>
+          <th style="padding:12px 8px;text-align:right;font-size:11px;font-weight:700;letter-spacing:0.5px">AMOUNT</th>
+        </tr>
+      </thead>
+      <tbody>${itemRows}</tbody>
+    </table>
+  </div>
+
+  <!-- Totals -->
+  <div style="padding:16px 32px 28px">
+    <table style="width:100%;border-collapse:collapse;margin-left:auto;max-width:320px">
+      <tr><td style="padding:6px 8px;color:#64748b;font-size:13px">Subtotal</td><td style="padding:6px 8px;text-align:right;font-size:13px">₹${subtotal.toFixed(2)}</td></tr>
+      ${shipping > 0 ? `<tr><td style="padding:6px 8px;color:#64748b;font-size:13px">🚚 Shipping</td><td style="padding:6px 8px;text-align:right;font-size:13px">₹${shipping.toFixed(2)}</td></tr>` : (order.mode !== "OFFLINE" ? `<tr><td style="padding:6px 8px;color:#16a34a;font-size:13px">🚚 Shipping</td><td style="padding:6px 8px;text-align:right;color:#16a34a;font-size:13px">Free</td></tr>` : "")}
+      ${breakdown.directDiscount > 0 ? `<tr><td style="padding:6px 8px;color:#16a34a;font-size:13px">🏷️ Direct Discount</td><td style="padding:6px 8px;text-align:right;color:#16a34a;font-size:13px">-₹${breakdown.directDiscount.toFixed(2)}</td></tr>` : ""}
+      ${breakdown.offerDiscount > 0 ? `<tr><td style="padding:6px 8px;color:#f59e0b;font-size:13px">🎁 Offer Discount</td><td style="padding:6px 8px;text-align:right;color:#f59e0b;font-size:13px">-₹${breakdown.offerDiscount.toFixed(2)}</td></tr>` : ""}
+      ${breakdown.coinDiscount > 0 ? `<tr><td style="padding:6px 8px;color:#7c3aed;font-size:13px">🪙 Coin Discount</td><td style="padding:6px 8px;text-align:right;color:#7c3aed;font-size:13px">-₹${breakdown.coinDiscount.toFixed(2)}</td></tr>` : (discount > 0 && !breakdown.directDiscount && !breakdown.offerDiscount ? `<tr><td style="padding:6px 8px;color:#16a34a;font-size:13px">💰 Discount</td><td style="padding:6px 8px;text-align:right;color:#16a34a;font-size:13px">-₹${discount.toFixed(2)}</td></tr>` : "")}
+      ${gstRows}
+      <tr style="border-top:2px solid #0f172a">
+        <td style="padding:12px 8px;font-size:17px;font-weight:900;color:#0f172a">TOTAL</td>
+        <td style="padding:12px 8px;text-align:right;font-size:17px;font-weight:900;color:#6366f1">₹${finalTotal.toFixed(2)}</td>
+      </tr>
+    </table>
+  </div>
+
+  <!-- Payment Info -->
+  <div style="background:#f8fafc;padding:16px 32px;border-top:1px solid #f0f0f0;display:flex;justify-content:space-between;align-items:center">
+    <div>
+      <span style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:1px">Payment</span>
+      <span style="margin-left:10px;font-size:13px;font-weight:700;color:${order.paymentInfo?.razorpayPaymentId && order.paymentInfo.razorpayPaymentId !== "OFFLINE" ? "#059669" : "#d97706"}">
+        ${order.paymentInfo?.razorpayPaymentId && order.paymentInfo.razorpayPaymentId !== "OFFLINE" ? "✅ Paid Online" : order.mode === "OFFLINE" && order.paymentDestination === "CASH" ? "💵 Cash" : "🏦 Online Transfer"}
+      </span>
+    </div>
+    ${order.trackingId && order.trackingId !== "—" ? `<div style="font-size:12px;color:#6366f1">🚚 Tracking: <strong>${order.trackingId}</strong>${order.courierName ? " via "+order.courierName : ""}</div>` : ""}
+  </div>
+
+  <!-- Footer -->
+  <div style="padding:16px 32px;text-align:center;border-top:1px solid #f0f0f0">
+    <div style="font-size:12px;color:#94a3b8">Thank you for shopping with <strong>${storeName}</strong> 🛍️</div>
+    <div style="font-size:11px;color:#cbd5e1;margin-top:4px">This is a computer-generated invoice. No signature required.</div>
+  </div>
+
+  <div class="no-print" style="padding:16px 32px;text-align:center;background:#f8fafc">
+    <button onclick="window.print()" style="background:#6366f1;color:#fff;border:none;padding:10px 32px;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer">🖨️ Print Invoice</button>
+  </div>
+</div>
+</body></html>`);
       win.document.close();
-      setTimeout(() => win.print(), 500);
+      setTimeout(() => win.print(), 600);
     } catch { message.error("Failed to print"); }
   };
 
@@ -377,11 +525,30 @@ const Orders = () => {
           <Button icon={<ReloadOutlined />} onClick={() => { setActiveStatus("All"); setSearchText(""); setDateRange(null); setPaymentFilter("All"); }} style={{ borderRadius: 12, border: "1.5px solid #e2e8f0", fontWeight: 600 }}>
             Reset
           </Button>
-          {selectedRowKeys.length > 0 && activeStatus === "Packed" && (
-            <Button type="primary" icon={<ThunderboltOutlined />} loading={bulkLoading} onClick={handleBulkShipment}
-              style={{ borderRadius: 12, background: "linear-gradient(135deg,#10b981,#34d399)", border: "none", fontWeight: 700, boxShadow: "0 4px 16px rgba(16,185,129,0.4)" }}>
-              Create Shipment ({selectedRowKeys.length})
-            </Button>
+          {selectedRowKeys.length > 0 && (
+            <>
+              <Dropdown
+                menu={{
+                  items: [
+                    { key: "Ordered", label: "🕐 Mark as Ordered", onClick: () => handleBulkStatusChange("Ordered") },
+                    { key: "Processed", label: "🔄 Mark as Processed", onClick: () => handleBulkStatusChange("Processed") },
+                    { key: "Packed", label: "📦 Mark as Packed", onClick: () => handleBulkStatusChange("Packed") },
+                  ],
+                }}
+                disabled={bulkLoading}
+              >
+                <Button icon={<EditOutlined />} loading={bulkLoading}
+                  style={{ borderRadius: 12, border: "2px solid #6366f1", color: "#6366f1", fontWeight: 700 }}>
+                  Bulk Status ({selectedRowKeys.length}) <DownOutlined />
+                </Button>
+              </Dropdown>
+              {activeStatus === "Packed" && (
+                <Button type="primary" icon={<ThunderboltOutlined />} loading={bulkLoading} onClick={handleBulkShipment}
+                  style={{ borderRadius: 12, background: "linear-gradient(135deg,#10b981,#34d399)", border: "none", fontWeight: 700, boxShadow: "0 4px 16px rgba(16,185,129,0.4)" }}>
+                  Create Shipment ({selectedRowKeys.length})
+                </Button>
+              )}
+            </>
           )}
           <div style={{ marginLeft: "auto", background: "linear-gradient(135deg,#6366f1,#8b5cf6)", color: "#fff", borderRadius: 12, padding: "8px 18px", fontWeight: 700, fontSize: 13 }}>
             <FireOutlined style={{ marginRight: 6 }} />

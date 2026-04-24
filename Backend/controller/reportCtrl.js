@@ -186,7 +186,7 @@ const getYearlyReport = asyncHandler(async (req, res) => {
 
   const monthlyData = await Order.aggregate([
     { $match: mergeFilters({ createdAt: { $gte: startDate, $lte: endDate } }, pf) },
-    { $group: { _id: { $month: "$createdAt" }, totalOrders: { $sum: 1 }, totalSales: { $sum: "$totalPrice" }, totalDiscount: { $sum: "$discountAmount" }, netRevenue: { $sum: "$totalPriceAfterDiscount" } } },
+    { $group: { _id: { $month: "$createdAt" }, totalOrders: { $sum: 1 }, totalSales: { $sum: "$totalPrice" }, totalDiscount: { $sum: { $add: [ { $ifNull: ["$discountAmount", 0] }, { $ifNull: ["$discountBreakdown.directDiscount", 0] }, { $ifNull: ["$discountBreakdown.offerDiscount", 0] }, { $ifNull: ["$discountBreakdown.coinDiscount", 0] } ] } }, netRevenue: { $sum: "$totalPriceAfterDiscount" } } },
     { $sort: { _id: 1 } }
   ]);
 
@@ -488,13 +488,13 @@ const getCustomerWiseReport = asyncHandler(async (req, res) => {
         mobile: order.user.mobile || "",
         email: order.user.email || "",
         totalOrders: 0, totalPurchase: 0, avgOrderValue: 0,
-        firstPurchase: order.user.createdAt, lastPurchase: order.createdAt
+        firstOrderDate: order.createdAt, lastOrderDate: order.createdAt
       };
     }
     customerStats[customerId].totalOrders++;
     customerStats[customerId].totalPurchase += order.totalPriceAfterDiscount || 0;
-    if (new Date(order.createdAt) > new Date(customerStats[customerId].lastPurchase)) {
-      customerStats[customerId].lastPurchase = order.createdAt;
+    if (new Date(order.createdAt) > new Date(customerStats[customerId].lastOrderDate)) {
+      customerStats[customerId].lastOrderDate = order.createdAt;
     }
   });
 

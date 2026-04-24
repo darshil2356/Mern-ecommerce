@@ -1310,7 +1310,7 @@ const Reports = () => {
                   const totalRev = pageData.reduce((sum, p) => sum + parseFloat(p.totalRevenue), 0);
                   return (
                     <Table.Summary.Row>
-                      <Table.Summary.Cell colSpan={4}><b>Page Total</b></Table.Summary.Cell>
+                      <Table.Summary.Cell colSpan={5}><b>Page Total</b></Table.Summary.Cell>
                       <Table.Summary.Cell align="right"><b>{totalQty}</b></Table.Summary.Cell>
                       <Table.Summary.Cell></Table.Summary.Cell>
                       <Table.Summary.Cell align="right"><b>₹{totalRev.toFixed(2)}</b></Table.Summary.Cell>

@@ -439,31 +439,41 @@ const Orders = () => {
   ];
 
   return (
-    <div style={{ background: "#f4f6f8", minHeight: "100vh", padding: 28 }}>
+    <div style={{ background: "#f0f2f5", minHeight: "100vh", padding: "20px 24px" }}>
 
       {/* ── Header ── */}
-      <div style={{ background: "#ffffff", borderRadius: 24, padding: "32px 36px", marginBottom: 28, boxShadow: "0 10px 30px rgba(15,23,42,0.08)", position: "relative", overflow: "hidden" }}>
-        <div style={{ position: "relative", zIndex: 1, display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 20 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 18 }}>
-            <div style={{ width: 64, height: 64, borderRadius: 18, background: "linear-gradient(135deg,#6366f1,#8b5cf6)", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 8px 24px rgba(99,102,241,0.4)" }}>
-              <ShoppingOutlined style={{ fontSize: 30, color: "#fff" }} />
+      <div style={{
+        background: "linear-gradient(135deg, #1e1b4b 0%, #3730a3 100%)",
+        borderRadius: 20, padding: "26px 32px", marginBottom: 16, color: "#fff",
+        boxShadow: "0 8px 32px rgba(55,48,163,0.22)",
+      }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 20 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+            <div style={{
+              width: 52, height: 52, borderRadius: 14,
+              background: "rgba(255,255,255,0.12)", border: "1px solid rgba(255,255,255,0.2)",
+              display: "flex", alignItems: "center", justifyContent: "center",
+            }}>
+              <ShoppingOutlined style={{ fontSize: 24, color: "#fff" }} />
             </div>
             <div>
-              <div style={{ fontSize: 28, fontWeight: 900, letterSpacing: -0.5 }}>Orders Management</div>
-              <div style={{ color: "#64748b", fontSize: 14, marginTop: 4 }}>Track and manage all customer orders with clear status and fast actions</div>
+              <div style={{ fontSize: 24, fontWeight: 800, letterSpacing: -0.3 }}>Orders Management</div>
+              <div style={{ fontSize: 13, color: "rgba(255,255,255,0.55)", marginTop: 2 }}>Track, manage, and fulfill all customer orders</div>
             </div>
           </div>
-          <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
             {[
-              { label: "Total Orders", value: processedData.length, icon: <ShoppingOutlined />, grad: "linear-gradient(135deg,#6366f1,#8b5cf6)", glow: "rgba(99,102,241,0.4)" },
-              { label: "Delivered", value: deliveredCount, icon: <CheckCircleOutlined />, grad: "linear-gradient(135deg,#10b981,#34d399)", glow: "rgba(16,185,129,0.4)" },
-              { label: "Pending", value: pendingCount, icon: <ClockCircleOutlined />, grad: "linear-gradient(135deg,#f59e0b,#fbbf24)", glow: "rgba(245,158,11,0.4)" },
-              { label: "Revenue", value: `₹${(totalRevenue/1000).toFixed(1)}K`, icon: <TrophyOutlined />, grad: "linear-gradient(135deg,#ec4899,#f472b6)", glow: "rgba(236,72,153,0.4)" },
-            ].map((s) => (
-              <div key={s.label} style={{ background: "#f8fafc", borderRadius: 16, padding: "18px 20px", minWidth: 140, textAlign: "center", boxShadow: "0 8px 20px rgba(15,23,42,0.08)" }}>
-                <div style={{ color: "#4f46e5", fontSize: 20, marginBottom: 4 }}>{s.icon}</div>
-                <div style={{ color: "#111827", fontSize: 22, fontWeight: 800 }}>{s.value}</div>
-                <div style={{ color: "#6b7280", fontSize: 12, fontWeight: 600 }}>{s.label}</div>
+              { label: "Total Orders", value: processedData.length, accent: "rgba(255,255,255,0.12)" },
+              { label: "Delivered", value: deliveredCount, accent: "rgba(16,185,129,0.28)" },
+              { label: "Pending", value: pendingCount, accent: "rgba(251,191,36,0.22)" },
+              { label: "Revenue", value: `₹${(totalRevenue/1000).toFixed(1)}K`, accent: "rgba(244,114,182,0.22)" },
+            ].map(s => (
+              <div key={s.label} style={{
+                background: s.accent, border: "1px solid rgba(255,255,255,0.14)",
+                borderRadius: 14, padding: "13px 18px", minWidth: 108, textAlign: "center",
+              }}>
+                <div style={{ fontSize: 20, fontWeight: 800 }}>{s.value}</div>
+                <div style={{ fontSize: 11, color: "rgba(255,255,255,0.62)", fontWeight: 600, marginTop: 2 }}>{s.label}</div>
               </div>
             ))}
           </div>
@@ -471,8 +481,8 @@ const Orders = () => {
       </div>
 
       {/* ── Status Tabs ── */}
-      <div style={{ background: "#ffffff", borderRadius: 20, padding: "20px 24px", marginBottom: 20, boxShadow: "0 12px 28px rgba(15,23,42,0.06)", border: "1px solid #e5e7eb" }}>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
+      <div style={{ background: "#fff", borderRadius: 14, padding: "14px 18px", marginBottom: 12, boxShadow: "0 1px 6px rgba(0,0,0,0.07)" }}>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
           {Object.entries(STATUS_CONFIG).map(([status, cfg]) => {
             const isActive = activeStatus === status;
             return (
@@ -480,16 +490,22 @@ const Orders = () => {
                 key={status}
                 onClick={() => setActiveStatus(status)}
                 style={{
-                  display: "flex", alignItems: "center", gap: 7, padding: "8px 16px", borderRadius: 50, border: "none", cursor: "pointer", fontWeight: 700, fontSize: 12, transition: "all 0.2s",
+                  display: "flex", alignItems: "center", gap: 6, padding: "7px 14px",
+                  borderRadius: 40, cursor: "pointer", fontWeight: 600, fontSize: 12,
+                  transition: "all 0.17s",
                   background: isActive ? cfg.gradient : "#f8fafc",
                   color: isActive ? "#fff" : cfg.color,
-                  boxShadow: isActive ? `0 4px 16px ${cfg.border}80` : "0 1px 4px rgba(0,0,0,0.06)",
+                  border: isActive ? "none" : `1.5px solid ${cfg.border}`,
+                  boxShadow: isActive ? `0 4px 12px ${cfg.border}60` : "none",
                   transform: isActive ? "translateY(-1px)" : "none",
                 }}
               >
-                {cfg.icon}
-                {status}
-                <span style={{ background: isActive ? "rgba(255,255,255,0.25)" : cfg.bg, color: isActive ? "#fff" : cfg.color, borderRadius: 10, padding: "1px 7px", fontSize: 11, fontWeight: 800 }}>
+                {cfg.icon} {status}
+                <span style={{
+                  background: isActive ? "rgba(255,255,255,0.25)" : cfg.bg,
+                  color: isActive ? "#fff" : cfg.color,
+                  borderRadius: 8, padding: "1px 6px", fontSize: 11, fontWeight: 800,
+                }}>
                   {statusCounts[status] || 0}
                 </span>
               </button>
@@ -499,22 +515,18 @@ const Orders = () => {
       </div>
 
       {/* ── Filters ── */}
-      <div style={{ background: "#ffffff", borderRadius: 20, padding: "20px 24px", marginBottom: 20, boxShadow: "0 12px 28px rgba(15,23,42,0.06)", border: "1px solid #e5e7eb" }}>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 12, alignItems: "center" }}>
+      <div style={{ background: "#fff", borderRadius: 14, padding: "14px 18px", marginBottom: 12, boxShadow: "0 1px 6px rgba(0,0,0,0.07)" }}>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center" }}>
           <Input
             placeholder="Search order ID, name, email, mobile…"
             prefix={<SearchOutlined style={{ color: "#6366f1" }} />}
             value={searchText}
             onChange={(e) => setSearchText(e.target.value)}
             allowClear
-            style={{ width: 300, borderRadius: 12, border: "1.5px solid #e2e8f0" }}
+            style={{ width: 280, borderRadius: 10 }}
           />
-          <RangePicker
-            value={dateRange}
-            onChange={setDateRange}
-            style={{ borderRadius: 12, border: "1.5px solid #e2e8f0" }}
-          />
-          <Select value={paymentFilter} onChange={setPaymentFilter} style={{ width: 150, borderRadius: 12 }}>
+          <RangePicker value={dateRange} onChange={setDateRange} style={{ borderRadius: 10 }} />
+          <Select value={paymentFilter} onChange={setPaymentFilter} style={{ width: 150 }}>
             <Option value="All">All Payments</Option>
             <Option value="Paid">Paid (Online)</Option>
             <Option value="Cash">Cash</Option>
@@ -522,35 +534,33 @@ const Orders = () => {
             <Option value="Online-Other">Online-Other</Option>
             <Option value="Pending">Pending</Option>
           </Select>
-          <Button icon={<ReloadOutlined />} onClick={() => { setActiveStatus("All"); setSearchText(""); setDateRange(null); setPaymentFilter("All"); }} style={{ borderRadius: 12, border: "1.5px solid #e2e8f0", fontWeight: 600 }}>
+          <Button icon={<ReloadOutlined />} onClick={() => { setActiveStatus("All"); setSearchText(""); setDateRange(null); setPaymentFilter("All"); }} style={{ borderRadius: 10 }}>
             Reset
           </Button>
           {selectedRowKeys.length > 0 && (
             <>
               <Dropdown
-                menu={{
-                  items: [
-                    { key: "Ordered", label: "🕐 Mark as Ordered", onClick: () => handleBulkStatusChange("Ordered") },
-                    { key: "Processed", label: "🔄 Mark as Processed", onClick: () => handleBulkStatusChange("Processed") },
-                    { key: "Packed", label: "📦 Mark as Packed", onClick: () => handleBulkStatusChange("Packed") },
-                  ],
-                }}
+                menu={{ items: [
+                  { key: "Ordered", label: "🕐 Mark as Ordered", onClick: () => handleBulkStatusChange("Ordered") },
+                  { key: "Processed", label: "🔄 Mark as Processed", onClick: () => handleBulkStatusChange("Processed") },
+                  { key: "Packed", label: "📦 Mark as Packed", onClick: () => handleBulkStatusChange("Packed") },
+                ]}}
                 disabled={bulkLoading}
               >
                 <Button icon={<EditOutlined />} loading={bulkLoading}
-                  style={{ borderRadius: 12, border: "2px solid #6366f1", color: "#6366f1", fontWeight: 700 }}>
+                  style={{ borderRadius: 10, border: "1.5px solid #6366f1", color: "#6366f1", fontWeight: 600 }}>
                   Bulk Status ({selectedRowKeys.length}) <DownOutlined />
                 </Button>
               </Dropdown>
               {activeStatus === "Packed" && (
                 <Button type="primary" icon={<ThunderboltOutlined />} loading={bulkLoading} onClick={handleBulkShipment}
-                  style={{ borderRadius: 12, background: "linear-gradient(135deg,#10b981,#34d399)", border: "none", fontWeight: 700, boxShadow: "0 4px 16px rgba(16,185,129,0.4)" }}>
+                  style={{ borderRadius: 10, background: "#10b981", border: "none", fontWeight: 600 }}>
                   Create Shipment ({selectedRowKeys.length})
                 </Button>
               )}
             </>
           )}
-          <div style={{ marginLeft: "auto", background: "linear-gradient(135deg,#6366f1,#8b5cf6)", color: "#fff", borderRadius: 12, padding: "8px 18px", fontWeight: 700, fontSize: 13 }}>
+          <div style={{ marginLeft: "auto", background: "#eef2ff", color: "#4f46e5", borderRadius: 10, padding: "7px 14px", fontWeight: 700, fontSize: 13 }}>
             <FireOutlined style={{ marginRight: 6 }} />
             {filteredData.length} / {processedData.length} Orders
           </div>
@@ -581,7 +591,7 @@ const Orders = () => {
       </Modal>
 
       {/* ── Table ── */}
-      <div style={{ background: "#ffffff", borderRadius: 20, boxShadow: "0 12px 28px rgba(15,23,42,0.08)", border: "1px solid #e5e7eb", overflow: "hidden" }}>
+      <div style={{ background: "#fff", borderRadius: 14, boxShadow: "0 1px 6px rgba(0,0,0,0.07)", overflow: "hidden" }}>
         <Table
           columns={columns}
           dataSource={filteredData}
@@ -590,16 +600,14 @@ const Orders = () => {
           scroll={{ x: 1200 }}
           size="middle"
           rowClassName={() => "order-row"}
-          style={{ borderRadius: 20 }}
         />
       </div>
 
       <style>{`
-        .order-row:hover td { background: #f8f7ff !important; }
-        .ant-table-thead > tr > th { background: linear-gradient(135deg,#0f172a,#1e293b) !important; color: #e2e8f0 !important; font-weight: 700 !important; font-size: 12px !important; letter-spacing: 0.5px !important; border-bottom: none !important; }
-        .ant-table-thead > tr > th:first-child { border-radius: 0 !important; }
-        .ant-table-tbody > tr > td { border-bottom: 1px solid #f1f5f9 !important; padding: 14px 16px !important; }
-        .ant-pagination { padding: 16px 24px !important; }
+        .order-row:hover td { background: #f5f3ff !important; transition: background 0.15s; }
+        .ant-table-thead > tr > th { background: #f8fafc !important; color: #374151 !important; font-weight: 700 !important; font-size: 12px !important; letter-spacing: 0.3px !important; border-bottom: 2px solid #e5e7eb !important; }
+        .ant-table-tbody > tr > td { border-bottom: 1px solid #f3f4f6 !important; padding: 13px 16px !important; }
+        .ant-pagination { padding: 14px 24px !important; }
       `}</style>
     </div>
   );

@@ -58,7 +58,7 @@ const CoinSettings = () => {
 
         {/* Reward Sources */}
         <Card className="mb-6 shadow-sm" title="Reward Sources">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="p-4 bg-amber-50 rounded-lg border border-amber-200">
               <p className="font-medium mb-2">🎰 Spin Wheel Coins</p>
               <p className="text-xs text-gray-500 mb-2">Customer earns coins when spin lands on COINS reward</p>
@@ -67,6 +67,13 @@ const CoinSettings = () => {
               </Form.Item>
             </div>
             <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+              <p className="font-medium mb-2">👥 Referral Reward (Master)</p>
+              <p className="text-xs text-gray-500 mb-2">Master switch for all referral-based coin rewards</p>
+              <Form.Item name="referralRewardEnabled" valuePropName="checked" className="mb-0">
+                <Switch size="small" />
+              </Form.Item>
+            </div>
+            <div className="p-4 bg-indigo-50 rounded-lg border border-indigo-200">
               <p className="font-medium mb-2">👥 Referrer Coins</p>
               <p className="text-xs text-gray-500 mb-2">Referrer earns coins when referred user purchases</p>
               <Form.Item name="referrerPurchaseRewardEnabled" valuePropName="checked" className="mb-0">

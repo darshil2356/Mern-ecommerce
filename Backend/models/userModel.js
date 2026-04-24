@@ -134,8 +134,8 @@ var userSchema = new mongoose.Schema(
     },
     offerType: {
       type: String,
-      enum: ["percentage", "flat", ""],
-      default: "", // "percentage" for %, "flat" for ₹, "" for no offer
+      enum: ["percentage", "flat", "free_product", ""],
+      default: "", // "percentage" for %, "flat" for ₹, "free_product" for free item, "" for no offer
     },
     totalOrders: {
       type: Number,

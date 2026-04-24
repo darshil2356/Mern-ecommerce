@@ -68,7 +68,7 @@ const processReferralReward = async (buyerUserId, orderAmount, isFirstPurchase =
   const trigger = refConfig.rewardTrigger;
 
   // ── REFERRER reward ────────────────────────────────────────────────────────
-  if (coinConfig.referralRewardEnabled && coinConfig.referrerPurchaseRewardEnabled && buyer.referredBy) {
+  if (coinConfig.referrerPurchaseRewardEnabled && buyer.referredBy) {
     if (trigger === "ON_SIGNUP") {
       // handled at signup only
     } else if (

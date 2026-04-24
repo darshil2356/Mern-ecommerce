@@ -570,118 +570,55 @@ const ViewOrder = () => {
   const finalTotal = orderState?.totalPriceAfterDiscount || 0;
 
   return (
-    <div style={{
-        background: `linear-gradient(135deg, ${COLORS.neutral[50]} 0%, ${COLORS.neutral[50]} 100%)`,
-        minHeight: '100vh',
-        padding: '32px',
-        position: 'relative',
-        overflow: 'hidden'
-    }}>
-        {/* Premium Background Pattern */}
-        <div style={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          background: 'url("data:image/svg+xml,%3Csvg width="200" height="200" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg"%3E%3Cg fill-rule="evenodd"%3E%3Cg fill="%230F172A" fill-opacity="0.01"%3E%3Cpath d="M100 0c55.228 0 100 44.772 100 100s-44.772 100-100 100S0 155.228 0 100 44.772 0 100 0zm50 100c0 27.614-22.386 50-50 50s-50-22.386-50-50 22.386-50 50-50 50 22.386 50 50z"/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")',
-          opacity: 0.3,
-          zIndex: 0
-        }} />
-        <div style={{ position: 'relative', zIndex: 1 }}>
-      {/* Modern Header */}
+    <div style={{ background: "#f0f2f5", minHeight: "100vh", padding: "20px 24px" }}>
+      {/* Header */}
       <div style={{
-        background: '#ffffff',
-        borderRadius: '24px',
-        padding: '32px',
-        marginBottom: '32px',
-        boxShadow: '0 18px 45px rgba(15,23,42,0.08)',
-        border: '1px solid #e5e7eb',
-        position: 'relative',
-        overflow: 'hidden'
+        background: "linear-gradient(135deg, #1e1b4b 0%, #3730a3 100%)",
+        borderRadius: 20, padding: "22px 28px", marginBottom: 20, color: "#fff",
+        boxShadow: "0 8px 28px rgba(55,48,163,0.22)",
       }}>
-        <div style={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          background: 'radial-gradient(circle at top left, rgba(99,102,241,0.08), transparent 35%)',
-          opacity: 0.7
-        }} />
-        <div style={{ position: 'relative', zIndex: 1 }}>
-        <Row align="middle" justify="space-between">
+        <Row align="middle" justify="space-between" wrap>
           <Col>
-            <Space>
+            <Space size={14}>
               <Button
                 icon={<ArrowLeftOutlined />}
                 onClick={() => navigate("/admin/orders")}
-                size="large"
                 style={{
-                  borderRadius: '12px',
-                  border: '2px solid #667eea',
-                  color: '#667eea',
-                  fontWeight: 600
+                  borderRadius: 10, border: "1.5px solid rgba(255,255,255,0.35)",
+                  color: "#fff", background: "rgba(255,255,255,0.1)",
+                  fontWeight: 600, height: 38,
                 }}
               >
-                Back to Orders
+                Back
               </Button>
               <div>
-                <Title level={3} style={{
-                  margin: 0,
-                  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                  WebkitBackgroundClip: 'text',
-                  WebkitTextFillColor: 'transparent',
-                  fontWeight: 700
-                }}>
-                  Order Details
-                </Title>
-                <Text style={{
-                  color: '#666',
-                  fontSize: '14px',
-                  fontFamily: 'monospace',
-                  fontWeight: 600
-                }}>
+                <div style={{ fontSize: 20, fontWeight: 800, letterSpacing: -0.3 }}>Order Details</div>
+                <div style={{ fontSize: 12, color: "rgba(255,255,255,0.55)", fontFamily: "monospace", marginTop: 1 }}>
                   #{orderState?._id?.slice(-8).toUpperCase()}
-                </Text>
+                </div>
               </div>
             </Space>
           </Col>
           <Col>
-            <Space>
+            <Space size={10}>
               <div style={{
-                background: STATUS_CONFIG[orderState?.orderStatus]?.bg || '#f1f5f9',
-                color: STATUS_CONFIG[orderState?.orderStatus]?.color || '#374151',
-                padding: '12px 20px',
-                borderRadius: '25px',
-                fontWeight: 700,
-                fontSize: '14px',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                boxShadow: '0 10px 20px rgba(15,23,42,0.08)',
-                border: `1px solid ${STATUS_CONFIG[orderState?.orderStatus]?.border || '#e5e7eb'}`
+                background: "rgba(255,255,255,0.12)", border: "1px solid rgba(255,255,255,0.2)",
+                padding: "8px 16px", borderRadius: 20, fontWeight: 700, fontSize: 13,
+                display: "flex", alignItems: "center", gap: 6,
               }}>
                 {STATUS_CONFIG[orderState?.orderStatus]?.icon || <ClockCircleOutlined />}
                 {orderState?.orderStatus}
               </div>
               <Tag
                 color={orderState?.mode === "OFFLINE" ? "orange" : "green"}
-                style={{
-                  borderRadius: '12px',
-                  padding: '6px 16px',
-                  fontWeight: 600,
-                  fontSize: '12px'
-                }}
+                style={{ borderRadius: 10, padding: "5px 14px", fontWeight: 600, fontSize: 12 }}
               >
                 {orderState?.mode || "ONLINE"}
               </Tag>
               {orderState?.orderStatus !== "Cancelled" && orderState?.orderStatus !== "Delivered" && (
                 <Button
-                  danger
-                  icon={<StopOutlined />}
-                  size="large"
-                  style={{ borderRadius: '12px', fontWeight: 600 }}
+                  danger icon={<StopOutlined />}
+                  style={{ borderRadius: 10, fontWeight: 600, height: 38 }}
                   onClick={() => { setCancelReason(""); setCancelModalOpen(true); }}
                 >
                   Cancel Order
@@ -690,7 +627,6 @@ const ViewOrder = () => {
             </Space>
           </Col>
         </Row>
-        </div>
       </div>
 
       {/* Admin Cancel Order Modal */}
@@ -772,80 +708,38 @@ const ViewOrder = () => {
         <Col xs={24} lg={8}>
           <Card
             title={
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Avatar
-                  size={32}
-                  style={{ background: COLORS.primary.gradient }}
-                  icon={<UserOutlined />}
-                />
-                <span style={{ fontWeight: 600 }}>Customer Information</span>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <div style={{ width: 28, height: 28, borderRadius: 8, background: "#0f172a", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <UserOutlined style={{ color: "#fff", fontSize: 13 }} />
+                </div>
+                <span style={{ fontWeight: 700, color: "#0f172a" }}>Customer</span>
               </div>
             }
             size="small"
-            style={{
-              height: "100%",
-              background: 'rgba(255, 255, 255, 0.95)',
-              backdropFilter: 'blur(20px)',
-              borderRadius: '16px',
-              boxShadow: '0 8px 32px rgba(0,0,0,0.1)',
-              border: '1px solid rgba(255,255,255,0.2)'
-            }}
-            headStyle={{
-                background: '#111827',
-                color: 'white',
-                borderRadius: '16px 16px 0 0'
-              }}
+            style={{ height: "100%", borderRadius: 16, boxShadow: "0 1px 8px rgba(0,0,0,0.07)", border: "1px solid #e5e7eb" }}
           >
-            <div style={{ padding: '16px 0' }}>
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '12px',
-                marginBottom: '16px'
-              }}>
-                <Avatar
-                  size={48}
-                  style={{
-                    background: COLORS.secondary.gradient,
-                    fontSize: '18px',
-                    fontWeight: 'bold'
-                  }}
-                >
-                  {orderState?.user?.firstname?.charAt(0)?.toUpperCase() || 'U'}
+            <div style={{ padding: "8px 0" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
+                <Avatar size={48} style={{ background: "linear-gradient(135deg,#059669,#34d399)", fontSize: 18, fontWeight: "bold" }}>
+                  {orderState?.user?.firstname?.charAt(0)?.toUpperCase() || "U"}
                 </Avatar>
                 <div>
-                  <div style={{
-                    fontSize: '16px',
-                    fontWeight: 700,
-                    color: '#1a1a1a',
-                    marginBottom: '4px'
-                  }}>
+                  <div style={{ fontSize: 15, fontWeight: 700, color: "#0f172a" }}>
                     {orderState?.user?.firstname} {orderState?.user?.lastname}
                   </div>
-                  <div style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '4px',
-                    color: '#666',
-                    fontSize: '12px'
-                  }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 4, color: "#64748b", fontSize: 12, marginTop: 2 }}>
                     <MailOutlined /> {orderState?.user?.email || "N/A"}
                   </div>
                 </div>
               </div>
-
-              <Divider style={{ margin: '16px 0' }} />
-
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
-                <PhoneOutlined style={{ color: '#52c41a' }} />
+              <Divider style={{ margin: "12px 0" }} />
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+                <PhoneOutlined style={{ color: "#059669" }} />
                 <Text strong>{orderState?.user?.mobile || "N/A"}</Text>
               </div>
-
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <EnvironmentOutlined style={{ color: '#fa8c16' }} />
-                <Text style={{ color: '#666' }}>
-                  {orderState?.shippingInfo?.city}, {orderState?.shippingInfo?.state}
-                </Text>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <EnvironmentOutlined style={{ color: "#f59e0b" }} />
+                <Text style={{ color: "#64748b" }}>{orderState?.shippingInfo?.city}, {orderState?.shippingInfo?.state}</Text>
               </div>
             </div>
           </Card>
@@ -855,29 +749,15 @@ const ViewOrder = () => {
         <Col xs={24} lg={16}>
           <Card
             title={
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Avatar
-                  size={32}
-                  style={{ background: COLORS.accent.blue }}
-                  icon={<ThunderboltOutlined />}
-                />
-                <span style={{ fontWeight: 600 }}>Order Timeline</span>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <div style={{ width: 28, height: 28, borderRadius: 8, background: "#1d4ed8", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <ThunderboltOutlined style={{ color: "#fff", fontSize: 13 }} />
+                </div>
+                <span style={{ fontWeight: 700, color: "#0f172a" }}>Order Timeline</span>
               </div>
             }
             size="small"
-            style={{
-              height: "100%",
-              background: 'rgba(255, 255, 255, 0.95)',
-              backdropFilter: 'blur(20px)',
-              borderRadius: '16px',
-              boxShadow: '0 8px 32px rgba(0,0,0,0.1)',
-              border: '1px solid rgba(255,255,255,0.2)'
-            }}
-            headStyle={{
-                background: '#1d4ed8',
-                color: 'white',
-                borderRadius: '16px 16px 0 0'
-              }}
+            style={{ height: "100%", borderRadius: 16, boxShadow: "0 1px 8px rgba(0,0,0,0.07)", border: "1px solid #e5e7eb" }}
           >
             <div style={{ padding: '20px' }}>
               <Steps
@@ -968,28 +848,15 @@ const ViewOrder = () => {
         <Col xs={24} lg={12}>
           <Card
             title={
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Avatar
-                  size={32}
-                  style={{ background: COLORS.accent.orange }}
-                  icon={<EnvironmentOutlined />}
-                />
-                <span style={{ fontWeight: 600 }}>Shipping Address</span>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <div style={{ width: 28, height: 28, borderRadius: 8, background: "#d97706", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <EnvironmentOutlined style={{ color: "#fff", fontSize: 13 }} />
+                </div>
+                <span style={{ fontWeight: 700, color: "#0f172a" }}>Shipping Address</span>
               </div>
             }
             size="small"
-            style={{
-              background: 'rgba(255, 255, 255, 0.95)',
-              backdropFilter: 'blur(20px)',
-              borderRadius: '16px',
-              boxShadow: '0 8px 32px rgba(0,0,0,0.1)',
-              border: '1px solid rgba(255,255,255,0.2)'
-            }}
-            headStyle={{
-                background: '#d97706',
-                color: 'white',
-                borderRadius: '16px 16px 0 0'
-              }}
+            style={{ borderRadius: 16, boxShadow: "0 1px 8px rgba(0,0,0,0.07)", border: "1px solid #e5e7eb" }}
           >
             {orderState?.shippingInfo ? (
               <div style={{ padding: '16px 0' }}>
@@ -1030,28 +897,15 @@ const ViewOrder = () => {
         <Col xs={24} lg={12}>
           <Card
             title={
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Avatar
-                  size={32}
-                  style={{ background: COLORS.secondary.main }}
-                  icon={<CreditCardOutlined />}
-                />
-                <span style={{ fontWeight: 600 }}>Payment Information</span>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <div style={{ width: 28, height: 28, borderRadius: 8, background: "#059669", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <CreditCardOutlined style={{ color: "#fff", fontSize: 13 }} />
+                </div>
+                <span style={{ fontWeight: 700, color: "#0f172a" }}>Payment Information</span>
               </div>
             }
             size="small"
-            style={{
-              background: 'rgba(255, 255, 255, 0.95)',
-              backdropFilter: 'blur(20px)',
-              borderRadius: '16px',
-              boxShadow: '0 8px 32px rgba(0,0,0,0.1)',
-              border: '1px solid rgba(255,255,255,0.2)'
-            }}
-            headStyle={{
-                background: '#059669',
-                color: 'white',
-                borderRadius: '16px 16px 0 0'
-              }}
+            style={{ borderRadius: 16, boxShadow: "0 1px 8px rgba(0,0,0,0.07)", border: "1px solid #e5e7eb" }}
           >
             <div style={{ padding: '16px 0' }}>
               <Row gutter={[16, 16]}>
@@ -1111,47 +965,26 @@ const ViewOrder = () => {
         </Col>
       </Row>
 
-      {/* Enhanced Product Table */}
+      {/* Order Items Table */}
       <Card
         title={
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Avatar
-              size={32}
-              style={{ background: COLORS.accent.purple }}
-              icon={<ShopOutlined />}
-            />
-            <span style={{ fontWeight: 600 }}>Order Items</span>
-            <Badge
-              count={orderState?.orderItems?.length || 0}
-              style={{
-                background: COLORS.primary.gradient,
-                boxShadow: `0 2px 8px rgba(26, 54, 93, 0.3)`
-              }}
-            />
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <div style={{ width: 28, height: 28, borderRadius: 8, background: "#7c3aed", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <ShopOutlined style={{ color: "#fff", fontSize: 13 }} />
+            </div>
+            <span style={{ fontWeight: 700, color: "#0f172a" }}>Order Items</span>
+            <Badge count={orderState?.orderItems?.length || 0} style={{ background: "#6366f1" }} />
           </div>
         }
         style={{
-          marginTop: '24px',
-          background: 'rgba(255, 255, 255, 0.95)',
-          backdropFilter: 'blur(20px)',
-          borderRadius: '16px',
-          boxShadow: '0 8px 32px rgba(0,0,0,0.1)',
-          border: '1px solid rgba(255,255,255,0.2)'
-        }}
-        headStyle={{
-          background: 'linear-gradient(135deg, #a8edea 0%, #fed6e3 100%)',
-          borderRadius: '16px 16px 0 0'
+          marginTop: 16, borderRadius: 16,
+          boxShadow: "0 1px 8px rgba(0,0,0,0.07)", border: "1px solid #e5e7eb",
         }}
         extra={
           <Button
             icon={<PrinterOutlined />}
             onClick={printBill}
-            style={{
-              borderRadius: '8px',
-              border: '2px solid #667eea',
-              color: '#667eea',
-              fontWeight: 600
-            }}
+            style={{ borderRadius: 8, border: "1.5px solid #6366f1", color: "#6366f1", fontWeight: 600 }}
           >
             Print Bill
           </Button>
@@ -1453,7 +1286,6 @@ const ViewOrder = () => {
           )}
         />
       </Card>
-    </div>
     </div>
   );
 };

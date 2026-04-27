@@ -135,123 +135,114 @@ const Orders = () => {
         const qty = item.quantity;
         const rate = item.price;
         const amt = qty * rate;
-        return `<tr style="border-bottom:1px solid #f0f0f0">
-          <td style="padding:10px 8px;color:#666;font-size:13px">${i+1}</td>
-          <td style="padding:10px 8px;font-size:13px;font-weight:600">${title}${item.isFreeItem ? ' <span style="background:#dcfce7;color:#15803d;font-size:10px;padding:2px 6px;border-radius:4px;font-weight:700">FREE</span>' : ""}</td>
-          <td style="padding:10px 8px;font-size:12px;color:#888;font-family:monospace">${hsn}</td>
-          <td style="padding:10px 8px;text-align:center;font-size:13px">${qty}</td>
-          <td style="padding:10px 8px;text-align:right;font-size:13px">${item.isFreeItem ? "FREE" : "₹"+rate.toFixed(2)}</td>
-          <td style="padding:10px 8px;text-align:right;font-size:13px;font-weight:700">${item.isFreeItem ? "FREE" : "₹"+amt.toFixed(2)}</td>
+        return `<tr>
+          <td style="color:#888">${i+1}</td>
+          <td><span style="font-weight:700;color:#131921;font-size:14px">${title}</span>${item.isFreeItem ? '<span style="display:inline-block;font-size:9px;font-weight:800;padding:2px 8px;border-radius:4px;margin-left:6px;background:#e6f4ea;color:#1a7340">FREE</span>' : ""}</td>
+          <td style="font-family:monospace;font-size:11px;color:#888">${hsn}</td>
+          <td style="text-align:center;font-weight:600">${qty}</td>
+          <td style="text-align:right;color:#565959">${item.isFreeItem ? "FREE" : "₹"+rate.toFixed(2)}</td>
+          <td style="text-align:right;font-weight:800;color:#131921">${item.isFreeItem ? "FREE" : "₹"+amt.toFixed(2)}</td>
         </tr>`;
       }).join("");
 
       const gstRows = gstTotal > 0 ? (taxIncluded
-        ? `<tr><td colspan="5" style="padding:6px 8px;color:#15803d;font-size:12px">✅ GST included in price</td><td style="padding:6px 8px;text-align:right;color:#15803d;font-size:12px">₹${gstTotal.toFixed(2)}</td></tr>`
+        ? `<div style="display:flex;justify-content:space-between;padding:6px 0;font-size:13px;color:#007600"><span>✅ GST (included in price)</span><span>₹${gstTotal.toFixed(2)}</span></div>`
         : (gstType === "CGST_SGST"
-          ? `<tr><td colspan="5" style="padding:6px 8px;color:#ea580c;font-size:12px">CGST (${cgstRate}%)</td><td style="padding:6px 8px;text-align:right;color:#ea580c;font-size:12px">+₹${cgst.toFixed(2)}</td></tr>
-             <tr><td colspan="5" style="padding:6px 8px;color:#ea580c;font-size:12px">SGST (${sgstRate}%)</td><td style="padding:6px 8px;text-align:right;color:#ea580c;font-size:12px">+₹${sgst.toFixed(2)}</td></tr>`
-          : `<tr><td colspan="5" style="padding:6px 8px;color:#ea580c;font-size:12px">IGST (${igstRate}%)</td><td style="padding:6px 8px;text-align:right;color:#ea580c;font-size:12px">+₹${igst.toFixed(2)}</td></tr>`)
+          ? `<div style="display:flex;justify-content:space-between;padding:6px 0;font-size:13px;color:#007600"><span>CGST (${cgstRate}%)</span><span>+₹${cgst.toFixed(2)}</span></div><div style="display:flex;justify-content:space-between;padding:6px 0;font-size:13px;color:#007600"><span>SGST (${sgstRate}%)</span><span>+₹${sgst.toFixed(2)}</span></div>`
+          : `<div style="display:flex;justify-content:space-between;padding:6px 0;font-size:13px;color:#007600"><span>IGST (${igstRate}%)</span><span>+₹${igst.toFixed(2)}</span></div>`)
       ) : "";
 
       const win = window.open("", "_blank");
       if (!win) return;
-      win.document.write(`<!DOCTYPE html><html><head><title>Invoice #${invoiceNum}</title>
+      win.document.write(`<!DOCTYPE html><html><head><title>Order #${invoiceNum}</title>
 <style>
-  * { margin:0; padding:0; box-sizing:border-box; }
-  body { font-family: 'Segoe UI', Arial, sans-serif; background:#f5f5f5; padding:20px; }
-  .page { max-width:720px; margin:0 auto; background:#fff; border-radius:12px; overflow:hidden; box-shadow:0 4px 20px rgba(0,0,0,0.1); }
-  @media print { body{background:#fff;padding:0} .page{box-shadow:none;border-radius:0} .no-print{display:none} }
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',Arial,sans-serif;background:#f0f2f5;padding:24px 16px}
+.wrap{max-width:720px;margin:0 auto}
+.brand-bar{background:#fff;border-radius:14px 14px 0 0;padding:18px 28px;display:flex;justify-content:space-between;align-items:center;border-bottom:3px solid #ff9900}
+.status-banner{padding:14px 28px;display:flex;align-items:center;gap:12px;border-bottom:1px solid #e7e7e7}
+.delivery-card{background:#fff8f0;border-left:4px solid #ff9900;padding:16px 28px;border-bottom:1px solid #e7e7e7}
+table{width:100%;border-collapse:collapse;background:#fff}
+thead tr{background:#f3f3f3;border-bottom:2px solid #e7e7e7}
+thead th{padding:11px 14px;font-size:11px;font-weight:700;color:#131921;letter-spacing:0.5px;text-transform:uppercase}
+tbody tr{border-bottom:1px solid #f3f3f3}
+tbody td{padding:14px 14px;font-size:13px;color:#333}
+.summary-box{background:#fff;padding:16px 28px 24px;border-top:1px solid #e7e7e7}
+.info-strip{background:#f3f3f3;padding:14px 28px;display:flex;gap:32px;border-top:1px solid #e7e7e7}
+.footer{background:#131921;padding:18px 28px;border-radius:0 0 14px 14px;text-align:center}
+.no-print{padding:16px 28px;text-align:center;background:#fff;border-top:1px solid #e7e7e7}
+@media print{body{background:#fff;padding:0}.wrap{max-width:100%}.no-print{display:none}.brand-bar,.footer{border-radius:0}}
 </style></head><body>
-<div class="page">
-  <!-- Header -->
-  <div style="background:linear-gradient(135deg,#1a1a2e,#16213e);color:#fff;padding:28px 32px;display:flex;justify-content:space-between;align-items:flex-start">
+<div class="wrap">
+  <div class="brand-bar">
     <div>
-      <div style="font-size:26px;font-weight:900;letter-spacing:-0.5px">${storeName}</div>
-      ${storeAddress ? `<div style="font-size:12px;color:#94a3b8;margin-top:4px;max-width:280px">${storeAddress}</div>` : ""}
-      ${storePhone ? `<div style="font-size:12px;color:#94a3b8;margin-top:2px">📞 ${storePhone}</div>` : ""}
-      ${gstin ? `<div style="font-size:11px;color:#64748b;margin-top:4px;font-family:monospace">GSTIN: ${gstin}</div>` : ""}
+      <div style="font-size:22px;font-weight:900;color:#131921">🛍️ ${storeName}</div>
+      <div style="font-size:11px;color:#565959;margin-top:2px">Order Invoice</div>
     </div>
     <div style="text-align:right">
-      <div style="font-size:22px;font-weight:900;color:#818cf8;letter-spacing:1px">INVOICE</div>
-      <div style="font-size:14px;color:#94a3b8;margin-top:4px;font-family:monospace">#${invoiceNum}</div>
-      <div style="font-size:12px;color:#64748b;margin-top:2px">${dateStr}</div>
-      <div style="margin-top:8px;background:${order.orderStatus==="Delivered"?"#059669":order.orderStatus==="Cancelled"?"#dc2626":"#d97706"};color:#fff;padding:4px 12px;border-radius:20px;font-size:11px;font-weight:700;display:inline-block">${order.orderStatus}</div>
+      <div style="font-size:13px;font-weight:700;color:#131921;font-family:monospace">Order #${invoiceNum}</div>
+      <div style="font-size:12px;color:#565959;margin-top:2px">📅 ${dateStr}</div>
     </div>
   </div>
 
-  <!-- Bill To / Ship To -->
-  <div style="display:flex;gap:0;border-bottom:1px solid #f0f0f0">
-    <div style="flex:1;padding:20px 32px;border-right:1px solid #f0f0f0">
-      <div style="font-size:11px;font-weight:700;color:#6366f1;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">Bill To</div>
-      <div style="font-weight:700;font-size:15px;color:#0f172a">${customerName}</div>
-      ${order.user?.mobile ? `<div style="font-size:13px;color:#64748b;margin-top:4px">📞 ${order.user.mobile}</div>` : ""}
-      ${order.user?.email ? `<div style="font-size:12px;color:#94a3b8;margin-top:2px">${order.user.email}</div>` : ""}
-    </div>
-    <div style="flex:1;padding:20px 32px">
-      <div style="font-size:11px;font-weight:700;color:#10b981;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">Ship To</div>
-      <div style="font-size:13px;color:#374151;line-height:1.6">${shippingAddr}</div>
-    </div>
-  </div>
-
-  ${pickup ? `
-  <!-- Pickup / Seller Address -->
-  <div style="background:#f8fafc;padding:14px 32px;border-bottom:1px solid #f0f0f0;display:flex;align-items:center;gap:12px">
-    <div style="font-size:11px;font-weight:700;color:#f59e0b;text-transform:uppercase;letter-spacing:1px;white-space:nowrap">Pickup From</div>
-    <div style="font-size:12px;color:#64748b">${pickup.name} — ${pickup.address}${pickup.address2 ? ", "+pickup.address2 : ""}, ${pickup.city}, ${pickup.state} - ${pickup.pincode}${pickup.phone ? " | 📞 "+pickup.phone : ""}</div>
-  </div>` : ""}
-
-  <!-- Items Table -->
-  <div style="padding:0 32px">
-    <table style="width:100%;border-collapse:collapse;margin-top:20px">
-      <thead>
-        <tr style="background:#0f172a;color:#e2e8f0">
-          <th style="padding:12px 8px;text-align:left;font-size:11px;font-weight:700;letter-spacing:0.5px;border-radius:0">#</th>
-          <th style="padding:12px 8px;text-align:left;font-size:11px;font-weight:700;letter-spacing:0.5px">ITEM</th>
-          <th style="padding:12px 8px;text-align:left;font-size:11px;font-weight:700;letter-spacing:0.5px">HSN</th>
-          <th style="padding:12px 8px;text-align:center;font-size:11px;font-weight:700;letter-spacing:0.5px">QTY</th>
-          <th style="padding:12px 8px;text-align:right;font-size:11px;font-weight:700;letter-spacing:0.5px">RATE</th>
-          <th style="padding:12px 8px;text-align:right;font-size:11px;font-weight:700;letter-spacing:0.5px">AMOUNT</th>
-        </tr>
-      </thead>
-      <tbody>${itemRows}</tbody>
-    </table>
-  </div>
-
-  <!-- Totals -->
-  <div style="padding:16px 32px 28px">
-    <table style="width:100%;border-collapse:collapse;margin-left:auto;max-width:320px">
-      <tr><td style="padding:6px 8px;color:#64748b;font-size:13px">Subtotal</td><td style="padding:6px 8px;text-align:right;font-size:13px">₹${subtotal.toFixed(2)}</td></tr>
-      ${shipping > 0 ? `<tr><td style="padding:6px 8px;color:#64748b;font-size:13px">🚚 Shipping</td><td style="padding:6px 8px;text-align:right;font-size:13px">₹${shipping.toFixed(2)}</td></tr>` : (order.mode !== "OFFLINE" ? `<tr><td style="padding:6px 8px;color:#16a34a;font-size:13px">🚚 Shipping</td><td style="padding:6px 8px;text-align:right;color:#16a34a;font-size:13px">Free</td></tr>` : "")}
-      ${breakdown.directDiscount > 0 ? `<tr><td style="padding:6px 8px;color:#16a34a;font-size:13px">🏷️ Direct Discount</td><td style="padding:6px 8px;text-align:right;color:#16a34a;font-size:13px">-₹${breakdown.directDiscount.toFixed(2)}</td></tr>` : ""}
-      ${breakdown.offerDiscount > 0 ? `<tr><td style="padding:6px 8px;color:#f59e0b;font-size:13px">🎁 Offer Discount</td><td style="padding:6px 8px;text-align:right;color:#f59e0b;font-size:13px">-₹${breakdown.offerDiscount.toFixed(2)}</td></tr>` : ""}
-      ${breakdown.coinDiscount > 0 ? `<tr><td style="padding:6px 8px;color:#7c3aed;font-size:13px">🪙 Coin Discount</td><td style="padding:6px 8px;text-align:right;color:#7c3aed;font-size:13px">-₹${breakdown.coinDiscount.toFixed(2)}</td></tr>` : (discount > 0 && !breakdown.directDiscount && !breakdown.offerDiscount ? `<tr><td style="padding:6px 8px;color:#16a34a;font-size:13px">💰 Discount</td><td style="padding:6px 8px;text-align:right;color:#16a34a;font-size:13px">-₹${discount.toFixed(2)}</td></tr>` : "")}
-      ${gstRows}
-      <tr style="border-top:2px solid #0f172a">
-        <td style="padding:12px 8px;font-size:17px;font-weight:900;color:#0f172a">TOTAL</td>
-        <td style="padding:12px 8px;text-align:right;font-size:17px;font-weight:900;color:#6366f1">₹${finalTotal.toFixed(2)}</td>
-      </tr>
-    </table>
-  </div>
-
-  <!-- Payment Info -->
-  <div style="background:#f8fafc;padding:16px 32px;border-top:1px solid #f0f0f0;display:flex;justify-content:space-between;align-items:center">
+  <div class="status-banner" style="background:${order.orderStatus==='Delivered'?'#f0fdf4':order.orderStatus==='Cancelled'?'#fef2f2':'#fffbeb'}">
+    <div style="width:12px;height:12px;border-radius:50%;background:${order.orderStatus==='Delivered'?'#22c55e':order.orderStatus==='Cancelled'?'#ef4444':'#f59e0b'};flex-shrink:0"></div>
     <div>
-      <span style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:1px">Payment</span>
-      <span style="margin-left:10px;font-size:13px;font-weight:700;color:${order.paymentInfo?.razorpayPaymentId && order.paymentInfo.razorpayPaymentId !== "OFFLINE" ? "#059669" : "#d97706"}">
-        ${order.paymentInfo?.razorpayPaymentId && order.paymentInfo.razorpayPaymentId !== "OFFLINE" ? "✅ Paid Online" : order.mode === "OFFLINE" && order.paymentDestination === "CASH" ? "💵 Cash" : "🏦 Online Transfer"}
-      </span>
+      <div style="font-size:14px;font-weight:700;color:${order.orderStatus==='Delivered'?'#15803d':order.orderStatus==='Cancelled'?'#dc2626':'#92400e'}">${order.orderStatus==='Delivered'?'✅ Delivered':order.orderStatus==='Cancelled'?'❌ Cancelled':'📦 '+order.orderStatus}</div>
+      <div style="font-size:12px;color:#565959;margin-top:1px">Order placed on ${dateStr}</div>
     </div>
-    ${order.trackingId && order.trackingId !== "—" ? `<div style="font-size:12px;color:#6366f1">🚚 Tracking: <strong>${order.trackingId}</strong>${order.courierName ? " via "+order.courierName : ""}</div>` : ""}
+    ${order.trackingId && order.trackingId !== '—' ? `<div style="margin-left:auto;font-size:12px;color:#4f46e5;font-weight:700">🚚 ${order.trackingId}${order.courierName && order.courierName !== '—' ? ' · '+order.courierName : ''}</div>` : ""}
   </div>
 
-  <!-- Footer -->
-  <div style="padding:16px 32px;text-align:center;border-top:1px solid #f0f0f0">
-    <div style="font-size:12px;color:#94a3b8">Thank you for shopping with <strong>${storeName}</strong> 🛍️</div>
-    <div style="font-size:11px;color:#cbd5e1;margin-top:4px">This is a computer-generated invoice. No signature required.</div>
+  <div class="delivery-card">
+    <div style="font-size:10px;font-weight:800;color:#ff9900;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:6px">📍 Delivery Address</div>
+    <div style="font-size:15px;font-weight:700;color:#131921">${customerName}</div>
+    <div style="font-size:13px;color:#565959;margin-top:4px;line-height:1.6">${shippingAddr}</div>
+    ${order.user?.mobile ? `<div style="font-size:12px;color:#565959;margin-top:4px">📞 ${order.user.mobile}</div>` : ""}
   </div>
 
-  <div class="no-print" style="padding:16px 32px;text-align:center;background:#f8fafc">
-    <button onclick="window.print()" style="background:#6366f1;color:#fff;border:none;padding:10px 32px;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer">🖨️ Print Invoice</button>
+  <div style="background:#fff;padding:14px 28px 0">
+    <div style="font-size:11px;font-weight:800;color:#565959;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:12px">Items Ordered</div>
+  </div>
+  <table>
+    <thead><tr>
+      <th style="text-align:left;width:40px">#</th>
+      <th style="text-align:left">Product</th>
+      <th style="text-align:left;width:70px">HSN</th>
+      <th style="text-align:center;width:50px">Qty</th>
+      <th style="text-align:right;width:80px">Rate</th>
+      <th style="text-align:right;width:90px">Amount</th>
+    </tr></thead>
+    <tbody>${itemRows}</tbody>
+  </table>
+
+  <div class="summary-box">
+    <div style="font-size:11px;font-weight:800;color:#565959;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:10px">Price Details</div>
+    <div style="display:flex;justify-content:space-between;padding:6px 0;font-size:13px;color:#333"><span>Subtotal (${order.orderItems.length} item${order.orderItems.length>1?'s':''})</span><span>₹${subtotal.toFixed(2)}</span></div>
+    ${shipping > 0 ? `<div style="display:flex;justify-content:space-between;padding:6px 0;font-size:13px;color:#007600"><span>🚚 Delivery Charges</span><span>+₹${shipping.toFixed(2)}</span></div>` : `<div style="display:flex;justify-content:space-between;padding:6px 0;font-size:13px;color:#007600"><span>🚚 Delivery Charges</span><span style="font-weight:700">FREE</span></div>`}
+    ${breakdown.directDiscount > 0 ? `<div style="display:flex;justify-content:space-between;padding:6px 0;font-size:13px;color:#b12704"><span>🏷️ Direct Discount</span><span>-₹${breakdown.directDiscount.toFixed(2)}</span></div>` : ""}
+    ${breakdown.offerDiscount > 0 ? `<div style="display:flex;justify-content:space-between;padding:6px 0;font-size:13px;color:#b12704"><span>🎁 Offer Discount</span><span>-₹${breakdown.offerDiscount.toFixed(2)}</span></div>` : ""}
+    ${breakdown.coinDiscount > 0 ? `<div style="display:flex;justify-content:space-between;padding:6px 0;font-size:13px;color:#7c3aed"><span>🪙 Coin Discount</span><span>-₹${breakdown.coinDiscount.toFixed(2)}</span></div>` : (discount > 0 && !breakdown.directDiscount && !breakdown.offerDiscount ? `<div style="display:flex;justify-content:space-between;padding:6px 0;font-size:13px;color:#b12704"><span>💰 Discount</span><span>-₹${discount.toFixed(2)}</span></div>` : "")}
+    ${gstRows}
+    <div style="display:flex;justify-content:space-between;border-top:2px solid #131921;margin-top:8px;padding-top:12px;font-size:17px;font-weight:900;color:#131921"><span>Total Amount</span><span>₹${finalTotal.toFixed(2)}</span></div>
+  </div>
+
+  <div class="info-strip">
+    <div>
+      <div style="font-size:10px;font-weight:700;color:#565959;text-transform:uppercase;letter-spacing:1px">Payment</div>
+      <div style="font-size:13px;font-weight:700;color:#131921;margin-top:3px">${order.paymentDestination === "CASH" ? "💵 Cash on Delivery" : order.paymentDestination === "OTHER_ACCOUNT" ? "🏦 Online (Other)" : "💳 Online Payment"}</div>
+    </div>
+    ${order.paymentInfo?.razorpayPaymentId ? `<div><div style="font-size:10px;font-weight:700;color:#565959;text-transform:uppercase;letter-spacing:1px">Transaction ID</div><div style="font-size:11px;font-weight:700;color:#131921;font-family:monospace;margin-top:3px">${order.paymentInfo.razorpayPaymentId}</div></div>` : ""}
+    ${order.trackingId && order.trackingId !== '—' ? `<div><div style="font-size:10px;font-weight:700;color:#565959;text-transform:uppercase;letter-spacing:1px">Tracking</div><div style="font-size:13px;font-weight:700;color:#131921;margin-top:3px">${order.trackingId}${order.courierName && order.courierName !== '—' ? ' · '+order.courierName : ''}</div></div>` : ""}
+  </div>
+
+  <div class="footer">
+    <div style="font-size:13px;color:#ddd;font-weight:600">🙏 Thank you for shopping with <strong>${storeName}</strong>!</div>
+    <div style="font-size:11px;color:#888;margin-top:4px">Computer-generated invoice · No signature required</div>
+  </div>
+
+  <div class="no-print">
+    <button onclick="window.print()" style="background:#ff9900;color:#131921;border:none;padding:11px 36px;border-radius:8px;font-size:14px;font-weight:800;cursor:pointer">🖨️ Print Invoice</button>
   </div>
 </div>
 </body></html>`);

@@ -144,6 +144,8 @@ export const productSlice = createSlice({
         state.seo = action.payload.seo || {};
         state.shipping = action.payload.shipping || {};
         state.reelUrl = action.payload.reelUrl || "";
+        state.purchasePrice = action.payload.purchasePrice ?? "";
+        state.pkey = action.payload.pkey ?? "";
       })
       .addCase(getAProduct.rejected, (state, action) => {
         state.isLoading = false;

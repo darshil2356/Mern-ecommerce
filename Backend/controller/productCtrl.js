@@ -63,6 +63,20 @@ const attachOffersToProduct = async (productId, category) => {
   }).select("title description offerType buyQty getFreeQty fixedPrice discountAmount discountPercent minQty").lean();
 };
 
+// NON_GST chars at pos[5]: B D F H J  |  GST chars: K M R T W
+const NON_GST_CHARS = ["B", "D", "F", "H", "J"];
+const generatePkey = async () => {
+  const rand2Letters = () => String.fromCharCode(65 + Math.floor(Math.random() * 26)) + String.fromCharCode(65 + Math.floor(Math.random() * 26));
+  const rand3Digits = () => String(Math.floor(100 + Math.random() * 900));
+  const hiddenChar = NON_GST_CHARS[Math.floor(Math.random() * NON_GST_CHARS.length)];
+  let pkey, exists;
+  do {
+    pkey = `${rand2Letters()}${rand3Digits()}${hiddenChar}${rand3Digits()}`;
+    exists = await Product.findOne({ pkey });
+  } while (exists);
+  return pkey;
+};
+
 // Helper function to generate unique barcode
 const generateUniqueBarcode = async (prefix = "PRD") => {
   let barcode;
@@ -181,6 +195,11 @@ const createProduct = asyncHandler(async (req, res) => {
     // Generate unique main barcode using UUID
     product.barcode = await generateUniqueBarcode("PRD");
 
+    // Auto-generate pkey if not provided (default = non-GST)
+    if (!product.pkey) {
+      product.pkey = await generatePkey();
+    }
+
     // Generate unique barcodes for each size in top-level sizeStock
     if (product.sizeStock && product.sizeStock.length > 0) {
       for (let i = 0; i < product.sizeStock.length; i++) {
@@ -255,6 +274,10 @@ const updateProduct = asyncHandler(async (req, res) => {
 
   // Don't allow manual barcode updates from frontend
   const { barcode, ...safeBody } = req.body;
+
+  // Preserve purchasePrice and pkey if provided
+  if (req.body.purchasePrice !== undefined) safeBody.purchasePrice = req.body.purchasePrice;
+  if (req.body.pkey !== undefined) safeBody.pkey = req.body.pkey;
 
   if (safeBody.inventory) {
     safeBody.inventory = {

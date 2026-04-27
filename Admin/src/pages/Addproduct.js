@@ -90,6 +90,14 @@ const Addproduct = () => {
   const [selectedBarcodeTitle, setSelectedBarcodeTitle] = useState("");
   const [quickAddModal, setQuickAddModal] = useState(null); // "color" | "brand" | "category" | null
   const generatedBarcodesRef = useRef(new Set());
+  const clientPkeyRef = useRef("");
+  if (!clientPkeyRef.current) {
+    const NON_GST_CHARS = ["B", "D", "F", "H", "J"];
+    const randLetter = () => String.fromCharCode(65 + Math.floor(Math.random() * 26));
+    const rand3 = () => String(Math.floor(100 + Math.random() * 900));
+    const hidden = NON_GST_CHARS[Math.floor(Math.random() * NON_GST_CHARS.length)];
+    clientPkeyRef.current = `${randLetter()}${randLetter()}${rand3()}${hidden}${rand3()}`;
+  }
 
   // Client-side preview barcode generator: PRD-XXXXXXXX (8 uppercase hex chars)
   const generateClientBarcode = (takenBarcodes = []) => {
@@ -168,6 +176,8 @@ const Addproduct = () => {
     seo: productSeo,
     shipping: productShipping,
     reelUrl: productReelUrl,
+    purchasePrice: productPurchasePrice,
+    pkey: productPkey,
   } = newProduct;
 
   const videoState = useSelector((state) => state?.upload?.videos);
@@ -263,6 +273,8 @@ const Addproduct = () => {
       images: productImages || "",
       videos: productVideos || [],
       reelUrl: productReelUrl || "",
+      purchasePrice: productPurchasePrice || "",
+      pkey: productPkey || clientPkeyRef.current,
     },
     validationSchema: schema,
     onSubmit: async (values) => {
@@ -703,6 +715,33 @@ const Addproduct = () => {
                   value={formik.values.discount_percentage} onChange={formik.handleChange("discount_percentage")}
                   style={{ borderRadius: "8px" }}
                 />
+              </div>
+              <div className="col-md-4">
+                <label className="fw-medium mb-2 d-block" style={{ color: "#1a1a1a" }}>Purchase Price</label>
+                <Input size="large" type="number" prefix="₹" placeholder="Cost price" name="purchasePrice"
+                  value={formik.values.purchasePrice} onChange={formik.handleChange("purchasePrice")}
+                  style={{ borderRadius: "8px" }}
+                />
+              </div>
+              <div className="col-md-8">
+                <label className="fw-medium mb-2 d-block" style={{ color: "#1a1a1a" }}>Product Key</label>
+                <Input
+                  size="large"
+                  placeholder="Auto-generated"
+                  name="pkey"
+                  value={formik.values.pkey}
+                  onChange={formik.handleChange("pkey")}
+                  style={{ borderRadius: "8px", fontFamily: "monospace", letterSpacing: "2px" }}
+                />
+                {formik.values.pkey && (
+                  <span style={{ fontSize: "11px", color: "#aaa", marginTop: "4px", display: "block" }}>
+                    {["K","M","R","T","W"].includes(formik.values.pkey[5])
+                      ? "✓ G"
+                      : ["B","D","F","H","J"].includes(formik.values.pkey[5])
+                      ? "✓ N"
+                      : "⚠️ invalid pos[5]"}
+                  </span>
+                )}
               </div>
             </div>
           </Card>

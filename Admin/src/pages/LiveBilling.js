@@ -185,10 +185,50 @@ const LiveBilling = () => {
     return gstType === "IGST" ? igstAmount : cgstAmount + sgstAmount;
   }, [gstType, igstAmount, cgstAmount, sgstAmount]);
 
+  // Active product-level offers from Offer model
+  const [activeOffers, setActiveOffers] = useState([]);
+
+  useEffect(() => {
+    axios.get(`${base_url}offers/active`, config)
+      .then(res => setActiveOffers(res.data || []))
+      .catch(() => {});
+  }, []);
+
+  // Compute best Offer-model discount for the current cart
+  const offerModelDiscount = useMemo(() => {
+    if (!activeOffers.length || !Object.keys(cart).length) return 0;
+    let total = 0;
+    Object.entries(cart).forEach(([barcode, item]) => {
+      let best = 0;
+      for (const offer of activeOffers) {
+        const appliesToAll = (!offer.applicableProducts?.length && !offer.applicableCategories?.length);
+        if (!appliesToAll) continue;
+        let saving = 0;
+        if (offer.offerType === "FLAT_OFF") {
+          saving = Math.min(offer.discountAmount || 0, item.price) * item.qty;
+        } else if (offer.offerType === "PERCENT_OFF") {
+          saving = (item.price * (offer.discountPercent || 0) / 100) * item.qty;
+        } else if (offer.offerType === "BUY_X_FOR_PRICE" && item.qty >= (offer.buyQty || 1)) {
+          const sets = Math.floor(item.qty / offer.buyQty);
+          const rem = item.qty % offer.buyQty;
+          saving = (item.price * item.qty) - (sets * offer.fixedPrice + rem * item.price);
+        } else if (offer.offerType === "MIN_QTY_DISCOUNT" && item.qty >= (offer.minQty || 1)) {
+          saving = (item.price * (offer.discountPercent || 0) / 100) * item.qty;
+        } else if (offer.offerType === "BUY_X_GET_Y_FREE" && item.qty >= (offer.buyQty || 1)) {
+          const sets = Math.floor(item.qty / offer.buyQty);
+          saving = sets * (offer.getFreeQty || 0) * item.price;
+        }
+        if (saving > best) best = saving;
+      }
+      total += best;
+    });
+    return Math.min(total, grandTotal);
+  }, [activeOffers, cart, grandTotal]);
+
   // Discount is always on grandTotal (subtotal)
   const discountAmount = useMemo(
-    () => (grandTotal * discountPercent) / 100 + appliedOfferAmount,
-    [grandTotal, discountPercent, appliedOfferAmount]
+    () => (grandTotal * discountPercent) / 100 + appliedOfferAmount + offerModelDiscount,
+    [grandTotal, discountPercent, appliedOfferAmount, offerModelDiscount]
   );
 
   const coinDiscountAmount = useMemo(() => {
@@ -684,6 +724,7 @@ const LiveBilling = () => {
     }
   }, [customer.contact]);
 
+  // Fetch active product-level offers from Offer model (Issue 11)
   // Apply offer to current bill
   const applyOffer = () => {
     if (!customerOffer.hasOffer || grandTotal === 0) return;
@@ -693,13 +734,20 @@ const LiveBilling = () => {
     } else if (customerOffer.offerType === "flat") {
       offerAmt = Math.min(customerOffer.offerDiscount, grandTotal);
     } else if (customerOffer.offerType === "free_product") {
-      // Free product — no monetary discount, admin handles manually
+      // Free product — enforce as a flat discount equal to the cheapest item in cart
+      const prices = Object.values(cart).map(i => i.price);
+      if (!prices.length) return;
+      const cheapest = Math.min(...prices);
+      offerAmt = cheapest;
       Swal.fire({
-        icon: 'info',
-        title: 'Free Product Offer',
-        text: 'This customer has a FREE PRODUCT reward from the spin wheel. Please add the free product to the cart manually.',
+        icon: 'success',
+        title: 'Free Product Applied!',
+        text: `Cheapest item (₹${cheapest.toFixed(2)}) discounted as free product reward.`,
         confirmButtonColor: '#d4af37',
+        timer: 2500,
+        showConfirmButton: false,
       });
+      setAppliedOfferAmount(offerAmt);
       return;
     }
     setAppliedOfferAmount(offerAmt);
@@ -718,9 +766,7 @@ const LiveBilling = () => {
   // Handle spin wheel result — called ONLY when user clicks "Claim & Continue" or closes after result
   const handleSpinComplete = async (offer) => {
     setShowSpinWheel(false);
-    if (!isProcessingSaleRef.current) {
-      await finalizeSale();
-    }
+    await finalizeSale();
   };
 
   // Handle complete sale with spin wheel logic
@@ -925,7 +971,7 @@ const LiveBilling = () => {
           items,
           taxPercent: cgstPercent + sgstPercent + igstPercent,
           discount: discountAmount,
-          offerDiscount: appliedOfferAmount,
+          offerDiscount: appliedOfferAmount + offerModelDiscount,
           total: payableAmount,
           paymentMethod: paymentMethod === "CASH" ? "CASH" : "ONLINE",
           paymentDestination: paymentMethod === "CASH" ? "CASH" : paymentDestination,
@@ -1027,7 +1073,7 @@ const LiveBilling = () => {
   };
 
   /* =========================
-     PRINT BILL - Premium Design (same as PrintBillButton)
+     PRINT BILL
      ========================= */
   const printBill = (
     cartData = cart,
@@ -1041,7 +1087,9 @@ const LiveBilling = () => {
     discountAmt = discountAmount,
     subtotalAmt = grandTotal,
     coinDiscountAmt = coinDiscountAmount,
-    coinsUsedAmt = coinAmount
+    coinsUsedAmt = coinAmount,
+    activePaymentMethod = paymentMethod,
+    activePaymentDestination = paymentDestination
   ) => {
     const activeCart = cartData;
     const activeCustomer = customerData;
@@ -1055,24 +1103,29 @@ const LiveBilling = () => {
     const activeSubtotal = subtotalAmt;
     const activeCoinDiscount = coinDiscountAmt;
     const activeCoinsUsed = coinsUsedAmt || coinDiscountAmt;
-    const activeTotalDiscount = activeDiscount + activeCoinDiscount;
 
     if (!Object.keys(activeCart).length) {
-      Swal.fire({
-        icon: 'warning',
-        title: 'Cart is Empty',
-        text: 'Please add items to the cart before printing.',
-        confirmButtonColor: '#d4af37',
-      });
+      Swal.fire({ icon: 'warning', title: 'Cart is Empty', text: 'Please add items to the cart before printing.', confirmButtonColor: '#d4af37' });
       return;
     }
 
-    // Generate invoice number
-    const invoiceNum = () => {
-      const date = new Date();
-      const random = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
-      return `INV-${date.getFullYear()}${(date.getMonth()+1).toString().padStart(2, '0')}${date.getDate().toString().padStart(2, '0')}-${random}`;
-    };
+    const invoiceNo = (() => {
+      const d = new Date();
+      const r = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
+      return `INV-${d.getFullYear()}${(d.getMonth()+1).toString().padStart(2,'0')}${d.getDate().toString().padStart(2,'0')}-${r}`;
+    })();
+
+    const payLabel = activePaymentMethod === "CASH" || activePaymentDestination === "CASH"
+      ? "💵 Cash"
+      : activePaymentDestination === "OTHER_ACCOUNT"
+      ? "🏦 Online (Other Account)"
+      : "💳 Online (Current Account)";
+
+    const payColor = activePaymentMethod === "CASH" || activePaymentDestination === "CASH"
+      ? "#d97706"
+      : activePaymentDestination === "OTHER_ACCOUNT"
+      ? "#7c3aed"
+      : "#059669";
 
     const win = window.open("", "_blank");
     if (!win) return;
@@ -1081,202 +1134,110 @@ const LiveBilling = () => {
     const dateStr = now.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
     const timeStr = now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
 
-    // Helper function to convert number to words
-    const numberToWords = (num) => {
-      const a = ['','One ','Two ','Three ','Four ','Five ','Six ','Seven ','Eight ','Nine ','Ten ','Eleven ','Twelve ','Thirteen ','Fourteen ','Fifteen ','Sixteen ','Seventeen ','Eighteen ','Nineteen '];
-      const b = ['', '', 'Twenty','Thirty','Forty','Fifty','Sixty','Seventy','Eighty','Ninety'];
+    const gstTotal = activeCgst + activeSgst + activeIgst;
 
-      const numToWords = (n) => {
-        if ((n = n.toString()).length > 9) return 'overflow';
-        let n_zero = ('000000000' + n).substr(-9);
-        let n1 = n_zero.substr(0, 2), n2 = n_zero.substr(2, 2), n3 = n_zero.substr(4, 2), n4 = n_zero.substr(6, 2), n5 = n_zero.substr(8, 2);
-        let res = '';
-        res += (n1 != 0) ? (a[Number(n1)] || b[n1[0]] + ' ' + a[n1[1]]) + 'Crore ' : '';
-        res += (n2 != 0) ? (a[Number(n2)] || b[n2[0]] + ' ' + a[n2[1]]) + 'Lakh ' : '';
-        res += (n3 != 0) ? (a[Number(n3)] || b[n3[0]] + ' ' + a[n3[1]]) + 'Thousand ' : '';
-        res += (n4 != 0) ? (a[Number(n4)] || b[n4[0]] + ' ' + a[n4[1]]) + 'Hundred ' : '';
-        res += (n5 != 0) ? ((res != '') ? 'and ' : '') + (a[Number(n5)] || b[n5[0]] + ' ' + a[n5[1]]) : '';
-        return res;
-      };
+    const itemRows = Object.values(activeCart).map((item, i) =>
+      `<tr style="border-bottom:1px solid #f0f0f0">
+        <td style="padding:10px 8px;color:#666;font-size:13px">${i+1}</td>
+        <td style="padding:10px 8px;font-size:13px;font-weight:600">${item.name}</td>
+        <td style="padding:10px 8px;font-size:12px;color:#888;font-family:monospace">-</td>
+        <td style="padding:10px 8px;text-align:center;font-size:13px">${item.qty}</td>
+        <td style="padding:10px 8px;text-align:right;font-size:13px">₹${item.price.toFixed(2)}</td>
+        <td style="padding:10px 8px;text-align:right;font-size:13px;font-weight:700">₹${(item.qty * item.price).toFixed(2)}</td>
+      </tr>`
+    ).join("");
 
-      if (num <= 0) return 'Zero';
-      return numToWords(Math.floor(num));
-    };
+    const gstRows = gstTotal > 0
+      ? (activeGstType === "IGST"
+        ? `<tr><td colspan="5" style="padding:6px 8px;color:#15803d;font-size:12px">✅ IGST (${igstPercent}%) — included in price</td><td style="padding:6px 8px;text-align:right;color:#15803d;font-size:12px">₹${activeIgst.toFixed(2)}</td></tr>`
+        : `<tr><td colspan="5" style="padding:6px 8px;color:#15803d;font-size:12px">✅ CGST (${cgstPercent}%) — included in price</td><td style="padding:6px 8px;text-align:right;color:#15803d;font-size:12px">₹${activeCgst.toFixed(2)}</td></tr>
+           <tr><td colspan="5" style="padding:6px 8px;color:#15803d;font-size:12px">✅ SGST (${sgstPercent}%) — included in price</td><td style="padding:6px 8px;text-align:right;color:#15803d;font-size:12px">₹${activeSgst.toFixed(2)}</td></tr>`)
+      : "";
 
-    win.document.write(`
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <title>Invoice - ${invoiceNum()}</title>
-          <script src="https://cdn.tailwindcss.com"></script>
-          <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-          <style>
-            * { font-family: 'Inter', 'Segoe UI', sans-serif; }
-            @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
-          </style>
-        </head>
-        <body class="bg-gray-50 p-4">
-          <div class="max-w-3xl mx-auto bg-white rounded-xl shadow-lg overflow-hidden">
-            
-            <!-- Premium Header -->
-            <div class="bg-gradient-to-r from-blue-900 via-blue-800 to-blue-700 text-white p-6">
-              <div class="flex justify-between items-start">
-                <div>
-                  <div class="flex items-center gap-3 mb-2">
-                    <div class="w-12 h-12 bg-white/20 rounded-lg flex items-center justify-center">
-                      <svg xmlns="http://www.w3.org/2000/svg" class="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-                      </svg>
-                    </div>
-                    <div>
-                      <h1 class="text-2xl font-bold tracking-tight">${storeName}</h1>
-                      <p class="text-blue-200 text-xs">${storeTagline}</p>
-                    </div>
-                  </div>
-                </div>
-                <div class="text-right">
-                  <div class="bg-white/20 px-4 py-2 rounded-lg inline-block">
-                    <span class="text-xs text-blue-200 block">INVOICE</span>
-                    <span class="text-xl font-bold">${invoiceNum()}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
+    const discountRows = [
+      activeDiscount > 0 ? `<tr><td style="padding:6px 8px;color:#16a34a;font-size:13px">💰 Discount</td><td style="padding:6px 8px;text-align:right;color:#16a34a;font-size:13px">-₹${activeDiscount.toFixed(2)}</td></tr>` : "",
+      activeCoinDiscount > 0 ? `<tr><td style="padding:6px 8px;color:#7c3aed;font-size:13px">🪙 Coin Discount (${activeCoinsUsed} coins)</td><td style="padding:6px 8px;text-align:right;color:#7c3aed;font-size:13px">-₹${activeCoinDiscount.toFixed(2)}</td></tr>` : "",
+    ].join("");
 
-            <!-- Invoice Meta Info -->
-            <div class="bg-gray-50 px-6 py-4 flex justify-between items-center border-b">
-              <div>
-                <p class="text-xs text-gray-500 uppercase tracking-wide">Bill To</p>
-                <p class="font-semibold text-gray-800">${activeCustomer.name || "Walk-in Customer"}</p>
-                <p class="text-sm text-gray-600">${activeCustomer.address || "N/A"}</p>
-                ${activeCustomer.contact ? `<p class="text-sm text-gray-600">📞 ${activeCustomer.contact}</p>` : ''}
-                ${activeGstin ? `<p class="text-sm text-gray-600 font-medium">GSTIN: ${activeGstin}</p>` : ''}
-              </div>
-              <div class="text-right">
-                <p class="text-sm text-gray-600"><span class="text-gray-500">Date:</span> ${dateStr}</p>
-                <p class="text-sm text-gray-600"><span class="text-gray-500">Time:</span> ${timeStr}</p>
-                <p class="text-sm text-gray-600"><span class="text-gray-500">Payment:</span> <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">CASH</span></p>
-              </div>
-            </div>
+    win.document.write(`<!DOCTYPE html><html><head><title>Invoice #${invoiceNo}</title>
+<style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:'Segoe UI',Arial,sans-serif;background:#f5f5f5;padding:20px}.page{max-width:720px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.1)}@media print{body{background:#fff;padding:0}.page{box-shadow:none;border-radius:0}.no-print{display:none}}</style>
+</head><body>
+<div class="page">
+  <div style="background:linear-gradient(135deg,#1a1a2e,#16213e);color:#fff;padding:28px 32px;display:flex;justify-content:space-between;align-items:flex-start">
+    <div>
+      <div style="font-size:26px;font-weight:900;letter-spacing:-0.5px">${storeName}</div>
+      <div style="font-size:12px;color:#94a3b8;margin-top:4px">${storeTagline}</div>
+      ${activeGstin ? `<div style="font-size:11px;color:#64748b;margin-top:4px;font-family:monospace">GSTIN: ${activeGstin}</div>` : ""}
+    </div>
+    <div style="text-align:right">
+      <div style="font-size:22px;font-weight:900;color:#818cf8;letter-spacing:1px">INVOICE</div>
+      <div style="font-size:14px;color:#94a3b8;margin-top:4px;font-family:monospace">#${invoiceNo}</div>
+      <div style="font-size:12px;color:#64748b;margin-top:2px">${dateStr} ${timeStr}</div>
+      <div style="margin-top:8px;background:#059669;color:#fff;padding:4px 12px;border-radius:20px;font-size:11px;font-weight:700;display:inline-block">POS Sale</div>
+    </div>
+  </div>
 
-            <!-- Items Table -->
-            <div class="p-6">
-              <table class="w-full text-sm">
-                <thead>
-                  <tr class="text-left">
-                    <th class="py-3 px-2 bg-blue-50 text-blue-800 font-semibold rounded-l-lg">#</th>
-                    <th class="py-3 px-2 bg-blue-50 text-blue-800 font-semibold">Item Description</th>
-                    <th class="py-3 px-2 bg-blue-50 text-blue-800 font-semibold text-center">Qty</th>
-                    <th class="py-3 px-2 bg-blue-50 text-blue-800 font-semibold text-right">Rate</th>
-                    <th class="py-3 px-2 bg-blue-50 text-blue-800 font-semibold text-right rounded-r-lg">Amount</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  ${Object.values(activeCart)
-                    .map(
-                      (item, index) => `
-                    <tr class="border-b border-gray-100 hover:bg-gray-50">
-                      <td class="py-3 px-2 text-gray-500">${index + 1}</td>
-                      <td class="py-3 px-2 font-medium text-gray-800">${item.name}</td>
-                      <td class="py-3 px-2 text-center text-gray-600">${item.qty}</td>
-                      <td class="py-3 px-2 text-right text-gray-600">₹${item.price.toFixed(2)}</td>
-                      <td class="py-3 px-2 text-right font-medium text-gray-800">₹${(item.qty * item.price).toFixed(2)}</td>
-                    </tr>
-                  `
-                    )
-                    .join("")}
-                </tbody>
-              </table>
+  <div style="display:flex;gap:0;border-bottom:1px solid #f0f0f0">
+    <div style="flex:1;padding:20px 32px;border-right:1px solid #f0f0f0">
+      <div style="font-size:11px;font-weight:700;color:#6366f1;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">Bill To</div>
+      <div style="font-weight:700;font-size:15px;color:#0f172a">${activeCustomer.name || "Walk-in Customer"}</div>
+      ${activeCustomer.contact ? `<div style="font-size:13px;color:#64748b;margin-top:4px">📞 ${activeCustomer.contact}</div>` : ""}
+      ${activeCustomer.address ? `<div style="font-size:12px;color:#94a3b8;margin-top:2px">${activeCustomer.address}</div>` : ""}
+    </div>
+    <div style="flex:1;padding:20px 32px">
+      <div style="font-size:11px;font-weight:700;color:#10b981;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">Payment</div>
+      <div style="font-size:14px;font-weight:700;color:${payColor}">${payLabel}</div>
+    </div>
+  </div>
 
-              <!-- Summary Section -->
-              <div class="mt-6 flex justify-end">
-                <div class="w-72">
-                  <div class="bg-gray-50 rounded-lg p-4 space-y-2">
-                    <div class="flex justify-between text-sm">
-                      <span class="text-gray-600">Subtotal</span>
-                      <span class="font-medium">₹${activeSubtotal.toFixed(2)}</span>
-                    </div>
-                    ${activeCgst > 0 ? `
-                    <div class="flex justify-between text-sm">
-                      <span class="text-gray-600">CGST (${cgstPercent}%)</span>
-                      <span class="text-green-600">+₹${activeCgst.toFixed(2)}</span>
-                    </div>
-                    ` : ''}
-                    ${activeSgst > 0 ? `
-                    <div class="flex justify-between text-sm">
-                      <span class="text-gray-600">SGST (${sgstPercent}%)</span>
-                      <span class="text-green-600">+₹${activeSgst.toFixed(2)}</span>
-                    </div>
-                    ` : ''}
-                    ${activeIgst > 0 ? `
-                    <div class="flex justify-between text-sm">
-                      <span class="text-gray-600">IGST (${igstPercent}%)</span>
-                      <span class="text-green-600">+₹${activeIgst.toFixed(2)}</span>
-                    </div>
-                    ` : ''}
-                    ${activeDiscount > 0 ? `
-                    <div class="flex justify-between text-sm">
-                      <span class="text-gray-600">Discount</span>
-                      <span class="text-red-600">-₹${activeDiscount.toFixed(2)}</span>
-                    </div>
-                    ` : ''}
-                    ${activeCoinDiscount > 0 ? `
-                    <div class="flex justify-between text-sm">
-                      <span class="text-gray-600">Coin Discount (${activeCoinsUsed} coins)</span>
-                      <span class="text-red-600">-₹${activeCoinDiscount.toFixed(2)}</span>
-                    </div>
-                    ` : ''}
-                    ${activeTotalDiscount > 0 ? `
-                    <div class="flex justify-between text-sm">
-                      <span class="text-gray-700 font-medium">Total Discount</span>
-                      <span class="text-red-700 font-medium">-₹${activeTotalDiscount.toFixed(2)}</span>
-                    </div>
-                    ` : ''}
-                    <div class="border-t border-gray-200 pt-2 mt-2">
-                      <div class="flex justify-between items-center">
-                        <span class="text-lg font-bold text-gray-800">Total Payable</span>
-                        <span class="text-2xl font-bold text-blue-600">₹${activePayable.toFixed(2)}</span>
-                      </div>
-                    </div>
-                    <div class="text-center pt-2">
-                      <span class="text-xs text-gray-400">Amount in Words</span>
-                      <p class="text-sm font-medium text-gray-700">${numberToWords(activePayable)} Rupees Only</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
+  <div style="padding:0 32px">
+    <table style="width:100%;border-collapse:collapse;margin-top:20px">
+      <thead>
+        <tr style="background:#0f172a;color:#e2e8f0">
+          <th style="padding:12px 8px;text-align:left;font-size:11px;font-weight:700;letter-spacing:0.5px">#</th>
+          <th style="padding:12px 8px;text-align:left;font-size:11px;font-weight:700;letter-spacing:0.5px">ITEM</th>
+          <th style="padding:12px 8px;text-align:left;font-size:11px;font-weight:700;letter-spacing:0.5px">HSN</th>
+          <th style="padding:12px 8px;text-align:center;font-size:11px;font-weight:700;letter-spacing:0.5px">QTY</th>
+          <th style="padding:12px 8px;text-align:right;font-size:11px;font-weight:700;letter-spacing:0.5px">RATE</th>
+          <th style="padding:12px 8px;text-align:right;font-size:11px;font-weight:700;letter-spacing:0.5px">AMOUNT</th>
+        </tr>
+      </thead>
+      <tbody>${itemRows}</tbody>
+    </table>
+  </div>
 
-            <!-- Footer -->
-            <div class="bg-gray-900 text-white p-6">
-              <div class="flex justify-between items-start">
-                <div class="text-sm">
-                  <p class="font-semibold mb-1">Terms & Conditions</p>
-                  <p class="text-gray-400 text-xs">• Goods once sold cannot be returned<br>• Warranty as per manufacturer policy<br>• Please retain this invoice for future reference</p>
-                </div>
-                <div class="text-center">
-                  <div class="w-32 h-16 border-b border-gray-600 mb-2"></div>
-                  <p class="text-xs text-gray-400">Authorized Signature</p>
-                </div>
-              </div>
-              <div class="border-t border-gray-700 mt-4 pt-4 text-center">
-                <p class="text-blue-400 font-semibold text-sm">Thank You for Shopping with Us! 🙏</p>
-                <p class="text-gray-500 text-xs mt-1">Visit Again | Quality Guaranteed | Best Prices</p>
-              </div>
-            </div>
+  <div style="padding:16px 32px 28px">
+    <table style="width:100%;border-collapse:collapse;margin-left:auto;max-width:320px">
+      <tr><td style="padding:6px 8px;color:#64748b;font-size:13px">Subtotal</td><td style="padding:6px 8px;text-align:right;font-size:13px">₹${activeSubtotal.toFixed(2)}</td></tr>
+      ${discountRows}
+      ${gstRows}
+      <tr style="border-top:2px solid #0f172a">
+        <td style="padding:12px 8px;font-size:17px;font-weight:900;color:#0f172a">TOTAL</td>
+        <td style="padding:12px 8px;text-align:right;font-size:17px;font-weight:900;color:#6366f1">₹${activePayable.toFixed(2)}</td>
+      </tr>
+    </table>
+  </div>
 
-            <!-- Footer Bar -->
-            <div class="bg-blue-600 text-white text-center py-2">
-              <p class="text-xs">${storeName} | Powered by Premium Store Billing System</p>
-            </div>
+  <div style="background:#f8fafc;padding:16px 32px;border-top:1px solid #f0f0f0;display:flex;justify-content:space-between;align-items:center">
+    <div>
+      <span style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:1px">Payment</span>
+      <span style="margin-left:10px;font-size:13px;font-weight:700;color:${payColor}">${payLabel}</span>
+    </div>
+  </div>
 
-          </div>
-        </body>
-      </html>
-    `);
+  <div style="padding:16px 32px;text-align:center;border-top:1px solid #f0f0f0">
+    <div style="font-size:12px;color:#94a3b8">Thank you for shopping with <strong>${storeName}</strong> 🛍️</div>
+    <div style="font-size:11px;color:#cbd5e1;margin-top:4px">This is a computer-generated invoice. No signature required.</div>
+  </div>
+
+  <div class="no-print" style="padding:16px 32px;text-align:center;background:#f8fafc">
+    <button onclick="window.print()" style="background:#6366f1;color:#fff;border:none;padding:10px 32px;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer">🖨️ Print Invoice</button>
+  </div>
+</div>
+</body></html>`);
 
     win.document.close();
-    setTimeout(() => win.print(), 500);
+    setTimeout(() => win.print(), 600);
   };
 
   /* =========================
@@ -1822,6 +1783,12 @@ const LiveBilling = () => {
                   <span className="text-indigo-200">Discount</span>
                   <span className="text-sm text-green-400">-₹{discountAmount.toFixed(2)}</span>
                 </div>
+                {offerModelDiscount > 0 && (
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="text-indigo-200 text-xs">↳ Product Offers</span>
+                    <span className="text-xs text-green-400">-₹{offerModelDiscount.toFixed(2)}</span>
+                  </div>
+                )}
                 {coinDiscountAmount > 0 && (
                   <div className="flex justify-between items-center mb-4">
                     <span className="text-indigo-200">Coins Applied</span>
@@ -1860,6 +1827,8 @@ const LiveBilling = () => {
                   gstin={gstin}
                   storeName={storeName}
                   storeTagline={storeTagline}
+                  paymentMethod={paymentMethod}
+                  paymentDestination={paymentDestination}
                 />
                 
                 {/* Payment Method Selection */}
@@ -2062,10 +2031,8 @@ const LiveBilling = () => {
           isOpen={showSpinWheel}
           onClose={() => {
             setShowSpinWheel(false);
-            // User closed without spinning — still complete the sale
-            if (!isProcessingSaleRef.current) {
-              finalizeSale();
-            }
+            // Only finalize if the spin produced a result (handled via onSpinComplete).
+            // Closing without spinning should NOT charge the customer.
           }}
           onSpinComplete={handleSpinComplete}
           customerMobile={customer.contact}

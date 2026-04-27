@@ -200,6 +200,7 @@ paymentInfo: {
     },
     orderStatus: {
       type: String,
+      enum: ["Ordered", "Processing", "Packed", "Shipped", "Out for Delivery", "Delivered", "Cancelled"],
       default: "Ordered",
     },
     mode: {
@@ -211,6 +212,12 @@ paymentInfo: {
       type: String,
       enum: ["CURRENT_ACCOUNT", "OTHER_ACCOUNT", "CASH"],
       default: "CURRENT_ACCOUNT",
+    },
+
+    // Spin-wheel offer snapshot — used to restore offer on cancellation
+    offerApplied: {
+      offerDiscount: { type: Number, default: 0 },
+      offerType:     { type: String, default: "" },
     },
 
     // ── Shiprocket shipping fields ──────────────────────────────────────

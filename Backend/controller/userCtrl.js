@@ -6,6 +6,7 @@ const Order = require("../models/orderModel");
 const Color = require("../models/colorModel");
 const uniqid = require("uniqid");
 const { notifyUser } = require("./notificationCtrl");
+const { createAutoEntry } = require("./rojmelCtrl");
 const { ORDER_STATUS_EVENT_MAP } = require("../config/notificationConfig");
 
 const asyncHandler = require("express-async-handler");
@@ -242,7 +243,7 @@ const createOfflineOrder = asyncHandler(async (req, res) => {
     throw new Error("No items provided");
   }
 
-  let customerId = adminId;
+  let customerId = null;
   let actualCustomer = null;
   let purchaseCustomer = null;
   let newCustomer = null;
@@ -295,28 +296,40 @@ const createOfflineOrder = asyncHandler(async (req, res) => {
 
   let orderItems = [];
   let totalPrice = 0;
-
-  // Step 2: Validate & deduct stock
+  // Stage 1: validate all stock WITHOUT saving — collect deductions in memory
+  const stockDeductions = [];
   for (const item of items) {
-    // Find product by barcode in any slot (main, top-level sizeStock, variant sizeStock)
     const product = await findProductByBarcode(item.barcode);
-
     if (!product) {
       res.status(404);
       throw new Error(`Product not found for barcode ${item.barcode}`);
     }
-
     const { deducted, barcode: deductedBarcode } = await deductStockFromProduct(product, item);
     if (!deducted) {
       res.status(400);
       throw new Error(`Insufficient stock for ${product.title}${item.size ? ` (Size: ${item.size})` : ''}`);
     }
+    stockDeductions.push({ product, item, deductedBarcode });
+    totalPrice += product.price * item.quantity;
+  }
 
+  // Stage 2: all items validated — persist atomically using optimistic concurrency (__v check)
+  // This prevents two concurrent POS sessions from both deducting the last unit.
+  for (const { product, item, deductedBarcode } of stockDeductions) {
     item.barcode = deductedBarcode || item.barcode;
-
     product.sold = (product.sold || 0) + item.quantity;
     product.quantity = normalizeProductQuantity(product);
-    await product.save();
+
+    // Atomic save: only succeeds if no other session modified this product since we read it
+    const saved = await Product.findOneAndUpdate(
+      { _id: product._id, __v: product.__v },
+      { $set: { sizeStock: product.sizeStock, variants: product.variants, quantity: product.quantity, sold: product.sold }, $inc: { __v: 1 } },
+      { new: true }
+    );
+    if (!saved) {
+      res.status(409);
+      throw new Error(`Stock conflict for ${product.title} — please retry the sale`);
+    }
 
     orderItems.push({
       product: product._id,
@@ -324,10 +337,8 @@ const createOfflineOrder = asyncHandler(async (req, res) => {
       price: product.price,
       color: await resolveColorId(item.color || product.color || (product.variants?.[0]?.color ?? null), product),
       size: item.size || null,
-      barcode: item.barcode // Store barcode for reference
+      barcode: item.barcode,
     });
-
-    totalPrice += product.price * item.quantity;
   }
 
   const discountAmount = discount || 0;
@@ -343,7 +354,7 @@ const createOfflineOrder = asyncHandler(async (req, res) => {
 
   // Step 3: Create order FIRST
   const order = await Order.create({
-    user: customerId,
+    user: customerId || undefined,
     orderItems,
     totalPrice,
     totalPriceAfterDiscount,
@@ -367,6 +378,11 @@ const createOfflineOrder = asyncHandler(async (req, res) => {
     orderStatus: "Delivered",
     mode: "OFFLINE",
     paymentDestination: paymentMethod === "CASH" ? "CASH" : (reqPaymentDestination || "CURRENT_ACCOUNT"),
+    statusHistory: [{ status: "Delivered", date: new Date() }],
+    // Snapshot the spin-wheel offer that was consumed so it can be restored on cancellation
+    offerApplied: offerDiscountAmount > 0 && actualCustomer
+      ? { offerDiscount: actualCustomer.offerDiscount || 0, offerType: actualCustomer.offerType || "" }
+      : { offerDiscount: 0, offerType: "" },
   });
 
   // Step 4: If customer does NOT exist → create AFTER order success
@@ -394,7 +410,6 @@ const customerData = {
   firstname,
   lastname,
   mobile: customer.contact,
-  // email: `${customer.contact}@temp.com`,
   email: customer.email || undefined,
   address: customer.address || "",
   password: null,
@@ -500,6 +515,18 @@ if (referrer) {
     const purchasingUserId = purchaseCustomer?._id || order.user;
     await awardCoinsOnOrder(purchasingUserId, totalPriceAfterDiscount, 10, order._id);
   }
+
+  // Write POS sale to Rojmel ledger
+  setImmediate(() =>
+    createAutoEntry({
+      particulars: `POS Sale – ${purchaseCustomer ? (purchaseCustomer.firstname + " " + purchaseCustomer.lastname).trim() : "Walk-in"}`,
+      type: "INCOME",
+      amount: totalPriceAfterDiscount,
+      paymentMethod: paymentMethod === "CASH" ? "Cash" : "Online",
+      referenceId: order._id,
+      category: "POS Sales",
+    }).catch((err) => console.error("Rojmel auto-entry failed:", err))
+  );
 
   res.json({
     success: true,
@@ -895,7 +922,7 @@ const _restoreStock = async (product, item) => {
   const qty = item.quantity || 1;
   const colorId = item.color ? String(item.color._id || item.color) : null;
 
-  // 1. Barcode match (most precise)
+  // 1. Barcode match — most precise, always use when available
   if (item.barcode) {
     if (product.variants && product.variants.length > 0) {
       for (const variant of product.variants) {
@@ -909,7 +936,7 @@ const _restoreStock = async (product, item) => {
     }
   }
 
-  // 2. Color + size match in variants
+  // 2. Color + size match in variants (exact slot — no drift)
   if (colorId && item.size && product.variants && product.variants.length > 0) {
     const variant = product.variants.find(v => String(v.color?._id || v.color) === colorId);
     if (variant) {
@@ -918,21 +945,13 @@ const _restoreStock = async (product, item) => {
     }
   }
 
-  // 3. Size-only match in variants (any variant)
-  if (item.size && product.variants && product.variants.length > 0) {
-    for (const variant of product.variants) {
-      const se = (variant.sizeStock || []).find(s => s.size === item.size);
-      if (se) { se.quantity += qty; return; }
-    }
-  }
-
-  // 4. Size match in top-level sizeStock
+  // 3. Size match in top-level sizeStock (exact slot)
   if (item.size && product.sizeStock && product.sizeStock.length > 0) {
     const se = product.sizeStock.find(s => s.size === item.size);
     if (se) { se.quantity += qty; return; }
   }
 
-  // 5. Color-only match in variants (no size — add to first sizeStock slot)
+  // 4. Color-only match — restore to the matched variant's first slot
   if (colorId && product.variants && product.variants.length > 0) {
     const variant = product.variants.find(v => String(v.color?._id || v.color) === colorId);
     if (variant && variant.sizeStock && variant.sizeStock.length > 0) {
@@ -941,7 +960,7 @@ const _restoreStock = async (product, item) => {
     }
   }
 
-  // 6. Fallback: main quantity
+  // 5. Fallback: main quantity
   product.quantity = (product.quantity || 0) + qty;
 };
 
@@ -1029,6 +1048,13 @@ const _performCancelOrder = async (order, cancelReason, userId) => {
 
   // Save customer once
   if (customer) await customer.save();
+
+  // 2d. Restore spin-wheel offer that was consumed on this order
+  if (customer && order.offerApplied?.offerType && order.offerApplied.offerType !== "") {
+    customer.offerDiscount = order.offerApplied.offerDiscount;
+    customer.offerType = order.offerApplied.offerType;
+    await customer.save();
+  }
 
   // 3. Reverse referrer coins earned from this order (separate user — safe to load independently)
   if (customer?.referredBy) {
@@ -2033,6 +2059,11 @@ const updateOrder = asyncHandler(async (req, res) => {
     const orders = await Order.findById(id).populate("user").populate("orderItems.product");
     const newStatus = req.body.status;
 
+    // OFFLINE/POS orders are always Delivered — only allow Cancelled
+    if (orders.mode === "OFFLINE" && newStatus !== "Cancelled") {
+      return res.status(400).json({ message: "POS orders can only be cancelled, not re-staged" });
+    }
+
     // Block manual status change after Packed (Shiprocket takes over)
     const lockedStatuses = ["Shipped", "Out for Delivery", "Delivered"];
     if (lockedStatuses.includes(orders.orderStatus) && lockedStatuses.includes(newStatus)) {
@@ -2044,9 +2075,9 @@ const updateOrder = asyncHandler(async (req, res) => {
     orders.statusHistory.push({ status: newStatus, date: new Date() });
     await orders.save();
 
-    // Push notification: dynamic based on new status
+    // Push notification: only send to real (non-walk-in) customers with an account
     const eventKey = ORDER_STATUS_EVENT_MAP[newStatus];
-    if (eventKey && orders.user?._id) {
+    if (eventKey && orders.user?._id && orders.mode !== "OFFLINE") {
       setImmediate(() =>
         notifyUser(orders.user._id, eventKey, {
           orderId: orders._id.toString().slice(-6).toUpperCase(),
@@ -2090,6 +2121,7 @@ const updateOrder = asyncHandler(async (req, res) => {
 
 // Get monthly order income (fixed aggregation)
 const getMonthWiseOrderIncome = asyncHandler(async (req, res) => {
+  const { mode } = req.query;
   let monthNames = [
     "January", "February", "March", "April", "May", "June",
     "July", "August", "September", "October", "November", "December"
@@ -2102,32 +2134,25 @@ const getMonthWiseOrderIncome = asyncHandler(async (req, res) => {
     d.setMonth(d.getMonth() - 1);
     endDate = monthNames[d.getMonth()] + " " + d.getFullYear();
   }
+
+  const matchStage = {
+    createdAt: { $lte: new Date(), $gte: new Date(endDate) },
+    orderStatus: { $ne: "Cancelled" },
+  };
+  if (mode === "ONLINE" || mode === "OFFLINE") matchStage.mode = mode;
   
   const data = await Order.aggregate([
-    {
-      $match: {
-        createdAt: {
-          $lte: new Date(),
-          $gte: new Date(endDate),
-        },
-      },
-    },
+    { $match: matchStage },
     {
       $group: {
-        _id: {
-          month: { $month: "$createdAt" },
-          year: { $year: "$createdAt" }
-        },
+        _id: { month: { $month: "$createdAt" }, year: { $year: "$createdAt" } },
         amount: { $sum: "$totalPriceAfterDiscount" },
         count: { $sum: 1 },
       },
     },
-    {
-      $sort: { "_id.year": 1, "_id.month": 1 }
-    }
+    { $sort: { "_id.year": 1, "_id.month": 1 } }
   ]);
   
-  // Format response with month names
   const formattedData = data.map(item => ({
     _id: item._id.month,
     month: monthNames[item._id.month - 1] + " " + item._id.year,
@@ -2257,7 +2282,7 @@ const getDashboardStats = asyncHandler(async (req, res) => {
   
   // Get basic stats
   const stats = await Order.aggregate([
-    { $match: matchCondition },
+    { $match: { ...matchCondition, orderStatus: { $ne: "Cancelled" } } },
     {
       $group: {
         _id: null,
@@ -2271,7 +2296,7 @@ const getDashboardStats = asyncHandler(async (req, res) => {
   
   // Get orders by status
   const ordersByStatus = await Order.aggregate([
-    { $match: matchCondition },
+    { $match: matchCondition }, // intentionally includes all statuses for breakdown
     {
       $group: {
         _id: "$orderStatus",
@@ -2282,7 +2307,7 @@ const getDashboardStats = asyncHandler(async (req, res) => {
   
   // Get orders by mode (payment type)
   const ordersByMode = await Order.aggregate([
-    { $match: matchCondition },
+    { $match: { ...matchCondition, orderStatus: { $ne: "Cancelled" } } },
     {
       $group: {
         _id: "$mode",
@@ -2294,7 +2319,7 @@ const getDashboardStats = asyncHandler(async (req, res) => {
   
   // Get top selling products
   const topProducts = await Order.aggregate([
-    { $match: matchCondition },
+    { $match: { ...matchCondition, orderStatus: { $ne: "Cancelled" } } },
     { $unwind: "$orderItems" },
     {
       $group: {
@@ -2326,7 +2351,7 @@ const getDashboardStats = asyncHandler(async (req, res) => {
   
   // Get top customers
   const topCustomers = await Order.aggregate([
-    { $match: matchCondition },
+    { $match: { ...matchCondition, orderStatus: { $ne: "Cancelled" }, user: { $ne: null } } },
     {
       $group: {
         _id: "$user",
@@ -2345,6 +2370,7 @@ const getDashboardStats = asyncHandler(async (req, res) => {
       }
     },
     { $unwind: "$customer" },
+    { $match: { "customer.role": { $ne: "admin" } } },
     {
       $project: {
         _id: "$customer._id",
@@ -2385,19 +2411,10 @@ const getDashboardStats = asyncHandler(async (req, res) => {
 });
 
 const getYearlyTotalOrder = asyncHandler(async (req, res) => {
+  const { mode } = req.query;
   let monthNames = [
-    "January",
-    "February",
-    "March",
-    "April",
-    "May",
-    "June",
-    "July",
-    "August",
-    "September",
-    "October",
-    "November",
-    "December",
+    "January","February","March","April","May","June",
+    "July","August","September","October","November","December",
   ];
   let d = new Date();
   let endDate = "";
@@ -2406,22 +2423,14 @@ const getYearlyTotalOrder = asyncHandler(async (req, res) => {
     d.setMonth(d.getMonth() - 1);
     endDate = monthNames[d.getMonth()] + " " + d.getFullYear();
   }
+  const matchStage = {
+    createdAt: { $lte: new Date(), $gte: new Date(endDate) },
+    orderStatus: { $ne: "Cancelled" },
+  };
+  if (mode === "ONLINE" || mode === "OFFLINE") matchStage.mode = mode;
   const data = await Order.aggregate([
-    {
-      $match: {
-        createdAt: {
-          $lte: new Date(),
-          $gte: new Date(endDate),
-        },
-      },
-    },
-    {
-      $group: {
-        _id: null,
-        count: { $sum: 1 },
-        amount: { $sum: "$totalPriceAfterDiscount" },
-      },
-    },
+    { $match: matchStage },
+    { $group: { _id: null, count: { $sum: 1 }, amount: { $sum: "$totalPriceAfterDiscount" } } },
   ]);
   res.json(data);
 });

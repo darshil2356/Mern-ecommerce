@@ -250,19 +250,43 @@ const getStatusIcon = (status) => {
 };
 
 const getTimelineItems = (order) => {
-  const statusOrder = ["Ordered", "Processed", "Packed", "Shipped", "Out for Delivery", "Delivered"];
+  const isOffline = order.mode === "OFFLINE";
+  // POS orders skip the fulfilment pipeline — show only Delivered (or Cancelled)
+  const statusOrder = isOffline
+    ? ["Delivered"]
+    : ["Ordered", "Processed", "Packed", "Shipped", "Out for Delivery", "Delivered"];
+
+  if (order.orderStatus === "Cancelled") {
+    const cancelDate = order.statusHistory?.find(h => h.status === "Cancelled")?.date
+      || order.cancelledAt;
+    return [{
+      color: "red",
+      dot: getStatusIcon("Cancelled"),
+      children: (
+        <div>
+          <div style={{ fontWeight: 600, color: "#ff4d4f" }}>Cancelled</div>
+          {cancelDate && (
+            <div style={{ fontSize: 12, color: "#8c8c8c", marginTop: 2 }}>
+              {dayjs(cancelDate).format("DD MMM YYYY, HH:mm")}
+            </div>
+          )}
+          {order.cancelReason && (
+            <div style={{ fontSize: 12, color: "#8c8c8c", marginTop: 2 }}>
+              Reason: {order.cancelReason}
+            </div>
+          )}
+        </div>
+      ),
+    }];
+  }
+
   const currentIndex = statusOrder.indexOf(order.orderStatus);
 
   return statusOrder.map((status, index) => {
     const isCompleted = index <= currentIndex;
     const isCurrent = index === currentIndex;
-    const isCancelled = order.orderStatus === "Cancelled";
 
-    let color = "gray";
-    if (isCancelled && status === "Cancelled") color = "red";
-    else if (isCompleted) color = "green";
-    else if (isCurrent) color = "blue";
-
+    const color = isCompleted ? "green" : "gray";
     const statusDate = order.statusHistory?.find(h => h.status === status)?.date;
 
     return {
@@ -366,7 +390,7 @@ const ViewOrder = () => {
     <tr style="border-top:2px solid #0f172a"><td style="padding:12px 8px;font-size:17px;font-weight:900;color:#0f172a">TOTAL</td><td style="padding:12px 8px;text-align:right;font-size:17px;font-weight:900;color:#6366f1">₹${finalTotal.toFixed(2)}</td></tr>
   </table></div>
   <div style="background:#f8fafc;padding:16px 32px;border-top:1px solid #f0f0f0;display:flex;justify-content:space-between;align-items:center">
-    <div><span style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:1px">Payment</span><span style="margin-left:10px;font-size:13px;font-weight:700;color:${order.paymentInfo?.razorpayPaymentId && order.paymentInfo.razorpayPaymentId !== "OFFLINE" ? "#059669" : "#d97706"}">${order.paymentInfo?.razorpayPaymentId && order.paymentInfo.razorpayPaymentId !== "OFFLINE" ? "✅ Paid Online" : order.mode === "OFFLINE" && order.paymentDestination === "CASH" ? "💵 Cash" : "🏦 Online Transfer"}</span></div>
+    <div><span style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:1px">Payment</span><span style="margin-left:10px;font-size:13px;font-weight:700;color:${order.paymentDestination === "CASH" ? "#d97706" : order.paymentDestination === "OTHER_ACCOUNT" ? "#7c3aed" : "#059669"}">${order.paymentDestination === "CASH" ? "💵 Cash" : order.paymentDestination === "OTHER_ACCOUNT" ? "🏦 Online (Other Account)" : "💳 Online (Current Account)"}</span></div>
     ${order.trackingId ? `<div style="font-size:12px;color:#6366f1">🚚 Tracking: <strong>${order.trackingId}</strong>${order.courierName ? " via "+order.courierName : ""}</div>` : ""}
   </div>
   <div style="padding:16px 32px;text-align:center;border-top:1px solid #f0f0f0"><div style="font-size:12px;color:#94a3b8">Thank you for shopping with <strong>${storeName}</strong> 🛍️</div><div style="font-size:11px;color:#cbd5e1;margin-top:4px">This is a computer-generated invoice. No signature required.</div></div>
@@ -913,16 +937,14 @@ const ViewOrder = () => {
                   <Statistic
                     title={<span style={{ color: '#666', fontSize: '12px' }}>Payment Method</span>}
                     value={
-                      orderState?.mode === "OFFLINE"
-                        ? orderState?.paymentDestination === "CASH"
-                          ? "Cash"
-                          : orderState?.paymentDestination === "OTHER_ACCOUNT"
-                          ? "Online (Other Account)"
-                          : "Online (Current Account)"
-                        : "Online"
+                      orderState?.paymentDestination === "CASH"
+                        ? "💵 Cash"
+                        : orderState?.paymentDestination === "OTHER_ACCOUNT"
+                        ? "🏦 Online (Other Account)"
+                        : "💳 Online (Current Account)"
                     }
                     valueStyle={{
-                      color: orderState?.paymentDestination === "CASH" ? '#fa8c16' : '#52c41a',
+                      color: orderState?.paymentDestination === "CASH" ? '#fa8c16' : orderState?.paymentDestination === "OTHER_ACCOUNT" ? '#7c3aed' : '#52c41a',
                       fontSize: '14px',
                       fontWeight: 600
                     }}

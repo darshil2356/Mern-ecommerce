@@ -8,15 +8,27 @@ const monthNames = [
   "July","August","September","October","November","December"
 ];
 
-const getOrderDiscount = (o) =>
-  o.discountAmount ||
-  ((o.discountBreakdown?.directDiscount || 0) + (o.discountBreakdown?.offerDiscount || 0) + (o.discountBreakdown?.coinDiscount || 0));
+const getOrderDiscount = (o) => {
+  // Include all discount types: direct, offer, and coin discount
+  const breakdown = (o.discountBreakdown?.directDiscount || 0)
+    + (o.discountBreakdown?.offerDiscount || 0)
+    + (o.discountBreakdown?.coinDiscount || 0);
+  // discountAmount may not include coinDiscount on older orders — add coinAmount separately
+  const fromAmount = (o.discountAmount || 0) + (o.coinAmount || 0);
+  return Math.max(breakdown, fromAmount);
+};
 
 const buildPaymentFilter = (query) => {
   const paymentFilter = (query.paymentFilter || "all").toString().toLowerCase();
   switch (paymentFilter) {
     case "cash":
-      return { paymentDestination: "CASH" };
+      return {
+        $or: [
+          { paymentDestination: "CASH" },
+          { mode: "OFFLINE", paymentDestination: { $exists: false } },
+          { mode: "OFFLINE", paymentDestination: null },
+        ]
+      };
     case "online_current":
       return {
         $or: [
@@ -334,7 +346,7 @@ const getGSTReport = asyncHandler(async (req, res) => {
   const endDate = new Date(targetYear, targetMonth + 1, 0, 23, 59, 59, 999);
 
   const pf = buildPaymentFilter(req.query);
-  const orders = await Order.find(mergeFilters({ createdAt: { $gte: startDate, $lte: endDate } }, pf))
+  const orders = await Order.find(mergeFilters({ createdAt: { $gte: startDate, $lte: endDate }, orderStatus: { $ne: "Cancelled" } }, pf))
     .populate("user", "firstname lastname gstin");
 
   let totalTaxableValue = 0;

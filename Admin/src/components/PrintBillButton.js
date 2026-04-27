@@ -2,10 +2,13 @@ import React from "react";
 import { Button } from "antd";
 import { PrinterOutlined } from "@ant-design/icons";
 import Swal from "sweetalert2";
+import axios from "axios";
+import { base_url } from "../utils/baseUrl";
+import { config } from "../utils/axiosconfig";
 
-const PrintBillButton = ({ 
-  cart, 
-  customer, 
+const PrintBillButton = ({
+  cart,
+  customer,
   payableAmount,
   cgstAmount = 0,
   sgstAmount = 0,
@@ -21,232 +24,161 @@ const PrintBillButton = ({
   invoiceNumber = null,
   gstin = "",
   storeName = "Yashoda Fashion",
-  storeTagline = "Your One-Stop Shopping Destination"
+  storeTagline = "Your One-Stop Shopping Destination",
+  paymentMethod = "CASH",
+  paymentDestination = "CURRENT_ACCOUNT",
 }) => {
-  // Generate invoice number if not provided
-  const generateInvoiceNumber = () => {
-    if (invoiceNumber) return invoiceNumber;
-    const date = new Date();
-    const random = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
-    return `INV-${date.getFullYear()}${(date.getMonth()+1).toString().padStart(2, '0')}${date.getDate().toString().padStart(2, '0')}-${random}`;
-  };
-
-  // Helper function to convert number to words
-  const numberToWords = (num) => {
-    const a = ['','One ','Two ','Three ','Four ','Five ','Six ','Seven ','Eight ','Nine ','Ten ','Eleven ','Twelve ','Thirteen ','Fourteen ','Fifteen ','Sixteen ','Seventeen ','Eighteen ','Nineteen '];
-    const b = ['', '', 'Twenty','Thirty','Forty','Fifty','Sixty','Seventy','Eighty','Ninety'];
-    const numToWords = (n) => {
-      if ((n = n.toString()).length > 9) return 'overflow';
-      let n_zero = ('000000000' + n).substr(-9);
-      let n1 = n_zero.substr(0, 2), n2 = n_zero.substr(2, 2), n3 = n_zero.substr(4, 2), n4 = n_zero.substr(6, 2), n5 = n_zero.substr(8, 2);
-      let res = '';
-      res += (n1 != 0) ? (a[Number(n1)] || b[n1[0]] + ' ' + a[n1[1]]) + 'Crore ' : '';
-      res += (n2 != 0) ? (a[Number(n2)] || b[n2[0]] + ' ' + a[n2[1]]) + 'Lakh ' : '';
-      res += (n3 != 0) ? (a[Number(n3)] || b[n3[0]] + ' ' + a[n3[1]]) + 'Thousand ' : '';
-      res += (n4 != 0) ? (a[Number(n4)] || b[n4[0]] + ' ' + a[n4[1]]) + 'Hundred ' : '';
-      res += (n5 != 0) ? ((res != '') ? 'and ' : '') + (a[Number(n5)] || b[n5[0]] + ' ' + a[n5[1]]) : '';
-      return res;
-    };
-    if (num <= 0) return 'Zero';
-    return numToWords(Math.floor(num));
-  };
-
-  const printBill = () => {
-    if (!Object.keys(cart).length) {
-      Swal.fire({
-        icon: 'warning',
-        title: 'Cart is Empty',
-        text: 'Please add items to the cart before printing.',
-        confirmButtonColor: '#d4af37',
-      });
+  const printBill = async () => {
+    if (!cart || !Object.keys(cart).length) {
+      Swal.fire({ icon: "warning", title: "Cart is Empty", text: "Please add items to the cart before printing.", confirmButtonColor: "#d4af37" });
       return;
     }
+
+    // Fetch store settings for address/phone
+    let storeAddress = "";
+    let storePhone = "";
+    let fetchedStoreName = storeName;
+    try {
+      const settingsRes = await axios.get(`${base_url}user/settings`, config);
+      storeAddress = settingsRes.data.storeAddress || "";
+      storePhone = settingsRes.data.storePhone || "";
+      fetchedStoreName = settingsRes.data.storeName || storeName;
+    } catch (_) {}
 
     const win = window.open("", "_blank");
     if (!win) return;
 
-    const invoiceNum = generateInvoiceNumber();
+    const invoiceNum = invoiceNumber || (() => {
+      const d = new Date();
+      const r = Math.floor(Math.random() * 10000).toString().padStart(4, "0");
+      return `INV-${d.getFullYear()}${(d.getMonth()+1).toString().padStart(2,"0")}${d.getDate().toString().padStart(2,"0")}-${r}`;
+    })();
+
     const now = new Date();
-    const dateStr = now.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
-    const timeStr = now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
-    const effectiveSubtotal = subtotal || payableAmount + discountAmount + coinDiscountAmount - cgstAmount - sgstAmount - igstAmount;
+    const dateStr = now.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+
+    const gstTotal = cgstAmount + sgstAmount + igstAmount;
+    const taxIncluded = true; // LiveBilling always uses tax-included mode
     const totalDiscount = discountAmount + coinDiscountAmount;
     const displayCoinsUsed = coinsUsed || coinDiscountAmount;
 
-    win.document.write(`
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <title>Invoice - ${invoiceNum}</title>
-          <script src="https://cdn.tailwindcss.com"></script>
-          <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-          <style>
-            * { font-family: 'Inter', 'Segoe UI', sans-serif; }
-            @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
-          </style>
-        </head>
-        <body class="bg-gray-50 p-4">
-          <div class="max-w-3xl mx-auto bg-white rounded-xl shadow-lg overflow-hidden">
-            
-            <!-- Premium Header -->
-            <div class="bg-gradient-to-r from-blue-900 via-blue-800 to-blue-700 text-white p-6">
-              <div class="flex justify-between items-start">
-                <div>
-                  <div class="flex items-center gap-3 mb-2">
-                    <div class="w-12 h-12 bg-white/20 rounded-lg flex items-center justify-center">
-                      <svg xmlns="http://www.w3.org/2000/svg" class="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-                      </svg>
-                    </div>
-                    <div>
-                      <h1 class="text-2xl font-bold tracking-tight">${storeName}</h1>
-                      <p class="text-blue-200 text-xs">${storeTagline}</p>
-                    </div>
-                  </div>
-                </div>
-                <div class="text-right">
-                  <div class="bg-white/20 px-4 py-2 rounded-lg inline-block">
-                    <span class="text-xs text-blue-200 block">INVOICE</span>
-                    <span class="text-xl font-bold">${invoiceNum}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
+    const paymentLabel =
+      paymentMethod === "CASH" || paymentDestination === "CASH"
+        ? "💵 Cash"
+        : paymentDestination === "OTHER_ACCOUNT"
+        ? "🏦 Online (Other Account)"
+        : "💳 Online (Current Account)";
 
-            <!-- Invoice Meta Info -->
-            <div class="bg-gray-50 px-6 py-4 flex justify-between items-center border-b">
-              <div>
-                <p class="text-xs text-gray-500 uppercase tracking-wide">Bill To</p>
-                <p class="font-semibold text-gray-800">${customer.name || "Walk-in Customer"}</p>
-                <p class="text-sm text-gray-600">${customer.address || "N/A"}</p>
-                ${customer.mobile ? `<p class="text-sm text-gray-600">📞 ${customer.mobile}</p>` : ''}
-                ${gstin ? `<p class="text-sm text-gray-600 font-medium">GSTIN: ${gstin}</p>` : ''}
-              </div>
-              <div class="text-right">
-                <p class="text-sm text-gray-600"><span class="text-gray-500">Date:</span> ${dateStr}</p>
-                <p class="text-sm text-gray-600"><span class="text-gray-500">Time:</span> ${timeStr}</p>
-                <p class="text-sm text-gray-600"><span class="text-gray-500">Payment:</span> <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">CASH</span></p>
-              </div>
-            </div>
+    const paymentColor =
+      paymentMethod === "CASH" || paymentDestination === "CASH"
+        ? "#d97706"
+        : paymentDestination === "OTHER_ACCOUNT"
+        ? "#7c3aed"
+        : "#059669";
 
-            <!-- Items Table -->
-            <div class="p-6">
-              <table class="w-full text-sm">
-                <thead>
-                  <tr class="text-left">
-                    <th class="py-3 px-2 bg-blue-50 text-blue-800 font-semibold rounded-l-lg">#</th>
-                    <th class="py-3 px-2 bg-blue-50 text-blue-800 font-semibold">Item Description</th>
-                    <th class="py-3 px-2 bg-blue-50 text-blue-800 font-semibold text-center">Qty</th>
-                    <th class="py-3 px-2 bg-blue-50 text-blue-800 font-semibold text-right">Rate</th>
-                    <th class="py-3 px-2 bg-blue-50 text-blue-800 font-semibold text-right rounded-r-lg">Amount</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  ${Object.values(cart)
-                    .map(
-                      (item, index) => `
-                    <tr class="border-b border-gray-100 hover:bg-gray-50">
-                      <td class="py-3 px-2 text-gray-500">${index + 1}</td>
-                      <td class="py-3 px-2 font-medium text-gray-800">${item.name}</td>
-                      <td class="py-3 px-2 text-center text-gray-600">${item.qty}</td>
-                      <td class="py-3 px-2 text-right text-gray-600">₹${item.price.toFixed(2)}</td>
-                      <td class="py-3 px-2 text-right font-medium text-gray-800">₹${(item.qty * item.price).toFixed(2)}</td>
-                    </tr>
-                  `
-                    )
-                    .join("")}
-                </tbody>
-              </table>
+    const itemRows = Object.values(cart).map((item, i) => `
+      <tr style="border-bottom:1px solid #f0f0f0">
+        <td style="padding:10px 8px;color:#666;font-size:13px">${i + 1}</td>
+        <td style="padding:10px 8px;font-size:13px;font-weight:600">${item.name}</td>
+        <td style="padding:10px 8px;font-size:12px;color:#888;font-family:monospace">-</td>
+        <td style="padding:10px 8px;text-align:center;font-size:13px">${item.qty}</td>
+        <td style="padding:10px 8px;text-align:right;font-size:13px">₹${item.price.toFixed(2)}</td>
+        <td style="padding:10px 8px;text-align:right;font-size:13px;font-weight:700">₹${(item.qty * item.price).toFixed(2)}</td>
+      </tr>`).join("");
 
-              <!-- Summary Section -->
-              <div class="mt-6 flex justify-end">
-                <div class="w-72">
-                  <div class="bg-gray-50 rounded-lg p-4 space-y-2">
-                    <div class="flex justify-between text-sm">
-                      <span class="text-gray-600">Subtotal</span>
-                      <span class="font-medium">₹${effectiveSubtotal.toFixed(2)}</span>
-                    </div>
-                    ${cgstAmount > 0 ? `
-                    <div class="flex justify-between text-sm">
-                      <span class="text-gray-600">CGST (${cgstPercent}%)</span>
-                      <span class="text-green-600">+₹${cgstAmount.toFixed(2)}</span>
-                    </div>
-                    ` : ''}
-                    ${sgstAmount > 0 ? `
-                    <div class="flex justify-between text-sm">
-                      <span class="text-gray-600">SGST (${sgstPercent}%)</span>
-                      <span class="text-green-600">+₹${sgstAmount.toFixed(2)}</span>
-                    </div>
-                    ` : ''}
-                    ${igstAmount > 0 ? `
-                    <div class="flex justify-between text-sm">
-                      <span class="text-gray-600">IGST (${igstPercent}%)</span>
-                      <span class="text-green-600">+₹${igstAmount.toFixed(2)}</span>
-                    </div>
-                    ` : ''}
-                    ${discountAmount > 0 ? `
-                    <div class="flex justify-between text-sm">
-                      <span class="text-gray-600">Discount</span>
-                      <span class="text-red-600">-₹${discountAmount.toFixed(2)}</span>
-                    </div>
-                    ` : ''}
-                    ${coinDiscountAmount > 0 ? `
-                    <div class="flex justify-between text-sm">
-                      <span class="text-gray-600">Coin Discount (${displayCoinsUsed} coins)</span>
-                      <span class="text-red-600">-₹${coinDiscountAmount.toFixed(2)}</span>
-                    </div>
-                    ` : ''}
-                    ${totalDiscount > 0 ? `
-                    <div class="flex justify-between text-sm">
-                      <span class="text-gray-700 font-medium">Total Discount</span>
-                      <span class="text-red-700 font-medium">-₹${totalDiscount.toFixed(2)}</span>
-                    </div>
-                    ` : ''}
-                    <div class="border-t border-gray-200 pt-2 mt-2">
-                      <div class="flex justify-between items-center">
-                        <span class="text-lg font-bold text-gray-800">Total Payable</span>
-                        <span class="text-2xl font-bold text-blue-600">₹${payableAmount.toFixed(2)}</span>
-                      </div>
-                    </div>
-                    <div class="text-center pt-2">
-                      <span class="text-xs text-gray-400">Amount in Words</span>
-                      <p class="text-sm font-medium text-gray-700">${numberToWords(payableAmount)} Rupees Only</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
+    const gstRows = gstTotal > 0
+      ? (gstType === "IGST"
+        ? `<tr><td colspan="5" style="padding:6px 8px;color:#15803d;font-size:12px">✅ IGST (${igstPercent}%) — included in price</td><td style="padding:6px 8px;text-align:right;color:#15803d;font-size:12px">₹${igstAmount.toFixed(2)}</td></tr>`
+        : `<tr><td colspan="5" style="padding:6px 8px;color:#15803d;font-size:12px">✅ CGST (${cgstPercent}%) — included in price</td><td style="padding:6px 8px;text-align:right;color:#15803d;font-size:12px">₹${cgstAmount.toFixed(2)}</td></tr>
+           <tr><td colspan="5" style="padding:6px 8px;color:#15803d;font-size:12px">✅ SGST (${sgstPercent}%) — included in price</td><td style="padding:6px 8px;text-align:right;color:#15803d;font-size:12px">₹${sgstAmount.toFixed(2)}</td></tr>`)
+      : "";
 
-            <!-- Footer -->
-            <div class="bg-gray-900 text-white p-6">
-              <div class="flex justify-between items-start">
-                <div class="text-sm">
-                  <p class="font-semibold mb-1">Terms & Conditions</p>
-                  <p class="text-gray-400 text-xs">• Goods once sold cannot be returned<br>• Warranty as per manufacturer policy<br>• Please retain this invoice for future reference</p>
-                </div>
-                <div class="text-center">
-                  <div class="w-32 h-16 border-b border-gray-600 mb-2"></div>
-                  <p class="text-xs text-gray-400">Authorized Signature</p>
-                </div>
-              </div>
-              <div class="border-t border-gray-700 mt-4 pt-4 text-center">
-                <p class="text-blue-400 font-semibold text-sm">Thank You for Shopping with Us! 🙏</p>
-                <p class="text-gray-500 text-xs mt-1">Visit Again | Quality Guaranteed | Best Prices</p>
-              </div>
-            </div>
+    const discountRows = [
+      discountAmount > 0 ? `<tr><td style="padding:6px 8px;color:#16a34a;font-size:13px">💰 Discount</td><td style="padding:6px 8px;text-align:right;color:#16a34a;font-size:13px">-₹${discountAmount.toFixed(2)}</td></tr>` : "",
+      coinDiscountAmount > 0 ? `<tr><td style="padding:6px 8px;color:#7c3aed;font-size:13px">🪙 Coin Discount (${displayCoinsUsed} coins)</td><td style="padding:6px 8px;text-align:right;color:#7c3aed;font-size:13px">-₹${coinDiscountAmount.toFixed(2)}</td></tr>` : "",
+    ].join("");
 
-            <!-- Footer Bar -->
-            <div class="bg-blue-600 text-white text-center py-2">
-              <p class="text-xs">${storeName} | ${storeTagline}</p>
-            </div>
+    win.document.write(`<!DOCTYPE html><html><head><title>Invoice #${invoiceNum}</title>
+<style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:'Segoe UI',Arial,sans-serif;background:#f5f5f5;padding:20px}.page{max-width:720px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.1)}@media print{body{background:#fff;padding:0}.page{box-shadow:none;border-radius:0}.no-print{display:none}}</style>
+</head><body>
+<div class="page">
+  <div style="background:linear-gradient(135deg,#1a1a2e,#16213e);color:#fff;padding:28px 32px;display:flex;justify-content:space-between;align-items:flex-start">
+    <div>
+      <div style="font-size:26px;font-weight:900;letter-spacing:-0.5px">${fetchedStoreName}</div>
+      ${storeAddress ? `<div style="font-size:12px;color:#94a3b8;margin-top:4px;max-width:280px">${storeAddress}</div>` : ""}
+      ${storePhone ? `<div style="font-size:12px;color:#94a3b8;margin-top:2px">📞 ${storePhone}</div>` : ""}
+      ${gstin ? `<div style="font-size:11px;color:#64748b;margin-top:4px;font-family:monospace">GSTIN: ${gstin}</div>` : ""}
+    </div>
+    <div style="text-align:right">
+      <div style="font-size:22px;font-weight:900;color:#818cf8;letter-spacing:1px">INVOICE</div>
+      <div style="font-size:14px;color:#94a3b8;margin-top:4px;font-family:monospace">#${invoiceNum}</div>
+      <div style="font-size:12px;color:#64748b;margin-top:2px">${dateStr}</div>
+      <div style="margin-top:8px;background:#059669;color:#fff;padding:4px 12px;border-radius:20px;font-size:11px;font-weight:700;display:inline-block">POS Sale</div>
+    </div>
+  </div>
 
-          </div>
-        </body>
-      </html>
-    `);
+  <div style="display:flex;gap:0;border-bottom:1px solid #f0f0f0">
+    <div style="flex:1;padding:20px 32px;border-right:1px solid #f0f0f0">
+      <div style="font-size:11px;font-weight:700;color:#6366f1;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">Bill To</div>
+      <div style="font-weight:700;font-size:15px;color:#0f172a">${customer.name || "Walk-in Customer"}</div>
+      ${customer.mobile ? `<div style="font-size:13px;color:#64748b;margin-top:4px">📞 ${customer.mobile}</div>` : ""}
+      ${customer.address ? `<div style="font-size:12px;color:#94a3b8;margin-top:2px">${customer.address}</div>` : ""}
+    </div>
+    <div style="flex:1;padding:20px 32px">
+      <div style="font-size:11px;font-weight:700;color:#10b981;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">Payment</div>
+      <div style="font-size:14px;font-weight:700;color:${paymentColor}">${paymentLabel}</div>
+      <div style="font-size:12px;color:#64748b;margin-top:6px">Date: ${dateStr}</div>
+    </div>
+  </div>
+
+  <div style="padding:0 32px">
+    <table style="width:100%;border-collapse:collapse;margin-top:20px">
+      <thead>
+        <tr style="background:#0f172a;color:#e2e8f0">
+          <th style="padding:12px 8px;text-align:left;font-size:11px;font-weight:700;letter-spacing:0.5px">#</th>
+          <th style="padding:12px 8px;text-align:left;font-size:11px;font-weight:700;letter-spacing:0.5px">ITEM</th>
+          <th style="padding:12px 8px;text-align:left;font-size:11px;font-weight:700;letter-spacing:0.5px">HSN</th>
+          <th style="padding:12px 8px;text-align:center;font-size:11px;font-weight:700;letter-spacing:0.5px">QTY</th>
+          <th style="padding:12px 8px;text-align:right;font-size:11px;font-weight:700;letter-spacing:0.5px">RATE</th>
+          <th style="padding:12px 8px;text-align:right;font-size:11px;font-weight:700;letter-spacing:0.5px">AMOUNT</th>
+        </tr>
+      </thead>
+      <tbody>${itemRows}</tbody>
+    </table>
+  </div>
+
+  <div style="padding:16px 32px 28px">
+    <table style="width:100%;border-collapse:collapse;margin-left:auto;max-width:320px">
+      <tr><td style="padding:6px 8px;color:#64748b;font-size:13px">Subtotal</td><td style="padding:6px 8px;text-align:right;font-size:13px">₹${subtotal.toFixed(2)}</td></tr>
+      ${discountRows}
+      ${gstRows}
+      <tr style="border-top:2px solid #0f172a">
+        <td style="padding:12px 8px;font-size:17px;font-weight:900;color:#0f172a">TOTAL</td>
+        <td style="padding:12px 8px;text-align:right;font-size:17px;font-weight:900;color:#6366f1">₹${payableAmount.toFixed(2)}</td>
+      </tr>
+    </table>
+  </div>
+
+  <div style="background:#f8fafc;padding:16px 32px;border-top:1px solid #f0f0f0;display:flex;justify-content:space-between;align-items:center">
+    <div>
+      <span style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:1px">Payment</span>
+      <span style="margin-left:10px;font-size:13px;font-weight:700;color:${paymentColor}">${paymentLabel}</span>
+    </div>
+  </div>
+
+  <div style="padding:16px 32px;text-align:center;border-top:1px solid #f0f0f0">
+    <div style="font-size:12px;color:#94a3b8">Thank you for shopping with <strong>${fetchedStoreName}</strong> 🛍️</div>
+    <div style="font-size:11px;color:#cbd5e1;margin-top:4px">This is a computer-generated invoice. No signature required.</div>
+  </div>
+
+  <div class="no-print" style="padding:16px 32px;text-align:center;background:#f8fafc">
+    <button onclick="window.print()" style="background:#6366f1;color:#fff;border:none;padding:10px 32px;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer">🖨️ Print Invoice</button>
+  </div>
+</div>
+</body></html>`);
 
     win.document.close();
-    setTimeout(() => win.print(), 500);
+    setTimeout(() => win.print(), 600);
   };
 
   return (

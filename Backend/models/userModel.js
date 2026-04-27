@@ -14,9 +14,8 @@ var userSchema = new mongoose.Schema(
     },
     email: {
       type: String,
-      // required: true,
-      unique: false,
-      sparse: true
+      unique: true,
+      sparse: true,
     },
     mobile: {
       type: String,

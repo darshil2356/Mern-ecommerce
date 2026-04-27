@@ -39,7 +39,8 @@ const Reports = () => {
   const [activeTab, setActiveTab] = useState("monthly");
   const [selectedMonth, setSelectedMonth] = useState(dayjs().month() + 1);
   const [selectedYear, setSelectedYear] = useState(dayjs().year());
-  const [dateRange, setDateRange] = useState([dayjs().startOf('month'), dayjs().endOf('month')]);
+  const [dateRange, setDateRange] = useState(null);
+  const [dateRangeSelected, setDateRangeSelected] = useState(false);
   const [paymentFilter, setPaymentFilter] = useState("all");
 
   const currentUser = useSelector((state) => state?.auth?.user);
@@ -65,19 +66,19 @@ const Reports = () => {
       dispatch(getYearlyReportData({ year: selectedYear, paymentFilter }));
     } else if (activeTab === "gst") {
       dispatch(getGSTReportData({ month: selectedMonth, year: selectedYear, paymentFilter }));
-    } else if (activeTab === "dateRange" && dateRange && dateRange[0] && dateRange[1]) {
+    } else if (activeTab === "dateRange" && dateRangeSelected && dateRange?.[0] && dateRange?.[1]) {
       dispatch(getDateRangeReportData({
         startDate: dateRange[0].format("YYYY-MM-DD"),
         endDate: dateRange[1].format("YYYY-MM-DD"),
         paymentFilter,
       }));
-    } else if (activeTab === "products" && dateRange && dateRange[0] && dateRange[1]) {
+    } else if (activeTab === "products" && dateRangeSelected && dateRange?.[0] && dateRange?.[1]) {
       dispatch(getProductWiseReportData({
         startDate: dateRange[0].format("YYYY-MM-DD"),
         endDate: dateRange[1].format("YYYY-MM-DD"),
         paymentFilter,
       }));
-    } else if (activeTab === "customers" && dateRange && dateRange[0] && dateRange[1]) {
+    } else if (activeTab === "customers" && dateRangeSelected && dateRange?.[0] && dateRange?.[1]) {
       dispatch(getCustomerWiseReportData({
         startDate: dateRange[0].format("YYYY-MM-DD"),
         endDate: dateRange[1].format("YYYY-MM-DD"),
@@ -89,6 +90,7 @@ const Reports = () => {
   const handleDateRangeChange = (dates) => {
     if (dates) {
       setDateRange(dates);
+      setDateRangeSelected(true);
       const startDate = dates[0].format("YYYY-MM-DD");
       const endDate = dates[1].format("YYYY-MM-DD");
       if (activeTab === "products") {
@@ -98,6 +100,9 @@ const Reports = () => {
       } else {
         dispatch(getDateRangeReportData({ startDate, endDate, paymentFilter }));
       }
+    } else {
+      setDateRange(null);
+      setDateRangeSelected(false);
     }
   };
 
@@ -137,7 +142,7 @@ const Reports = () => {
         break;
       case "dateRange":
         reportData = dateRangeReport;
-        reportTitle = `Sales Report - ${dateRange[0].format('DD/MM/YYYY')} to ${dateRange[1].format('DD/MM/YYYY')}`;
+        reportTitle = `Sales Report - ${dateRange?.[0]?.format('DD/MM/YYYY') ?? ''} to ${dateRange?.[1]?.format('DD/MM/YYYY') ?? ''}`;
         break;
       case "gst":
         reportData = gstReport;
@@ -354,7 +359,7 @@ const Reports = () => {
         break;
       case "dateRange":
         reportData = dateRangeReport;
-        fileName = `Report_${dateRange[0].format('YYYY-MM-DD')}_to_${dateRange[1].format('YYYY-MM-DD')}`;
+        fileName = `Report_${dateRange?.[0]?.format('YYYY-MM-DD') ?? 'start'}_to_${dateRange?.[1]?.format('YYYY-MM-DD') ?? 'end'}`;
         break;
       case "gst":
         reportData = gstReport;
@@ -450,7 +455,7 @@ const Reports = () => {
       
       // Header
       summaryData.push(["SALES REPORT SUMMARY"]);
-      summaryData.push([`Period: ${activeTab === 'monthly' ? monthNames[selectedMonth - 1] + ' ' + selectedYear : activeTab === 'yearly' ? selectedYear : dateRange[0].format('DD/MM/YYYY') + ' to ' + dateRange[1].format('DD/MM/YYYY')}`]);
+      summaryData.push([`Period: ${activeTab === 'monthly' ? monthNames[selectedMonth - 1] + ' ' + selectedYear : activeTab === 'yearly' ? selectedYear : (dateRange?.[0]?.format('DD/MM/YYYY') ?? '') + ' to ' + (dateRange?.[1]?.format('DD/MM/YYYY') ?? '')}`]);
       summaryData.push([`Generated On: ${new Date().toLocaleDateString('en-IN')}`]);
       summaryData.push([]);
       

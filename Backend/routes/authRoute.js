@@ -1,7 +1,8 @@
 const express = require("express");
 const { authMiddleware, isAdmin } = require("../middlewares/authMiddleware");
 const { checkout, paymentVerification } = require("../controller/paymentCtrl");
-const { getProductByBarcode } = require("../controller/userCtrl"); 
+const { getProductByBarcode } = require("../controller/userCtrl");
+const { sendPhoneOTP, verifyPhoneOTP, requirePhoneVerified } = require("../controller/otpCtrl");
 const {
   createUser,
   loginUserCtrl,
@@ -79,8 +80,23 @@ router.get("/search", authMiddleware, isAdmin, searchUsers);
 // Customer offer routes
 router.get("/customer-offer", authMiddleware, isAdmin, getCustomerOffer);
 router.put("/customer-offer", authMiddleware, isAdmin, updateCustomerOffer);
-// router.post("/register", createUser);
-router.post("/register", registerUser);
+// OTP routes for phone verification
+router.post("/send-otp", sendPhoneOTP);
+router.post("/verify-otp", verifyPhoneOTP);
+
+// Register — OTP required only if admin has enabled it
+router.post("/register", async (req, res, next) => {
+  try {
+    const User = require("../models/userModel");
+    const admin = await User.findOne({ role: "admin" }).select("requireOtpForSignup");
+    if (admin?.requireOtpForSignup) {
+      return requirePhoneVerified(req, res, next);
+    }
+    next();
+  } catch {
+    next();
+  }
+}, registerUser);
 
 router.post("/forgot-password-token", forgotPasswordToken);
 // router.get("/barcode/:barcode", getProductByBarcode);
@@ -146,7 +162,7 @@ router.put("/unblock-user/:id", authMiddleware, isAdmin, unblockUser);
 router.get("/public-settings", async (req, res) => {
   try {
     const User = require("../models/userModel");
-    const admin = await User.findOne({ role: "admin" }).select("cgst sgst igst storeState taxIncluded shippingCharge");
+    const admin = await User.findOne({ role: "admin" }).select("cgst sgst igst storeState taxIncluded shippingCharge requireOtpForSignup");
     res.json({
       cgst: admin?.cgst || 0,
       sgst: admin?.sgst || 0,
@@ -154,9 +170,10 @@ router.get("/public-settings", async (req, res) => {
       storeState: admin?.storeState || "Gujarat",
       taxIncluded: admin?.taxIncluded === true,
       shippingCharge: admin?.shippingCharge ?? 100,
+      requireOtpForSignup: admin?.requireOtpForSignup === true,
     });
   } catch {
-    res.json({ cgst: 0, sgst: 0, igst: 0, storeState: "Gujarat", taxIncluded: false, shippingCharge: 100 });
+    res.json({ cgst: 0, sgst: 0, igst: 0, storeState: "Gujarat", taxIncluded: false, shippingCharge: 100, requireOtpForSignup: false });
   }
 });
 

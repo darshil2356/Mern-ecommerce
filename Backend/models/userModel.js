@@ -216,6 +216,11 @@ var userSchema = new mongoose.Schema(
       type: [String],
       default: [],
     },
+    // OTP verification toggle for signup
+    requireOtpForSignup: {
+      type: Boolean,
+      default: false,
+    },
   },
   {
     timestamps: true,

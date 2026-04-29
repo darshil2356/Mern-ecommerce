@@ -14,6 +14,16 @@ const register = async (userData) => {
   return response.data;
 };
 
+const sendOTP = async (mobile) => {
+  const response = await axios.post(`${base_url}user/send-otp`, { mobile });
+  return response.data;
+};
+
+const verifyOTP = async (mobile, otp) => {
+  const response = await axios.post(`${base_url}user/verify-otp`, { mobile, otp });
+  return response.data;
+};
+
 const login = async (userData) => {
   const response = await axios.post(`${base_url}user/login`, userData);
   if (response.data) {
@@ -140,6 +150,8 @@ const deleteAddress = async (addrId) => {
 
 export const authService = {
   register,
+  sendOTP,
+  verifyOTP,
   login,
   getUserWislist,
   addToCart,

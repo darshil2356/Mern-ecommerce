@@ -16,6 +16,7 @@ const Settings = () => {
   const [taxIncluded, setTaxIncluded]                       = useState(false);
   const [storeState, setStoreState]                         = useState("Gujarat");
   const [onlinePaymentDestination, setOnlinePaymentDestination] = useState("CURRENT_ACCOUNT");
+  const [requireOtpForSignup, setRequireOtpForSignup]       = useState(false);
 
   useEffect(() => { fetchSettings(); }, []);
 
@@ -40,6 +41,7 @@ const Settings = () => {
       setTaxIncluded(res.data.taxIncluded === true);
       setStoreState(res.data.storeState || "Gujarat");
       setOnlinePaymentDestination(res.data.onlinePaymentDestination || "CURRENT_ACCOUNT");
+      setRequireOtpForSignup(res.data.requireOtpForSignup === true);
     } catch {
       message.error("Failed to load settings");
     } finally {
@@ -59,6 +61,7 @@ const Settings = () => {
         taxIncluded,
         storeState,
         onlinePaymentDestination,
+        requireOtpForSignup,
         upiIdA: values.upiIdA || "",
         upiIdB: values.upiIdB || "",
       };
@@ -193,6 +196,26 @@ const Settings = () => {
           >
             <Input type="number" min={0} step={1} placeholder="e.g. 100" prefix={<FaTruck className="text-gray-400" />} />
           </Form.Item>
+
+          {/* OTP Signup Toggle */}
+          <div className="p-4 bg-yellow-50 rounded-xl border border-yellow-200">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="font-medium text-gray-800">OTP Verification on Signup</p>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  {requireOtpForSignup
+                    ? "Customers must verify mobile via OTP before registering"
+                    : "Customers can register without OTP verification"}
+                </p>
+              </div>
+              <Switch
+                checked={requireOtpForSignup}
+                onChange={setRequireOtpForSignup}
+                checkedChildren="OTP ON"
+                unCheckedChildren="OTP OFF"
+              />
+            </div>
+          </div>
         </Card>
 
         {/* ── Payment ── */}

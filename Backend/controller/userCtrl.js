@@ -540,9 +540,22 @@ if (referrer) {
 });
 
 const registerUser = asyncHandler(async (req, res) => {
-  const { email, password, referralCode } = req.body;
+  const { email, password, referralCode, mobile } = req.body;
 
-  const existingUser = await User.findOne({ email });
+  // Validate mobile (required, must be valid Indian number)
+  if (!mobile || !/^[6-9]\d{9}$/.test(mobile)) {
+    res.status(400);
+    throw new Error("Valid 10-digit mobile number is required");
+  }
+
+  // Check if mobile already registered
+  const mobileExists = await User.findOne({ mobile });
+  if (mobileExists && mobileExists.password) {
+    res.status(400);
+    throw new Error("Mobile number already registered");
+  }
+
+  const existingUser = email ? await User.findOne({ email }) : null;
 
   // Generate a unique referral code function
   const generateCode = () => {
@@ -564,7 +577,7 @@ const registerUser = asyncHandler(async (req, res) => {
   }
 
   // Case 1: New online user
-  if (!existingUser) {
+  if (!existingUser && !mobileExists) {
     let referredByUser = null;
     
     // If referral code provided, find the referrer
@@ -617,14 +630,14 @@ const registerUser = asyncHandler(async (req, res) => {
     });
   }
 
-  // Case 2: Offline user activating account
-  if (existingUser && !existingUser.password) {
-    existingUser.password = password;
-    // Generate referral code if doesn't exist
-    if (!existingUser.referralCode) {
-      existingUser.referralCode = newReferralCode;
+  // Case 2: Offline user activating account (found by email or mobile)
+  const offlineUser = existingUser || mobileExists;
+  if (offlineUser && !offlineUser.password) {
+    offlineUser.password = password;
+    if (!offlineUser.referralCode) {
+      offlineUser.referralCode = newReferralCode;
     }
-    await existingUser.save();
+    await offlineUser.save();
 
     return res.json({
       message: "Account activated successfully",
@@ -2772,7 +2785,7 @@ const getSettings = asyncHandler(async (req, res) => {
 
   try {
     const user = await User.findById(_id).select(
-      "gstin email storeName storeTagline storeAddress storePhone cgst sgst igst storeState taxIncluded onlinePaymentDestination shippingCharge upiIdA upiIdB"
+      "gstin email storeName storeTagline storeAddress storePhone cgst sgst igst storeState taxIncluded onlinePaymentDestination shippingCharge upiIdA upiIdB requireOtpForSignup"
     );
     res.json({
       gstin: user.gstin || "",
@@ -2790,6 +2803,7 @@ const getSettings = asyncHandler(async (req, res) => {
       shippingCharge: user.shippingCharge ?? 100,
       upiIdA: user.upiIdA || "",
       upiIdB: user.upiIdB || "",
+      requireOtpForSignup: user.requireOtpForSignup === true,
     });
   } catch (error) {
     throw new Error(error);
@@ -2804,6 +2818,7 @@ const updateSettings = asyncHandler(async (req, res) => {
     cgst, sgst, igst, storeState, taxIncluded,
     storeName, storeTagline, storeAddress, storePhone,
     onlinePaymentDestination, shippingCharge, upiIdA, upiIdB,
+    requireOtpForSignup,
   } = req.body;
 
   const updatedUser = await User.findByIdAndUpdate(
@@ -2822,6 +2837,7 @@ const updateSettings = asyncHandler(async (req, res) => {
       ...(shippingCharge !== undefined && { shippingCharge: parseFloat(shippingCharge) >= 0 ? parseFloat(shippingCharge) : 0 }),
       ...(upiIdA !== undefined && { upiIdA: upiIdA || "" }),
       ...(upiIdB !== undefined && { upiIdB: upiIdB || "" }),
+      ...(requireOtpForSignup !== undefined && { requireOtpForSignup: Boolean(requireOtpForSignup) }),
     },
     { new: true }
   );

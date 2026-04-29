@@ -32,9 +32,9 @@ export const login = createAsyncThunk(
 
 export const getOrders = createAsyncThunk(
   "order/get-orders",
-  async (data, thunkAPI) => {
+  async (paymentFilter, thunkAPI) => {
     try {
-      return await authService.getOrders(data);
+      return await authService.getOrders(paymentFilter);
     } catch (error) {
       return thunkAPI.rejectWithValue(error);
     }

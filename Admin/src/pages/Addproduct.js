@@ -43,10 +43,10 @@ let schema = yup.object().shape({
   category: yup.string().required("Category is Required"),
   tags: yup.string().required("Tag is Required"),
   hsnCode: yup.string().matches(/^[0-9]{4,8}$/, "HSN must be 4-8 digits").optional(),
-  color: yup.string().when("variants", function(variants) {
-    return !Array.isArray(variants) || variants.length === 0
-      ? yup.string().required("Color is Required when no variants are set")
-      : yup.string().notRequired();
+  color: yup.string().when("variants", {
+    is: (variants) => !Array.isArray(variants) || variants.length === 0,
+    then: (schema) => schema.required("Color is Required when no variants are set"),
+    otherwise: (schema) => schema.notRequired(),
   }),
   variants: yup.array().of(
     yup.object().shape({
@@ -61,7 +61,7 @@ let schema = yup.object().shape({
     })
   ).optional(),
   inventory: yup.object({
-    offline: yup.boolean().oneOf([true]),
+    offline: yup.boolean(),
     online: yup.boolean(),
   }),
   videos: yup.array().optional(),
@@ -341,7 +341,11 @@ const Addproduct = () => {
           navigate("/admin/list-product");
         }
       } catch (err) {
-        toast.error("Something went wrong");
+        const msg =
+          err?.response?.data?.message ||
+          err?.message ||
+          "Something went wrong";
+        toast.error(msg);
       }
     },
   });
@@ -532,7 +536,23 @@ const Addproduct = () => {
             </Button>
             <Button
               type="primary"
-              onClick={formik.handleSubmit}
+              onClick={async () => {
+                const errors = await formik.validateForm();
+                if (Object.keys(errors).length > 0) {
+                  formik.setTouched(
+                    Object.keys(errors).reduce((acc, k) => ({ ...acc, [k]: true }), {})
+                  );
+                  toast.error(
+                    "Please fix: " +
+                      Object.values(errors)
+                        .flat()
+                        .filter((v) => typeof v === "string")
+                        .join(", ")
+                  );
+                  return;
+                }
+                formik.handleSubmit();
+              }}
               loading={isLoading}
               style={{
                 height: "40px",
@@ -1441,7 +1461,23 @@ const Addproduct = () => {
               type="primary"
               block
               size="large"
-              onClick={formik.handleSubmit}
+              onClick={async () => {
+                const errors = await formik.validateForm();
+                if (Object.keys(errors).length > 0) {
+                  formik.setTouched(
+                    Object.keys(errors).reduce((acc, k) => ({ ...acc, [k]: true }), {})
+                  );
+                  toast.error(
+                    "Please fix: " +
+                      Object.values(errors)
+                        .flat()
+                        .filter((v) => typeof v === "string")
+                        .join(", ")
+                  );
+                  return;
+                }
+                formik.handleSubmit();
+              }}
               loading={isLoading}
               style={{
                 height: "50px",

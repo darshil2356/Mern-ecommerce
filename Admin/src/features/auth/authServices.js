@@ -8,8 +8,9 @@ const login = async (user) => {
   return response.data;
 };
 
-const getOrders = async () => {
-  const response = await api.get("user/getallorders");
+const getOrders = async (paymentFilter) => {
+  const pf = paymentFilter || 'online_current';
+  const response = await api.get(`user/getallorders?paymentFilter=${pf}`);
   return response.data;
 };
 

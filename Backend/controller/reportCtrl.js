@@ -197,8 +197,8 @@ const getYearlyReport = asyncHandler(async (req, res) => {
     .populate({ path: "orderItems.product", select: "title brand price barcode hsnCode" });
 
   const monthlyData = await Order.aggregate([
-    { $match: mergeFilters({ createdAt: { $gte: startDate, $lte: endDate } }, pf) },
-    { $group: { _id: { $month: "$createdAt" }, totalOrders: { $sum: 1 }, totalSales: { $sum: "$totalPrice" }, totalDiscount: { $sum: { $add: [ { $ifNull: ["$discountAmount", 0] }, { $ifNull: ["$discountBreakdown.directDiscount", 0] }, { $ifNull: ["$discountBreakdown.offerDiscount", 0] }, { $ifNull: ["$discountBreakdown.coinDiscount", 0] } ] } }, netRevenue: { $sum: "$totalPriceAfterDiscount" } } },
+    { $match: mergeFilters({ createdAt: { $gte: startDate, $lte: endDate }, orderStatus: { $ne: "Cancelled" } }, pf) },
+    { $group: { _id: { $month: "$createdAt" }, totalOrders: { $sum: 1 }, totalSales: { $sum: "$totalPrice" }, totalDiscount: { $sum: "$discountAmount" }, netRevenue: { $sum: "$totalPriceAfterDiscount" } } },
     { $sort: { _id: 1 } }
   ]);
 

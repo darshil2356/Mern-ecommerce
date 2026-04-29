@@ -325,6 +325,60 @@ async function testOrders(user, product) {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
+// Helpers — mirrors reportCtrl.js logic exactly
+// ════════════════════════════════════════════════════════════════════════════
+const getOrderDiscount = (o) => {
+  const breakdown =
+    (o.discountBreakdown?.directDiscount || 0) +
+    (o.discountBreakdown?.offerDiscount || 0) +
+    (o.discountBreakdown?.coinDiscount || 0);
+  const fromAmount = (o.discountAmount || 0) + (o.coinAmount || 0);
+  return Math.max(breakdown, fromAmount);
+};
+
+const buildPaymentFilter = (paymentFilter = "all") => {
+  switch (paymentFilter.toLowerCase()) {
+    case "cash":
+      return {
+        $or: [
+          { paymentDestination: "CASH" },
+          { mode: "OFFLINE", paymentDestination: { $exists: false } },
+          { mode: "OFFLINE", paymentDestination: null },
+        ],
+      };
+    case "online_current":
+      return {
+        $or: [
+          { paymentDestination: "CURRENT_ACCOUNT" },
+          { mode: "ONLINE", paymentDestination: { $exists: false } },
+          { mode: "ONLINE", paymentDestination: null },
+        ],
+      };
+    case "online_other":
+      return { paymentDestination: "OTHER_ACCOUNT" };
+    default:
+      return {};
+  }
+};
+
+const mergeFilters = (dateFilter, pf) => {
+  if (!pf || Object.keys(pf).length === 0) return dateFilter;
+  if (pf.$or) return { ...dateFilter, $or: pf.$or };
+  return { ...dateFilter, ...pf };
+};
+
+const buildCancelledSummary = (cancelledOrders) => {
+  const cancelledAmount = cancelledOrders.reduce((s, o) => s + (o.totalPriceAfterDiscount || 0), 0);
+  const coinRefundAmount = cancelledOrders
+    .filter(o => !o.refundType || o.refundType === "COINS" || o.refundType === "NONE")
+    .reduce((s, o) => s + (o.refundCoins || o.refundAmount || o.totalPriceAfterDiscount || 0), 0);
+  const cashRefundAmount = cancelledOrders
+    .filter(o => o.refundType === "CASH" || o.refundType === "ONLINE")
+    .reduce((s, o) => s + (o.refundAmount || 0), 0);
+  return { cancelledAmount, coinRefundAmount, cashRefundAmount };
+};
+
+// ════════════════════════════════════════════════════════════════════════════
 // 5. REPORT MODULE — all scenarios
 // ════════════════════════════════════════════════════════════════════════════
 async function testReports() {
@@ -337,9 +391,10 @@ async function testReports() {
   const year = now.getFullYear();
   const startDate = new Date(year, now.getMonth(), 1);
   const endDate = new Date(year, now.getMonth() + 1, 0, 23, 59, 59, 999);
+  const dateFilter = { createdAt: { $gte: startDate, $lte: endDate } };
 
   // ── Monthly Report ───────────────────────────────────────────────────────
-  const monthlyOrders = await Order.find({ createdAt: { $gte: startDate, $lte: endDate } })
+  const monthlyOrders = await Order.find(dateFilter)
     .populate("user", "firstname lastname mobile")
     .populate({ path: "orderItems.product", select: "title brand price hsnCode" });
 
@@ -347,8 +402,8 @@ async function testReports() {
   const cancelledOrders = monthlyOrders.filter(o => o.orderStatus === "Cancelled");
   const totalSales = activeOrders.reduce((s, o) => s + (o.totalPrice || 0), 0);
   const netRevenue = activeOrders.reduce((s, o) => s + (o.totalPriceAfterDiscount || 0), 0);
-  const totalDiscount = activeOrders.reduce((s, o) => s + (o.discountAmount || 0) + (o.coinAmount || 0), 0);
-  const cashRefund = cancelledOrders.filter(o => o.refundType === "CASH" || o.refundType === "ONLINE").reduce((s, o) => s + (o.refundAmount || 0), 0);
+  const totalDiscount = activeOrders.reduce((s, o) => s + getOrderDiscount(o), 0);
+  const { cancelledAmount, coinRefundAmount, cashRefundAmount } = buildCancelledSummary(cancelledOrders);
 
   log("Report", `Monthly Report — ${month}/${year}`, {
     totalOrders: activeOrders.length,
@@ -356,19 +411,23 @@ async function testReports() {
     totalSales: `₹${totalSales}`,
     totalDiscount: `₹${totalDiscount}`,
     netRevenue: `₹${netRevenue}`,
-    netActualRevenue: `₹${netRevenue - cashRefund}`,
-    cashRefund: `₹${cashRefund}`,
+    netActualRevenue: `₹${netRevenue - cashRefundAmount}`,
+    cashRefund: `₹${cashRefundAmount}`,
+    coinRefund: `₹${coinRefundAmount}`,
   });
 
-  // ── Payment mode breakdown ───────────────────────────────────────────────
-  const cashOrders = activeOrders.filter(o => o.paymentDestination === "CASH");
-  const onlineCurrentOrders = activeOrders.filter(o => o.paymentDestination === "CURRENT_ACCOUNT" || (o.mode === "ONLINE" && !o.paymentDestination));
-  const onlineOtherOrders = activeOrders.filter(o => o.paymentDestination === "OTHER_ACCOUNT");
+  // ── Payment mode breakdown (mirrors controller modeBreakdown) ────────────
+  const cashOrders          = activeOrders.filter(o => o.paymentDestination === "CASH");
+  const onlineCurrentOrders = activeOrders.filter(o =>
+    o.paymentDestination === "CURRENT_ACCOUNT" ||
+    (o.mode === "ONLINE" && !o.paymentDestination)
+  );
+  const onlineOtherOrders   = activeOrders.filter(o => o.paymentDestination === "OTHER_ACCOUNT");
 
   log("Report", "Payment Mode Breakdown", {
-    cash: { orders: cashOrders.length, amount: cashOrders.reduce((s, o) => s + (o.totalPriceAfterDiscount || 0), 0) },
+    cash:          { orders: cashOrders.length,          amount: cashOrders.reduce((s, o) => s + (o.totalPriceAfterDiscount || 0), 0) },
     onlineCurrent: { orders: onlineCurrentOrders.length, amount: onlineCurrentOrders.reduce((s, o) => s + (o.totalPriceAfterDiscount || 0), 0) },
-    onlineOther: { orders: onlineOtherOrders.length, amount: onlineOtherOrders.reduce((s, o) => s + (o.totalPriceAfterDiscount || 0), 0) },
+    onlineOther:   { orders: onlineOtherOrders.length,   amount: onlineOtherOrders.reduce((s, o) => s + (o.totalPriceAfterDiscount || 0), 0) },
   });
 
   // ── Order status breakdown ───────────────────────────────────────────────
@@ -382,18 +441,24 @@ async function testReports() {
   log("Report", "Order Status Breakdown", statusBreakdown);
 
   // ── GST Report ───────────────────────────────────────────────────────────
-  const gstOrders = await Order.find({
-    createdAt: { $gte: startDate, $lte: endDate },
-    orderStatus: { $ne: "Cancelled" },
-  });
+  const gstOrders = await Order.find({ ...dateFilter, orderStatus: { $ne: "Cancelled" } });
 
   let totalCGST = 0, totalSGST = 0, totalIGST = 0, totalTaxable = 0;
   gstOrders.forEach(o => {
     const g = o.gstBreakdown || {};
-    totalCGST += g.cgst || 0;
-    totalSGST += g.sgst || 0;
-    totalIGST += g.igst || 0;
-    totalTaxable += g.taxableAmount || 0;
+    const cgst = g.cgst || 0, sgst = g.sgst || 0, igst = g.igst || 0;
+    const totalTax = cgst + sgst + igst;
+    const taxIncluded = g.taxIncluded === true;
+    const storedTaxable = g.taxableAmount || 0;
+    const taxableValue = storedTaxable > 0
+      ? storedTaxable
+      : taxIncluded
+        ? Math.max(0, (o.totalPrice || 0) - totalTax)
+        : (o.totalPrice || 0);
+    totalCGST += cgst;
+    totalSGST += sgst;
+    totalIGST += igst;
+    totalTaxable += taxableValue;
   });
 
   log("Report", "GST Report", {
@@ -410,9 +475,7 @@ async function testReports() {
   activeOrders.forEach(order => {
     order.orderItems.forEach(item => {
       const pid = item.product?._id?.toString() || "Unknown";
-      if (!productStats[pid]) {
-        productStats[pid] = { name: item.product?.title || "Unknown", qty: 0, revenue: 0 };
-      }
+      if (!productStats[pid]) productStats[pid] = { name: item.product?.title || "Unknown", hsnCode: item.product?.hsnCode || item.hsnCode || "", qty: 0, revenue: 0 };
       productStats[pid].qty += item.quantity || 0;
       productStats[pid].revenue += (item.quantity || 0) * (item.price || 0);
     });
@@ -443,13 +506,15 @@ async function testReports() {
     topCustomers: Object.values(customerStats).sort((a, b) => b.amount - a.amount).slice(0, 3),
   });
 
-  // ── Date Range Report ────────────────────────────────────────────────────
-  const rangeStart = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000); // last 7 days
+  // ── Date Range Report (last 7 days) ──────────────────────────────────────
+  const rangeStart = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
   const rangeEnd = new Date();
   const rangeOrders = await Order.find({ createdAt: { $gte: rangeStart, $lte: rangeEnd } });
+  const rangeActive = rangeOrders.filter(o => o.orderStatus !== "Cancelled");
   log("Report", "Date Range Report (Last 7 days)", {
-    totalOrders: rangeOrders.length,
-    netRevenue: `₹${rangeOrders.filter(o => o.orderStatus !== "Cancelled").reduce((s, o) => s + (o.totalPriceAfterDiscount || 0), 0)}`,
+    totalOrders: rangeActive.length,
+    cancelledOrders: rangeOrders.length - rangeActive.length,
+    netRevenue: `₹${rangeActive.reduce((s, o) => s + (o.totalPriceAfterDiscount || 0), 0)}`,
   });
 
   // ── Yearly Report ────────────────────────────────────────────────────────
@@ -457,21 +522,37 @@ async function testReports() {
   const yearEnd = new Date(year, 11, 31, 23, 59, 59, 999);
   const yearlyOrders = await Order.find({ createdAt: { $gte: yearStart, $lte: yearEnd } });
   const yearlyActive = yearlyOrders.filter(o => o.orderStatus !== "Cancelled");
+  const yearlyCancelled = yearlyOrders.filter(o => o.orderStatus === "Cancelled");
+  const { cashRefundAmount: yearlyCashRefund } = buildCancelledSummary(yearlyCancelled);
+  const yearlyNetRevenue = yearlyActive.reduce((s, o) => s + (o.totalPriceAfterDiscount || 0), 0);
   log("Report", `Yearly Report — ${year}`, {
     totalOrders: yearlyActive.length,
-    netRevenue: `₹${yearlyActive.reduce((s, o) => s + (o.totalPriceAfterDiscount || 0), 0)}`,
-    cancelledOrders: yearlyOrders.filter(o => o.orderStatus === "Cancelled").length,
+    netRevenue: `₹${yearlyNetRevenue}`,
+    netActualRevenue: `₹${yearlyNetRevenue - yearlyCashRefund}`,
+    cancelledOrders: yearlyCancelled.length,
   });
 
-  // ── Payment filter test ──────────────────────────────────────────────────
-  const cashOnly = await Order.find({ createdAt: { $gte: startDate, $lte: endDate }, paymentDestination: "CASH" });
-  log("Report", "Payment Filter — CASH only", { count: cashOnly.length, amount: `₹${cashOnly.reduce((s, o) => s + (o.totalPriceAfterDiscount || 0), 0)}` });
+  // ── Payment filter tests (using same buildPaymentFilter as reportCtrl) ───
+  const cashFilter    = mergeFilters(dateFilter, buildPaymentFilter("cash"));
+  const currentFilter = mergeFilters(dateFilter, buildPaymentFilter("online_current"));
+  const otherFilter   = mergeFilters(dateFilter, buildPaymentFilter("online_other"));
 
-  const onlineCurrentOnly = await Order.find({ createdAt: { $gte: startDate, $lte: endDate }, paymentDestination: "CURRENT_ACCOUNT" });
-  log("Report", "Payment Filter — Online Current Account only", { count: onlineCurrentOnly.length });
+  const cashOnly         = await Order.find(cashFilter);
+  const onlineCurrentOnly = await Order.find(currentFilter);
+  const onlineOtherOnly   = await Order.find(otherFilter);
 
-  const onlineOtherOnly = await Order.find({ createdAt: { $gte: startDate, $lte: endDate }, paymentDestination: "OTHER_ACCOUNT" });
-  log("Report", "Payment Filter — Online Other Account only", { count: onlineOtherOnly.length });
+  log("Report", "Payment Filter — CASH only", {
+    count: cashOnly.length,
+    amount: `₹${cashOnly.filter(o => o.orderStatus !== "Cancelled").reduce((s, o) => s + (o.totalPriceAfterDiscount || 0), 0)}`,
+  });
+  log("Report", "Payment Filter — Online Current Account only", {
+    count: onlineCurrentOnly.length,
+    amount: `₹${onlineCurrentOnly.filter(o => o.orderStatus !== "Cancelled").reduce((s, o) => s + (o.totalPriceAfterDiscount || 0), 0)}`,
+  });
+  log("Report", "Payment Filter — Online Other Account only", {
+    count: onlineOtherOnly.length,
+    amount: `₹${onlineOtherOnly.filter(o => o.orderStatus !== "Cancelled").reduce((s, o) => s + (o.totalPriceAfterDiscount || 0), 0)}`,
+  });
 }
 
 // ════════════════════════════════════════════════════════════════════════════

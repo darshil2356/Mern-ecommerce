@@ -101,9 +101,20 @@ const LiveBilling = () => {
   const coinCelebrationTimerRef = useRef(null);
 
   // Payment method state
-  const [paymentMethod, setPaymentMethod] = useState("CASH"); // CASH or ONLINE
-  const [paymentDestination, setPaymentDestination] = useState("CURRENT_ACCOUNT"); // CURRENT_ACCOUNT or OTHER_ACCOUNT
-  const [onlinePaymentDestinationConfig, setOnlinePaymentDestinationConfig] = useState("CURRENT_ACCOUNT"); // Admin setting
+  const [paymentMethod, setPaymentMethod] = useState("CASH");
+  // ac: "C" = current (all GST products), "S" = saving (any non-GST product)
+  const [ac, setAc] = useState("S");
+  const GST_CHARS = ["K", "M", "R", "T", "W"];
+
+  // Auto-derive account type from cart pkeys
+  const resolvedAc = useMemo(() => {
+    const items = Object.values(cart);
+    if (!items.length) return "S";
+    const allGst = items.every(item => GST_CHARS.includes((item.pkey || "")[5]));
+    return allGst ? "C" : "S";
+  }, [cart]);
+
+  useEffect(() => { setAc(resolvedAc); }, [resolvedAc]);
 
   // Sale processing state
   const [isProcessingSale, setIsProcessingSale] = useState(false);
@@ -338,6 +349,7 @@ const LiveBilling = () => {
             size: product.size || null, // Store size info
             color: product.color || null, // Store color info
             isSizeSpecific: product.isSizeSpecific || false,
+            pkey: product.pkey || "",
           },
         };
       });
@@ -484,6 +496,7 @@ const LiveBilling = () => {
                 size: product.size || null,
                 color: product.color || null,
                 isSizeSpecific: product.isSizeSpecific || false,
+                pkey: product.pkey || "",
               },
             };
           });
@@ -574,7 +587,6 @@ const LiveBilling = () => {
         setGstType("CGST_SGST");
         setTaxIncluded(settingsRes.data.taxIncluded === true);
         setShowSpinner(spinRes.data.isEnabled === true);
-        setOnlinePaymentDestinationConfig(settingsRes.data.onlinePaymentDestination || "CURRENT_ACCOUNT");
         setStoreName(settingsRes.data.storeName || "Yashoda Fashion");
         setStoreTagline(settingsRes.data.storeTagline || "Your One-Stop Shopping Destination");
       } catch (err) {
@@ -974,7 +986,7 @@ const LiveBilling = () => {
           offerDiscount: appliedOfferAmount + offerModelDiscount,
           total: payableAmount,
           paymentMethod: paymentMethod === "CASH" ? "CASH" : "ONLINE",
-          paymentDestination: paymentMethod === "CASH" ? "CASH" : paymentDestination,
+          paymentDestination: paymentMethod === "CASH" ? "CASH" : ac === "C" ? "CURRENT_ACCOUNT" : "OTHER_ACCOUNT",
           referralContact: customer.referralContact || null,
           coinsUsed: useCoins ? coinAmount : 0,
           coinAmount: useCoins ? coinDiscountAmount : 0,
@@ -987,7 +999,7 @@ const LiveBilling = () => {
             igstRate: igstPercent,
             gstType,
             taxableAmount: taxIncluded
-              ? Math.round((grandTotal / (1 + (cgstPercent + sgstPercent + igstPercent) / 100)) * 100) / 100
+              ? Math.round((grandTotal / (1 + (gstType === "IGST" ? igstPercent : (cgstPercent + sgstPercent)) / 100)) * 100) / 100
               : grandTotal,
             taxIncluded,
           },
@@ -1057,7 +1069,7 @@ const LiveBilling = () => {
       setUseCoins(false);
       setCoinAmount(0);
       setPaymentMethod("CASH"); // Reset to CASH
-      setPaymentDestination("CURRENT_ACCOUNT"); // Reset destination
+      setAc("S"); // Reset account type
     } catch (err) {
       console.error("Failed to complete sale:", err);
       Swal.fire({
@@ -1089,7 +1101,7 @@ const LiveBilling = () => {
     coinDiscountAmt = coinDiscountAmount,
     coinsUsedAmt = coinAmount,
     activePaymentMethod = paymentMethod,
-    activePaymentDestination = paymentDestination
+    activeAc = ac
   ) => {
     const activeCart = cartData;
     const activeCustomer = customerData;
@@ -1115,17 +1127,17 @@ const LiveBilling = () => {
       return `INV-${d.getFullYear()}${(d.getMonth()+1).toString().padStart(2,'0')}${d.getDate().toString().padStart(2,'0')}-${r}`;
     })();
 
-    const payLabel = activePaymentMethod === "CASH" || activePaymentDestination === "CASH"
+    const payLabel = activePaymentMethod === "CASH"
       ? "💵 Cash"
-      : activePaymentDestination === "OTHER_ACCOUNT"
-      ? "🏦 Online (Other Account)"
-      : "💳 Online (Current Account)";
+      : activeAc === "C"
+      ? "💳 Online (Account A)"
+      : "🏦 Online (Account B)";
 
-    const payColor = activePaymentMethod === "CASH" || activePaymentDestination === "CASH"
+    const payColor = activePaymentMethod === "CASH"
       ? "#d97706"
-      : activePaymentDestination === "OTHER_ACCOUNT"
-      ? "#7c3aed"
-      : "#059669";
+      : activeAc === "C"
+      ? "#059669"
+      : "#7c3aed";
 
     const win = window.open("", "_blank");
     if (!win) return;
@@ -1842,7 +1854,7 @@ tbody td{padding:12px 10px;font-size:13px;color:#374151}
                   storeName={storeName}
                   storeTagline={storeTagline}
                   paymentMethod={paymentMethod}
-                  paymentDestination={paymentDestination}
+                  paymentDestination={ac === "C" ? "CURRENT_ACCOUNT" : "OTHER_ACCOUNT"}
                 />
                 
                 {/* Payment Method Selection */}
@@ -1850,10 +1862,7 @@ tbody td{padding:12px 10px;font-size:13px;color:#374151}
                   <span className="text-indigo-200 text-sm font-semibold block mb-3">Payment Method</span>
                   <div className="grid grid-cols-2 gap-2 mb-3">
                     <button
-                      onClick={() => {
-                        setPaymentMethod("CASH");
-                        setPaymentDestination("CURRENT_ACCOUNT");
-                      }}
+                      onClick={() => setPaymentMethod("CASH")}
                       className={`py-2 px-3 rounded-lg font-medium text-sm transition-all ${
                         paymentMethod === "CASH"
                           ? "bg-green-500 text-white"
@@ -1873,33 +1882,14 @@ tbody td{padding:12px 10px;font-size:13px;color:#374151}
                       💳 Online
                     </button>
                   </div>
-                  
-                  {/* Online Account Destination */}
+
                   {paymentMethod === "ONLINE" && (
-                    <div className="bg-blue-500/10 rounded-lg p-3 border border-blue-500/20">
-                      <span className="text-blue-200 text-xs font-semibold block mb-2">Account Type</span>
-                      <div className="grid grid-cols-2 gap-2">
-                        <button
-                          onClick={() => setPaymentDestination("CURRENT_ACCOUNT")}
-                          className={`py-2 px-2 rounded text-sm font-medium transition-all ${
-                            paymentDestination === "CURRENT_ACCOUNT"
-                              ? "bg-blue-500 text-white"
-                              : "bg-white/10 text-blue-200 hover:bg-white/20"
-                          }`}
-                        >
-                          Current
-                        </button>
-                        <button
-                          onClick={() => setPaymentDestination("OTHER_ACCOUNT")}
-                          className={`py-2 px-2 rounded text-sm font-medium transition-all ${
-                            paymentDestination === "OTHER_ACCOUNT"
-                              ? "bg-blue-500 text-white"
-                              : "bg-white/10 text-blue-200 hover:bg-white/20"
-                          }`}
-                        >
-                          Other
-                        </button>
-                      </div>
+                    <div className={`rounded-lg px-3 py-2 text-xs font-semibold border ${
+                      ac === "C"
+                        ? "bg-emerald-500/10 border-emerald-400/30 text-emerald-300"
+                        : "bg-violet-500/10 border-violet-400/30 text-violet-300"
+                    }`}>
+                      {ac === "C" ? "🟢 Account A" : "🟣 Account B"}
                     </div>
                   )}
                 </div>

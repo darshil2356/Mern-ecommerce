@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useState, useMemo, useRef } from "react";
 import { 
   BsArrowDownRight, BsArrowUpRight, BsCart4, BsGraphUp, BsBoxSeam, 
   BsCurrencyRupee, BsPercent, BsCheckCircle, BsTruck, BsXCircle, 
@@ -33,6 +33,19 @@ const Dashboard = () => {
   const [selectedFilter, setSelectedFilter] = useState(FILTERS.MONTH);
   const [dateRange, setDateRange] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
+  // default: only Online-Current orders (matches Orders & Reports pages). Triple-click title to toggle all
+  const [showAll, setShowAll] = useState(false);
+  const titleClickRef = useRef(0);
+  const titleTimerRef = useRef(null);
+  const handleTitleClick = () => {
+    titleClickRef.current += 1;
+    clearTimeout(titleTimerRef.current);
+    titleTimerRef.current = setTimeout(() => { titleClickRef.current = 0; }, 600);
+    if (titleClickRef.current >= 3) {
+      titleClickRef.current = 0;
+      setShowAll(prev => !prev);
+    }
+  };
   const orderState = useSelector((state) => state?.auth?.orders?.orders);
 
   const getTokenFromLocalStorage = localStorage.getItem("user")
@@ -51,6 +64,7 @@ const Dashboard = () => {
     const params = new URLSearchParams();
     params.append("filter", selectedFilter);
     params.append("mode", selectedMode === "ALL" ? "" : selectedMode);
+    params.append("paymentFilter", showAll ? "all" : "online_current");
     
     if (selectedFilter === FILTERS.CUSTOM && dateRange) {
       params.append("startDate", dateRange[0].toISOString());
@@ -65,25 +79,29 @@ const Dashboard = () => {
     setIsLoading(true);
     const params = buildQueryParams();
     dispatch(getDashboardStatsData({ params, config: config3 }));
-    
-    // Also fetch daily sales with filter params
     dispatch(getDailySalesData({ params, config: config3 }));
-    
-    // Also fetch monthly/yearly data for charts
     dispatch(getMonthlyData(config3));
     dispatch(getYearlyData(config3));
-    dispatch(getOrders(config3));
+    dispatch(getOrders(showAll ? 'all' : 'online_current'));
     
     // Small delay to show loading state
     const timer = setTimeout(() => setIsLoading(false), 500);
     return () => clearTimeout(timer);
-  }, [selectedFilter, selectedMode, dateRange]);
+  }, [selectedFilter, selectedMode, dateRange, showAll]);
 
-  // Filter orders based on mode and date (all filter types)
+  // Filter orders based on mode, payment type, and date
   const filteredOrders = useMemo(() => {
     if (!orderState) return [];
     const now = dayjs();
     return orderState.filter((order) => {
+      // Match Reports page: default to CURRENT_ACCOUNT only
+      if (!showAll) {
+        const dest = order.paymentDestination;
+        const isOnlineCurrent =
+          dest === 'CURRENT_ACCOUNT' ||
+          (order.mode === 'ONLINE' && !dest);
+        if (!isOnlineCurrent) return false;
+      }
       if (selectedMode !== "ALL" && (order.mode || "ONLINE") !== selectedMode) return false;
       const orderDate = dayjs(order.createdAt);
       if (selectedFilter === FILTERS.CUSTOM && dateRange) {
@@ -100,7 +118,7 @@ const Dashboard = () => {
       }
       return true;
     });
-  }, [orderState, selectedMode, dateRange, selectedFilter]);
+  }, [orderState, selectedMode, dateRange, selectedFilter, showAll]);
 
   // Calculate stats from filtered orders (as fallback)
   const stats = useMemo(() => {
@@ -355,7 +373,10 @@ const Dashboard = () => {
         <div style={{ position: "relative", zIndex: 1 }}>
           <div className="d-flex justify-content-between align-items-start flex-wrap gap-2">
             <div>
-              <h2 className="mb-1" style={{ fontWeight: 700, color: "#ffffff", fontSize: "clamp(20px, 4vw, 28px)", textShadow: "0 2px 4px rgba(0,0,0,0.1)" }}>Dashboard</h2>
+              <h2 className="mb-1" style={{ fontWeight: 700, color: "#ffffff", fontSize: "clamp(20px, 4vw, 28px)", textShadow: "0 2px 4px rgba(0,0,0,0.1)", cursor: "default", userSelect: "none", display: "inline-flex", alignItems: "center", gap: 8 }} onClick={handleTitleClick}>
+                  Dashboard
+                  {showAll && <span style={{ display: "inline-block", width: 7, height: 7, borderRadius: "50%", background: "#fbbf24", verticalAlign: "middle" }} title="Showing all orders" />}
+                </h2>
               <p className="mb-0" style={{ color: "rgba(255,255,255,0.85)", fontSize: "14px" }}>Welcome back! Here's your business overview</p>
             </div>
             <Select

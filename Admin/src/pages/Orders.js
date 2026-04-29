@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useState, useMemo, useRef } from "react";
 import { Table, Button, Select, Tag, message, Space, Tooltip, Input, DatePicker, Badge, Avatar, Modal, Dropdown } from "antd";
 import {
   FilterOutlined, EyeOutlined, PrinterOutlined, RocketOutlined,
@@ -21,7 +21,7 @@ const { Option } = Select;
 const STATUS_CONFIG = {
   All:              { icon: <ShoppingOutlined />, color: "#64748b", bg: "#f1f5f9", border: "#cbd5e1", gradient: "linear-gradient(135deg,#64748b,#94a3b8)" },
   Ordered:          { icon: <ClockCircleOutlined />, color: "#d97706", bg: "#fffbeb", border: "#fbbf24", gradient: "linear-gradient(135deg,#f59e0b,#fbbf24)" },
-  Processed:        { icon: <SyncOutlined />, color: "#2563eb", bg: "#eff6ff", border: "#60a5fa", gradient: "linear-gradient(135deg,#3b82f6,#60a5fa)" },
+  Processing:        { icon: <SyncOutlined />, color: "#2563eb", bg: "#eff6ff", border: "#60a5fa", gradient: "linear-gradient(135deg,#3b82f6,#60a5fa)" },
   Packed:           { icon: <ShoppingOutlined />, color: "#7c3aed", bg: "#f5f3ff", border: "#a78bfa", gradient: "linear-gradient(135deg,#8b5cf6,#a78bfa)" },
   Shipped:          { icon: <CarOutlined />, color: "#0891b2", bg: "#ecfeff", border: "#22d3ee", gradient: "linear-gradient(135deg,#06b6d4,#22d3ee)" },
   "Out for Delivery":{ icon: <RocketOutlined />, color: "#db2777", bg: "#fdf2f8", border: "#f472b6", gradient: "linear-gradient(135deg,#ec4899,#f472b6)" },
@@ -42,8 +42,21 @@ const Orders = () => {
   const [dateRange, setDateRange] = useState(null);
   const [paymentFilter, setPaymentFilter] = useState("All");
   const [cancelModal, setCancelModal] = useState({ open: false, orderId: null, reason: "" });
+  // default: only Online-Current (GST) orders. Triple-click title to toggle all orders
+  const [showAll, setShowAll] = useState(false);
+  const titleClickRef = useRef(0);
+  const titleTimerRef = useRef(null);
+  const handleTitleClick = () => {
+    titleClickRef.current += 1;
+    clearTimeout(titleTimerRef.current);
+    titleTimerRef.current = setTimeout(() => { titleClickRef.current = 0; }, 600);
+    if (titleClickRef.current >= 3) {
+      titleClickRef.current = 0;
+      setShowAll(prev => !prev);
+    }
+  };
 
-  useEffect(() => { dispatch(getOrders()); }, [dispatch]);
+  useEffect(() => { dispatch(getOrders(showAll ? 'all' : 'online_current')); }, [dispatch, showAll]);
 
   const updateOrderStatus = async (orderId, newStatus) => {
     if (newStatus === "Cancelled") {
@@ -53,7 +66,7 @@ const Orders = () => {
     try {
       await dispatch(updateAOrder({ id: orderId, status: newStatus })).unwrap();
       message.success(`Status updated to ${newStatus}`);
-      dispatch(getOrders());
+      dispatch(getOrders(showAll ? 'all' : 'online_current'));
     } catch { message.error("Failed to update status"); }
   };
 
@@ -62,7 +75,7 @@ const Orders = () => {
     try {
       await dispatch(adminCancelAOrder({ id: cancelModal.orderId, cancelReason: cancelModal.reason.trim() })).unwrap();
       message.success("Order cancelled successfully");
-      dispatch(getOrders());
+      dispatch(getOrders(showAll ? 'all' : 'online_current'));
     } catch { message.error("Failed to cancel order"); }
     setCancelModal({ open: false, orderId: null, reason: "" });
   };
@@ -75,7 +88,7 @@ const Orders = () => {
       const ok = res.data.results.filter(r => r.success).length;
       message.success(`${ok} shipment(s) created`);
       setSelectedRowKeys([]);
-      dispatch(getOrders());
+      dispatch(getOrders(showAll ? 'all' : 'online_current'));
     } catch { message.error("Bulk shipment failed"); }
     finally { setBulkLoading(false); }
   };
@@ -90,7 +103,7 @@ const Orders = () => {
       if (ok > 0) message.success(`${ok} order(s) updated to "${newStatus}"${failed > 0 ? `, ${failed} skipped (locked)` : ""}`);
       else message.warning(`No orders updated — all may be locked`);
       setSelectedRowKeys([]);
-      dispatch(getOrders());
+      dispatch(getOrders(showAll ? 'all' : 'online_current'));
     } catch { message.error("Bulk status update failed"); }
     finally { setBulkLoading(false); }
   };
@@ -264,7 +277,9 @@ tbody td{padding:14px 14px;font-size:13px;color:#333}
       amount: order?.totalPrice,
       finalAmount: order?.totalPriceAfterDiscount,
       status: order?.orderStatus || "Ordered",
-      payment: order?.paymentInfo?.razorpayPaymentId ? "Paid" : (order?.mode === "OFFLINE" ? (order?.paymentDestination === "CASH" ? "Cash" : order?.paymentDestination === "OTHER_ACCOUNT" ? "Online-Other" : "Online-Current") : "Pending"),
+      payment: order?.mode === "OFFLINE"
+        ? (order?.paymentDestination === "CASH" ? "Cash" : order?.paymentDestination === "OTHER_ACCOUNT" ? "Online-Other" : "Online-Current")
+        : (order?.paymentDestination === "OTHER_ACCOUNT" ? "Online-Other" : "Online-Current"),
       date: dayjs(order?.createdAt).format("DD MMM YYYY"),
       rawDate: order?.createdAt,
       courierName: order?.courierName || "—",
@@ -275,9 +290,9 @@ tbody td{padding:14px 14px;font-size:13px;color:#333}
     }));
   }, [orderState]);
 
-  const filteredData = useMemo(() => {
+  const baseFilteredData = useMemo(() => {
     return processedData.filter((item) => {
-      if (activeStatus !== "All" && item.status !== activeStatus) return false;
+      if (!showAll && item.payment !== "Online-Current") return false;
       if (searchText) {
         const s = searchText.toLowerCase();
         if (!item.orderId.toLowerCase().includes(s) && !item.name.toLowerCase().includes(s) && !item.email.toLowerCase().includes(s) && !item.mobile.includes(s)) return false;
@@ -285,24 +300,29 @@ tbody td{padding:14px 14px;font-size:13px;color:#333}
       if (dateRange) {
         const [start, end] = dateRange;
         const d = dayjs(item.rawDate);
-        if (!d.isAfter(start.startOf("day")) || !d.isBefore(end.endOf("day"))) return false;
+        if (d.isBefore(start.startOf("day")) || d.isAfter(end.endOf("day"))) return false;
       }
       if (paymentFilter !== "All" && item.payment !== paymentFilter) return false;
       return true;
     });
-  }, [processedData, activeStatus, searchText, dateRange, paymentFilter]);
+  }, [processedData, searchText, dateRange, paymentFilter, showAll]);
+
+  const filteredData = useMemo(() => {
+    if (activeStatus === "All") return baseFilteredData;
+    return baseFilteredData.filter((item) => item.status === activeStatus);
+  }, [baseFilteredData, activeStatus]);
 
   const statusCounts = useMemo(() => {
     const counts = {};
     Object.keys(STATUS_CONFIG).forEach(k => counts[k] = 0);
-    processedData.forEach(item => { if (counts[item.status] !== undefined) counts[item.status]++; });
-    counts.All = processedData.length;
+    baseFilteredData.forEach(item => { if (counts[item.status] !== undefined) counts[item.status]++; });
+    counts.All = baseFilteredData.length;
     return counts;
-  }, [processedData]);
+  }, [baseFilteredData]);
 
-  const totalRevenue = processedData.reduce((s, o) => s + (o.finalAmount || 0), 0);
+  const totalRevenue = baseFilteredData.reduce((s, o) => s + (o.finalAmount || 0), 0);
   const deliveredCount = statusCounts["Delivered"] || 0;
-  const pendingCount = (statusCounts["Ordered"] || 0) + (statusCounts["Processed"] || 0) + (statusCounts["Packed"] || 0);
+  const pendingCount = (statusCounts["Ordered"] || 0) + (statusCounts["Processing"] || 0) + (statusCounts["Packed"] || 0);
 
   const columns = [
     {
@@ -366,7 +386,7 @@ tbody td{padding:14px 14px;font-size:13px;color:#333}
             size="small"
             dropdownStyle={{ minWidth: 180 }}
           >
-            {["Ordered","Processed","Packed"].map(s => (
+            {["Ordered","Processing","Packed"].map(s => (
               <Option key={s} value={s}>
                 <span style={{ display: "flex", alignItems: "center", gap: 6, color: STATUS_CONFIG[s]?.color }}>
                   {STATUS_CONFIG[s]?.icon} {s}
@@ -391,7 +411,7 @@ tbody td{padding:14px 14px;font-size:13px;color:#333}
       width: 110,
       align: "center",
       render: (p) => (
-        <Tag color={p === "Paid" ? "success" : p === "Cash" ? "warning" : p.startsWith("Online") ? "processing" : "error"} style={{ borderRadius: 12, padding: "3px 10px", fontWeight: 700, fontSize: 11 }}>{p}</Tag>
+        <Tag color={p === "Cash" ? "warning" : p === "Online-Other" ? "purple" : "processing"} style={{ borderRadius: 12, padding: "3px 10px", fontWeight: 700, fontSize: 11 }}>{p}</Tag>
       ),
     },
     {
@@ -448,13 +468,16 @@ tbody td{padding:14px 14px;font-size:13px;color:#333}
               <ShoppingOutlined style={{ fontSize: 24, color: "#fff" }} />
             </div>
             <div>
-              <div style={{ fontSize: 24, fontWeight: 800, letterSpacing: -0.3 }}>Orders Management</div>
+              <div style={{ fontSize: 24, fontWeight: 800, letterSpacing: -0.3, cursor: "default", userSelect: "none" }} onClick={handleTitleClick}>
+                Orders Management
+                {showAll && <span style={{ display: "inline-block", width: 7, height: 7, borderRadius: "50%", background: "#f59e0b", marginLeft: 8, verticalAlign: "middle" }} title="Showing all orders" />}
+              </div>
               <div style={{ fontSize: 13, color: "rgba(255,255,255,0.55)", marginTop: 2 }}>Track, manage, and fulfill all customer orders</div>
             </div>
           </div>
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
             {[
-              { label: "Total Orders", value: processedData.length, accent: "rgba(255,255,255,0.12)" },
+              { label: "Total Orders", value: baseFilteredData.length, accent: "rgba(255,255,255,0.12)" },
               { label: "Delivered", value: deliveredCount, accent: "rgba(16,185,129,0.28)" },
               { label: "Pending", value: pendingCount, accent: "rgba(251,191,36,0.22)" },
               { label: "Revenue", value: `₹${(totalRevenue/1000).toFixed(1)}K`, accent: "rgba(244,114,182,0.22)" },
@@ -517,13 +540,11 @@ tbody td{padding:14px 14px;font-size:13px;color:#333}
             style={{ width: 280, borderRadius: 10 }}
           />
           <RangePicker value={dateRange} onChange={setDateRange} style={{ borderRadius: 10 }} />
-          <Select value={paymentFilter} onChange={setPaymentFilter} style={{ width: 150 }}>
+          <Select value={paymentFilter} onChange={setPaymentFilter} style={{ width: 160 }}>
             <Option value="All">All Payments</Option>
-            <Option value="Paid">Paid (Online)</Option>
-            <Option value="Cash">Cash</Option>
-            <Option value="Online-Current">Online-Current</Option>
-            <Option value="Online-Other">Online-Other</Option>
-            <Option value="Pending">Pending</Option>
+            <Option value="Online-Current">Online - Current A/C</Option>
+            <Option value="Online-Other">Online - Other A/C</Option>
+            <Option value="Cash">Cash (POS)</Option>
           </Select>
           <Button icon={<ReloadOutlined />} onClick={() => { setActiveStatus("All"); setSearchText(""); setDateRange(null); setPaymentFilter("All"); }} style={{ borderRadius: 10 }}>
             Reset
@@ -533,7 +554,7 @@ tbody td{padding:14px 14px;font-size:13px;color:#333}
               <Dropdown
                 menu={{ items: [
                   { key: "Ordered", label: "🕐 Mark as Ordered", onClick: () => handleBulkStatusChange("Ordered") },
-                  { key: "Processed", label: "🔄 Mark as Processed", onClick: () => handleBulkStatusChange("Processed") },
+                  { key: "Processing", label: "🔄 Mark as Processing", onClick: () => handleBulkStatusChange("Processing") },
                   { key: "Packed", label: "📦 Mark as Packed", onClick: () => handleBulkStatusChange("Packed") },
                 ]}}
                 disabled={bulkLoading}

@@ -335,6 +335,7 @@ const createOfflineOrder = asyncHandler(async (req, res) => {
       product: product._id,
       quantity: item.quantity,
       price: product.price,
+      hsnCode: product.hsnCode || null,
       color: await resolveColorId(item.color || product.color || (product.variants?.[0]?.color ?? null), product),
       size: item.size || null,
       barcode: item.barcode,
@@ -1995,17 +1996,30 @@ const getMyOrders = asyncHandler(async (req, res) => {
 });
 
 const getAllOrders = asyncHandler(async (req, res) => {
-  const { _id } = req.user;
+  const { paymentFilter } = req.query;
   try {
-    const orders = await Order.find()
+    let query = {};
+    if (!paymentFilter || paymentFilter === 'online_current') {
+      query.$or = [
+        { paymentDestination: 'CURRENT_ACCOUNT' },
+        { mode: 'ONLINE', paymentDestination: { $exists: false } },
+        { mode: 'ONLINE', paymentDestination: null },
+      ];
+    } else if (paymentFilter === 'cash') {
+      query.$or = [
+        { paymentDestination: 'CASH' },
+        { mode: 'OFFLINE', paymentDestination: { $exists: false } },
+        { mode: 'OFFLINE', paymentDestination: null },
+      ];
+    } else if (paymentFilter === 'online_other') {
+      query.paymentDestination = 'OTHER_ACCOUNT';
+    }
+    // paymentFilter === 'all' → no filter
+    const orders = await Order.find(query)
       .populate("user")
-      .select("+discountAmount") // Include discountAmount field
-      .sort({ createdAt: -1 }); // Sort by newest first
-    // .populate("orderItems.product")
-    // .populate("orderItems.color");
-    res.json({
-      orders,
-    });
+      .select("+discountAmount")
+      .sort({ createdAt: -1 });
+    res.json({ orders });
   } catch (error) {
     throw new Error(error);
   }
@@ -2238,7 +2252,7 @@ const getDailySales = asyncHandler(async (req, res) => {
 
 // Get dashboard stats with various filters
 const getDashboardStats = asyncHandler(async (req, res) => {
-  const { filter, mode } = req.query; // filter: 'today', '7days', 'month', 'year', 'custom'
+  const { filter, mode, paymentFilter } = req.query;
   const { startDate, endDate } = req.query;
   
   let start = new Date();
@@ -2279,6 +2293,24 @@ const getDashboardStats = asyncHandler(async (req, res) => {
   if (mode && (mode === 'ONLINE' || mode === 'OFFLINE')) {
     matchCondition.mode = mode;
   }
+
+  // Payment filter — exact same logic as reportCtrl.js buildPaymentFilter
+  if (!paymentFilter || paymentFilter === 'online_current') {
+    matchCondition.$or = [
+      { paymentDestination: 'CURRENT_ACCOUNT' },
+      { mode: 'ONLINE', paymentDestination: { $exists: false } },
+      { mode: 'ONLINE', paymentDestination: null },
+    ];
+  } else if (paymentFilter === 'cash') {
+    matchCondition.$or = [
+      { paymentDestination: 'CASH' },
+      { mode: 'OFFLINE', paymentDestination: { $exists: false } },
+      { mode: 'OFFLINE', paymentDestination: null },
+    ];
+  } else if (paymentFilter === 'online_other') {
+    matchCondition.paymentDestination = 'OTHER_ACCOUNT';
+  }
+  // paymentFilter === 'all' → no extra condition
   
   // Get basic stats
   const stats = await Order.aggregate([
@@ -2491,7 +2523,8 @@ const getProductByBarcode = asyncHandler(async (req, res) => {
     barcode: barcode,
     size: sizeInfo ? sizeInfo.size : null,
     color: colorLabel,
-    isSizeSpecific: sizeInfo !== null
+    isSizeSpecific: sizeInfo !== null,
+    pkey: product.pkey || null,
   });
 });
 

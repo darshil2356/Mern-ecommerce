@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { 
   Card, Row, Col, Select, DatePicker, Table, Button, Tabs, 
   Statistic, Tag, Space, message, Spin, Empty 
@@ -41,7 +41,24 @@ const Reports = () => {
   const [selectedYear, setSelectedYear] = useState(dayjs().year());
   const [dateRange, setDateRange] = useState(null);
   const [dateRangeSelected, setDateRangeSelected] = useState(false);
-  const [paymentFilter, setPaymentFilter] = useState("all");
+  // default: only Online-Current (GST) orders. Triple-click title to toggle all orders
+  const [paymentFilter, setPaymentFilter] = useState("online_current");
+  const [showAll, setShowAll] = useState(false);
+  const titleClickRef = useRef(0);
+  const titleTimerRef = useRef(null);
+  const handleTitleClick = () => {
+    titleClickRef.current += 1;
+    clearTimeout(titleTimerRef.current);
+    titleTimerRef.current = setTimeout(() => { titleClickRef.current = 0; }, 600);
+    if (titleClickRef.current >= 3) {
+      titleClickRef.current = 0;
+      setShowAll(prev => {
+        const next = !prev;
+        setPaymentFilter(next ? "all" : "online_current");
+        return next;
+      });
+    }
+  };
 
   const currentUser = useSelector((state) => state?.auth?.user);
 
@@ -1408,23 +1425,28 @@ const Reports = () => {
     <div className="reports-page">
       <div className="flex justify-between items-center mb-6">
         <div>
-          <h3 className="title" style={{ margin: 0 }}>Reports</h3>
+          <h3 className="title" style={{ margin: 0, cursor: "default", userSelect: "none", display: "inline-flex", alignItems: "center", gap: 8 }} onClick={handleTitleClick}>
+            Reports
+            {showAll && <span style={{ display: "inline-block", width: 7, height: 7, borderRadius: "50%", background: "#f59e0b", verticalAlign: "middle" }} title="Showing all orders" />}
+          </h3>
           <p className="text-gray-500 text-sm">Generate reports for CA / Accountant</p>
         </div>
-        <div className="flex items-center gap-3">
-          <span className="text-gray-700 font-medium">Payment filter:</span>
-          <Select
-            value={paymentFilter}
-            onChange={setPaymentFilter}
-            style={{ width: 240 }}
-            options={[
-              { label: 'All', value: 'all' },
-              { label: 'Cash', value: 'cash' },
-              { label: 'Online - Current Account', value: 'online_current' },
-              { label: 'Online - Other Account', value: 'online_other' },
-            ]}
-          />
-        </div>
+        {showAll && (
+          <div className="flex items-center gap-3">
+            <span className="text-gray-700 font-medium">Payment filter:</span>
+            <Select
+              value={paymentFilter}
+              onChange={setPaymentFilter}
+              style={{ width: 240 }}
+              options={[
+                { label: 'All', value: 'all' },
+                { label: 'Cash', value: 'cash' },
+                { label: 'Online - Current Account', value: 'online_current' },
+                { label: 'Online - Other Account', value: 'online_other' },
+              ]}
+            />
+          </div>
+        )}
         <Space>
           <Button 
             type="primary" 

@@ -15,13 +15,19 @@ import "./Checkout.css";
 
 
 const shippingSchema = yup.object({
-  firstname: yup.string().required("First name is required"),
+  firstname: yup.string().required("First name is required").min(2, "First name is too short"),
   lastname: yup.string().required("Last name is required"),
-  address: yup.string().required("Address is required"),
+  address: yup
+    .string()
+    .required("Address is required")
+    .min(10, "Address is too short — please enter full house no., street & area"),
   state: yup.string().required("State is required"),
-  city: yup.string().required("City is required"),
+  city: yup.string().required("City is required").min(2, "Enter a valid city name"),
   country: yup.string().required("Country is required"),
-  pincode: yup.number().required("Pincode is required").positive().integer(),
+  pincode: yup
+    .string()
+    .required("Pincode is required")
+    .matches(/^[1-9][0-9]{5}$/, "Enter a valid 6-digit pincode"),
 });
 
 const STEPS = [
@@ -30,7 +36,7 @@ const STEPS = [
   { id: 3, label: "Done", icon: FiPackage },
 ];
 
-const Field = ({ formik, label, name, type = "text", placeholder, half }) => (
+const Field = ({ formik, label, name, type = "text", placeholder, half, inputMode, maxLength }) => (
   <div className={half ? "co-field co-field-half" : "co-field"}>
     <label className="co-label">{label}</label>
     <input
@@ -41,6 +47,8 @@ const Field = ({ formik, label, name, type = "text", placeholder, half }) => (
       value={formik.values[name]}
       onChange={formik.handleChange(name)}
       onBlur={formik.handleBlur(name)}
+      inputMode={inputMode}
+      maxLength={maxLength}
     />
     {formik.touched[name] && formik.errors[name] && (
       <span className="co-err">{formik.errors[name]}</span>
@@ -424,7 +432,7 @@ const Checkout = () => {
                     <Field formik={formik} label="Landmark / Apt (optional)" name="other" placeholder="Landmark, apartment, floor" />
                     <div className="co-row">
                       <Field formik={formik} label="City" name="city" placeholder="City" half />
-                      <Field formik={formik} label="Pincode" name="pincode" placeholder="6-digit pincode" type="number" half />
+                      <Field formik={formik} label="Pincode" name="pincode" placeholder="6-digit pincode" type="text" inputMode="numeric" maxLength={6} half />
                     </div>
 
                     {/* Save address toggle */}

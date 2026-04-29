@@ -12,6 +12,7 @@ const { ORDER_STATUS_EVENT_MAP } = require("../config/notificationConfig");
 const asyncHandler = require("express-async-handler");
 const { generateToken } = require("../config/jwtToken");
 const validateMongoDbId = require("../utils/validateMongodbId");
+const validateAddress = require("../utils/validateAddress");
 const { generateRefreshToken } = require("../config/refreshtoken");
 const crypto = require("crypto");
 const jwt = require("jsonwebtoken");
@@ -2162,8 +2163,12 @@ const updateOrder = asyncHandler(async (req, res) => {
       setImmediate(async () => {
         try {
           const shiprocket = require("../services/shiprocket.service");
-          const user = orders.user;
-          const result = await shiprocket.createShipment(orders, user);
+          // Re-fetch with full population so shippingInfo, gstBreakdown and user are all present
+          const freshOrder = await Order.findById(id)
+            .populate("user", "firstname lastname email mobile")
+            .populate("orderItems.product", "title hsnCode");
+          if (!freshOrder) throw new Error(`Order ${id} not found on re-fetch`);
+          const result = await shiprocket.createShipment(freshOrder, freshOrder.user);
 
           await Order.findByIdAndUpdate(id, {
             shippingProvider: "Shiprocket",
@@ -2171,6 +2176,7 @@ const updateOrder = asyncHandler(async (req, res) => {
             trackingId: result.trackingId,
             trackingUrl: result.trackingUrl,
             courierName: result.courierName,
+            shipmentError: null,
             orderStatus: "Shipped",
             shippedAt: new Date(),
             $push: { statusHistory: { status: "Shipped", date: new Date() } },
@@ -2178,6 +2184,8 @@ const updateOrder = asyncHandler(async (req, res) => {
           console.log(`[Shiprocket] Auto-shipment created for order ${id}`);
         } catch (err) {
           console.error(`[Shiprocket] Auto-shipment FAILED for order ${id}:`, err.message);
+          // Save the error so admin can see it in the dashboard — order stays "Packed"
+          await Order.findByIdAndUpdate(id, { shipmentError: err.message });
         }
       });
     }
@@ -3470,8 +3478,16 @@ const deleteCustomerById = asyncHandler(async (req, res) => {
   res.json(deleted);
 });
 
+// Validate shipping address — called at checkout to warn customer before placing order
+const validateShippingAddress = asyncHandler(async (req, res) => {
+  const { firstname, address, city, state, pincode, phone } = req.body;
+  const result = validateAddress({ firstname, address, city, state, pincode, phone });
+  res.json(result);
+});
+
 module.exports = {
   createUser,
+  validateShippingAddress,
   loginUserCtrl,
   getallUser,
   getaUser,

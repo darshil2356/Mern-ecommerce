@@ -163,9 +163,9 @@ const OrderDetails = () => {
           </div>
 
           {/* ── Shipping + Tracking ── */}
-          {(order.shippingAddress || order.trackingId || order.courierName) && (
+          {(order.shippingInfo || order.trackingId || order.courierName) && (
             <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 12 }}>
-              {order.shippingAddress && (
+              {order.shippingInfo && (
                 <div style={s.card}>
                   <div style={s.cardHead}>
                     <FiMapPin size={15} color="#6366f1" />
@@ -173,11 +173,11 @@ const OrderDetails = () => {
                   </div>
                   <div style={{ padding: "0 16px 14px", fontSize: 13, color: "#64748b", lineHeight: 1.7 }}>
                     <strong style={{ color: "#111827" }}>
-                      {order.shippingAddress.firstname} {order.shippingAddress.lastname}
+                      {order.shippingInfo.firstname} {order.shippingInfo.lastname}
                     </strong><br />
-                    {order.shippingAddress.address}<br />
-                    {order.shippingAddress.city}, {order.shippingAddress.state} – {order.shippingAddress.pincode}<br />
-                    {order.shippingAddress.country}
+                    {order.shippingInfo.address}<br />
+                    {order.shippingInfo.city}, {order.shippingInfo.state} – {order.shippingInfo.pincode}<br />
+                    India
                   </div>
                 </div>
               )}

@@ -344,7 +344,13 @@ const ViewOrder = () => {
       const finalTotal = order.totalPriceAfterDiscount || 0;
       const breakdown = order.discountBreakdown || {};
       const shippingAddr = order.shippingInfo
-        ? `${order.shippingInfo.address || ""}, ${order.shippingInfo.city || ""}, ${order.shippingInfo.state || ""} - ${order.shippingInfo.pincode || ""}`
+        ? [
+            order.shippingInfo.address,
+            order.shippingInfo.other,
+            order.shippingInfo.city,
+            order.shippingInfo.state,
+            order.shippingInfo.pincode ? `- ${order.shippingInfo.pincode}` : null,
+          ].filter(Boolean).join(", ")
         : "N/A";
       const itemRows = order.orderItems.map((item, i) => {
         const title = item.isBundle ? (item.bundleTitle || "Bundle") : (item.product?.title || "Product");
@@ -465,10 +471,12 @@ tbody td{padding:12px 14px;font-size:13px;vertical-align:top}
   <div class="summary-wrap">
     <div class="summary-table">
       <div class="s-row"><span>Subtotal (${order.orderItems.length} item${order.orderItems.length>1?'s':''})</span><span>₹${subtotal.toFixed(2)}</span></div>
-      ${shipping > 0 ? `<div class="s-row ship"><span>🚚 Delivery</span><span>+₹${shipping.toFixed(2)}</span></div>` : `<div class="s-row ship"><span>🚚 Delivery</span><span style="font-weight:700">FREE</span></div>`}
-      ${breakdown.directDiscount > 0 ? `<div class="s-row disc"><span>🏷️ Discount</span><span>-₹${breakdown.directDiscount.toFixed(2)}</span></div>` : ''}
-      ${breakdown.offerDiscount > 0 ? `<div class="s-row disc"><span>🎁 Offer</span><span>-₹${breakdown.offerDiscount.toFixed(2)}</span></div>` : ''}
-      ${breakdown.coinDiscount > 0 ? `<div class="s-row" style="color:#7c3aed"><span>🪙 Coins</span><span>-₹${breakdown.coinDiscount.toFixed(2)}</span></div>` : (discount > 0 && !breakdown.directDiscount && !breakdown.offerDiscount ? `<div class="s-row disc"><span>💰 Discount</span><span>-₹${discount.toFixed(2)}</span></div>` : '')}
+      ${shipping > 0 ? `<div class="s-row ship"><span>🚚 Delivery Charges</span><span>+₹${shipping.toFixed(2)}</span></div>` : `<div class="s-row ship"><span>🚚 Delivery</span><span style="color:#007600;font-weight:700">FREE</span></div>`}
+      ${breakdown.directDiscount > 0 ? `<div class="s-row disc"><span>🏷️ Direct Discount</span><span>-₹${breakdown.directDiscount.toFixed(2)}</span></div>` : ''}
+      ${breakdown.offerDiscount > 0 ? `<div class="s-row disc"><span>🎁 Offer Discount</span><span>-₹${breakdown.offerDiscount.toFixed(2)}</span></div>` : ''}
+      ${breakdown.coinDiscount > 0 ? `<div class="s-row" style="color:#7c3aed"><span>🪙 Coins Redeemed (${order.coinsUsed || breakdown.coinDiscount} coins)</span><span>-₹${breakdown.coinDiscount.toFixed(2)}</span></div>` : ''}
+      ${!breakdown.directDiscount && !breakdown.offerDiscount && !breakdown.coinDiscount && discount > 0 ? `<div class="s-row disc"><span>💰 Discount</span><span>-₹${discount.toFixed(2)}</span></div>` : ''}
+      ${discount > 0 ? `<div class="s-row disc" style="font-weight:700"><span>Total Savings</span><span>-₹${discount.toFixed(2)}</span></div>` : ''}
       ${gstRows}
       <div class="s-divider"></div>
       <div class="s-total"><span>Total</span><span>₹${finalTotal.toFixed(2)}</span></div>

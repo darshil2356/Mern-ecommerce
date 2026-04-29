@@ -1,4 +1,5 @@
 const axios = require("axios");
+const validateAddress = require("../utils/validateAddress");
 
 const BASE = "https://apiv2.shiprocket.in/v1/external";
 
@@ -81,38 +82,68 @@ const buildOrderId = (mongoId) => {
 const createOrder = async (order, user) => {
   const shipping = order.shippingInfo || {};
 
+  // All address fields come from shippingInfo — user is only fallback for phone/name
+  const firstname = (shipping.firstname || user?.firstname || "").trim();
+  const address   = (shipping.address  || "").trim();
+  const city      = (shipping.city     || "").trim();
+  const state     = (shipping.state    || "").trim();
+
   // Sanitise phone — Shiprocket requires exactly 10 digits
-  const rawPhone = String(user.mobile || shipping.phone || "9999999999").replace(/\D/g, "");
+  const rawPhone = String(user?.mobile || shipping.phone || "9999999999").replace(/\D/g, "");
   const phone = rawPhone.length >= 10 ? rawPhone.slice(-10) : rawPhone.padEnd(10, "0");
 
   // Sanitise pincode — must be 6 digits
   const rawPin = String(shipping.pincode || "000000").replace(/\D/g, "");
   const pincode = rawPin.length === 6 ? rawPin : rawPin.padStart(6, "0").slice(-6);
 
-  const orderItems = order.orderItems.map((item, idx) => ({
-    name: (item.product?.title || item.bundleTitle || `Item-${idx + 1}`).slice(0, 100),
-    sku: (item.product?._id?.toString() || item.bundleId?.toString() || `SKU-${idx}`).slice(0, 50),
-    units: item.quantity || 1,
-    selling_price: String(item.price || 0),
-    discount: "0",
-    tax: "0",
-    hsn: item.hsnCode || item.product?.hsnCode || 0,
-  }));
+  // Validate address quality before sending to Shiprocket
+  const { valid, errors, warnings } = validateAddress({ firstname, address, city, state, pincode, phone });
+
+  warnings.forEach((w) => console.warn(`[Shiprocket] Address warning for order ${order._id}: ${w}`));
+
+  if (!valid) {
+    console.warn(`[Shiprocket] Address issues for order ${order._id}: ${errors.join("; ")} — proceeding anyway`);
+  }
+
+  const productSubTotal = order.orderItems.reduce((sum, item) => sum + (item.price || 0) * (item.quantity || 1), 0);
+  const gst = order.gstBreakdown || {};
+  // Total GST amount stored on the order
+  const totalTax = gst.taxIncluded
+    ? (gst.cgst || 0) + (gst.sgst || 0) + (gst.igst || 0)   // already extracted from price
+    : (gst.cgst || 0) + (gst.sgst || 0) + (gst.igst || 0);  // added on top
+
+  const orderItems = order.orderItems.map((item, idx) => {
+    const itemTotal = (item.price || 0) * (item.quantity || 1);
+    // Distribute total GST proportionally across items
+    const itemTax = productSubTotal > 0
+      ? Math.round((itemTotal / productSubTotal) * totalTax * 100) / 100
+      : 0;
+    return {
+      name: (item.product?.title || item.bundleTitle || `Item-${idx + 1}`).slice(0, 100),
+      sku: (item.product?._id?.toString() || item.bundleId?.toString() || `SKU-${idx}`).slice(0, 50),
+      units: item.quantity || 1,
+      selling_price: String(item.price || 0),
+      discount: "0",
+      tax: String(itemTax),
+      hsn: item.hsnCode || item.product?.hsnCode || 0,
+    };
+  });
 
   const payload = {
     order_id: buildOrderId(order._id),
     order_date: new Date(order.createdAt).toISOString().replace("T", " ").slice(0, 19),
     pickup_location: process.env.SHIPROCKET_PICKUP_LOCATION || "Primary",
 
-    billing_customer_name: `${user.firstname || "Customer"}`.trim(),
-    billing_last_name: user.lastname || "",
-    billing_address: (shipping.address || user.address || "N/A").slice(0, 200),
-    billing_address_2: (shipping.other || "").slice(0, 200),
-    billing_city: shipping.city || "City",
+    // Billing details - use shipping info with proper validation
+    billing_customer_name: firstname || "Customer",
+    billing_last_name: (shipping.lastname || user?.lastname || "").trim(),
+    billing_address: address.slice(0, 200),
+    billing_address_2: (shipping.other || "").trim().slice(0, 200),
+    billing_city: city,
     billing_pincode: pincode,
-    billing_state: shipping.state || "State",
+    billing_state: state,
     billing_country: "India",
-    billing_email: user.email || "customer@example.com",
+    billing_email: user?.email || shipping.email || "customer@example.com",
     billing_phone: phone,
     billing_isd_code: "91",
 
@@ -123,11 +154,25 @@ const createOrder = async (order, user) => {
     payment_method:
       order.paymentInfo?.razorpayPaymentId === "OFFLINE" ? "COD" : "Prepaid",
 
-    shipping_charges: 0,
+    // sub_total = product value only (Shiprocket adds shipping_charges on top)
+    // totalPriceAfterDiscount includes shipping, so subtract it back out
+    shipping_charges: gst.shippingCharge || 0,
     giftwrap_charges: 0,
     transaction_charges: 0,
     total_discount: order.discountAmount || 0,
-    sub_total: order.totalPriceAfterDiscount || order.totalPrice || 0,
+    sub_total: Math.max(
+      0,
+      (order.totalPriceAfterDiscount || order.totalPrice || 0) - (gst.shippingCharge || 0)
+    ),
+
+    // GST breakdown for Shiprocket invoice
+    ...(gst.gstType === "CGST_SGST" && {
+      cgst: gst.cgstRate || 0,
+      sgst: gst.sgstRate || 0,
+    }),
+    ...(gst.gstType === "IGST" && {
+      igst: gst.igstRate || 0,
+    }),
 
     length: 10,
     breadth: 10,

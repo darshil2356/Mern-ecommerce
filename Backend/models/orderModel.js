@@ -221,6 +221,7 @@ paymentInfo: {
     },
 
     // ── Shiprocket shipping fields ──────────────────────────────────────
+    shipmentError:    { type: String, default: null }, // set when Shiprocket auto-trigger fails
     shippingProvider: { type: String, default: null },
     shipmentId:       { type: String, default: null },
     trackingId:       { type: String, default: null },

@@ -52,6 +52,7 @@ const {
   adminCancelOrder,
   searchUsers,
   validateCartStock,
+  validateShippingAddress,
 } = require("../controller/userCtrl");
 
 
@@ -96,6 +97,7 @@ router.post("/order/paymentVerification", authMiddleware, paymentVerification);
 
 router.post("/cart/create-order", authMiddleware, createOrder);
 router.post("/cart/validate", authMiddleware, validateCartStock);
+router.post("/validate-address", authMiddleware, validateShippingAddress);
 router.get("/all-users", authMiddleware, isAdmin, getallUser);
 router.get("/getmyorders", authMiddleware, getMyOrders);
 router.get("/getallorders", authMiddleware, isAdmin, getAllOrders);

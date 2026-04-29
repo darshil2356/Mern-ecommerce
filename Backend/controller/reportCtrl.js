@@ -347,7 +347,8 @@ const getGSTReport = asyncHandler(async (req, res) => {
 
   const pf = buildPaymentFilter(req.query);
   const orders = await Order.find(mergeFilters({ createdAt: { $gte: startDate, $lte: endDate }, orderStatus: { $ne: "Cancelled" } }, pf))
-    .populate("user", "firstname lastname gstin");
+    .populate("user", "firstname lastname gstin")
+    .sort({ createdAt: -1 });
 
   let totalTaxableValue = 0;
   let totalCGST = 0;

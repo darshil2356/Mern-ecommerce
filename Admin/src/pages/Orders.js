@@ -42,6 +42,7 @@ const Orders = () => {
   const [dateRange, setDateRange] = useState(null);
   const [paymentFilter, setPaymentFilter] = useState("All");
   const [cancelModal, setCancelModal] = useState({ open: false, orderId: null, reason: "" });
+  const [modeFilter, setModeFilter] = useState("all"); // 'all' | 'online' | 'offline'
   // default: only Online-Current (GST) orders. Triple-click title to toggle all orders
   const [showAll, setShowAll] = useState(false);
   const titleClickRef = useRef(0);
@@ -293,6 +294,8 @@ tbody td{padding:14px 14px;font-size:13px;color:#333}
   const baseFilteredData = useMemo(() => {
     return processedData.filter((item) => {
       if (!showAll && item.payment !== "Online-Current") return false;
+      if (modeFilter === "online" && item.rawOrder?.mode !== "ONLINE") return false;
+      if (modeFilter === "offline" && item.rawOrder?.mode !== "OFFLINE") return false;
       if (searchText) {
         const s = searchText.toLowerCase();
         if (!item.orderId.toLowerCase().includes(s) && !item.name.toLowerCase().includes(s) && !item.email.toLowerCase().includes(s) && !item.mobile.includes(s)) return false;
@@ -305,7 +308,7 @@ tbody td{padding:14px 14px;font-size:13px;color:#333}
       if (paymentFilter !== "All" && item.payment !== paymentFilter) return false;
       return true;
     });
-  }, [processedData, searchText, dateRange, paymentFilter, showAll]);
+  }, [processedData, searchText, dateRange, paymentFilter, modeFilter, showAll]);
 
   const filteredData = useMemo(() => {
     if (activeStatus === "All") return baseFilteredData;
@@ -546,9 +549,15 @@ tbody td{padding:14px 14px;font-size:13px;color:#333}
             <Option value="Online-Other">Online - Other A/C</Option>
             <Option value="Cash">Cash (POS)</Option>
           </Select>
-          <Button icon={<ReloadOutlined />} onClick={() => { setActiveStatus("All"); setSearchText(""); setDateRange(null); setPaymentFilter("All"); }} style={{ borderRadius: 10 }}>
+          <Select value={modeFilter} onChange={setModeFilter} style={{ width: 140 }}>
+            <Option value="all">All Modes</Option>
+            <Option value="online">🌐 Online</Option>
+            <Option value="offline">🏪 Offline (POS)</Option>
+          </Select>
+          <Button icon={<ReloadOutlined />} onClick={() => { setActiveStatus("All"); setSearchText(""); setDateRange(null); setPaymentFilter("All"); setModeFilter("all"); }} style={{ borderRadius: 10 }}>
             Reset
           </Button>
+          {/* modeFilter is intentionally NOT reset here so it persists across resets */}
           {selectedRowKeys.length > 0 && (
             <>
               <Dropdown

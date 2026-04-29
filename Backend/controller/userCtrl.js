@@ -2764,7 +2764,7 @@ const getSettings = asyncHandler(async (req, res) => {
 
   try {
     const user = await User.findById(_id).select(
-      "gstin email storeName storeTagline storeAddress storePhone cgst sgst igst storeState taxIncluded onlinePaymentDestination shippingCharge"
+      "gstin email storeName storeTagline storeAddress storePhone cgst sgst igst storeState taxIncluded onlinePaymentDestination shippingCharge upiIdA upiIdB"
     );
     res.json({
       gstin: user.gstin || "",
@@ -2780,6 +2780,8 @@ const getSettings = asyncHandler(async (req, res) => {
       taxIncluded: user.taxIncluded === true,
       onlinePaymentDestination: user.onlinePaymentDestination || "CURRENT_ACCOUNT",
       shippingCharge: user.shippingCharge ?? 100,
+      upiIdA: user.upiIdA || "",
+      upiIdB: user.upiIdB || "",
     });
   } catch (error) {
     throw new Error(error);
@@ -2793,7 +2795,7 @@ const updateSettings = asyncHandler(async (req, res) => {
   const {
     cgst, sgst, igst, storeState, taxIncluded,
     storeName, storeTagline, storeAddress, storePhone,
-    onlinePaymentDestination, shippingCharge,
+    onlinePaymentDestination, shippingCharge, upiIdA, upiIdB,
   } = req.body;
 
   const updatedUser = await User.findByIdAndUpdate(
@@ -2810,6 +2812,8 @@ const updateSettings = asyncHandler(async (req, res) => {
       ...(storePhone   !== undefined && { storePhone }),
       ...(onlinePaymentDestination !== undefined && { onlinePaymentDestination }),
       ...(shippingCharge !== undefined && { shippingCharge: parseFloat(shippingCharge) >= 0 ? parseFloat(shippingCharge) : 0 }),
+      ...(upiIdA !== undefined && { upiIdA: upiIdA || "" }),
+      ...(upiIdB !== undefined && { upiIdB: upiIdB || "" }),
     },
     { new: true }
   );

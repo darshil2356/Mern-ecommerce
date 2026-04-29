@@ -118,6 +118,15 @@ var userSchema = new mongoose.Schema(
       enum: ["CURRENT_ACCOUNT", "OTHER_ACCOUNT"],
       default: "CURRENT_ACCOUNT",
     },
+    // UPI IDs for QR code payment on POS bills
+    upiIdA: {
+      type: String,
+      default: "",
+    },
+    upiIdB: {
+      type: String,
+      default: "",
+    },
     shippingCharge: {
       type: Number,
       default: 100,

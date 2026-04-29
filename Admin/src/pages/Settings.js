@@ -34,6 +34,8 @@ const Settings = () => {
         storeAddress: res.data.storeAddress || "",
         storePhone:   res.data.storePhone   || "",
         shippingCharge: res.data.shippingCharge ?? 100,
+        upiIdA:       res.data.upiIdA       || "",
+        upiIdB:       res.data.upiIdB       || "",
       });
       setTaxIncluded(res.data.taxIncluded === true);
       setStoreState(res.data.storeState || "Gujarat");
@@ -57,6 +59,8 @@ const Settings = () => {
         taxIncluded,
         storeState,
         onlinePaymentDestination,
+        upiIdA: values.upiIdA || "",
+        upiIdB: values.upiIdB || "",
       };
       await axios.put(`${base_url}user/settings`, payload, config);
       if (values.gstin !== undefined) {
@@ -193,7 +197,7 @@ const Settings = () => {
 
         {/* ── Payment ── */}
         <Card className="mb-6 shadow-sm" title={<span className="flex items-center gap-2"><FaMagic className="text-indigo-600" /> Payment Preferences</span>}>
-          <div>
+          <div className="mb-6">
             <label className="block text-sm font-medium text-gray-700 mb-2">Online Payment Account</label>
             <div className="grid grid-cols-2 gap-3">
               {[
@@ -219,6 +223,22 @@ const Settings = () => {
             <p className="text-xs text-gray-500 mt-2">
               Choose where new online payments are recorded in reports.
             </p>
+          </div>
+
+          {/* UPI IDs for QR code */}
+          <div className="p-4 bg-green-50 rounded-xl border border-green-200">
+            <p className="font-medium text-gray-800 mb-1">📱 UPI Payment QR Codes</p>
+            <p className="text-xs text-gray-500 mb-4">
+              These UPI IDs are used to generate QR codes on POS bills. Customers scan to pay — amount is auto-filled.
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <Form.Item label="Account A UPI ID (Current)" name="upiIdA" className="mb-0">
+                <Input placeholder="e.g. yourname@upi or 9876543210@paytm" />
+              </Form.Item>
+              <Form.Item label="Account B UPI ID (Saving)" name="upiIdB" className="mb-0">
+                <Input placeholder="e.g. yourname@ybl or 9876543210@gpay" />
+              </Form.Item>
+            </div>
           </div>
         </Card>
 

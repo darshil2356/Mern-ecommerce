@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState, useMemo } from "react";
 import axios from "axios";
+import QRCode from "qrcode";
 import { base_url } from "../utils/baseUrl";
 import { config } from "../utils/axiosconfig";
 import { Modal, Input } from "antd";
@@ -99,6 +100,11 @@ const LiveBilling = () => {
   const [showCoinCelebration, setShowCoinCelebration] = useState(false);
   const [celebratedCoins, setCelebratedCoins] = useState(0);
   const coinCelebrationTimerRef = useRef(null);
+
+  // UPI IDs for QR code
+  const [upiIdA, setUpiIdA] = useState("");
+  const [upiIdB, setUpiIdB] = useState("");
+  const [qrDataUrl, setQrDataUrl] = useState("");
 
   // Payment method state
   const [paymentMethod, setPaymentMethod] = useState("CASH");
@@ -261,6 +267,20 @@ const LiveBilling = () => {
   // The amount coins are calculated on = final payable (after ALL discounts)
   // This is what gets passed to awardCoinsOnOrder on the backend
   const coinBaseAmount = payableAmount;
+
+  // Generate QR code whenever payment method, account type, or payable amount changes
+  // Must be AFTER payableAmount is defined
+  useEffect(() => {
+    const activeUpi = ac === "C" ? upiIdA : upiIdB;
+    if (paymentMethod !== "ONLINE" || !activeUpi || payableAmount <= 0) {
+      setQrDataUrl("");
+      return;
+    }
+    const upiUrl = `upi://pay?pa=${encodeURIComponent(activeUpi)}&pn=${encodeURIComponent(storeName)}&am=${payableAmount.toFixed(2)}&cu=INR`;
+    QRCode.toDataURL(upiUrl, { width: 200, margin: 1 })
+      .then(setQrDataUrl)
+      .catch(() => setQrDataUrl(""));
+  }, [paymentMethod, ac, upiIdA, upiIdB, payableAmount, storeName]);
 
   const itemCount = useMemo(() => {
     return Object.values(cart).reduce((sum, item) => sum + item.qty, 0);
@@ -589,6 +609,8 @@ const LiveBilling = () => {
         setShowSpinner(spinRes.data.isEnabled === true);
         setStoreName(settingsRes.data.storeName || "Yashoda Fashion");
         setStoreTagline(settingsRes.data.storeTagline || "Your One-Stop Shopping Destination");
+        setUpiIdA(settingsRes.data.upiIdA || "");
+        setUpiIdB(settingsRes.data.upiIdB || "");
       } catch (err) {
         console.error("Failed to fetch settings:", err);
       }
@@ -1024,12 +1046,26 @@ const LiveBilling = () => {
         }
       }
 
+      // Capture all bill values BEFORE resetting state
+      const billCart = { ...cart };
+      const billCustomer = { ...customer };
+      const billPayable = payableAmount;
+      const billGstin = gstin;
+      const billCgst = cgstAmount;
+      const billSgst = sgstAmount;
+      const billIgst = igstAmount;
+      const billGstType = gstType;
+      const billDiscount = discountAmount;
+      const billSubtotal = grandTotal;
+      const billCoinDiscount = coinDiscountAmount;
+      const billCoinsUsed = coinAmount;
+      const billPaymentMethod = paymentMethod;
+      const billAc = ac;
+
       // Send WhatsApp message if customer has contact
-      // Use the stored customerData to ensure we have the correct data
       if (customerData.contact) {
         const message = generateWhatsAppMessage(cartData, customerData, offerData, appliedAmount, null);
         openWhatsApp(message, customerData);
-        printBill();
         Swal.fire({
           icon: 'success',
           title: 'Sale Completed',
@@ -1037,7 +1073,6 @@ const LiveBilling = () => {
           confirmButtonColor: '#d4af37'
         });
       } else {
-        printBill();
         Swal.fire({
           icon: 'success',
           title: 'Sale Completed',
@@ -1047,6 +1082,14 @@ const LiveBilling = () => {
           showConfirmButton: false
         });
       }
+
+      // Auto-print bill with captured snapshot (after state reset is safe)
+      await printBill(
+        billCart, billCustomer, billPayable, billGstin,
+        billCgst, billSgst, billIgst, billGstType,
+        billDiscount, billSubtotal, billCoinDiscount, billCoinsUsed,
+        billPaymentMethod, billAc
+      );
 
       setCart({});
       setCustomer({ name: "", address: "", contact: "", referralContact: "", referralCode: "" });
@@ -1070,6 +1113,7 @@ const LiveBilling = () => {
       setCoinAmount(0);
       setPaymentMethod("CASH"); // Reset to CASH
       setAc("S"); // Reset account type
+      setQrDataUrl(""); // Reset QR
     } catch (err) {
       console.error("Failed to complete sale:", err);
       Swal.fire({
@@ -1087,7 +1131,7 @@ const LiveBilling = () => {
   /* =========================
      PRINT BILL
      ========================= */
-  const printBill = (
+  const printBill = async (
     cartData = cart,
     customerData = customer,
     payableAmt = payableAmount,
@@ -1139,6 +1183,14 @@ const LiveBilling = () => {
       ? "#059669"
       : "#7c3aed";
 
+    // Generate QR BEFORE opening window to avoid delay
+    let printQrDataUrl = "";
+    const activeUpi = activeAc === "C" ? upiIdA : upiIdB;
+    if (activePaymentMethod === "ONLINE" && activeUpi && payableAmt > 0) {
+      const upiUrl = `upi://pay?pa=${encodeURIComponent(activeUpi)}&pn=${encodeURIComponent(storeName)}&am=${payableAmt.toFixed(2)}&cu=INR`;
+      try { printQrDataUrl = await QRCode.toDataURL(upiUrl, { width: 160, margin: 1 }); } catch (_) {}
+    }
+
     const win = window.open("", "_blank");
     if (!win) return;
 
@@ -1150,120 +1202,126 @@ const LiveBilling = () => {
 
     const itemRows = Object.values(activeCart).map((item, i) =>
       `<tr>
-        <td style="text-align:left;color:#94a3b8">${i+1}</td>
-        <td><span style="font-weight:700;color:#0f172a">${item.name}</span></td>
-        <td style="text-align:center;font-weight:600">${item.qty}</td>
-        <td style="text-align:right;color:#64748b">₹${item.price.toFixed(2)}</td>
-        <td style="text-align:right;font-weight:800;color:#4f46e5">₹${(item.qty * item.price).toFixed(2)}</td>
+        <td>${i+1}</td>
+        <td class="item-name">${item.name}${item.size ? `<br><span class="item-meta">Size: ${item.size}</span>` : ''}${item.color ? `<span class="item-meta"> | Color: ${item.color}</span>` : ''}</td>
+        <td style="text-align:center">${item.qty}</td>
+        <td style="text-align:right">${item.price.toFixed(2)}</td>
+        <td style="text-align:right;font-weight:700">${(item.qty * item.price).toFixed(2)}</td>
       </tr>`
     ).join("");
 
     const gstRows = gstTotal > 0
       ? (activeGstType === "IGST"
-        ? `<tr><td style="color:#15803d;font-size:12px">IGST (${igstPercent}%) incl.</td><td style="text-align:right;color:#15803d;font-size:12px">₹${activeIgst.toFixed(2)}</td></tr>`
-        : `<tr><td style="color:#15803d;font-size:12px">CGST (${cgstPercent}%) incl.</td><td style="text-align:right;color:#15803d;font-size:12px">₹${activeCgst.toFixed(2)}</td></tr>
-           <tr><td style="color:#15803d;font-size:12px">SGST (${sgstPercent}%) incl.</td><td style="text-align:right;color:#15803d;font-size:12px">₹${activeSgst.toFixed(2)}</td></tr>`)
+        ? `<tr class="s-row gst"><td>IGST (${igstPercent}%) incl.</td><td style="text-align:right">${activeIgst.toFixed(2)}</td></tr>`
+        : `<tr class="s-row gst"><td>CGST (${cgstPercent}%) incl.</td><td style="text-align:right">${activeCgst.toFixed(2)}</td></tr><tr class="s-row gst"><td>SGST (${sgstPercent}%) incl.</td><td style="text-align:right">${activeSgst.toFixed(2)}</td></tr>`)
       : "";
 
     const discountRows = [
-      activeDiscount > 0 ? `<tr><td style="color:#16a34a;font-size:13px">🏷️ Discount</td><td style="text-align:right;color:#16a34a;font-size:13px">-₹${activeDiscount.toFixed(2)}</td></tr>` : "",
-      activeCoinDiscount > 0 ? `<tr><td style="color:#7c3aed;font-size:13px">🪙 Coins (${activeCoinsUsed})</td><td style="text-align:right;color:#7c3aed;font-size:13px">-₹${activeCoinDiscount.toFixed(2)}</td></tr>` : "",
+      activeDiscount > 0 ? `<tr class="s-row disc"><td>Discount</td><td style="text-align:right">-${activeDiscount.toFixed(2)}</td></tr>` : "",
+      activeCoinDiscount > 0 ? `<tr class="s-row coin"><td>Coins (${activeCoinsUsed})</td><td style="text-align:right">-${activeCoinDiscount.toFixed(2)}</td></tr>` : "",
     ].join("");
 
-    win.document.write(`<!DOCTYPE html><html><head><title>Invoice #${invoiceNo}</title>
+    win.document.write(`<!DOCTYPE html><html><head><title>Bill #${invoiceNo}</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-body{font-family:'Segoe UI',Arial,sans-serif;background:#f0f4f8;display:flex;justify-content:center;padding:30px 16px}
-.page{width:680px;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 8px 40px rgba(0,0,0,0.13)}
-.header{background:linear-gradient(135deg,#1e1b4b 0%,#3730a3 60%,#4f46e5 100%);padding:32px 36px;display:flex;justify-content:space-between;align-items:flex-start}
-.store-name{font-size:28px;font-weight:900;color:#fff;letter-spacing:-0.5px}
-.store-sub{font-size:12px;color:#a5b4fc;margin-top:5px}
-.invoice-label{font-size:11px;font-weight:800;color:#a5b4fc;letter-spacing:3px;text-transform:uppercase}
-.invoice-num{font-size:22px;font-weight:900;color:#fff;margin-top:4px;font-family:monospace}
-.invoice-date{font-size:12px;color:#a5b4fc;margin-top:3px}
-.badge{display:inline-block;background:#10b981;color:#fff;font-size:10px;font-weight:800;padding:4px 14px;border-radius:20px;margin-top:8px;letter-spacing:0.5px}
-.customer-bar{padding:22px 36px;border-bottom:1px solid #f1f5f9;display:flex;align-items:center;gap:18px}
-.avatar{width:48px;height:48px;border-radius:50%;background:linear-gradient(135deg,#6366f1,#8b5cf6);display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:900;color:#fff;flex-shrink:0}
-.cust-name{font-size:16px;font-weight:800;color:#0f172a}
-.cust-phone{font-size:13px;color:#64748b;margin-top:3px}
-.items-section{padding:0 36px 8px}
-.items-title{font-size:11px;font-weight:800;color:#6366f1;text-transform:uppercase;letter-spacing:1.5px;padding:18px 0 10px}
-table{width:100%;border-collapse:collapse}
-thead tr{background:#0f172a}
-thead th{padding:11px 10px;font-size:10px;font-weight:700;color:#e2e8f0;letter-spacing:0.8px;text-transform:uppercase}
-tbody tr{border-bottom:1px solid #f1f5f9}
-tbody td{padding:12px 10px;font-size:13px;color:#374151}
-.summary-section{padding:16px 36px 28px}
-.summary-table{width:100%;max-width:300px;margin-left:auto;border-collapse:collapse}
-.summary-table td{padding:7px 10px;font-size:13px}
-.summary-divider{border-top:2px solid #e2e8f0}
-.total-row td{padding:14px 10px;font-size:18px;font-weight:900}
-.footer-bar{background:linear-gradient(135deg,#f8fafc,#f1f5f9);padding:18px 36px;border-top:1px solid #e2e8f0;text-align:center}
-.no-print{padding:16px 36px;text-align:center;background:#f8fafc;border-top:1px solid #e2e8f0}
-@media print{body{background:#fff;padding:0}.page{box-shadow:none;border-radius:0;width:100%}.no-print{display:none}}
+body{font-family:'Courier New',monospace;background:#fff;display:flex;justify-content:center;padding:20px 8px}
+.receipt{width:320px;background:#fff}
+.center{text-align:center}
+.store-name{font-size:18px;font-weight:900;letter-spacing:1px}
+.store-info{font-size:11px;color:#444;margin-top:3px;line-height:1.5}
+.divider{border:none;border-top:1px dashed #999;margin:10px 0}
+.inv-row{display:flex;justify-content:space-between;font-size:11px;color:#555;margin:2px 0}
+.cust-block{background:#f9f9f9;border:1px solid #e5e5e5;padding:8px 10px;margin:8px 0;font-size:12px}
+.cust-name{font-weight:700;font-size:13px}
+table{width:100%;border-collapse:collapse;font-size:12px}
+thead tr{border-bottom:1px solid #333}
+thead th{padding:5px 4px;font-size:10px;font-weight:700;text-transform:uppercase}
+tbody tr{border-bottom:1px dotted #ddd}
+tbody td{padding:6px 4px;vertical-align:top}
+.item-name{font-weight:700;font-size:12px}
+.item-meta{font-size:10px;color:#666}
+.s-table{width:100%;border-collapse:collapse;font-size:12px;margin-top:4px}
+.s-row td{padding:3px 4px}
+.s-row.disc td{color:#b12704}
+.s-row.gst td{color:#007600}
+.s-row.coin td{color:#7c3aed}
+.total-row{border-top:2px solid #111;margin-top:6px}
+.total-row td{padding:8px 4px;font-size:16px;font-weight:900}
+.pay-badge{display:inline-block;padding:4px 12px;border-radius:4px;font-size:11px;font-weight:700;margin-top:6px}
+.footer-msg{font-size:12px;font-weight:700;margin-top:4px}
+.footer-note{font-size:10px;color:#777;margin-top:2px}
+.qr-block{margin-top:10px;padding-top:10px;border-top:1px dashed #999}
+.no-print{padding:12px;text-align:center;margin-top:8px}
+@media print{body{padding:0}.receipt{width:100%}.no-print{display:none}}
 </style></head><body>
-<div class="page">
-  <div class="header">
-    <div>
-      <div class="store-name">🛍️ ${storeName}</div>
-      <div class="store-sub">${storeTagline}</div>
-      ${activeGstin ? `<div class="store-sub" style="font-family:monospace">GSTIN: ${activeGstin}</div>` : ""}
-    </div>
-    <div style="text-align:right">
-      <div class="invoice-label">Invoice</div>
-      <div class="invoice-num">#${invoiceNo}</div>
-      <div class="invoice-date">📅 ${dateStr} · ${timeStr}</div>
-      <div class="badge">✅ POS Sale</div>
-    </div>
+<div class="receipt">
+  <div class="center">
+    <div class="store-name">${storeName}</div>
+    <div class="store-info">${storeTagline}</div>
+    ${activeGstin ? `<div class="store-info" style="font-family:monospace">GSTIN: ${activeGstin}</div>` : ""}
   </div>
 
-  <div class="customer-bar">
-    <div class="avatar">${(activeCustomer.name || "W").charAt(0).toUpperCase()}</div>
-    <div>
-      <div class="cust-name">${activeCustomer.name || "Walk-in Customer"}</div>
-      ${activeCustomer.contact ? `<div class="cust-phone">📞 ${activeCustomer.contact}</div>` : `<div class="cust-phone" style="color:#94a3b8">Walk-in Customer</div>`}
-    </div>
+  <hr class="divider">
+
+  <div class="inv-row"><span>Invoice #${invoiceNo}</span><span>${dateStr}</span></div>
+  <div class="inv-row"><span>POS Sale</span><span>${timeStr}</span></div>
+
+  <div class="cust-block">
+    <div class="cust-name">${activeCustomer.name || "Walk-in Customer"}</div>
+    ${activeCustomer.contact ? `<div style="font-size:11px;color:#555">${activeCustomer.contact}</div>` : ""}
   </div>
 
-  <div class="items-section">
-    <div class="items-title">Order Items</div>
-    <table>
-      <thead><tr>
-        <th style="text-align:left;width:36px">#</th>
-        <th style="text-align:left">Item Description</th>
-        <th style="text-align:center;width:50px">Qty</th>
-        <th style="text-align:right;width:80px">Rate</th>
-        <th style="text-align:right;width:90px">Amount</th>
-      </tr></thead>
-      <tbody>${itemRows}</tbody>
-    </table>
+  <hr class="divider">
+
+  <table>
+    <thead><tr>
+      <th style="text-align:left;width:28px">#</th>
+      <th style="text-align:left">Item</th>
+      <th style="text-align:center;width:30px">Qty</th>
+      <th style="text-align:right;width:52px">Rate</th>
+      <th style="text-align:right;width:58px">Amt</th>
+    </tr></thead>
+    <tbody>${itemRows}</tbody>
+  </table>
+
+  <hr class="divider">
+
+  <table class="s-table">
+    <tr><td>Subtotal</td><td style="text-align:right">${activeSubtotal.toFixed(2)}</td></tr>
+    ${discountRows}
+    ${gstRows}
+    <tr class="total-row"><td>TOTAL</td><td style="text-align:right">Rs.${activePayable.toFixed(2)}</td></tr>
+  </table>
+
+  <hr class="divider">
+
+  <div class="center">
+    <span class="pay-badge" style="background:${activePaymentMethod==='CASH'?'#fef3c7;color:#92400e':'#eff6ff;color:#1e40af'}">
+      ${activePaymentMethod === "CASH" ? "CASH" : activeAc === "C" ? "ONLINE - A/C A" : "ONLINE - A/C B"}
+    </span>
+    ${printQrDataUrl ? `
+    <div class="qr-block">
+      <div style="font-size:11px;font-weight:700;margin-bottom:6px">Scan to Pay - Rs.${payableAmt.toFixed(2)}</div>
+      <img src="${printQrDataUrl}" alt="UPI QR" style="width:130px;height:130px;display:block;margin:0 auto" />
+      <div style="font-size:10px;color:#777;margin-top:4px">${activeUpi}</div>
+    </div>` : ""}
   </div>
 
-  <div class="summary-section">
-    <table class="summary-table">
-      <tr><td style="color:#64748b">Subtotal</td><td style="text-align:right">₹${activeSubtotal.toFixed(2)}</td></tr>
-      ${discountRows}
-      ${gstRows}
-      <tr class="summary-divider total-row">
-        <td style="color:#0f172a">💰 Total Payable</td>
-        <td style="text-align:right;color:#4f46e5">₹${activePayable.toFixed(2)}</td>
-      </tr>
-    </table>
-  </div>
+  <hr class="divider">
 
-  <div class="footer-bar">
-    <div style="font-size:14px;color:#475569;font-weight:600">🙏 Thank you for shopping at <strong style="color:#4f46e5">${storeName}</strong>!</div>
-    <div style="font-size:11px;color:#94a3b8;margin-top:5px">Computer-generated invoice · No signature required</div>
+  <div class="center">
+    <div class="footer-msg">Thank You! Visit Again</div>
+    <div class="footer-note">Computer-generated bill</div>
   </div>
 
   <div class="no-print">
-    <button onclick="window.print()" style="background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;border:none;padding:11px 36px;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer">🖨️ Print Invoice</button>
+    <button onclick="window.print()" style="background:#111;color:#fff;border:none;padding:9px 28px;border-radius:6px;font-size:13px;font-weight:700;cursor:pointer;font-family:sans-serif">Print Bill</button>
   </div>
 </div>
 </body></html>`);
 
     win.document.close();
-    setTimeout(() => win.print(), 600);
+    win.print();
   };
 
   /* =========================
@@ -1829,6 +1887,27 @@ tbody td{padding:12px 10px;font-size:13px;color:#374151}
                 <p className="text-4xl font-bold text-white">₹{payableAmount.toFixed(2)}</p>
               </div>
 
+              {/* UPI QR Code — shown when ONLINE payment is selected */}
+              {paymentMethod === "ONLINE" && qrDataUrl && (
+                <div className="bg-white rounded-xl p-4 text-center border-2 border-indigo-200">
+                  <p className="text-indigo-700 font-semibold text-sm mb-2">
+                    📱 Scan to Pay · {ac === "C" ? "Account A" : "Account B"}
+                  </p>
+                  <img src={qrDataUrl} alt="UPI QR" className="mx-auto w-40 h-40" />
+                  <p className="text-xs text-gray-500 mt-2">
+                    Amount <span className="font-bold text-indigo-600">₹{payableAmount.toFixed(2)}</span> auto-filled
+                  </p>
+                  <p className="text-xs text-gray-400 mt-1">
+                    {ac === "C" ? upiIdA : upiIdB}
+                  </p>
+                </div>
+              )}
+              {paymentMethod === "ONLINE" && !qrDataUrl && (
+                <div className="bg-white/10 rounded-xl p-3 text-center border border-white/20">
+                  <p className="text-indigo-300 text-xs">⚠️ Set UPI ID in Settings to show QR code</p>
+                </div>
+              )}
+
               {/* Action Buttons */}
               <div className="space-y-3 pt-2">
                <PrintBillButton
@@ -1855,6 +1934,9 @@ tbody td{padding:12px 10px;font-size:13px;color:#374151}
                   storeTagline={storeTagline}
                   paymentMethod={paymentMethod}
                   paymentDestination={ac === "C" ? "CURRENT_ACCOUNT" : "OTHER_ACCOUNT"}
+                  upiIdA={upiIdA}
+                  upiIdB={upiIdB}
+                  ac={ac}
                 />
                 
                 {/* Payment Method Selection */}

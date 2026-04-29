@@ -367,140 +367,132 @@ const ViewOrder = () => {
       ) : "";
       const win = window.open("", "_blank");
       if (!win) return;
-      win.document.write(`<!DOCTYPE html><html><head><title>Order #${invoiceNum}</title>
+      win.document.write(`<!DOCTYPE html><html><head><title>Invoice #${invoiceNum}</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-body{font-family:'Segoe UI',Arial,sans-serif;background:#f0f2f5;padding:24px 16px}
-.wrap{max-width:720px;margin:0 auto}
-/* Top brand bar */
-.brand-bar{background:#fff;border-radius:14px 14px 0 0;padding:18px 28px;display:flex;justify-content:space-between;align-items:center;border-bottom:3px solid #ff9900}
-.brand-name{font-size:22px;font-weight:900;color:#131921;letter-spacing:-0.3px}
-.brand-tag{font-size:11px;color:#565959;margin-top:2px}
-.order-meta{text-align:right}
-.order-id{font-size:13px;font-weight:700;color:#131921;font-family:monospace}
-.order-date{font-size:12px;color:#565959;margin-top:2px}
-/* Status banner */
-.status-banner{padding:14px 28px;display:flex;align-items:center;gap:12px;border-bottom:1px solid #e7e7e7}
-.status-dot{width:12px;height:12px;border-radius:50%;flex-shrink:0}
-.status-text{font-size:14px;font-weight:700}
-.status-sub{font-size:12px;color:#565959;margin-top:1px}
-/* Delivery card */
-.delivery-card{background:#fff8f0;border-left:4px solid #ff9900;padding:16px 28px;border-bottom:1px solid #e7e7e7}
-.delivery-label{font-size:10px;font-weight:800;color:#ff9900;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:6px}
-.delivery-name{font-size:15px;font-weight:700;color:#131921}
-.delivery-addr{font-size:13px;color:#565959;margin-top:4px;line-height:1.6}
+body{font-family:'Segoe UI',Arial,sans-serif;background:#f5f5f5;padding:20px 12px;color:#111}
+.wrap{max-width:700px;margin:0 auto;background:#fff;border:1px solid #ddd}
+/* Header */
+.hdr{padding:20px 24px 16px;border-bottom:2px solid #e7e7e7;display:flex;justify-content:space-between;align-items:flex-start}
+.store-name{font-size:20px;font-weight:800;color:#0f1111}
+.store-info{font-size:11px;color:#565959;margin-top:3px;line-height:1.6}
+.inv-block{text-align:right}
+.inv-title{font-size:11px;font-weight:700;color:#565959;text-transform:uppercase;letter-spacing:1px}
+.inv-num{font-size:15px;font-weight:800;color:#0f1111;font-family:monospace;margin-top:2px}
+.inv-date{font-size:11px;color:#565959;margin-top:2px}
+/* Status strip */
+.status-strip{padding:10px 24px;font-size:12px;font-weight:700;display:flex;align-items:center;gap:8px;border-bottom:1px solid #e7e7e7}
+/* Addresses */
+.addr-row{display:grid;grid-template-columns:1fr 1fr;border-bottom:1px solid #e7e7e7}
+.addr-box{padding:14px 24px}
+.addr-label{font-size:10px;font-weight:800;color:#565959;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px}
+.addr-name{font-size:13px;font-weight:700;color:#0f1111}
+.addr-text{font-size:12px;color:#565959;margin-top:3px;line-height:1.6}
 /* Items */
-.items-header{background:#fff;padding:14px 28px 0;border-bottom:none}
-.section-label{font-size:11px;font-weight:800;color:#565959;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:12px}
-table{width:100%;border-collapse:collapse;background:#fff}
-thead tr{background:#f3f3f3;border-bottom:2px solid #e7e7e7}
-thead th{padding:11px 14px;font-size:11px;font-weight:700;color:#131921;letter-spacing:0.5px;text-transform:uppercase}
-tbody tr{border-bottom:1px solid #f3f3f3}
-tbody tr:last-child{border-bottom:none}
-tbody td{padding:14px 14px;font-size:13px;color:#333}
-.item-title{font-weight:700;color:#131921;font-size:14px}
-.item-badge{display:inline-block;font-size:9px;font-weight:800;padding:2px 8px;border-radius:4px;margin-left:6px;vertical-align:middle}
+table{width:100%;border-collapse:collapse}
+thead tr{background:#f3f3f3;border-top:1px solid #e7e7e7;border-bottom:2px solid #e7e7e7}
+thead th{padding:10px 14px;font-size:11px;font-weight:700;color:#0f1111;text-transform:uppercase;letter-spacing:0.4px}
+tbody tr{border-bottom:1px solid #f0f0f0}
+tbody td{padding:12px 14px;font-size:13px;vertical-align:top}
+.item-name{font-weight:700;color:#0f1111;font-size:13px}
+.item-meta{font-size:11px;color:#888;margin-top:2px}
+.badge{display:inline-block;font-size:9px;font-weight:800;padding:2px 7px;border-radius:3px;margin-left:5px;vertical-align:middle}
 .free-badge{background:#e6f4ea;color:#1a7340}
 /* Summary */
-.summary-box{background:#fff;padding:16px 28px 24px;border-top:1px solid #e7e7e7}
-.summary-row{display:flex;justify-content:space-between;padding:6px 0;font-size:13px;color:#333}
-.summary-row.total{border-top:2px solid #131921;margin-top:8px;padding-top:12px;font-size:17px;font-weight:900;color:#131921}
-.summary-row.discount{color:#b12704}
-.summary-row.gst{color:#007600}
-.summary-row.shipping{color:#007600}
-/* Payment + tracking */
-.info-strip{background:#f3f3f3;padding:14px 28px;display:flex;gap:32px;border-top:1px solid #e7e7e7}
-.info-block .label{font-size:10px;font-weight:700;color:#565959;text-transform:uppercase;letter-spacing:1px}
-.info-block .value{font-size:13px;font-weight:700;color:#131921;margin-top:3px}
+.summary-wrap{display:flex;justify-content:flex-end;border-top:2px solid #e7e7e7}
+.summary-table{width:280px;padding:16px 24px}
+.s-row{display:flex;justify-content:space-between;padding:4px 0;font-size:13px;color:#333}
+.s-row.disc{color:#b12704}
+.s-row.gst{color:#007600}
+.s-row.ship{color:#007600}
+.s-divider{border-top:2px solid #0f1111;margin:8px 0}
+.s-total{display:flex;justify-content:space-between;padding:6px 0;font-size:16px;font-weight:800;color:#0f1111}
+/* Payment strip */
+.pay-strip{background:#f3f3f3;padding:12px 24px;display:flex;gap:28px;border-top:1px solid #e7e7e7;flex-wrap:wrap}
+.pay-block .lbl{font-size:10px;font-weight:700;color:#565959;text-transform:uppercase;letter-spacing:0.8px}
+.pay-block .val{font-size:12px;font-weight:700;color:#0f1111;margin-top:2px;font-family:monospace}
 /* Footer */
-.footer{background:#131921;padding:18px 28px;border-radius:0 0 14px 14px;text-align:center}
-.footer-text{font-size:13px;color:#ddd;font-weight:600}
-.footer-note{font-size:11px;color:#888;margin-top:4px}
-.no-print{padding:16px 28px;text-align:center;background:#fff;border-top:1px solid #e7e7e7}
-@media print{body{background:#fff;padding:0}.wrap{max-width:100%}.no-print{display:none}.brand-bar,.footer{border-radius:0}}
+.ftr{background:#0f1111;padding:14px 24px;text-align:center}
+.ftr-text{font-size:12px;color:#ccc;font-weight:600}
+.ftr-note{font-size:10px;color:#777;margin-top:3px}
+.no-print{padding:14px;text-align:center;background:#fff;border-top:1px solid #e7e7e7}
+@media print{body{background:#fff;padding:0}.wrap{border:none;max-width:100%}.no-print{display:none}}
 </style></head><body>
 <div class="wrap">
-  <!-- Brand Bar -->
-  <div class="brand-bar">
+  <div class="hdr">
     <div>
-      <div class="brand-name">🛍️ ${storeName}</div>
-      <div class="brand-tag">Order Invoice</div>
+      <div class="store-name">${storeName}</div>
+      <div class="store-info">${storeAddress ? storeAddress+'<br>' : ''}${storePhone ? '📞 '+storePhone : ''}${gstin ? '<br>GSTIN: '+gstin : ''}</div>
     </div>
-    <div class="order-meta">
-      <div class="order-id">Order #${invoiceNum}</div>
-      <div class="order-date">📅 ${dateStr}</div>
+    <div class="inv-block">
+      <div class="inv-title">Tax Invoice</div>
+      <div class="inv-num">#${invoiceNum}</div>
+      <div class="inv-date">${dateStr}</div>
     </div>
   </div>
 
-  <!-- Status Banner -->
-  <div class="status-banner" style="background:${order.orderStatus==='Delivered'?'#f0fdf4':order.orderStatus==='Cancelled'?'#fef2f2':'#fffbeb'}">
-    <div class="status-dot" style="background:${order.orderStatus==='Delivered'?'#22c55e':order.orderStatus==='Cancelled'?'#ef4444':'#f59e0b'}"></div>
-    <div>
-      <div class="status-text" style="color:${order.orderStatus==='Delivered'?'#15803d':order.orderStatus==='Cancelled'?'#dc2626':'#92400e'}">${order.orderStatus==='Delivered'?'✅ Delivered':order.orderStatus==='Cancelled'?'❌ Cancelled':'📦 '+order.orderStatus}</div>
-      <div class="status-sub">${order.orderStatus==='Delivered'?'Your order has been delivered successfully':'Order placed on '+dateStr}</div>
+  <div class="status-strip" style="background:${order.orderStatus==='Delivered'?'#f0fdf4':order.orderStatus==='Cancelled'?'#fef2f2':'#fffbeb'};color:${order.orderStatus==='Delivered'?'#15803d':order.orderStatus==='Cancelled'?'#dc2626':'#92400e'}">
+    <span>${order.orderStatus==='Delivered'?'✅':order.orderStatus==='Cancelled'?'❌':'📦'}</span>
+    <span>Status: ${order.orderStatus}</span>
+    ${order.trackingId ? `<span style="margin-left:auto;font-size:11px">🚚 ${order.trackingId}${order.courierName?' · '+order.courierName:''}</span>` : ''}
+  </div>
+
+  <div class="addr-row">
+    <div class="addr-box" style="border-right:1px solid #e7e7e7">
+      <div class="addr-label">Sold By</div>
+      <div class="addr-name">${storeName}</div>
+      <div class="addr-text">${storeAddress || 'N/A'}</div>
     </div>
-    ${order.trackingId ? `<div style="margin-left:auto;font-size:12px;color:#4f46e5;font-weight:700">🚚 ${order.trackingId}${order.courierName?' · '+order.courierName:''}</div>` : ""}
+    <div class="addr-box">
+      <div class="addr-label">Ship To</div>
+      <div class="addr-name">${customerName}</div>
+      <div class="addr-text">${shippingAddr}${order.user?.mobile ? '<br>📞 '+order.user.mobile : ''}</div>
+    </div>
   </div>
 
-  <!-- Delivery Address -->
-  <div class="delivery-card">
-    <div class="delivery-label">📍 Delivery Address</div>
-    <div class="delivery-name">${customerName}</div>
-    <div class="delivery-addr">${shippingAddr}</div>
-    ${order.user?.mobile ? `<div style="font-size:12px;color:#565959;margin-top:4px">📞 ${order.user.mobile}</div>` : ""}
-  </div>
-
-  <!-- Items Table -->
-  <div class="items-header">
-    <div class="section-label" style="padding-top:16px">Items Ordered</div>
-  </div>
   <table>
     <thead><tr>
-      <th style="text-align:left;width:40px">#</th>
+      <th style="text-align:left;width:36px">#</th>
       <th style="text-align:left">Product</th>
-      <th style="text-align:left;width:70px">HSN</th>
-      <th style="text-align:center;width:50px">Qty</th>
-      <th style="text-align:right;width:80px">Rate</th>
-      <th style="text-align:right;width:90px">Amount</th>
+      <th style="text-align:left;width:64px">HSN</th>
+      <th style="text-align:center;width:44px">Qty</th>
+      <th style="text-align:right;width:76px">Rate</th>
+      <th style="text-align:right;width:84px">Amount</th>
     </tr></thead>
     <tbody>${itemRows}</tbody>
   </table>
 
-  <!-- Summary -->
-  <div class="summary-box">
-    <div class="section-label" style="margin-bottom:10px">Price Details</div>
-    <div class="summary-row"><span>Subtotal (${order.orderItems.length} item${order.orderItems.length>1?'s':''})</span><span>₹${subtotal.toFixed(2)}</span></div>
-    ${shipping > 0 ? `<div class="summary-row shipping"><span>🚚 Delivery Charges</span><span>+₹${shipping.toFixed(2)}</span></div>` : `<div class="summary-row shipping"><span>🚚 Delivery Charges</span><span style="color:#007600;font-weight:700">FREE</span></div>`}
-    ${breakdown.directDiscount > 0 ? `<div class="summary-row discount"><span>🏷️ Direct Discount</span><span>-₹${breakdown.directDiscount.toFixed(2)}</span></div>` : ""}
-    ${breakdown.offerDiscount > 0 ? `<div class="summary-row discount"><span>🎁 Offer Discount</span><span>-₹${breakdown.offerDiscount.toFixed(2)}</span></div>` : ""}
-    ${breakdown.coinDiscount > 0 ? `<div class="summary-row" style="color:#7c3aed"><span>🪙 Coin Discount</span><span>-₹${breakdown.coinDiscount.toFixed(2)}</span></div>` : (discount > 0 && !breakdown.directDiscount && !breakdown.offerDiscount ? `<div class="summary-row discount"><span>💰 Discount</span><span>-₹${discount.toFixed(2)}</span></div>` : "")}
-    ${gstRows}
-    <div class="summary-row total"><span>Total Amount</span><span>₹${finalTotal.toFixed(2)}</span></div>
-  </div>
-
-  <!-- Payment + Tracking -->
-  <div class="info-strip">
-    <div class="info-block">
-      <div class="label">Payment</div>
-      <div class="value">${order.paymentDestination === "CASH" ? "💵 Cash on Delivery" : order.paymentDestination === "OTHER_ACCOUNT" ? "🏦 Online (Other)" : "💳 Online Payment"}</div>
+  <div class="summary-wrap">
+    <div class="summary-table">
+      <div class="s-row"><span>Subtotal (${order.orderItems.length} item${order.orderItems.length>1?'s':''})</span><span>₹${subtotal.toFixed(2)}</span></div>
+      ${shipping > 0 ? `<div class="s-row ship"><span>🚚 Delivery</span><span>+₹${shipping.toFixed(2)}</span></div>` : `<div class="s-row ship"><span>🚚 Delivery</span><span style="font-weight:700">FREE</span></div>`}
+      ${breakdown.directDiscount > 0 ? `<div class="s-row disc"><span>🏷️ Discount</span><span>-₹${breakdown.directDiscount.toFixed(2)}</span></div>` : ''}
+      ${breakdown.offerDiscount > 0 ? `<div class="s-row disc"><span>🎁 Offer</span><span>-₹${breakdown.offerDiscount.toFixed(2)}</span></div>` : ''}
+      ${breakdown.coinDiscount > 0 ? `<div class="s-row" style="color:#7c3aed"><span>🪙 Coins</span><span>-₹${breakdown.coinDiscount.toFixed(2)}</span></div>` : (discount > 0 && !breakdown.directDiscount && !breakdown.offerDiscount ? `<div class="s-row disc"><span>💰 Discount</span><span>-₹${discount.toFixed(2)}</span></div>` : '')}
+      ${gstRows}
+      <div class="s-divider"></div>
+      <div class="s-total"><span>Total</span><span>₹${finalTotal.toFixed(2)}</span></div>
     </div>
-    ${order.paymentInfo?.razorpayPaymentId ? `<div class="info-block"><div class="label">Transaction ID</div><div class="value" style="font-family:monospace;font-size:11px">${order.paymentInfo.razorpayPaymentId}</div></div>` : ""}
-    ${order.trackingId ? `<div class="info-block"><div class="label">Tracking</div><div class="value">${order.trackingId}${order.courierName?' · '+order.courierName:''}</div></div>` : ""}
   </div>
 
-  <!-- Footer -->
-  <div class="footer">
-    <div class="footer-text">🙏 Thank you for shopping with <strong>${storeName}</strong>!</div>
-    <div class="footer-note">Computer-generated invoice · No signature required</div>
+  <div class="pay-strip">
+    <div class="pay-block"><div class="lbl">Payment</div><div class="val">${order.paymentDestination === 'CASH' ? 'Cash on Delivery' : order.paymentDestination === 'OTHER_ACCOUNT' ? 'Online (Other)' : 'Online Payment'}</div></div>
+    ${order.paymentInfo?.razorpayPaymentId ? `<div class="pay-block"><div class="lbl">Txn ID</div><div class="val">${order.paymentInfo.razorpayPaymentId}</div></div>` : ''}
+    ${order.trackingId ? `<div class="pay-block"><div class="lbl">Tracking</div><div class="val">${order.trackingId}</div></div>` : ''}
+  </div>
+
+  <div class="ftr">
+    <div class="ftr-text">Thank you for shopping with ${storeName}!</div>
+    <div class="ftr-note">Computer-generated invoice · No signature required</div>
   </div>
 
   <div class="no-print">
-    <button onclick="window.print()" style="background:#ff9900;color:#131921;border:none;padding:11px 36px;border-radius:8px;font-size:14px;font-weight:800;cursor:pointer">🖨️ Print Invoice</button>
+    <button onclick="window.print()" style="background:#ff9900;color:#0f1111;border:none;padding:10px 32px;border-radius:6px;font-size:14px;font-weight:800;cursor:pointer">🖨️ Print Invoice</button>
   </div>
 </div>
 </body></html>`);
       win.document.close();
-      setTimeout(() => win.print(), 600);
+      win.print();
     } catch (e) { console.error(e); message.error("Failed to print bill"); }
   };
   

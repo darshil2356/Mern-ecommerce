@@ -89,11 +89,7 @@ axiosInstance.interceptors.response.use(
       }
     }
 
-    // For any other 401 (e.g. refresh endpoint itself failed)
-    if (error.response?.status === 401) {
-      clearSessionAndLogout();
-    }
-
+    // For non-retried 401s (e.g. refresh endpoint itself failed) — already handled above
     return Promise.reject(error);
   }
 );

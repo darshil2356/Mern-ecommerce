@@ -1155,6 +1155,61 @@ const saveAddress = asyncHandler(async (req, res, next) => {
   }
 });
 
+// Validate cart items stock before payment
+const validateCartStock = asyncHandler(async (req, res) => {
+  const { orderItems } = req.body;
+  if (!orderItems?.length) {
+    res.status(400);
+    throw new Error("No items to validate");
+  }
+
+  const errors = [];
+
+  for (const item of orderItems) {
+    if (item.isBundle) continue;
+    if (!item.product) continue;
+
+    const product = await Product.findById(item.product).populate("variants.color");
+    if (!product) {
+      errors.push(`Product not found`);
+      continue;
+    }
+
+    const colorId = item.color ? String(item.color) : null;
+    const size = item.size || null;
+    const qty = item.quantity || 1;
+    let available = 0;
+
+    if (product.variants?.length > 0 && colorId) {
+      const variant = product.variants.find(
+        v => String(v.color?._id || v.color) === colorId
+      );
+      if (variant && size) {
+        available = variant.sizeStock?.find(s => s.size === size)?.quantity ?? 0;
+      } else if (variant) {
+        available = variant.sizeStock?.reduce((s, e) => s + (e.quantity || 0), 0) ?? 0;
+      }
+    } else if (product.sizeStock?.length > 0 && size) {
+      available = product.sizeStock.find(s => s.size === size)?.quantity ?? 0;
+    } else {
+      available = product.quantity ?? 0;
+    }
+
+    if (available < qty) {
+      errors.push(
+        `"${product.title}"${size ? ` (Size: ${size})` : ''} — only ${available} left in stock`
+      );
+    }
+  }
+
+  if (errors.length > 0) {
+    res.status(400);
+    throw new Error(errors.join("\n"));
+  }
+
+  res.json({ success: true });
+});
+
 // Get all saved addresses
 const getAddresses = asyncHandler(async (req, res) => {
   const { _id } = req.user;
@@ -3465,6 +3520,7 @@ module.exports = {
   applyReferral,
   awardCoinsOnOrder,
   getAllReferrals,
+  validateCartStock,
   updateCustomerById,
   deleteCustomerById,
   addBundleToCart,

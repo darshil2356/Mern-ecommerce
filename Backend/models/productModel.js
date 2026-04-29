@@ -113,7 +113,6 @@ var productSchema = new mongoose.Schema(
           {
             size: {
               type: String,
-              enum: ["XS", "S", "M", "L", "XL", "2XL", "3XL"],
             },
             quantity: {
               type: Number,
@@ -140,7 +139,6 @@ sizeStock: [
   {
     size: {
       type: String,
-      enum: ["XS","S","M","L","XL","2XL","3XL"],
     },
     quantity: {
       type: Number,

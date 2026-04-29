@@ -1,15 +1,14 @@
 import React, { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { BiArrowBack, BiCheck } from "react-icons/bi";
-import { FaCoins, FaShieldAlt, FaSpinner, FaMoneyBillWave } from "react-icons/fa";
+import { FaCoins, FaShieldAlt, FaSpinner } from "react-icons/fa";
 import { FiMapPin, FiCreditCard, FiPackage, FiChevronRight, FiTruck } from "react-icons/fi";
 import Container from "../components/Container";
 import { useDispatch, useSelector } from "react-redux";
 import { useFormik } from "formik";
 import * as yup from "yup";
-import axios from "axios";
-import { base_url, getConfig } from "../utils/axiosConfig";
-import { createAnOrder, deleteUserCart, getUserCart, resetState, getAddresses } from "../features/user/userSlice";
+import axiosInstance, { base_url, getConfig } from "../utils/axiosConfig";
+import { createAnOrder, deleteUserCart, getUserCart, getAddresses, addAddress } from "../features/user/userSlice";
 import { getColorSwatch, getReadableColorName } from "../utils/colorDisplay";
 import trackingService from "../utils/trackingService";
 import "./Checkout.css";
@@ -86,7 +85,9 @@ const Checkout = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [cartProductState, setCartProductState] = useState([]);
   const [summaryOpen, setSummaryOpen] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState("online");
+  const [saveAddress, setSaveAddress] = useState(false);
+  const [addressLabel, setAddressLabel] = useState("Home");
+  const [paymentMethod] = useState("online");
   // GST settings from backend
   const [gstSettings, setGstSettings] = useState({ cgst: 0, sgst: 0, igst: 0, storeState: "Gujarat", taxIncluded: false, shippingCharge: 100 });
   const [gstType, setGstType] = useState("NONE");
@@ -100,7 +101,7 @@ const Checkout = () => {
     dispatch(getAddresses());
 
     // Fetch GST settings from public endpoint (no auth needed)
-    axios.get(`${base_url}user/public-settings`).then(res => {
+    axiosInstance.get(`${base_url}user/public-settings`).then(res => {
       setGstSettings({
         cgst: res.data.cgst || 0,
         sgst: res.data.sgst || 0,
@@ -201,13 +202,17 @@ const Checkout = () => {
     validationSchema: shippingSchema,
     onSubmit: async (values) => {
       localStorage.setItem("address", JSON.stringify(values));
-      if (paymentMethod === "cod") {
-        await codOrderHandler(values);
-      } else {
-        setCurrentStep(2);
-        setIsProcessing(true);
-        setTimeout(() => checkOutHandler(), 500);
+      if (saveAddress) {
+        const isAlreadySaved = savedAddresses.some(
+          (a) => a.address === values.address && a.pincode === String(values.pincode) && a.city === values.city
+        );
+        if (!isAlreadySaved) {
+          dispatch(addAddress({ ...values, label: addressLabel }));
+        }
       }
+      setCurrentStep(2);
+      setIsProcessing(true);
+      setTimeout(() => checkOutHandler(), 500);
     },
   });
 
@@ -217,40 +222,23 @@ const Checkout = () => {
     document.body.appendChild(s);
   });
 
-  const codOrderHandler = async (values) => {
-    try {
-      setCurrentStep(2);
-      setIsProcessing(true);
-      await dispatch(createAnOrder({
-        totalPrice: totalAmount,
-        totalPriceAfterDiscount: finalAmount,
-        orderItems: cartProductState,
-        paymentInfo: { method: "COD", status: "Pending" },
-        shippingInfo: values,
-        coinsUsed: useCoins ? coinAmount : 0,
-        coinAmount: coinDiscount,
-        discountBreakdown: { directDiscount: 0, offerDiscount: offerDiscount, coinDiscount },
-        gstBreakdown: { cgst: cgstAmt, sgst: sgstAmt, igst: igstAmt, cgstRate: gstSettings.cgst, sgstRate: gstSettings.sgst, igstRate: gstSettings.igst, gstType, taxableAmount: gstSettings.taxIncluded ? Math.round((totalAmount / (1 + (gstSettings.cgst + gstSettings.sgst + gstSettings.igst) / 100)) * 100) / 100 : totalAmount, taxIncluded: gstSettings.taxIncluded, shippingCharge: gstSettings.shippingCharge },
-      }));
-      await dispatch(deleteUserCart(getConfig()));
-      localStorage.removeItem("address");
-      dispatch(resetState());
-      setCurrentStep(3);
-      setIsProcessing(false);
-      setTimeout(() => navigate("/my-orders"), 100);
-    } catch (e) {
-      alert("Failed to place order. Please try again.");
-      setIsProcessing(false);
-      setCurrentStep(1);
-    }
-  };
-
   const checkOutHandler = async () => {
     try {
       const ok = await loadScript("https://checkout.razorpay.com/v1/checkout.js");
       if (!ok) { alert("Razorpay SDK failed to load"); setIsProcessing(false); return; }
 
-      const result = await axios.post(`${base_url}user/order/checkout`, { amount: finalAmount }, getConfig());
+      // ── Pre-payment stock validation — catch issues BEFORE charging the customer ──
+      try {
+        await axiosInstance.post("user/cart/validate", { orderItems: cartProductState });
+      } catch (validationErr) {
+        const msg = validationErr?.response?.data?.message || "Some items are out of stock. Please update your cart.";
+        alert(msg);
+        setIsProcessing(false);
+        setCurrentStep(1);
+        return;
+      }
+
+      const result = await axiosInstance.post("user/order/checkout", { amount: finalAmount });
       if (!result?.data) { alert("Order creation failed"); setIsProcessing(false); return; }
 
       const { amount, id: order_id, currency } = result.data.order;
@@ -263,12 +251,12 @@ const Checkout = () => {
         handler: async (response) => {
           try {
             setCurrentStep(3);
-            const payRes = await axios.post(`${base_url}user/order/payment-verification`, {
+            const payRes = await axiosInstance.post("user/order/payment-verification", {
               orderCreationId: order_id,
               razorpayPaymentId: response.razorpay_payment_id,
               razorpayOrderId: response.razorpay_order_id,
               razorpaySignature: response.razorpay_signature,
-            }, getConfig());
+            });
             if (!payRes?.data) {
               trackingService.trackPaymentFailed(order_id, "Payment verification failed", "razorpay");
               alert("Payment verification failed");
@@ -310,9 +298,8 @@ const Checkout = () => {
                 shippingCharge: gstSettings.shippingCharge,
               },
             }));
-            await dispatch(deleteUserCart(getConfig()));
+            await dispatch(deleteUserCart());
             localStorage.removeItem("address");
-            dispatch(resetState());
             setTimeout(() => navigate("/my-orders"), 100);
           } catch (e) {
             trackingService.trackPaymentFailed(order_id, e.message || "Payment processing failed", "razorpay");
@@ -440,27 +427,42 @@ const Checkout = () => {
                       <Field formik={formik} label="Pincode" name="pincode" placeholder="6-digit pincode" type="number" half />
                     </div>
 
-                    {/* Payment Method */}
+                    {/* Save address toggle */}
+                    <div style={{ display: "flex", alignItems: "center", gap: 10, margin: "8px 0 4px", padding: "10px 14px", background: "#f8fafc", borderRadius: 10, border: "1px solid #e2e8f0" }}>
+                      <input
+                        type="checkbox"
+                        id="saveAddr"
+                        checked={saveAddress}
+                        onChange={(e) => setSaveAddress(e.target.checked)}
+                        style={{ width: 16, height: 16, cursor: "pointer", accentColor: "#6366f1" }}
+                      />
+                      <label htmlFor="saveAddr" style={{ fontSize: 13, fontWeight: 600, color: "#374151", cursor: "pointer", margin: 0 }}>
+                        Save this address for future orders
+                      </label>
+                      {saveAddress && (
+                        <select
+                          value={addressLabel}
+                          onChange={(e) => setAddressLabel(e.target.value)}
+                          style={{ marginLeft: "auto", fontSize: 12, padding: "3px 8px", borderRadius: 6, border: "1px solid #d1d5db", background: "#fff", color: "#374151" }}
+                        >
+                          <option value="Home">🏠 Home</option>
+                          <option value="Work">💼 Work</option>
+                          <option value="Other">📍 Other</option>
+                        </select>
+                      )}
+                    </div>
+
+                    {/* Payment Method — Online only */}
                     <div className="co-payment-methods">
                       <p className="co-label" style={{ marginBottom: 10 }}>Payment Method</p>
                       <div className="co-pm-options">
-                        <label className={`co-pm-card${paymentMethod === "online" ? " co-pm-selected" : ""}`}>
-                          <input type="radio" name="paymentMethod" value="online" checked={paymentMethod === "online"} onChange={() => setPaymentMethod("online")} />
-                          <FiCreditCard size={20} color={paymentMethod === "online" ? "#6366f1" : "#9ca3af"} />
+                        <label className="co-pm-card co-pm-selected">
+                          <FiCreditCard size={20} color="#6366f1" />
                           <div>
                             <p className="co-pm-title">Online Payment</p>
                             <p className="co-pm-sub">UPI, Card, Net Banking</p>
                           </div>
-                          {paymentMethod === "online" && <span className="co-pm-check"><BiCheck size={14} /></span>}
-                        </label>
-                        <label className={`co-pm-card${paymentMethod === "cod" ? " co-pm-selected" : ""}`}>
-                          <input type="radio" name="paymentMethod" value="cod" checked={paymentMethod === "cod"} onChange={() => setPaymentMethod("cod")} />
-                          <FaMoneyBillWave size={20} color={paymentMethod === "cod" ? "#6366f1" : "#9ca3af"} />
-                          <div>
-                            <p className="co-pm-title">Cash on Delivery</p>
-                            <p className="co-pm-sub">Pay when you receive</p>
-                          </div>
-                          {paymentMethod === "cod" && <span className="co-pm-check"><BiCheck size={14} /></span>}
+                          <span className="co-pm-check"><BiCheck size={14} /></span>
                         </label>
                       </div>
                     </div>

@@ -544,17 +544,6 @@ if (referrer) {
     );
   }
 
-  setImmediate(() =>
-    createAutoEntry({
-      particulars: `POS Sale – ${purchaseCustomer ? (purchaseCustomer.firstname + " " + purchaseCustomer.lastname).trim() : "Walk-in"}`,
-      type: "INCOME",
-      amount: paidNow > 0 ? paidNow : totalPriceAfterDiscount,
-      paymentMethod: paymentMethod === "CASH" ? "Cash" : "Online",
-      referenceId: order._id,
-      category: "POS Sales",
-    }).catch((err) => console.error("Rojmel auto-entry failed:", err))
-  );
-
   res.json({
     success: true,
     order,
@@ -2705,33 +2694,37 @@ const checkStock = asyncHandler(async (req, res) => {
 const searchUsers = asyncHandler(async (req, res) => {
   const { query } = req.query;
 
-  if (!query || query.trim() === "") {
+  // Require at least 2 characters to search
+  if (!query || query.trim().length < 2) {
     return res.json([]);
   }
 
-  const cleanQuery = query.replace(/\D/g, ''); // Remove non-digits for mobile search
+  const q = query.trim();
+  const cleanMobile = q.replace(/\D/g, '');
 
-  const users = await User.find({
-    role: "user",
-    $or: [
-      { firstname: { $regex: query, $options: "i" } },
-      { lastname: { $regex: query, $options: "i" } },
-      { mobile: { $regex: cleanQuery } },
-      { mobile: { $regex: query } },
-      { referralCode: { $regex: query, $options: "i" } }
-    ]
-  })
-    .limit(10)
-    .select("firstname lastname mobile address coins referralCode referredBy offerDiscount offerType totalOrders lastOrderDate")
-    .populate("referredBy", "firstname lastname mobile referralCode");
+  const filter = { role: "user" };
 
-  // Ensure coins field is always present (default to 0 if undefined)
-  const usersWithCoins = users.map(user => ({
-    ...user.toObject(),
-    coins: user.coins || 0
-  }));
+  if (cleanMobile.length >= 3) {
+    // Phone-like query — use prefix match on mobile (uses index)
+    filter.$or = [
+      { mobile: { $regex: `^${cleanMobile}` } },
+      { firstname: { $regex: `^${q}`, $options: "i" } },
+      { lastname:  { $regex: `^${q}`, $options: "i" } },
+    ];
+  } else {
+    // Name query — prefix match only (uses index if text index exists)
+    filter.$or = [
+      { firstname: { $regex: `^${q}`, $options: "i" } },
+      { lastname:  { $regex: `^${q}`, $options: "i" } },
+    ];
+  }
 
-  res.json(usersWithCoins);
+  const users = await User.find(filter)
+    .limit(8)
+    .select("firstname lastname mobile address coins offerDiscount offerType totalOrders")
+    .lean();
+
+  res.json(users.map(u => ({ ...u, coins: u.coins || 0 })));
 });
 
 // Get customer offer details

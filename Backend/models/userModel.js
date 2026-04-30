@@ -261,6 +261,13 @@ userSchema.pre("save", async function (next) {
 
 
 
+// Indexes for fast POS customer search (prefix queries on name + mobile)
+userSchema.index({ firstname: 1 });
+userSchema.index({ lastname: 1 });
+userSchema.index({ mobile: 1 }); // mobile already unique but explicit compound helps prefix
+userSchema.index({ role: 1, firstname: 1 });
+userSchema.index({ role: 1, mobile: 1 });
+
 userSchema.methods.isPasswordMatched = async function (enteredPassword) {
   return await bcrypt.compare(enteredPassword, this.password);
 };

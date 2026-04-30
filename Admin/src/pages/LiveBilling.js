@@ -42,6 +42,8 @@ const LiveBilling = () => {
 
   const [contactSearch, setContactSearch] = useState("");
   const [showContactDropdown, setShowContactDropdown] = useState(false);
+  const [contactResults, setContactResults] = useState([]);
+  const [nameResults, setNameResults] = useState([]);
 
   const clampNonNegative = (v) => {
     if (v === "" || isNaN(v)) return 0;
@@ -882,47 +884,33 @@ const LiveBilling = () => {
     }
   };
 
-  // Search customers
+  // Search by name
   useEffect(() => {
-    if (!searchTerm.trim()) {
-      setCustomers([]);
+    if (searchTerm.trim().length < 2) {
+      setNameResults([]);
       return;
     }
-
     const delay = setTimeout(async () => {
       try {
-        const res = await axios.get(
-          `${base_url}user/search?query=${searchTerm}`,
-          config
-        );
-        setCustomers(res.data);
-      } catch (err) {
-        console.error(err);
-      }
-    }, 400);
-
+        const res = await axios.get(`${base_url}user/search?query=${encodeURIComponent(searchTerm.trim())}`, config);
+        setNameResults(res.data || []);
+      } catch (err) { console.error(err); }
+    }, 300);
     return () => clearTimeout(delay);
   }, [searchTerm]);
 
   // Search by contact
   useEffect(() => {
-    if (!contactSearch.trim()) {
-      setCustomers([]);
+    if (contactSearch.trim().length < 2) {
+      setContactResults([]);
       return;
     }
-
     const delay = setTimeout(async () => {
       try {
-        const res = await axios.get(
-          `${base_url}user/search?query=${contactSearch}`,
-          config
-        );
-        setCustomers(res.data);
-      } catch (err) {
-        console.error(err);
-      }
-    }, 400);
-
+        const res = await axios.get(`${base_url}user/search?query=${encodeURIComponent(contactSearch.trim())}`, config);
+        setContactResults(res.data || []);
+      } catch (err) { console.error(err); }
+    }, 300);
     return () => clearTimeout(delay);
   }, [contactSearch]);
 
@@ -1167,6 +1155,12 @@ const LiveBilling = () => {
       setCart({});
       setCustomer({ name: "", address: "", contact: "", referralContact: "", referralCode: "" });
       setCustomerState("Gujarat");
+      setSearchTerm("");
+      setContactSearch("");
+      setNameResults([]);
+      setContactResults([]);
+      setShowDropdown(false);
+      setShowContactDropdown(false);
       setReferralSearch("");
       setReferralResults([]);
       setReferrerName("");
@@ -1445,7 +1439,6 @@ tbody td{padding:6px 4px;vertical-align:top}
                   </label>
                   <div className="relative">
                     <FaUser className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-
                     <input
                       className={`w-full pl-10 pr-4 py-3 bg-gray-50 border rounded-xl focus:bg-white focus:ring-2 outline-none transition-all ${
                         !customer.name.trim() && Object.keys(cart).length > 0
@@ -1453,39 +1446,45 @@ tbody td{padding:6px 4px;vertical-align:top}
                           : 'border-gray-200 focus:border-indigo-500 focus:ring-indigo-100'
                       }`}
                       value={customer.name}
-                      placeholder="Enter customer name..."
+                      placeholder="Type 2+ chars to search..."
+                      autoComplete="off"
                       onChange={(e) => {
                         const value = e.target.value;
                         setCustomer(prev => ({ ...prev, name: value }));
                         setSearchTerm(value);
                         setShowDropdown(true);
                       }}
-                      onFocus={() => setShowDropdown(true)}
+                      onFocus={() => { if (searchTerm.trim()) setShowDropdown(true); }}
+                      onBlur={() => setTimeout(() => setShowDropdown(false), 150)}
                     />
                   </div>
-                  {showDropdown && customers.length > 0 && (
-                    <div className="absolute top-full left-0 w-full bg-white border border-gray-200 rounded-xl shadow-xl max-h-48 overflow-y-auto mt-1" style={{zIndex:9999}}>
-                      {customers.map((cust) => (
+                  {showDropdown && nameResults.length > 0 && (
+                    <div className="absolute top-full left-0 w-full bg-white border border-gray-200 rounded-xl shadow-xl max-h-52 overflow-y-auto mt-1" style={{zIndex:9999}}>
+                      {nameResults.map((cust) => (
                         <div
                           key={cust._id}
                           className="p-3 hover:bg-indigo-50 cursor-pointer border-b border-gray-100 last:border-0 transition-colors"
+                          onMouseDown={(e) => e.preventDefault()}
                           onClick={() => {
+                            const fullName = `${cust.firstname} ${cust.lastname}`.trim();
                             setCustomer({
-                              name: cust.firstname + " " + cust.lastname,
+                              name: fullName,
                               address: cust.address || "",
                               contact: cust.mobile || "",
-                              referralContact: customer.referralContact || "",
-                              referralCode: customer.referralCode || "",
+                              referralContact: "",
+                              referralCode: "",
                             });
                             setCustomerCoins(cust.coins || 0);
-                            setSearchTerm(cust.firstname + " " + cust.lastname);
+                            setSearchTerm("");
+                            setContactSearch("");
+                            setNameResults([]);
+                            setContactResults([]);
                             setShowDropdown(false);
+                            setShowContactDropdown(false);
                           }}
                         >
-                          <div className="font-medium text-gray-800">
-                            {cust.firstname} {cust.lastname}
-                          </div>
-                          <div className="text-xs text-gray-500">{cust.mobile}</div>
+                          <div className="font-semibold text-gray-800">{cust.firstname} {cust.lastname}</div>
+                          <div className="text-xs text-gray-500 mt-0.5">📞 {cust.mobile}{cust.address ? ` · ${cust.address}` : ''}</div>
                         </div>
                       ))}
                     </div>
@@ -1499,49 +1498,48 @@ tbody td{padding:6px 4px;vertical-align:top}
                   </label>
                   <div className="relative">
                     <FaPhone className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-
                     <input
-                      className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl"
+                      className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none transition-all"
                       value={customer.contact}
-                      placeholder="Search by phone..."
+                      placeholder="Type 2+ digits to search..."
+                      autoComplete="off"
                       onChange={(e) => {
                         const value = e.target.value;
-
-                        setCustomer(prev => ({
-                          ...prev,
-                          contact: value
-                        }));
-
+                        setCustomer(prev => ({ ...prev, contact: value }));
                         setContactSearch(value);
                         setShowContactDropdown(true);
                       }}
-                      onFocus={() => setShowContactDropdown(true)}
+                      onFocus={() => { if (contactSearch.trim()) setShowContactDropdown(true); }}
+                      onBlur={() => setTimeout(() => setShowContactDropdown(false), 150)}
                     />
                   </div>
-                  {showContactDropdown && customers.length > 0 && (
-                    <div className="absolute top-full left-0 w-full bg-white border border-gray-200 rounded-xl shadow-xl max-h-48 overflow-y-auto mt-1" style={{zIndex:9999}}>
-                      {customers.map((cust) => (
+                  {showContactDropdown && contactResults.length > 0 && (
+                    <div className="absolute top-full left-0 w-full bg-white border border-gray-200 rounded-xl shadow-xl max-h-52 overflow-y-auto mt-1" style={{zIndex:9999}}>
+                      {contactResults.map((cust) => (
                         <div
                           key={cust._id}
                           className="p-3 hover:bg-indigo-50 cursor-pointer border-b border-gray-100 last:border-0 transition-colors"
+                          onMouseDown={(e) => e.preventDefault()}
                           onClick={() => {
+                            const fullName = `${cust.firstname} ${cust.lastname}`.trim();
                             setCustomer({
-                              name: cust.firstname + " " + cust.lastname,
+                              name: fullName,
                               address: cust.address || "",
                               contact: cust.mobile || "",
-                              referralContact: customer.referralContact || "",
-                              referralCode: customer.referralCode || "",
+                              referralContact: "",
+                              referralCode: "",
                             });
                             setCustomerCoins(cust.coins || 0);
-                            setContactSearch(cust.mobile);
-                            setSearchTerm(cust.firstname + " " + cust.lastname);
+                            setSearchTerm("");
+                            setContactSearch("");
+                            setNameResults([]);
+                            setContactResults([]);
+                            setShowDropdown(false);
                             setShowContactDropdown(false);
                           }}
                         >
-                          <div className="font-medium text-gray-800">{cust.mobile}</div>
-                          <div className="text-xs text-gray-500">
-                            {cust.firstname} {cust.lastname}
-                          </div>
+                          <div className="font-semibold text-gray-800">📞 {cust.mobile}</div>
+                          <div className="text-xs text-gray-500 mt-0.5">{cust.firstname} {cust.lastname}{cust.address ? ` · ${cust.address}` : ''}</div>
                         </div>
                       ))}
                     </div>

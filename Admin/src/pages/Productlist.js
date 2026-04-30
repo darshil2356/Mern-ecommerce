@@ -1,9 +1,8 @@
 import React, { useEffect, useState } from "react";
-import { Input, Button, Space, Tag, Tooltip, Avatar, Modal } from "antd";
-import AdminPageHeader from "../components/AdminPageHeader";
+import { Input, Button, Tag, Tooltip, Avatar, Modal, Badge } from "antd";
 import AdminDataTable from "../components/AdminDataTable";
 import { BiEdit } from "react-icons/bi";
-import { AiFillDelete, AiOutlineSearch, AiOutlineEye, AiOutlineDownload } from "react-icons/ai";
+import { AiFillDelete, AiOutlineSearch } from "react-icons/ai";
 import { useDispatch, useSelector } from "react-redux";
 import { deleteAProduct, getProducts } from "../features/product/productSlice";
 import { Link } from "react-router-dom";
@@ -13,7 +12,8 @@ import BarcodeModal from "../components/BarcodeModal";
 import SizeBarcodesList from "../components/SizeBarcodesList";
 import { getReadableColorName, getColorSwatch } from "../utils/colorDisplay";
 import JsBarcode from "jsbarcode";
-import { MdInventory, MdOutlineInventory2 } from "react-icons/md";
+import { MdInventory, MdOutlineInventory2, MdTrendingUp, MdShoppingBag } from "react-icons/md";
+import { FiPackage, FiAlertTriangle, FiTag, FiLayers } from "react-icons/fi";
 
 const Productlist = () => {
   const [open, setOpen] = useState(false);
@@ -22,100 +22,92 @@ const Productlist = () => {
   const [selectedBarcode, setSelectedBarcode] = useState("");
   const [selectedTitle, setSelectedTitle] = useState("");
   const [searchText, setSearchText] = useState("");
-  
-  // State for size-wise barcodes modal
   const [sizeBarcodesModalOpen, setSizeBarcodesModalOpen] = useState(false);
   const [productSizeBarcodes, setProductSizeBarcodes] = useState([]);
   const [selectedRecord, setSelectedRecord] = useState(null);
 
-  const showModal = (e) => {
-    setOpen(true);
-    setproductId(e);
+  const dispatch = useDispatch();
+
+  useEffect(() => { dispatch(getProducts()); }, []);
+
+  const productState = useSelector((state) => state?.product?.products);
+
+  const getEffectiveStock = (record) => {
+    // variants take priority (5 colors × 3 sizes × qty each)
+    if (record.variants?.length > 0)
+      return record.variants.reduce(
+        (sum, v) => sum + (v.sizeStock || []).reduce((s, i) => s + Number(i.quantity || 0), 0),
+        0
+      );
+    // flat sizeStock (1 color × N sizes)
+    if (record.sizeStock?.length > 0)
+      return record.sizeStock.reduce((s, i) => s + Number(i.quantity || 0), 0);
+    // legacy plain quantity
+    return Number(record.quantity || 0);
   };
+
+  const getStockStatus = (qty) => {
+    if (qty === 0) return { color: "#ff4d4f", bg: "#fff1f0", border: "#ffccc7", text: "Out of Stock", dot: "error" };
+    if (qty < 10) return { color: "#fa8c16", bg: "#fff7e6", border: "#ffd591", text: "Low Stock", dot: "warning" };
+    return { color: "#52c41a", bg: "#f6ffed", border: "#b7eb8f", text: "In Stock", dot: "success" };
+  };
+
+  const filteredProducts = productState?.filter((p) => {
+    const q = searchText.toLowerCase();
+    if (!q) return true;
+    return (
+      p.title?.toLowerCase().includes(q) ||
+      p.brand?.toLowerCase().includes(q) ||
+      p.category?.toLowerCase().includes(q) ||
+      p.barcode?.toLowerCase().includes(q) ||
+      p.sku?.toLowerCase().includes(q) ||
+      p.hsnCode?.toLowerCase().includes(q) ||
+      p.vendorName?.toLowerCase().includes(q) ||
+      p.tags?.toLowerCase().includes(q)
+    );
+  });
+
+  const totalProducts = productState?.length || 0;
+  const outOfStock = productState?.filter((p) => getEffectiveStock(p) === 0).length || 0;
+  const lowStock = productState?.filter((p) => { const s = getEffectiveStock(p); return s > 0 && s < 10; }).length || 0;
+  const purchaseValue = productState?.reduce((s, p) => s + (Number(p.purchasePrice) || 0) * getEffectiveStock(p), 0) || 0;
+  const sellingValue = productState?.reduce((s, p) => s + (Number(p.price) || 0) * getEffectiveStock(p), 0) || 0;
+  const potentialProfit = sellingValue - purchaseValue;
 
   const downloadBarcode = (barcode) => {
     const canvas = document.createElement("canvas");
-    JsBarcode(canvas, barcode, {
-      format: "CODE128",
-      width: 2,
-      height: 80,
-      displayValue: true,
-    });
+    JsBarcode(canvas, barcode, { format: "CODE128", width: 2, height: 80, displayValue: true });
     const link = document.createElement("a");
     link.href = canvas.toDataURL("image/png");
     link.download = `${barcode}.png`;
     link.click();
   };
 
-  // Show all barcodes for a product (size-wise only)
   const showSizeBarcodes = (record) => {
-    const sizeItems =
-      record.sizeStock && record.sizeStock.length > 0
-        ? record.sizeStock
-        : (record.variants || []).flatMap((variant) => variant.sizeStock || []);
-
-    const barcodes = sizeItems
-      .filter((item) => item.barcode)
-      .map((item) => ({
-        size: item.size,
-        barcode: item.barcode,
-        quantity: item.quantity,
-      }));
-
-    setProductSizeBarcodes(barcodes);
+    const sizeItems = record.sizeStock?.length > 0
+      ? record.sizeStock
+      : (record.variants || []).flatMap((v) => v.sizeStock || []);
+    setProductSizeBarcodes(sizeItems.filter((i) => i.barcode).map((i) => ({ size: i.size, barcode: i.barcode, quantity: i.quantity })));
     setSelectedTitle(record.title);
-    // store full record for productData
     setSelectedRecord(record);
     setSizeBarcodesModalOpen(true);
   };
 
-  const hideModal = () => {
+  const deleteProduct = (e) => {
+    dispatch(deleteAProduct(e));
+    dispatch(delImg(e));
     setOpen(false);
-  };
-
-  const dispatch = useDispatch();
-
-  useEffect(() => {
-    dispatch(getProducts());
-  }, []);
-
-  const productState = useSelector((state) => state?.product?.products);
-
-  // Filter products based on search
-  const filteredProducts = productState?.filter((product) =>
-    product.title?.toLowerCase().includes(searchText.toLowerCase()) ||
-    product.brand?.toLowerCase().includes(searchText.toLowerCase()) ||
-    product.category?.toLowerCase().includes(searchText.toLowerCase()) ||
-    product.barcode?.toLowerCase().includes(searchText.toLowerCase())
-  );
-
-  const getStockStatus = (quantity) => {
-    if (quantity === 0) return { color: "red", text: "Out of Stock", bg: "#fff1f0" };
-    if (quantity < 10) return { color: "orange", text: "Low Stock", bg: "#fff7e6" };
-    return { color: "green", text: "In Stock", bg: "#f6ffed" };
-  };
-
-  const getEffectiveStock = (record) => {
-    if (record.sizeStock && record.sizeStock.length > 0) {
-      return record.sizeStock.reduce((sum, item) => sum + Number(item.quantity || 0), 0);
-    }
-    if (record.variants && record.variants.length > 0) {
-      return record.variants.reduce((sum, variant) => {
-        const variantQuantity = (variant.sizeStock || []).reduce((s, item) => s + Number(item.quantity || 0), 0);
-        return sum + variantQuantity;
-      }, 0);
-    }
-    return Number(record.quantity || 0);
+    setTimeout(() => dispatch(getProducts()), 100);
   };
 
   const columns = [
     {
-      title: "S.No",
+      title: "#",
       dataIndex: "key",
       key: "key",
-      width: 70,
-      render: (text, record, index) => (
-        <span className="text-muted fw-medium">{index + 1}</span>
+      width: 55,
+      render: (_, __, index) => (
+        <span style={{ color: "#9ca3af", fontWeight: 600, fontSize: 13 }}>{index + 1}</span>
       ),
     },
     {
@@ -124,72 +116,69 @@ const Productlist = () => {
       key: "title",
       sorter: (a, b) => a.title.localeCompare(b.title),
       render: (text, record) => (
-        <div className="d-flex align-items-center gap-3">
-          <Avatar
-            shape="square"
-            size={48}
-            src={record.images?.[0]?.url}
-            style={{ borderRadius: "8px", backgroundColor: "#f0f0f0" }}
-            icon={!record.images?.[0]?.url && <MdInventory />}
-          />
-          <div>
-            <div className="fw-semibold text-dark" style={{ maxWidth: "200px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <div style={{ position: "relative", flexShrink: 0 }}>
+            <Avatar
+              shape="square"
+              size={52}
+              src={record.images?.[0]?.url}
+              style={{ borderRadius: 10, backgroundColor: "#f3f4f6", border: "1px solid #e5e7eb" }}
+              icon={<FiPackage style={{ color: "#9ca3af" }} />}
+            />
+            {record.inventory?.online && (
+              <div style={{ position: "absolute", top: -4, right: -4, width: 10, height: 10, borderRadius: "50%", backgroundColor: "#10b981", border: "2px solid #fff" }} />
+            )}
+          </div>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontWeight: 600, color: "#111827", fontSize: 14, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 200 }}>
               {text}
             </div>
-            <div className="text-muted small">{record.category}</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 3 }}>
+              <span style={{ fontSize: 11, color: "#6b7280", background: "#f3f4f6", padding: "1px 7px", borderRadius: 20 }}>{record.category}</span>
+              {record.vendorName && (
+                <span style={{ fontSize: 11, color: "#8b5cf6", background: "#f5f3ff", padding: "1px 7px", borderRadius: 20 }}>{record.vendorName}</span>
+              )}
+            </div>
           </div>
         </div>
       ),
     },
     {
-      title: "Color & Size",
+      title: "Brand / HSN",
+      key: "brandHsn",
+      width: 130,
+      render: (_, record) => (
+        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+          <Tag color="blue" style={{ borderRadius: 6, fontWeight: 600, fontSize: 12, margin: 0 }}>{record.brand}</Tag>
+          {record.hsnCode && (
+            <span style={{ fontSize: 11, color: "#9ca3af", fontFamily: "monospace" }}>HSN: {record.hsnCode}</span>
+          )}
+        </div>
+      ),
+    },
+    {
+      title: "Color & Sizes",
       key: "colorSize",
-      width: 120,
+      width: 140,
       render: (_, record) => {
         const color = record.color;
-        const hasSizeStock = record.sizeStock && record.sizeStock.length > 0;
-        const hasVariants = record.variants && record.variants.length > 0;
-
-        let sizeInfo = "";
-        if (hasSizeStock) {
-          const sizes = record.sizeStock.map(item => item.size).join(", ");
-          sizeInfo = sizes.length > 15 ? sizes.substring(0, 12) + "..." : sizes;
-        } else if (hasVariants) {
-          const allSizes = record.variants.flatMap(variant =>
-            variant.sizeStock ? variant.sizeStock.map(item => item.size) : []
-          );
-          const uniqueSizes = [...new Set(allSizes)];
-          sizeInfo = uniqueSizes.join(", ");
-          sizeInfo = sizeInfo.length > 15 ? sizeInfo.substring(0, 12) + "..." : sizeInfo;
-        }
-
+        const sizes = record.sizeStock?.length > 0
+          ? record.sizeStock.map((i) => i.size)
+          : [...new Set((record.variants || []).flatMap((v) => (v.sizeStock || []).map((i) => i.size)))];
         return (
-          <div className="d-flex flex-column gap-1">
-            {color && color.title ? (
-              <div className="d-flex align-items-center gap-2">
-                <div
-                  style={{
-                    backgroundColor: getColorSwatch(color),
-                    width: "20px",
-                    height: "20px",
-                    borderRadius: "50%",
-                    display: "inline-flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    border: "1px solid #fff",
-                    boxShadow: "0 1px 3px rgba(0,0,0,0.2)",
-                  }}
-                />
-                <span style={{ fontSize: "12px", fontWeight: 500 }}>{getReadableColorName(color)}</span>
+          <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+            {color?.title ? (
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <div style={{ width: 14, height: 14, borderRadius: "50%", backgroundColor: getColorSwatch(color), border: "2px solid #e5e7eb", flexShrink: 0 }} />
+                <span style={{ fontSize: 12, color: "#374151", fontWeight: 500 }}>{getReadableColorName(color)}</span>
               </div>
-            ) : (
-              <span className="text-muted" style={{ fontSize: "12px" }}>-</span>
-            )}
-            {sizeInfo && (
-              <div>
-                <Tag color="geekblue" style={{ fontSize: "10px", padding: "1px 4px" }}>
-                  Sizes: {sizeInfo}
-                </Tag>
+            ) : null}
+            {sizes.length > 0 && (
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 3 }}>
+                {sizes.slice(0, 4).map((s) => (
+                  <span key={s} style={{ fontSize: 10, background: "#eff6ff", color: "#3b82f6", padding: "1px 5px", borderRadius: 4, fontWeight: 600 }}>{s}</span>
+                ))}
+                {sizes.length > 4 && <span style={{ fontSize: 10, color: "#9ca3af" }}>+{sizes.length - 4}</span>}
               </div>
             )}
           </div>
@@ -197,187 +186,86 @@ const Productlist = () => {
       },
     },
     {
-      title: "HSN",
-      dataIndex: "hsnCode",
-      key: "hsnCode",
+      title: "Stock",
+      key: "stock",
       width: 120,
-      render: (hsnCode) => (
-        <span className="text-muted fw-medium">{hsnCode || "-"}</span>
-      ),
+      sorter: (a, b) => getEffectiveStock(a) - getEffectiveStock(b),
+      render: (_, record) => {
+        const total = getEffectiveStock(record);
+        const status = getStockStatus(total);
+        return (
+          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            <div style={{ display: "inline-flex", alignItems: "center", gap: 5, background: status.bg, border: `1px solid ${status.border}`, padding: "3px 10px", borderRadius: 20 }}>
+              <div style={{ width: 6, height: 6, borderRadius: "50%", backgroundColor: status.color }} />
+              <span style={{ color: status.color, fontWeight: 600, fontSize: 12 }}>{status.text}</span>
+            </div>
+            <span style={{ fontSize: 12, color: "#6b7280", paddingLeft: 2 }}>{total} units</span>
+          </div>
+        );
+      },
     },
     {
-      title: "Brand",
-      dataIndex: "brand",
-      key: "brand",
-      render: (brand) => (
-        <Tag color="blue" style={{ borderRadius: "4px", fontWeight: 500 }}>
-          {brand}
-        </Tag>
-      ),
+      title: "Pricing",
+      key: "pricing",
+      width: 150,
+      sorter: (a, b) => Number(a.price) - Number(b.price),
+      render: (_, record) => {
+        const sell = Number(record.price) || 0;
+        const purchase = Number(record.purchasePrice) || 0;
+        const margin = purchase > 0 ? (((sell - purchase) / sell) * 100).toFixed(0) : null;
+        return (
+          <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+            <span style={{ fontWeight: 700, color: "#111827", fontSize: 15 }}>₹{sell.toLocaleString()}</span>
+            {purchase > 0 && (
+              <span style={{ fontSize: 11, color: "#6b7280" }}>Cost: ₹{purchase.toLocaleString()}</span>
+            )}
+            {margin !== null && (
+              <span style={{ fontSize: 11, color: "#10b981", fontWeight: 600 }}>↑ {margin}% margin</span>
+            )}
+          </div>
+        );
+      },
     },
     {
       title: "Barcodes",
-      dataIndex: "barcode",
       key: "barcode",
-      render: (barcode, record) => {
-        const allSizeItems = record.sizeStock && record.sizeStock.length > 0
+      width: 100,
+      render: (_, record) => {
+        const allItems = record.sizeStock?.length > 0
           ? record.sizeStock
-          : (record.variants || []).flatMap((variant) => variant.sizeStock || []);
-        const sizeBarcodes = allSizeItems.filter((s) => s.barcode);
-        const barcodeCount = sizeBarcodes.length;
-        
-        if (barcodeCount > 0) {
-          return (
-            <div className="d-flex gap-1">
-              <Tooltip title="View All Barcodes">
-                <Button
-                  type="primary"
-                  size="small"
-                  onClick={() => showSizeBarcodes(record)}
-                  style={{ backgroundColor: "#722ed1", borderColor: "#722ed1" }}
-                >
-                  {barcodeCount} {barcodeCount === 1 ? 'Size' : 'Sizes'}
-                </Button>
-              </Tooltip>
-            </div>
-          );
-        }
-        if (record.barcode) {
-          return (
-            <div className="d-flex gap-1">
-              <Tooltip title="View Main Barcode">
-                <Button
-                  type="default"
-                  size="small"
-                  onClick={() => {
-                    setSelectedBarcode(record.barcode);
-                    setSelectedTitle(record.title);
-                    setBarcodeModalOpen(true);
-                  }}
-                >
-                  Main
-                </Button>
-              </Tooltip>
-            </div>
-          );
-        }
-        return <span className="text-muted">-</span>;
+          : (record.variants || []).flatMap((v) => v.sizeStock || []);
+        const count = allItems.filter((s) => s.barcode).length;
+        if (count > 0) return (
+          <Button size="small" onClick={() => showSizeBarcodes(record)}
+            style={{ background: "#f5f3ff", color: "#7c3aed", border: "1px solid #ddd6fe", borderRadius: 8, fontWeight: 600, fontSize: 12 }}>
+            🏷️ {count} {count === 1 ? "Size" : "Sizes"}
+          </Button>
+        );
+        if (record.barcode) return (
+          <Button size="small" onClick={() => { setSelectedBarcode(record.barcode); setSelectedTitle(record.title); setBarcodeModalOpen(true); }}
+            style={{ background: "#f0fdf4", color: "#16a34a", border: "1px solid #bbf7d0", borderRadius: 8, fontSize: 12 }}>
+            🏷️ Main
+          </Button>
+        );
+        return <span style={{ color: "#d1d5db", fontSize: 12 }}>—</span>;
       },
-    },
-    // {
-    //   title: "Stock",
-    //   dataIndex: "quantity",
-    //   key: "quantity",
-    //   sorter: (a, b) => a.quantity - b.quantity,
-    //   render: (quantity) => {
-    //     const status = getStockStatus(quantity);
-    //     return (
-    //       <div
-    //         style={{
-    //           backgroundColor: status.bg,
-    //           padding: "4px 12px",
-    //           borderRadius: "20px",
-    //           display: "inline-block",
-    //         }}
-    //       >
-    //         <span style={{ color: status.color, fontWeight: 500, fontSize: "13px" }}>
-    //           {status.text}
-    //         </span>
-    //         <span className="text-muted ms-1" style={{ fontSize: "12px" }}>
-    //           ({quantity})
-    //         </span>
-    //       </div>
-    //     );
-    //   },
-    // },
-
-    {
-  title: "Stock",
-  key: "quantity",
-    sorter: (a, b) => {
-      const totalA = (a.sizeStock && a.sizeStock.length > 0)
-        ? a.sizeStock.reduce((sum, item) => sum + item.quantity, 0)
-        : (a.variants || []).flatMap((variant) => variant.sizeStock || []).reduce((sum, item) => sum + item.quantity, 0);
-      const totalB = (b.sizeStock && b.sizeStock.length > 0)
-        ? b.sizeStock.reduce((sum, item) => sum + item.quantity, 0)
-        : (b.variants || []).flatMap((variant) => variant.sizeStock || []).reduce((sum, item) => sum + item.quantity, 0);
-      return totalA - totalB;
-    },
-  render: (_, record) => {
-    const total =
-      getEffectiveStock(record);
-
-    const status = getStockStatus(total);
-
-    return (
-      <div
-        style={{
-          backgroundColor: status.bg,
-          padding: "4px 12px",
-          borderRadius: "20px",
-          display: "inline-block",
-        }}
-      >
-        <span style={{ color: status.color, fontWeight: 500, fontSize: "13px" }}>
-          {status.text}
-        </span>
-        <span className="text-muted ms-1" style={{ fontSize: "12px" }}>
-          ({total})
-        </span>
-      </div>
-    );
-  },
-},
-    {
-      title: "Price",
-      dataIndex: "price",
-      key: "price",
-      sorter: (a, b) => a.price - b.price,
-      render: (price) => (
-        <span className="fw-bold" style={{ color: "#1a1a1a", fontSize: "15px" }}>
-          ₹{parseFloat(price).toFixed(2)}
-        </span>
-      ),
     },
     {
       title: "Actions",
-      dataIndex: "action",
       key: "action",
-      width: 120,
+      width: 90,
       render: (_, record) => (
-        <div className="d-flex gap-2">
-          <Tooltip title="Edit Product">
-            <Link
-              to={`/admin/product/${record._id}`}
-              className="d-flex align-items-center justify-content-center"
-              style={{
-                width: "36px",
-                height: "36px",
-                borderRadius: "8px",
-                backgroundColor: "#e6f7ff",
-                color: "#1890ff",
-                transition: "all 0.2s",
-              }}
-            >
-              <BiEdit size={18} />
+        <div style={{ display: "flex", gap: 8 }}>
+          <Tooltip title="Edit">
+            <Link to={`/admin/product/${record._id}`}
+              style={{ width: 34, height: 34, borderRadius: 8, background: "#eff6ff", color: "#3b82f6", display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.2s" }}>
+              <BiEdit size={16} />
             </Link>
           </Tooltip>
-          <Tooltip title="Delete Product">
-            <button
-              className="d-flex align-items-center justify-content-center"
-              onClick={() => showModal(record._id)}
-              style={{
-                width: "36px",
-                height: "36px",
-                borderRadius: "8px",
-                backgroundColor: "#fff1f0",
-                color: "#ff4d4f",
-                border: "none",
-                cursor: "pointer",
-                transition: "all 0.2s",
-              }}
-            >
-              <AiFillDelete size={18} />
+          <Tooltip title="Delete">
+            <button onClick={() => { setOpen(true); setproductId(record._id); }}
+              style={{ width: 34, height: 34, borderRadius: 8, background: "#fff1f0", color: "#ef4444", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <AiFillDelete size={16} />
             </button>
           </Tooltip>
         </div>
@@ -385,105 +273,136 @@ const Productlist = () => {
     },
   ];
 
-  const data1 = [];
-  for (let i = 0; i < filteredProducts?.length; i++) {
-    data1.push({
-      key: i + 1,
-      _id: filteredProducts[i]._id,
-      title: filteredProducts[i].title,
-      brand: filteredProducts[i].brand,
-      barcode: filteredProducts[i].barcode,
-      hsnCode: filteredProducts[i].hsnCode || filteredProducts[i].productHsn || "",
-      sizeStock: filteredProducts[i].sizeStock || [],
-      variants: filteredProducts[i].variants || [],
-      category: filteredProducts[i].category,
-      color: filteredProducts[i].color || null,
-      images: filteredProducts[i].images,
-      quantity: filteredProducts[i].quantity,
-      price: `${filteredProducts[i].price}`,
-      mrp: filteredProducts[i].mrp || "",
-      action: (
-        <>
-          <Link to={`/admin/product/${filteredProducts[i]._id}`} className="fs-3 text-success">
-            <BiEdit />
-          </Link>
-          <button
-            className="ms-3 fs-3 text-danger bg-transparent border-0"
-            onClick={() => showModal(filteredProducts[i]._id)}
-          >
-            <AiFillDelete />
-          </button>
-        </>
-      ),
-    });
-  }
+  const data1 = (filteredProducts || []).map((p, i) => ({
+    key: i + 1,
+    _id: p._id,
+    title: p.title,
+    brand: p.brand,
+    barcode: p.barcode,
+    hsnCode: p.hsnCode || "",
+    sizeStock: p.sizeStock || [],
+    variants: p.variants || [],
+    category: p.category,
+    color: p.color || null,
+    images: p.images,
+    quantity: p.quantity,
+    price: p.price,
+    mrp: p.mrp || "",
+    purchasePrice: p.purchasePrice || 0,
+    vendorName: p.vendorName || "",
+    inventory: p.inventory,
+  }));
 
-  const deleteProduct = (e) => {
-    dispatch(deleteAProduct(e));
-    dispatch(delImg(e));
-    setOpen(false);
-    setTimeout(() => {
-      dispatch(getProducts());
-    }, 100);
-  };
+  const stats = [
+    {
+      label: "Total Products",
+      value: totalProducts,
+      icon: <FiPackage size={22} />,
+      iconBg: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+      valueSuffix: "",
+      sub: `${filteredProducts?.length || 0} shown`,
+    },
+    {
+      label: "Purchase Value",
+      value: `₹${purchaseValue.toLocaleString()}`,
+      icon: <MdShoppingBag size={22} />,
+      iconBg: "linear-gradient(135deg, #f093fb 0%, #f5576c 100%)",
+      sub: `Cost × total stock`,
+    },
+    {
+      label: "Selling Value",
+      value: `₹${sellingValue.toLocaleString()}`,
+      icon: <MdTrendingUp size={22} />,
+      iconBg: "linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)",
+      sub: `Profit: ₹${potentialProfit.toLocaleString()}`,
+      subColor: potentialProfit >= 0 ? "#10b981" : "#ef4444",
+    },
+    {
+      label: "Out of Stock",
+      value: outOfStock,
+      icon: <FiAlertTriangle size={22} />,
+      iconBg: "linear-gradient(135deg, #fa709a 0%, #fee140 100%)",
+      sub: `${lowStock} low stock`,
+      subColor: lowStock > 0 ? "#f59e0b" : "#9ca3af",
+    },
+  ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-6">
-      <AdminPageHeader
-        title="Products"
-        description="Manage your product inventory and catalog"
-        icon={<MdInventory />}
-        gradient="from-indigo-600 to-indigo-700"
-        actionButton={
-          <div className="flex items-center gap-3">
+    <div style={{ background: "#f8fafc", minHeight: "100vh", padding: "24px" }}>
+
+      {/* Header */}
+      <div style={{ background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)", borderRadius: 16, padding: "24px 28px", marginBottom: 24, boxShadow: "0 4px 20px rgba(102,126,234,0.3)" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 16 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+            <div style={{ width: 48, height: 48, background: "rgba(255,255,255,0.2)", borderRadius: 12, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 22 }}>
+              <FiPackage />
+            </div>
+            <div>
+              <h2 style={{ color: "#fff", fontWeight: 700, fontSize: 22, margin: 0 }}>Product Inventory</h2>
+              <p style={{ color: "rgba(255,255,255,0.7)", fontSize: 13, margin: 0 }}>Manage your products, pricing & stock</p>
+            </div>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
             <Input
-              placeholder="Search products..."
-              prefix={<AiOutlineSearch className="text-gray-400" />}
+              placeholder="Search by name, brand, SKU, HSN..."
+              prefix={<AiOutlineSearch style={{ color: "rgba(255,255,255,0.6)" }} />}
               value={searchText}
               onChange={(e) => setSearchText(e.target.value)}
               allowClear
-              className="rounded-xl"
-              style={{ width: 240 }}
+              style={{ width: 280, background: "rgba(255,255,255,0.15)", border: "1px solid rgba(255,255,255,0.3)", borderRadius: 10, color: "#fff" }}
             />
             <Link to="/admin/product">
-              <button className="flex items-center gap-2 px-5 py-2.5 bg-white text-indigo-600 rounded-xl font-semibold hover:bg-indigo-50 transition-all shadow-md border-0 cursor-pointer">
+              <button style={{ background: "#fff", color: "#667eea", border: "none", borderRadius: 10, padding: "9px 20px", fontWeight: 700, fontSize: 14, cursor: "pointer", boxShadow: "0 2px 8px rgba(0,0,0,0.1)", whiteSpace: "nowrap" }}>
                 + Add Product
               </button>
             </Link>
           </div>
-        }
-      />
+        </div>
+      </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        {[
-          { label: "Total Products", value: productState?.length || 0, icon: <MdInventory />, color: "text-indigo-600", bg: "bg-indigo-50" },
-          { label: "Total Value", value: `₹${(productState?.reduce((sum, p) => sum + (Number(p.price) || 0) * getEffectiveStock(p), 0) || 0).toLocaleString()}`, icon: "₹", color: "text-green-600", bg: "bg-green-50" },
-          { label: "Out of Stock", value: productState?.filter(p => getEffectiveStock(p) === 0).length || 0, icon: <MdOutlineInventory2 />, color: "text-red-500", bg: "bg-red-50" },
-          { label: "Categories", value: new Set(productState?.map(p => p.category)).size || 0, icon: "#", color: "text-orange-500", bg: "bg-orange-50" },
-        ].map((s) => (
-          <div key={s.label} className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 flex items-center gap-4">
-            <div className={`w-12 h-12 rounded-xl ${s.bg} flex items-center justify-center ${s.color} text-2xl flex-shrink-0`}>{s.icon}</div>
+      {/* Stat Cards */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 16, marginBottom: 24 }}>
+        {stats.map((s) => (
+          <div key={s.label} style={{ background: "#fff", borderRadius: 14, padding: "20px 22px", boxShadow: "0 1px 4px rgba(0,0,0,0.06)", border: "1px solid #f1f5f9", display: "flex", alignItems: "center", gap: 16 }}>
+            <div style={{ width: 50, height: 50, borderRadius: 13, background: s.iconBg, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", flexShrink: 0, boxShadow: "0 4px 12px rgba(0,0,0,0.15)" }}>
+              {s.icon}
+            </div>
             <div>
-              <p className="text-gray-400 text-xs font-medium mb-0.5">{s.label}</p>
-              <h3 className="text-2xl font-bold text-gray-800 leading-none">{s.value}</h3>
+              <p style={{ fontSize: 12, color: "#9ca3af", fontWeight: 500, margin: 0, marginBottom: 2 }}>{s.label}</p>
+              <h3 style={{ fontSize: 22, fontWeight: 800, color: "#111827", margin: 0, lineHeight: 1.1 }}>{s.value}</h3>
+              {s.sub && <p style={{ fontSize: 11, color: s.subColor || "#9ca3af", margin: 0, marginTop: 3 }}>{s.sub}</p>}
             </div>
           </div>
         ))}
       </div>
 
-      <AdminDataTable
-        columns={columns}
-        dataSource={data1}
-        paginationOptions={{ showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} products`, pageSizeOptions: ["10", "20", "50", "100"] }}
-      />
+      {/* Table */}
+      <div style={{ background: "#fff", borderRadius: 16, boxShadow: "0 1px 4px rgba(0,0,0,0.06)", border: "1px solid #f1f5f9", overflow: "hidden" }}>
+        <div style={{ padding: "16px 20px", borderBottom: "1px solid #f1f5f9", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <FiLayers style={{ color: "#667eea" }} />
+            <span style={{ fontWeight: 700, color: "#111827", fontSize: 15 }}>All Products</span>
+            <span style={{ background: "#eff6ff", color: "#3b82f6", fontSize: 12, fontWeight: 600, padding: "2px 10px", borderRadius: 20 }}>
+              {filteredProducts?.length || 0}
+            </span>
+          </div>
+          {searchText && (
+            <span style={{ fontSize: 12, color: "#6b7280" }}>
+              Showing results for "<strong>{searchText}</strong>"
+            </span>
+          )}
+        </div>
+        <AdminDataTable
+          columns={columns}
+          dataSource={data1}
+          paginationOptions={{ showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} products`, pageSizeOptions: ["10", "20", "50", "100"] }}
+        />
+      </div>
 
       <CustomModal
-        hideModal={hideModal}
+        hideModal={() => setOpen(false)}
         open={open}
-        performAction={() => {
-          deleteProduct(productId);
-        }}
+        performAction={() => deleteProduct(productId)}
         title="Are you sure you want to delete this Product?"
       />
       <BarcodeModal
@@ -492,10 +411,8 @@ const Productlist = () => {
         barcode={selectedBarcode}
         title={selectedTitle}
       />
-
-      {/* Size-wise Barcodes Modal */}
       <Modal
-        title={<span style={{ color: '#722ed1' }}>📦 All Barcodes - {selectedTitle}</span>}
+        title={<span style={{ color: "#7c3aed", fontWeight: 700 }}>🏷️ Barcodes — {selectedTitle}</span>}
         open={sizeBarcodesModalOpen}
         onCancel={() => setSizeBarcodesModalOpen(false)}
         footer={null}
@@ -504,15 +421,9 @@ const Productlist = () => {
         <SizeBarcodesList
           barcodes={productSizeBarcodes}
           onDownload={downloadBarcode}
-          productData={{
-            title: selectedTitle,
-            color: selectedRecord?.color,
-            price: selectedRecord?.price,
-          }}
+          productData={{ title: selectedTitle, color: selectedRecord?.color, price: selectedRecord?.price }}
         />
       </Modal>
-
-
     </div>
   );
 };

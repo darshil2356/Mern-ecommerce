@@ -39,6 +39,7 @@ const sizeRouter = require("./routes/sizeRoute");
 const googleReviewRouter = require("./routes/googleReviewRoute");
 const productInquiryRouter = require("./routes/productInquiryRoute");
 const udharRouter = require("./routes/udharRoute");
+const vendorRouter = require("./routes/vendorRoute");
 
 // Socket.io setup
 const http = require("http");
@@ -107,6 +108,7 @@ app.use("/api/size", sizeRouter);
 app.use("/api/google-review", googleReviewRouter);
 app.use("/api/product-inquiry", productInquiryRouter);
 app.use("/api/udhar", udharRouter);
+app.use("/api/vendor", vendorRouter);
 
 app.get("/ppt", (req, res) => {
   res.sendFile(__dirname + "/public/ppt.html");

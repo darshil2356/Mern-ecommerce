@@ -566,7 +566,7 @@ const getAllProduct = asyncHandler(async (req, res) => {
     if (req.query.page || req.query.limit) {
       query = applyPagination(query, req.query.page, req.query.limit);
     } else {
-      query = query.limit(50); // default safety limit
+      query = query.limit(2000); // admin needs all products for accurate stats
     }
 
     const product = await query.lean();

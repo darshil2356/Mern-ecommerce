@@ -19,6 +19,7 @@ import offerReducer from "../features/offer/offerSlice";
 import sizeReducer from "../features/size/sizeSlice";
 import productInquiryReducer from "../features/productInquiry/productInquirySlice";
 import udharReducer from "../features/udhar/udharSlice";
+import vendorReducer from "../features/vendor/vendorSlice";
 export const store = configureStore({
   reducer: {
     auth: authReducer,
@@ -39,5 +40,6 @@ export const store = configureStore({
     size: sizeReducer,
     productInquiry: productInquiryReducer,
     udhar: udharReducer,
+    vendor: vendorReducer,
   },
 });

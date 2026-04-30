@@ -162,6 +162,7 @@ sizeStock: [
     discount_percentage: { type: Number },
     purchasePrice: { type: Number, default: null },
     pkey: { type: String, trim: true, sparse: true, index: true }, // format: AB123X456 — pos[5] encodes billing type
+    vendorName: { type: String, trim: true, default: null },
 
     sku: { type: String, trim: true, sparse: true, index: true },
     min_stock_alert: { type: Number, default: 5 },

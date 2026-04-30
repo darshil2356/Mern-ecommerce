@@ -5,6 +5,7 @@ import { createColor, getColors } from "../features/color/colorSlice";
 import { createBrand, getBrands } from "../features/brand/brandSlice";
 import { createCategory, getCategories } from "../features/pcategory/pcategorySlice";
 import { createSize, getSizes } from "../features/size/sizeSlice";
+import { createVendor, getVendors } from "../features/vendor/vendorSlice";
 import { toast } from "react-toastify";
 
 /**
@@ -21,7 +22,7 @@ const QuickAddModal = ({ type, open, onClose, onCreated }) => {
   const [hex, setHex] = useState("#000000");
   const [loading, setLoading] = useState(false);
 
-  const titles = { color: "Add New Color", brand: "Add New Brand", category: "Add New Category", size: "Add New Size" };
+  const titles = { color: "Add New Color", brand: "Add New Brand", category: "Add New Category", size: "Add New Size", vendor: "Add New Vendor" };
 
   const handleSave = async () => {
     if (!name.trim()) return toast.error("Name is required");
@@ -37,6 +38,9 @@ const QuickAddModal = ({ type, open, onClose, onCreated }) => {
       } else if (type === "size") {
         result = await dispatch(createSize({ title: name.trim() })).unwrap();
         await dispatch(getSizes());
+      } else if (type === "vendor") {
+        result = await dispatch(createVendor({ title: name.trim() })).unwrap();
+        await dispatch(getVendors());
       } else {
         result = await dispatch(createCategory({ title: name.trim() })).unwrap();
         await dispatch(getCategories());
@@ -66,10 +70,10 @@ const QuickAddModal = ({ type, open, onClose, onCreated }) => {
     >
       <div className="mb-3">
         <label className="fw-medium mb-1 d-block">
-          {type === "color" ? "Color Name" : type === "brand" ? "Brand Name" : type === "size" ? "Size" : "Category Name"}
+          {type === "color" ? "Color Name" : type === "brand" ? "Brand Name" : type === "size" ? "Size" : type === "vendor" ? "Vendor Name" : "Category Name"}
         </label>
         <Input
-          placeholder={type === "color" ? "e.g. Forest Green" : type === "brand" ? "e.g. Nike" : type === "size" ? "e.g. M, XL, 32, Free Size" : "e.g. T-Shirts"}
+          placeholder={type === "color" ? "e.g. Forest Green" : type === "brand" ? "e.g. Nike" : type === "size" ? "e.g. M, XL, 32, Free Size" : type === "vendor" ? "e.g. Supplier Co." : "e.g. T-Shirts"}
           value={name}
           onChange={(e) => setName(e.target.value)}
           onPressEnter={handleSave}

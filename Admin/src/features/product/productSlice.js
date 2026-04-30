@@ -61,6 +61,7 @@ const initialState = {
   variants: [],
   productHsn: "",
   hsnCode: "",
+  vendorName: "",
 
   isError: false,
   isLoading: false,
@@ -146,6 +147,7 @@ export const productSlice = createSlice({
         state.reelUrl = action.payload.reelUrl || "";
         state.purchasePrice = action.payload.purchasePrice ?? "";
         state.pkey = action.payload.pkey ?? "";
+        state.vendorName = action.payload.vendorName || "";
       })
       .addCase(getAProduct.rejected, (state, action) => {
         state.isLoading = false;

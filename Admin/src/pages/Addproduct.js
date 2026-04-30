@@ -12,6 +12,7 @@ import { getCategories, getCategoryTree } from "../features/pcategory/pcategoryS
 import { getColors } from "../features/color/colorSlice";
 import { Select, Modal, Card, Input, Button, TreeSelect } from "antd";
 import { getSizes } from "../features/size/sizeSlice";
+import { getVendors } from "../features/vendor/vendorSlice";
 import Dropzone from "react-dropzone";
 import { clearUploads } from "../features/upload/uploadSlice";
 import JsBarcode from "jsbarcode";
@@ -138,9 +139,11 @@ const Addproduct = () => {
     dispatch(getCategoryTree());
     dispatch(getColors());
     dispatch(getSizes());
+    dispatch(getVendors());
   }, []);
 
   const brandState = useSelector((state) => state.brand.brands);
+  const vendorState = useSelector((state) => state.vendor.vendors);
   const catState = useSelector((state) => state.pCategory.pCategories);
   const categoryTree = useSelector((state) => state.pCategory.categoryTree);
   const colorState = useSelector((state) => state.color.colors);
@@ -178,6 +181,7 @@ const Addproduct = () => {
     reelUrl: productReelUrl,
     purchasePrice: productPurchasePrice,
     pkey: productPkey,
+    vendorName: productVendorName,
   } = newProduct;
 
   const videoState = useSelector((state) => state?.upload?.videos);
@@ -275,6 +279,7 @@ const Addproduct = () => {
       reelUrl: productReelUrl || "",
       purchasePrice: productPurchasePrice || "",
       pkey: productPkey || clientPkeyRef.current,
+      vendorName: productVendorName || "",
     },
     validationSchema: schema,
     onSubmit: async (values) => {
@@ -782,6 +787,27 @@ const Addproduct = () => {
             </div>
 
             <div className="row g-3">
+              <div className="col-md-6">
+                <div className="d-flex justify-content-between align-items-center mb-2">
+                  <label className="fw-medium mb-0" style={{ color: "#1a1a1a" }}>Vendor Name</label>
+                  <Button type="link" size="small" style={{ padding: 0, fontSize: 12 }} onClick={() => setQuickAddModal("vendor")}>+ Add New</Button>
+                </div>
+                <Select
+                  showSearch
+                  size="large"
+                  placeholder="Select Vendor"
+                  optionFilterProp="children"
+                  style={{ width: "100%" }}
+                  value={formik.values.vendorName || undefined}
+                  onChange={(value) => formik.setFieldValue("vendorName", value)}
+                  allowClear
+                  filterOption={(input, option) =>
+                    (option?.label ?? "").toLowerCase().includes(input.toLowerCase())
+                  }
+                  options={vendorState.map((v) => ({ label: v.title, value: v.title }))}
+                />
+              </div>
+
               <div className="col-md-6">
                 <div className="d-flex justify-content-between align-items-center mb-2">
                   <label className="fw-medium mb-0" style={{ color: "#1a1a1a" }}>Brand <span className="text-danger">*</span></label>
@@ -1501,6 +1527,7 @@ const Addproduct = () => {
         onClose={() => setQuickAddModal(null)}
         onCreated={(newItem) => {
           if (quickAddModal === "brand") formik.setFieldValue("brand", newItem.title);
+          if (quickAddModal === "vendor") formik.setFieldValue("vendorName", newItem.title);
           if (quickAddModal === "category") {
             formik.setFieldValue("category", newItem.title);
             formik.setFieldValue("categoryId", newItem._id || null);

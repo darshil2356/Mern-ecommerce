@@ -162,7 +162,7 @@ router.put("/unblock-user/:id", authMiddleware, isAdmin, unblockUser);
 router.get("/public-settings", async (req, res) => {
   try {
     const User = require("../models/userModel");
-    const admin = await User.findOne({ role: "admin" }).select("cgst sgst igst storeState taxIncluded shippingCharge requireOtpForSignup");
+    const admin = await User.findOne({ role: "admin" }).select("cgst sgst igst storeState taxIncluded shippingCharge requireOtpForSignup storeName storeTagline storeAddress storePhone storeEmail");
     res.json({
       cgst: admin?.cgst || 0,
       sgst: admin?.sgst || 0,
@@ -171,9 +171,14 @@ router.get("/public-settings", async (req, res) => {
       taxIncluded: admin?.taxIncluded === true,
       shippingCharge: admin?.shippingCharge ?? 100,
       requireOtpForSignup: admin?.requireOtpForSignup === true,
+      storeName: admin?.storeName || "Yashoda Fashion",
+      storeTagline: admin?.storeTagline || "",
+      storeAddress: admin?.storeAddress || "",
+      storePhone: admin?.storePhone || "",
+      storeEmail: admin?.storeEmail || "",
     });
   } catch {
-    res.json({ cgst: 0, sgst: 0, igst: 0, storeState: "Gujarat", taxIncluded: false, shippingCharge: 100, requireOtpForSignup: false });
+    res.json({ cgst: 0, sgst: 0, igst: 0, storeState: "Gujarat", taxIncluded: false, shippingCharge: 100, requireOtpForSignup: false, storeName: "Yashoda Fashion", storeTagline: "", storeAddress: "", storePhone: "", storeEmail: "" });
   }
 });
 

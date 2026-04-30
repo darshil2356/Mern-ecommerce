@@ -658,52 +658,21 @@ const LiveBilling = () => {
   // Fetch customer offer when customer is selected
   const fetchCustomerOffer = async (mobile) => {
     if (!mobile) return;
-    
     try {
       const res = await axios.get(`${base_url}user/customer-offer?mobile=${mobile}`, config);
       setCustomerOffer({
         hasOffer: res.data.hasOffer,
         offerDiscount: res.data.offerDiscount || 0,
-        offerType: res.data.offerType || ""
+        offerType: res.data.offerType || ''
       });
-      
-      // DON'T auto-apply - user must click "Apply Offer" button
+      setCustomerCoins(res.data.coins || 0);
       setAppliedOfferAmount(0);
     } catch (err) {
-      console.error("Failed to fetch customer offer:", err);
-      setCustomerOffer({ hasOffer: false, offerDiscount: 0, offerType: "" });
+      setCustomerOffer({ hasOffer: false, offerDiscount: 0, offerType: '' });
+      setCustomerCoins(0);
       setAppliedOfferAmount(0);
     }
   };
-
-  // Fetch customer coins when customer is selected
-  const fetchCustomerCoins = async (mobile) => {
-  if (!mobile) {
-    setCustomerCoins(0);
-    return;
-  }
-
-  try {
-    const res = await axios.get(
-      `${base_url}user/search?query=${mobile}`,
-      config
-    );
-
-    if (res.data && res.data.length > 0)
-      {
-      const coins = res.data[0].coins;
-      console.log("RESUT Data ===",res.data);
-      console.log("RESUT Data ===",res.data);
-      console.log("RESUT Data 0 ===",res.data[0]);
-
-      console.log("Fetched coins for customer:", coins); // Debug log
-
-      setCustomerCoins(coins || 0);
-    }
-  } catch (err) {
-    console.error("Failed to fetch customer coins:", err);
-  }
-};
 
   // Handle use coins toggle
   const handleUseCoinsChange = (checked) => {
@@ -924,34 +893,13 @@ const LiveBilling = () => {
     return () => clearTimeout(delay);
   }, [referralSearch]);
 
-  // Fetch customer offer + auto-fill referral when customer is selected
+  // Fetch customer offer + coins when customer contact is set
   useEffect(() => {
     if (customer.contact) {
-      fetchCustomerOffer(customer.contact);
-      fetchCustomerCoins(customer.contact);
-      // Auto-fill referral if customer already has a referrer in DB
-      const autoFillReferral = async () => {
-        try {
-          const res = await axios.get(`${base_url}user/search?query=${customer.contact}`, config);
-          if (res.data && res.data.length > 0) {
-            const found = res.data.find(u => u.mobile === customer.contact);
-            if (found && found.referredBy && !referrerName) {
-              const ref = found.referredBy;
-              setReferrerName((ref.firstname || "") + " " + (ref.lastname || ""));
-              setReferrerCode(ref.referralCode || "N/A");
-              setReferralSearch(ref.mobile || "");
-              setCustomer(prev => ({
-                ...prev,
-                referralContact: ref.mobile || "",
-                referralCode: ref.referralCode || ""
-              }));
-            }
-          }
-        } catch (err) { /* silent */ }
-      };
-      autoFillReferral();
+      fetchCustomerOffer(customer.contact); // also sets coins
     } else {
-      setCustomerOffer({ hasOffer: false, offerDiscount: 0, offerType: "" });
+      setCustomerOffer({ hasOffer: false, offerDiscount: 0, offerType: '' });
+      setCustomerCoins(0);
       setAppliedOfferAmount(0);
       setUseCoins(false);
       setCoinAmount(0);
@@ -1469,14 +1417,13 @@ tbody td{padding:6px 4px;vertical-align:top}
                             const fullName = `${cust.firstname} ${cust.lastname}`.trim();
                             setCustomer({
                               name: fullName,
-                              address: cust.address || "",
-                              contact: cust.mobile || "",
-                              referralContact: "",
-                              referralCode: "",
+                              address: cust.address || '',
+                              contact: cust.mobile || '',
+                              referralContact: '',
+                              referralCode: '',
                             });
-                            setCustomerCoins(cust.coins || 0);
-                            setSearchTerm("");
-                            setContactSearch("");
+                            setSearchTerm('');
+                            setContactSearch('');
                             setNameResults([]);
                             setContactResults([]);
                             setShowDropdown(false);
@@ -1524,14 +1471,13 @@ tbody td{padding:6px 4px;vertical-align:top}
                             const fullName = `${cust.firstname} ${cust.lastname}`.trim();
                             setCustomer({
                               name: fullName,
-                              address: cust.address || "",
-                              contact: cust.mobile || "",
-                              referralContact: "",
-                              referralCode: "",
+                              address: cust.address || '',
+                              contact: cust.mobile || '',
+                              referralContact: '',
+                              referralCode: '',
                             });
-                            setCustomerCoins(cust.coins || 0);
-                            setSearchTerm("");
-                            setContactSearch("");
+                            setSearchTerm('');
+                            setContactSearch('');
                             setNameResults([]);
                             setContactResults([]);
                             setShowDropdown(false);

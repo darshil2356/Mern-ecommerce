@@ -141,7 +141,7 @@ const TermAndContions = () => {
               </h4>
               <p style={{ color: "#666", lineHeight: 1.8, marginBottom: "20px" }}>
                 For any questions about these Terms & Conditions:<br />
-                📧 <a href="mailto:darshilbavishi2356@gmail.com" style={{ color: "#d4af37" }}>darshilbavishi2356@gmail.com</a><br />
+                📧 <a href="mailto:info@yashodafashion.com" style={{ color: "#d4af37" }}>info@yashodafashion.com</a><br />
                 📞 <a href="tel:+917046252356" style={{ color: "#d4af37" }}>+91 70462 52356</a><br />
                 📍 B-204 Gajanan Flora, Opp Uma School, Nikol Naroda, Ahmedabad – 382350
               </p>

@@ -2694,7 +2694,7 @@ const checkStock = asyncHandler(async (req, res) => {
 const searchUsers = asyncHandler(async (req, res) => {
   const { query } = req.query;
 
-  // Require at least 2 characters to search
+  // Require at least 2 characters
   if (!query || query.trim().length < 2) {
     return res.json([]);
   }
@@ -2702,26 +2702,30 @@ const searchUsers = asyncHandler(async (req, res) => {
   const q = query.trim();
   const cleanMobile = q.replace(/\D/g, '');
 
-  const filter = { role: "user" };
+  // Build $or conditions
+  const orConditions = [];
 
-  if (cleanMobile.length >= 3) {
-    // Phone-like query — use prefix match on mobile (uses index)
-    filter.$or = [
-      { mobile: { $regex: `^${cleanMobile}` } },
-      { firstname: { $regex: `^${q}`, $options: "i" } },
-      { lastname:  { $regex: `^${q}`, $options: "i" } },
-    ];
-  } else {
-    // Name query — prefix match only (uses index if text index exists)
-    filter.$or = [
-      { firstname: { $regex: `^${q}`, $options: "i" } },
-      { lastname:  { $regex: `^${q}`, $options: "i" } },
-    ];
+  if (cleanMobile.length >= 2) {
+    // Has digits — search mobile with prefix
+    orConditions.push({ mobile: { $regex: `^${cleanMobile}` } });
   }
 
-  const users = await User.find(filter)
+  // Always search name with prefix (case-insensitive)
+  orConditions.push({ firstname: { $regex: `^${q}`, $options: 'i' } });
+  orConditions.push({ lastname:  { $regex: `^${q}`, $options: 'i' } });
+
+  // Full name search: "Ram Patel" → firstname=Ram, lastname=Patel
+  const parts = q.split(' ').filter(Boolean);
+  if (parts.length >= 2) {
+    orConditions.push({
+      firstname: { $regex: `^${parts[0]}`, $options: 'i' },
+      lastname:  { $regex: `^${parts[1]}`, $options: 'i' },
+    });
+  }
+
+  const users = await User.find({ role: 'user', $or: orConditions })
     .limit(8)
-    .select("firstname lastname mobile address coins offerDiscount offerType totalOrders")
+    .select('firstname lastname mobile address coins offerDiscount offerType totalOrders')
     .lean();
 
   res.json(users.map(u => ({ ...u, coins: u.coins || 0 })));
@@ -2752,7 +2756,8 @@ const getCustomerOffer = asyncHandler(async (req, res) => {
     offerDiscount: customer.offerDiscount || 0,
     offerType: customer.offerType || "",
     totalOrders: customer.totalOrders || 0,
-    lastOrderDate: customer.lastOrderDate
+    lastOrderDate: customer.lastOrderDate,
+    coins: customer.coins || 0,
   });
 });
 
@@ -2803,7 +2808,7 @@ const getSettings = asyncHandler(async (req, res) => {
 
   try {
     const user = await User.findById(_id).select(
-      "gstin email storeName storeTagline storeAddress storePhone cgst sgst igst storeState taxIncluded onlinePaymentDestination shippingCharge upiIdA upiIdB requireOtpForSignup"
+      "gstin email storeName storeTagline storeAddress storePhone storeEmail cgst sgst igst storeState taxIncluded onlinePaymentDestination shippingCharge upiIdA upiIdB requireOtpForSignup"
     );
     res.json({
       gstin: user.gstin || "",
@@ -2812,6 +2817,7 @@ const getSettings = asyncHandler(async (req, res) => {
       storeTagline: user.storeTagline || "Your One-Stop Shopping Destination",
       storeAddress: user.storeAddress || "",
       storePhone: user.storePhone || "",
+      storeEmail: user.storeEmail || "",
       cgst: user.cgst || 0,
       sgst: user.sgst || 0,
       igst: user.igst || 0,
@@ -2834,7 +2840,7 @@ const updateSettings = asyncHandler(async (req, res) => {
 
   const {
     cgst, sgst, igst, storeState, taxIncluded,
-    storeName, storeTagline, storeAddress, storePhone,
+    storeName, storeTagline, storeAddress, storePhone, storeEmail,
     onlinePaymentDestination, shippingCharge, upiIdA, upiIdB,
     requireOtpForSignup,
   } = req.body;
@@ -2851,6 +2857,7 @@ const updateSettings = asyncHandler(async (req, res) => {
       ...(storeTagline !== undefined && { storeTagline }),
       ...(storeAddress !== undefined && { storeAddress }),
       ...(storePhone   !== undefined && { storePhone }),
+      ...(storeEmail   !== undefined && { storeEmail }),
       ...(onlinePaymentDestination !== undefined && { onlinePaymentDestination }),
       ...(shippingCharge !== undefined && { shippingCharge: parseFloat(shippingCharge) >= 0 ? parseFloat(shippingCharge) : 0 }),
       ...(upiIdA !== undefined && { upiIdA: upiIdA || "" }),

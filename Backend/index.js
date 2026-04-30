@@ -117,7 +117,7 @@ app.get("/api/sitemap.xml", async (req, res) => {
   try {
     const Product = require("./models/productModel");
     const Blog = require("./models/blogModel");
-    const base = "https://yashodafashion.in";
+    const base = "https://www.yashodafashion.com";
 
     const [products, blogs] = await Promise.all([
       Product.find({ "inventory.online": true }).select("slug _id updatedAt").lean(),

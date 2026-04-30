@@ -34,6 +34,7 @@ const Settings = () => {
         storeTagline: res.data.storeTagline || "Your One-Stop Shopping Destination",
         storeAddress: res.data.storeAddress || "",
         storePhone:   res.data.storePhone   || "",
+        storeEmail:   res.data.storeEmail   || "",
         shippingCharge: res.data.shippingCharge ?? 100,
         upiIdA:       res.data.upiIdA       || "",
         upiIdB:       res.data.upiIdB       || "",
@@ -181,6 +182,9 @@ const Settings = () => {
           </Form.Item>
           <Form.Item label="Phone Number" name="storePhone">
             <Input prefix={<FaPhone className="text-gray-400" />} />
+          </Form.Item>
+          <Form.Item label="Store Email" name="storeEmail">
+            <Input type="email" prefix={<FaEnvelope className="text-gray-400" />} placeholder="e.g. info@yashodafashion.com" />
           </Form.Item>
           <Form.Item label="Store Tagline" name="storeTagline">
             <Input prefix={<FaQuoteRight className="text-gray-400" />} />

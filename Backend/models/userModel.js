@@ -114,6 +114,10 @@ var userSchema = new mongoose.Schema(
       type: String,
       default: "",
     },
+    storeEmail: {
+      type: String,
+      default: "",
+    },
     onlinePaymentDestination: {
       type: String,
       enum: ["CURRENT_ACCOUNT", "OTHER_ACCOUNT"],

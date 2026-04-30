@@ -15,7 +15,7 @@ const Meta = ({
   aggregateRating,
   breadcrumbs, // array of { name, url }
 }) => {
-  const siteUrl = "https://yashodafashion.in";
+  const siteUrl = "https://www.yashodafashion.com";
   const siteName = "Yashoda Fashion";
   const defaultDesc =
     "Yashoda Fashion – Premium Fashion & Clothing Brand. Shop the latest trends, new arrivals, and exclusive deals online.";

@@ -34,7 +34,7 @@ const SingleBlog = () => {
   }, [getBlogId]);
 
   const related = (allBlogs || []).filter(b => b._id !== getBlogId && b.category === blogState?.category).slice(0, 3);
-  const siteUrl = "https://yashodafashion.in";
+  const siteUrl = "https://www.yashodafashion.com";
   const blogSlug = blogState?.slug || getBlogId;
   const blogUrl = `/blog/${blogSlug}`;
 

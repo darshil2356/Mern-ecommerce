@@ -75,7 +75,7 @@ const Blog = () => {
           "@type": "Blog",
           "name": "Yashoda Fashion Blog",
           "description": "Latest fashion trends, style tips and clothing guides for India",
-          "url": "https://yashodafashion.in/blog",
+          "url": "https://www.yashodafashion.com/blog",
           "publisher": { "@type": "Organization", "name": "Yashoda Fashion" }
         }}
       />

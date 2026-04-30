@@ -29,14 +29,26 @@ export const interpolate = (str = "", vars = {}) =>
 
 /**
  * Build a display-ready notification from an FCM payload.
+ * The backend already sends fully-replaced title/body in notification field.
+ * We use those directly — no re-interpolation needed.
  * @param {Object} payload - FCM message payload (notification + data)
  * @returns {{ title, body }}
  */
 export const buildForegroundNotification = (payload) => {
   const { notification, data } = payload;
+
+  // Backend sends already-replaced text in notification.title / notification.body
+  // Use them directly if available
+  if (notification?.title || notification?.body) {
+    return {
+      title: notification.title || "Notification",
+      body: notification.body || "",
+    };
+  }
+
+  // Fallback: re-interpolate from local template using data vars
   const eventKey = data?.eventKey;
   const template = NOTIFICATION_EVENTS[eventKey];
-
   if (template) {
     return {
       title: interpolate(template.title, data),
@@ -44,9 +56,5 @@ export const buildForegroundNotification = (payload) => {
     };
   }
 
-  // Fallback to raw FCM notification fields
-  return {
-    title: notification?.title || "Notification",
-    body: notification?.body || "",
-  };
+  return { title: "Notification", body: "" };
 };

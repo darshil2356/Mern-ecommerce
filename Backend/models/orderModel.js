@@ -190,7 +190,9 @@ paymentInfo: {
       directDiscount: { type: Number, default: 0 },
       offerDiscount:  { type: Number, default: 0 },
       coinDiscount:   { type: Number, default: 0 },
+      couponDiscount: { type: Number, default: 0 },
     },
+    couponCode: { type: String, default: null },
     coinsUsed: {
       type: Number,
       default: 0,

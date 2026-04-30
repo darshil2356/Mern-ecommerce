@@ -58,9 +58,11 @@ const OrderDetails = () => {
   const paid        = order.totalPriceAfterDiscount || 0;
   const subtotal    = order.totalPrice || 0;
   const b           = order.discountBreakdown || {};
-  const coinDiscount    = b.coinDiscount   || order.coinAmount || 0;
-  const offerDiscount   = b.offerDiscount  || 0;
-  const directDiscount  = b.directDiscount || 0;
+  const coinDiscount    = b.coinDiscount    || order.coinAmount || 0;
+  const offerDiscount   = b.offerDiscount   || 0;
+  const directDiscount  = b.directDiscount  || 0;
+  const couponDiscount  = b.couponDiscount  || 0;
+  const couponCode      = order.couponCode  || null;
   const originalSubtotal = subtotal + offerDiscount;
   const totalDiscount    = originalSubtotal - paid;
 
@@ -369,16 +371,40 @@ const OrderDetails = () => {
                 </>
               )}
 
+              {couponDiscount > 0 && (
+                <div style={{ ...s.summaryRow, background: "#fdf2f8", borderRadius: 10, padding: "8px 12px", border: "1px dashed #f9a8d4" }}>
+                  <div>
+                    <span style={{ ...s.summaryLabel, color: "#be185d", fontWeight: 700 }}>🏷️ Coupon Discount</span>
+                    {couponCode && <p style={{ margin: "2px 0 0", fontSize: 11, color: "#be185d", fontFamily: "monospace", fontWeight: 700, letterSpacing: 1 }}>{couponCode}</p>}
+                  </div>
+                  <span style={{ ...s.summaryVal, color: "#be185d", fontWeight: 800 }}>−{fmt(couponDiscount)}</span>
+                </div>
+              )}
               {coinDiscount > 0 && (
                 <div style={s.summaryRow}>
                   <span style={s.summaryLabel}>🪙 Coins ({order.coinsUsed || coinDiscount})</span>
                   <span style={{ ...s.summaryVal, color: "#7c3aed" }}>−{fmt(coinDiscount)}</span>
                 </div>
               )}
-              {!directDiscount && !offerDiscount && !coinDiscount && totalDiscount > 0 && (
+              {!directDiscount && !offerDiscount && !coinDiscount && !couponDiscount && totalDiscount > 0 && (
                 <div style={s.summaryRow}>
                   <span style={s.summaryLabel}>Discount</span>
                   <span style={{ ...s.summaryVal, color: "#22c55e" }}>−{fmt(totalDiscount)}</span>
+                </div>
+              )}
+              {/* Total savings banner */}
+              {(offerDiscount + couponDiscount + coinDiscount + directDiscount) > 0 && (
+                <div style={{ background: "linear-gradient(135deg,#f0fdf4,#dcfce7)", borderRadius: 10, padding: "10px 12px", border: "1px solid #86efac", marginBottom: 4 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: "#15803d" }}>🎉 Total Savings on this order</span>
+                    <span style={{ fontSize: 15, fontWeight: 800, color: "#15803d" }}>−{fmt(offerDiscount + couponDiscount + coinDiscount + directDiscount)}</span>
+                  </div>
+                  <div style={{ marginTop: 6, display: "flex", flexWrap: "wrap", gap: 6 }}>
+                    {offerDiscount > 0 && <span style={{ fontSize: 11, background: "#fff", color: "#15803d", padding: "2px 8px", borderRadius: 20, border: "1px solid #86efac" }}>🎁 Offer −{fmt(offerDiscount)}</span>}
+                    {couponDiscount > 0 && <span style={{ fontSize: 11, background: "#fff", color: "#be185d", padding: "2px 8px", borderRadius: 20, border: "1px solid #f9a8d4" }}>🏷️ Coupon −{fmt(couponDiscount)}</span>}
+                    {coinDiscount > 0 && <span style={{ fontSize: 11, background: "#fff", color: "#7c3aed", padding: "2px 8px", borderRadius: 20, border: "1px solid #ddd6fe" }}>🪙 Coins −{fmt(coinDiscount)}</span>}
+                    {directDiscount > 0 && <span style={{ fontSize: 11, background: "#fff", color: "#0369a1", padding: "2px 8px", borderRadius: 20, border: "1px solid #bae6fd" }}>💰 Discount −{fmt(directDiscount)}</span>}
+                  </div>
                 </div>
               )}
               <div style={{ height: 1, background: "#f3f4f6", margin: "12px 0" }} />

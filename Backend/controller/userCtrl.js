@@ -1887,6 +1887,8 @@ const createOrder = asyncHandler(async (req, res) => {
     paymentInfo,
     coinsUsed,
     coinAmount,
+    couponCode,
+    couponDiscount,
     discountBreakdown,
     gstBreakdown,
   } = req.body;
@@ -1979,12 +1981,15 @@ const createOrder = asyncHandler(async (req, res) => {
 
     const db = discountBreakdown || {
         directDiscount: 0,
-        offerDiscount: (totalPrice - totalPriceAfterDiscount - (coinAmount || 0)) > 0
-          ? (totalPrice - totalPriceAfterDiscount - (coinAmount || 0))
+        offerDiscount: (totalPrice - totalPriceAfterDiscount - (coinAmount || 0) - (couponDiscount || 0)) > 0
+          ? (totalPrice - totalPriceAfterDiscount - (coinAmount || 0) - (couponDiscount || 0))
           : 0,
         coinDiscount: coinAmount || 0,
+        couponDiscount: couponDiscount || 0,
       };
-    const computedDiscountAmount = (db.directDiscount || 0) + (db.offerDiscount || 0) + (db.coinDiscount || 0);
+    // Always ensure couponDiscount is in the breakdown
+    if (couponDiscount > 0) db.couponDiscount = couponDiscount;
+    const computedDiscountAmount = (db.directDiscount || 0) + (db.offerDiscount || 0) + (db.coinDiscount || 0) + (db.couponDiscount || 0);
 
     const order = await Order.create({
       shippingInfo,
@@ -2000,6 +2005,7 @@ const createOrder = asyncHandler(async (req, res) => {
       },
       coinsUsed: coinsUsed || 0,
       coinAmount: coinAmount || 0,
+      couponCode: couponCode || null,
       paymentInfo,
       mode: paymentInfo?.razorpayPaymentId ? "ONLINE" : "OFFLINE",
       paymentDestination: paymentInfo?.razorpayPaymentId ? onlinePaymentDestination : "CASH",

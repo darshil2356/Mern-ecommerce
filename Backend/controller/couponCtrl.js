@@ -50,10 +50,20 @@ const getCoupon = asynHandler(async (req, res) => {
     throw new Error(error);
   }
 });
+const validateCoupon = asynHandler(async (req, res) => {
+  const { name } = req.body;
+  if (!name) return res.status(400).json({ message: "Coupon name is required" });
+  const coupon = await Coupon.findOne({ name: name.toUpperCase().trim() });
+  if (!coupon) return res.status(404).json({ message: "Invalid coupon code" });
+  if (new Date(coupon.expiry) < new Date()) return res.status(400).json({ message: "Coupon has expired" });
+  res.json({ valid: true, discount: coupon.discount, name: coupon.name });
+});
+
 module.exports = {
   createCoupon,
   getAllCoupons,
   updateCoupon,
   deleteCoupon,
   getCoupon,
+  validateCoupon,
 };

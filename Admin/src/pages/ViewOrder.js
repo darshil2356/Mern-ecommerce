@@ -356,13 +356,20 @@ const ViewOrder = () => {
         const title = item.isBundle ? (item.bundleTitle || "Bundle") : (item.product?.title || "Product");
         const hsn = item.hsnCode || item.product?.hsnCode || "-";
         const qty = item.quantity; const rate = item.price; const amt = qty * rate;
+        const colorName = item.color ? (item.color?.title || item.color?.name || null) : null;
+        const sizeName = item.size || null;
+        const metaParts = [colorName, sizeName ? `Size: ${sizeName}` : null].filter(Boolean).join(" · ");
         return `<tr>
           <td style="color:#888">${i+1}</td>
-          <td><span class="item-title">${title}</span>${item.isFreeItem ? '<span class="item-badge free-badge">FREE</span>' : ""}</td>
+          <td>
+            <span class="item-title">${title}</span>
+            ${item.isFreeItem ? '<span class="badge free-badge">FREE</span>' : ""}
+            ${metaParts ? `<div class="item-meta">${metaParts}</div>` : ""}
+          </td>
           <td style="font-family:monospace;font-size:11px;color:#888">${hsn}</td>
           <td style="text-align:center;font-weight:600">${qty}</td>
-          <td style="text-align:right;color:#565959">${item.isFreeItem ? "FREE" : "₹"+rate.toFixed(2)}</td>
-          <td style="text-align:right;font-weight:800;color:#131921">${item.isFreeItem ? "FREE" : "₹"+amt.toFixed(2)}</td>
+          <td style="text-align:right;color:#565959">${item.isFreeItem ? "FREE" : "\u20b9"+rate.toFixed(2)}</td>
+          <td style="text-align:right;font-weight:800;color:#131921">${item.isFreeItem ? "FREE" : "\u20b9"+amt.toFixed(2)}</td>
         </tr>`;
       }).join("");
       const gstRows = gstTotal > 0 ? (taxIncluded
@@ -474,6 +481,7 @@ tbody td{padding:12px 14px;font-size:13px;vertical-align:top}
       ${shipping > 0 ? `<div class="s-row ship"><span>🚚 Delivery Charges</span><span>+₹${shipping.toFixed(2)}</span></div>` : `<div class="s-row ship"><span>🚚 Delivery</span><span style="color:#007600;font-weight:700">FREE</span></div>`}
       ${breakdown.directDiscount > 0 ? `<div class="s-row disc"><span>🏷️ Direct Discount</span><span>-₹${breakdown.directDiscount.toFixed(2)}</span></div>` : ''}
       ${breakdown.offerDiscount > 0 ? `<div class="s-row disc"><span>🎁 Offer Discount</span><span>-₹${breakdown.offerDiscount.toFixed(2)}</span></div>` : ''}
+      ${breakdown.couponDiscount > 0 ? `<div class="s-row disc"><span>🏷️ Coupon Discount${order.couponCode ? ' (' + order.couponCode + ')' : ''}</span><span>-₹${breakdown.couponDiscount.toFixed(2)}</span></div>` : ''}
       ${breakdown.coinDiscount > 0 ? `<div class="s-row" style="color:#7c3aed"><span>🪙 Coins Redeemed (${order.coinsUsed || breakdown.coinDiscount} coins)</span><span>-₹${breakdown.coinDiscount.toFixed(2)}</span></div>` : ''}
       ${!breakdown.directDiscount && !breakdown.offerDiscount && !breakdown.coinDiscount && discount > 0 ? `<div class="s-row disc"><span>💰 Discount</span><span>-₹${discount.toFixed(2)}</span></div>` : ''}
       ${discount > 0 ? `<div class="s-row disc" style="font-weight:700"><span>Total Savings</span><span>-₹${discount.toFixed(2)}</span></div>` : ''}
@@ -590,25 +598,34 @@ tbody td{padding:12px 14px;font-size:13px;vertical-align:top}
       render: (hsnCode) => <span style={{ fontFamily: "monospace", fontSize: 11 }}>{hsnCode || "-"}</span>,
     },
     {
-      title: "Color",
+      title: "Color & Size",
       dataIndex: "color",
-      render: (color) => color ? (
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <div style={{
-            width: 24,
-            height: 24,
-            borderRadius: "50%",
-            backgroundColor: getColorSwatch(color),
-            border: "1px solid #d9d9d9"
-          }} />
-          <span>{getReadableColorName(color)}</span>
+      render: (color, record) => (
+        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          {color ? (
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <div style={{ width: 18, height: 18, borderRadius: "50%", backgroundColor: getColorSwatch(color), border: "1px solid #d9d9d9", flexShrink: 0 }} />
+              <span style={{ fontSize: 13 }}>{getReadableColorName(color)}</span>
+            </div>
+          ) : null}
+          {record.size ? (
+            <div style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+              <span style={{ background: "#f0f0ff", color: "#4338ca", fontWeight: 800, fontSize: 13, padding: "3px 12px", borderRadius: 6, border: "1.5px solid #c7d2fe", letterSpacing: 0.5 }}>
+                Size: {record.size}
+              </span>
+            </div>
+          ) : null}
+          {!color && !record.size && <span style={{ color: "#ccc" }}>—</span>}
         </div>
-      ) : "-",
+      ),
     },
     {
       title: "Qty",
       dataIndex: "count",
       align: "center",
+      render: (qty) => (
+        <span style={{ fontWeight: 700, fontSize: 15, color: "#0f172a" }}>{qty}</span>
+      ),
     },
     {
       title: "Price",
@@ -655,10 +672,11 @@ tbody td{padding:12px 14px;font-size:13px;vertical-align:top}
         barcode: product?.barcode || "N/A",
         hsnCode: item?.hsnCode || product?.hsnCode || "-",
         color: item?.color,
+        size: item?.size || null,
         count: item?.quantity,
         amount: item?.price,
         total: (item?.price || 0) * (item?.quantity || 0),
-        image: product?.images?.[0] || null,
+        image: product?.images?.[0]?.url || product?.images?.[0] || null,
         isBundle: false,
         isFreeItem: item?.isFreeItem || false,
         offerLabel: item?.offerLabel || null,
@@ -675,6 +693,9 @@ tbody td{padding:12px 14px;font-size:13px;vertical-align:top}
   const offerDiscount = breakdown.offerDiscount || 0;
   const coinDiscount = breakdown.coinDiscount || 0;
   const hasBreakdown = directDiscount > 0 || offerDiscount > 0 || coinDiscount > 0;
+  const couponDiscount = breakdown.couponDiscount || 0;
+  const couponCode     = orderState?.couponCode || null;
+  const hasBreakdownAny = hasBreakdown || couponDiscount > 0;
   const isCancelledOrder = orderState?.orderStatus === "Cancelled";
 
   // GST/Tax breakdown
@@ -1172,7 +1193,7 @@ tbody td{padding:12px 14px;font-size:13px;vertical-align:top}
               </Table.Summary.Row>
               )}
 
-              {hasBreakdown ? (
+              {hasBreakdownAny ? (
                 <>
                   {directDiscount > 0 && (
                     <Table.Summary.Row>
@@ -1217,6 +1238,21 @@ tbody td{padding:12px 14px;font-size:13px;vertical-align:top}
                         }}>
                           -₹{offerDiscount.toFixed(2)}
                         </div>
+                      </Table.Summary.Cell>
+                    </Table.Summary.Row>
+                  )}
+                  {couponDiscount > 0 && (
+                    <Table.Summary.Row>
+                      <Table.Summary.Cell colSpan={6}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                          <div style={{ color: '#be185d', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8 }}>
+                            🏷️ Coupon Discount
+                          </div>
+                          {couponCode && <span style={{ fontSize: 11, fontFamily: 'monospace', color: '#be185d', fontWeight: 700, letterSpacing: 1 }}>{couponCode}</span>}
+                        </div>
+                      </Table.Summary.Cell>
+                      <Table.Summary.Cell align="right">
+                        <div style={{ color: '#be185d', fontWeight: 700 }}>-₹{couponDiscount.toFixed(2)}</div>
                       </Table.Summary.Cell>
                     </Table.Summary.Row>
                   )}
@@ -1273,26 +1309,35 @@ tbody td{padding:12px 14px;font-size:13px;vertical-align:top}
                 discount > 0 && (
                   <Table.Summary.Row>
                     <Table.Summary.Cell colSpan={6}>
-                      <div style={{
-                        color: '#52c41a',
-                        fontWeight: 600,
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '8px'
-                      }}>
+                      <div style={{ color: '#52c41a', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}>
                         💰 Discount
                       </div>
                     </Table.Summary.Cell>
                     <Table.Summary.Cell align="right">
-                      <div style={{
-                        color: '#52c41a',
-                        fontWeight: 600
-                      }}>
-                        -₹{discount.toFixed(2)}
-                      </div>
+                      <div style={{ color: '#52c41a', fontWeight: 600 }}>-₹{discount.toFixed(2)}</div>
                     </Table.Summary.Cell>
                   </Table.Summary.Row>
                 )
+              )}
+
+              {/* Total Savings Banner */}
+              {(offerDiscount + couponDiscount + coinDiscount + directDiscount) > 0 && (
+                <Table.Summary.Row>
+                  <Table.Summary.Cell colSpan={7}>
+                    <div style={{ background: 'linear-gradient(135deg,#f0fdf4,#dcfce7)', border: '1px solid #86efac', borderRadius: 10, padding: '10px 14px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                        <span style={{ fontWeight: 700, color: '#15803d', fontSize: 13 }}>🎉 Total Customer Savings</span>
+                        <span style={{ fontWeight: 800, color: '#15803d', fontSize: 15 }}>−₹{(offerDiscount + couponDiscount + coinDiscount + directDiscount).toFixed(2)}</span>
+                      </div>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                        {offerDiscount > 0 && <span style={{ fontSize: 11, background: '#fff', color: '#15803d', padding: '2px 8px', borderRadius: 20, border: '1px solid #86efac' }}>🎁 Offer ₹{offerDiscount.toFixed(2)}</span>}
+                        {couponDiscount > 0 && <span style={{ fontSize: 11, background: '#fff', color: '#be185d', padding: '2px 8px', borderRadius: 20, border: '1px solid #f9a8d4' }}>🏷️ Coupon{couponCode ? ` (${couponCode})` : ''} ₹{couponDiscount.toFixed(2)}</span>}
+                        {coinDiscount > 0 && <span style={{ fontSize: 11, background: '#fff', color: '#7c3aed', padding: '2px 8px', borderRadius: 20, border: '1px solid #ddd6fe' }}>🪙 Coins ₹{coinDiscount.toFixed(2)}</span>}
+                        {directDiscount > 0 && <span style={{ fontSize: 11, background: '#fff', color: '#0369a1', padding: '2px 8px', borderRadius: 20, border: '1px solid #bae6fd' }}>💰 Direct ₹{directDiscount.toFixed(2)}</span>}
+                      </div>
+                    </div>
+                  </Table.Summary.Cell>
+                </Table.Summary.Row>
               )}
 
               {/* GST/Tax Breakdown — taxIncluded = already in price, else added on top */}

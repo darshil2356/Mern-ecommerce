@@ -146,6 +146,11 @@ const buildNotification = (eventKey, vars = {}) => {
   Object.entries(template.data || {}).forEach(([k, v]) => {
     data[k] = replace(String(v));
   });
+  // Also inject all vars into data so service worker can interpolate if needed
+  Object.entries(vars).forEach(([k, v]) => {
+    if (data[k] === undefined) data[k] = String(v);
+  });
+  data.eventKey = eventKey;
 
   return {
     title: replace(template.title),

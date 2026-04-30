@@ -12,6 +12,7 @@ import { createAnOrder, deleteUserCart, getUserCart, getAddresses, addAddress } 
 import { getColorSwatch, getReadableColorName } from "../utils/colorDisplay";
 import trackingService from "../utils/trackingService";
 import "./Checkout.css";
+import { toast } from "react-toastify";
 
 
 const INDIAN_STATES = [
@@ -158,6 +159,10 @@ const Checkout = () => {
   const [saveAddress, setSaveAddress] = useState(false);
   const [addressLabel, setAddressLabel] = useState("Home");
   const [paymentMethod] = useState("online");
+  const [couponCode, setCouponCode] = useState("");
+  const [couponApplied, setCouponApplied] = useState(null); // { name, discount }
+  const [couponLoading, setCouponLoading] = useState(false);
+  const [couponError, setCouponError] = useState("");
   // GST settings from backend
   const [gstSettings, setGstSettings] = useState({ cgst: 0, sgst: 0, igst: 0, storeState: "Gujarat", taxIncluded: false, shippingCharge: 100 });
   const [gstType, setGstType] = useState("NONE");
@@ -267,9 +272,32 @@ const Checkout = () => {
   }, [selectedState, totalAmount, gstSettings]);
 
   const taxAmount = gstType === "IGST" ? igstAmt : cgstAmt + sgstAmt;
-  const maxCoinDiscount = Math.min(userCoins, totalAmount + gstSettings.shippingCharge + (gstSettings.taxIncluded ? 0 : taxAmount));
+  const couponDiscount = couponApplied ? Math.round(totalAmount * couponApplied.discount / 100) : 0;
+  const maxCoinDiscount = Math.min(userCoins, totalAmount + gstSettings.shippingCharge + (gstSettings.taxIncluded ? 0 : taxAmount) - couponDiscount);
   const coinDiscount = useCoins ? Math.min(coinAmount, maxCoinDiscount) : 0;
-  const finalAmount = Math.max(0, totalAmount + gstSettings.shippingCharge + (gstSettings.taxIncluded ? 0 : taxAmount) - coinDiscount);
+  const finalAmount = Math.max(0, totalAmount + gstSettings.shippingCharge + (gstSettings.taxIncluded ? 0 : taxAmount) - couponDiscount - coinDiscount);
+
+  const applyCoupon = async () => {
+    if (!couponCode.trim()) return;
+    setCouponLoading(true);
+    setCouponError("");
+    try {
+      const res = await axiosInstance.post("coupon/validate", { name: couponCode.trim() });
+      setCouponApplied({ name: res.data.name, discount: res.data.discount });
+      toast.success(`Coupon "${res.data.name}" applied! ${res.data.discount}% off`);
+    } catch (err) {
+      setCouponError(err?.response?.data?.message || "Invalid coupon code");
+      setCouponApplied(null);
+    } finally {
+      setCouponLoading(false);
+    }
+  };
+
+  const removeCoupon = () => {
+    setCouponApplied(null);
+    setCouponCode("");
+    setCouponError("");
+  };
 
   const formik = useFormik({
     initialValues: {
@@ -421,7 +449,9 @@ const Checkout = () => {
               shippingInfo: JSON.parse(localStorage.getItem("address")),
               coinsUsed: useCoins ? coinAmount : 0,
               coinAmount: coinDiscount,
-              discountBreakdown: { directDiscount: 0, offerDiscount: offerDiscount, coinDiscount },
+              couponCode: couponApplied?.name || null,
+              couponDiscount: couponDiscount,
+              discountBreakdown: { directDiscount: 0, offerDiscount: offerDiscount, coinDiscount, couponDiscount },
               gstBreakdown: {
                 cgst: cgstAmt,
                 sgst: sgstAmt,
@@ -601,6 +631,43 @@ const Checkout = () => {
                           <option value="Other">📍 Other</option>
                         </select>
                       )}
+                    </div>
+
+                    {/* Coupon Code */}
+                    <div style={{ margin: "8px 0", padding: "14px 16px", background: "#fdf2f8", borderRadius: 12, border: "1px dashed #f9a8d4" }}>
+                      <p style={{ margin: "0 0 10px", fontSize: 13, fontWeight: 700, color: "#be185d", display: "flex", alignItems: "center", gap: 6 }}>
+                        🏷️ Have a Coupon Code?
+                      </p>
+                      {couponApplied ? (
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "#fff", borderRadius: 10, padding: "10px 14px", border: "1.5px solid #86efac" }}>
+                          <div>
+                            <span style={{ fontWeight: 800, color: "#15803d", fontSize: 15, letterSpacing: 1, fontFamily: "monospace" }}>{couponApplied.name}</span>
+                            <span style={{ marginLeft: 10, background: "#dcfce7", color: "#15803d", fontSize: 12, fontWeight: 700, padding: "2px 10px", borderRadius: 20 }}>{couponApplied.discount}% OFF</span>
+                            <p style={{ margin: "2px 0 0", fontSize: 12, color: "#16a34a" }}>You save ₹{couponDiscount.toLocaleString()}</p>
+                          </div>
+                          <button type="button" onClick={removeCoupon} style={{ background: "#fee2e2", border: "none", borderRadius: 8, padding: "6px 12px", color: "#dc2626", fontWeight: 700, fontSize: 12, cursor: "pointer" }}>Remove</button>
+                        </div>
+                      ) : (
+                        <div style={{ display: "flex", gap: 8 }}>
+                          <input
+                            type="text"
+                            placeholder="Enter coupon code"
+                            value={couponCode}
+                            onChange={(e) => { setCouponCode(e.target.value.toUpperCase()); setCouponError(""); }}
+                            onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), applyCoupon())}
+                            style={{ flex: 1, padding: "10px 14px", border: `1.5px solid ${couponError ? "#ef4444" : "#e2e8f0"}`, borderRadius: 10, fontSize: 14, fontWeight: 700, letterSpacing: 1, fontFamily: "monospace", outline: "none", background: "#fff" }}
+                          />
+                          <button
+                            type="button"
+                            onClick={applyCoupon}
+                            disabled={couponLoading || !couponCode.trim()}
+                            style={{ padding: "10px 18px", background: couponLoading || !couponCode.trim() ? "#e2e8f0" : "linear-gradient(135deg, #ec4899, #db2777)", color: couponLoading || !couponCode.trim() ? "#94a3b8" : "#fff", border: "none", borderRadius: 10, fontWeight: 700, fontSize: 13, cursor: couponLoading || !couponCode.trim() ? "not-allowed" : "pointer" }}
+                          >
+                            {couponLoading ? "…" : "Apply"}
+                          </button>
+                        </div>
+                      )}
+                      {couponError && <p style={{ margin: "6px 0 0", fontSize: 12, color: "#ef4444", fontWeight: 500 }}>❌ {couponError}</p>}
                     </div>
 
                     {/* Payment Method — Online only */}
@@ -839,10 +906,33 @@ const Checkout = () => {
                       </>
                     )}
 
+                    {couponDiscount > 0 && (
+                      <div className="co-total-row" style={{ background: "#fdf2f8", borderRadius: 10, padding: "8px 10px", border: "1px dashed #f9a8d4", flexDirection: "column", alignItems: "stretch", gap: 2 }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                          <span style={{ color: "#be185d", fontWeight: 700, fontSize: 13 }}>🏷️ Coupon Discount</span>
+                          <span style={{ color: "#be185d", fontWeight: 800 }}>−₹{couponDiscount.toLocaleString()}</span>
+                        </div>
+                        <span style={{ fontSize: 11, color: "#be185d", fontFamily: "monospace", fontWeight: 700, letterSpacing: 1 }}>{couponApplied?.name} — {couponApplied?.discount}% off applied</span>
+                      </div>
+                    )}
                     {coinDiscount > 0 && (
                       <div className="co-total-row co-discount-row">
-                        <span>Coin Discount</span>
+                        <span>🪙 Coin Discount</span>
                         <span>−₹{coinDiscount}</span>
+                      </div>
+                    )}
+                    {/* Total savings banner */}
+                    {(offerDiscount + couponDiscount + coinDiscount) > 0 && (
+                      <div style={{ background: "linear-gradient(135deg,#f0fdf4,#dcfce7)", borderRadius: 10, padding: "10px 12px", border: "1px solid #86efac" }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                          <span style={{ fontSize: 13, fontWeight: 700, color: "#15803d" }}>🎉 You are saving</span>
+                          <span style={{ fontSize: 15, fontWeight: 800, color: "#15803d" }}>₹{(offerDiscount + couponDiscount + coinDiscount).toLocaleString()}</span>
+                        </div>
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
+                          {offerDiscount > 0 && <span style={{ fontSize: 11, background: "#fff", color: "#15803d", padding: "2px 8px", borderRadius: 20, border: "1px solid #86efac" }}>🎁 Offer ₹{offerDiscount.toLocaleString()}</span>}
+                          {couponDiscount > 0 && <span style={{ fontSize: 11, background: "#fff", color: "#be185d", padding: "2px 8px", borderRadius: 20, border: "1px solid #f9a8d4" }}>🏷️ Coupon ₹{couponDiscount.toLocaleString()}</span>}
+                          {coinDiscount > 0 && <span style={{ fontSize: 11, background: "#fff", color: "#7c3aed", padding: "2px 8px", borderRadius: 20, border: "1px solid #ddd6fe" }}>🪙 Coins ₹{coinDiscount.toLocaleString()}</span>}
+                        </div>
                       </div>
                     )}
                     <div className="co-divider" />
@@ -874,6 +964,9 @@ const Checkout = () => {
               <p className="co-sticky-amount">₹{finalAmount?.toLocaleString()}</p>
               {offerDiscount > 0 && (
                 <p style={{ margin: 0, fontSize: 10, color: '#16a34a', fontWeight: 700, lineHeight: 1.2 }}>🎁 Saving ₹{offerDiscount.toLocaleString()}</p>
+              )}
+              {couponDiscount > 0 && (
+                <p style={{ margin: 0, fontSize: 10, color: '#be185d', fontWeight: 700, lineHeight: 1.2 }}>🏷️ Coupon −₹{couponDiscount.toLocaleString()}</p>
               )}
             </div>
             <button type="submit" form="checkout-form" className="co-pay-btn co-sticky-pay" onClick={() => formik.handleSubmit()}>

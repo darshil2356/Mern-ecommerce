@@ -13,6 +13,7 @@ const {
   getAllReferrals,
   updateCustomerById,
   deleteCustomerById,
+  validatePincodeCtrl,
 } = require("../controller/userCtrl");
 const { authMiddleware, isAdmin } = require("../middlewares/authMiddleware");
 const { checkout, paymentVerification } = require("../controller/paymentCtrl");
@@ -56,6 +57,9 @@ router.get("/all-referrals", authMiddleware, isAdmin, getAllReferrals);
 // Payment routes
 router.post("/order/checkout", authMiddleware, checkout);
 router.post("/order/payment-verification", authMiddleware, paymentVerification);
+
+// Pincode validation — public, no auth needed
+router.post("/validate-pincode", validatePincodeCtrl);
 
 module.exports = router;
 

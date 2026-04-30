@@ -117,6 +117,15 @@ export const blogSlice = createSlice({
         state.blogDesc = action.payload.description;
         state.blogCategory = action.payload.category;
         state.blogImages = action.payload.images;
+        state.blogSlug = action.payload.slug;
+        state.blogMetaTitle = action.payload.metaTitle;
+        state.blogMetaDescription = action.payload.metaDescription;
+        state.blogKeywords = action.payload.keywords;
+        state.blogReadTime = action.payload.readTime;
+        state.blogAuthor = action.payload.author;
+        state.blogType = action.payload.blogType;
+        state.blogIsPublished = action.payload.isPublished;
+        state.blogIsAI = action.payload.isAI;
       })
       .addCase(getABlog.rejected, (state, action) => {
         state.isLoading = false;
@@ -131,6 +140,7 @@ export const blogSlice = createSlice({
         state.isLoading = false;
         state.isError = false;
         state.isSuccess = true;
+        state.updatedBlog = action.payload;
       })
       .addCase(updateABlog.rejected, (state, action) => {
         state.isLoading = false;

@@ -84,12 +84,17 @@ const createOrder = async (order, user) => {
 
   // All address fields come from shippingInfo — user is only fallback for phone/name
   const firstname = (shipping.firstname || user?.firstname || "").trim();
-  const address   = (shipping.address  || "").trim();
+  // address = House No./Flat, other = Street/Area/Colony
+  // Combine both into billing_address so Shiprocket gets the full address in one line
+  const houseNo   = (shipping.address || "").trim();
+  const streetArea = (shipping.other  || "").trim();
+  const address   = streetArea ? `${houseNo}, ${streetArea}` : houseNo;
   const city      = (shipping.city     || "").trim();
   const state     = (shipping.state    || "").trim();
 
   // Sanitise phone — Shiprocket requires exactly 10 digits
-  const rawPhone = String(user?.mobile || shipping.phone || "9999999999").replace(/\D/g, "");
+  // shipping.phone is what customer filled at checkout — always prefer it
+  const rawPhone = String(shipping.phone || user?.mobile || "9999999999").replace(/\D/g, "");
   const phone = rawPhone.length >= 10 ? rawPhone.slice(-10) : rawPhone.padEnd(10, "0");
 
   // Sanitise pincode — must be 6 digits
@@ -97,7 +102,7 @@ const createOrder = async (order, user) => {
   const pincode = rawPin.length === 6 ? rawPin : rawPin.padStart(6, "0").slice(-6);
 
   // Validate address quality before sending to Shiprocket
-  const { valid, errors, warnings } = validateAddress({ firstname, address, city, state, pincode, phone });
+  const { valid, errors, warnings } = validateAddress({ firstname, address, other: streetArea, city, state, pincode, phone });
 
   warnings.forEach((w) => console.warn(`[Shiprocket] Address warning for order ${order._id}: ${w}`));
 
@@ -138,7 +143,7 @@ const createOrder = async (order, user) => {
     billing_customer_name: firstname || "Customer",
     billing_last_name: (shipping.lastname || user?.lastname || "").trim(),
     billing_address: address.slice(0, 200),
-    billing_address_2: (shipping.other || "").trim().slice(0, 200),
+    billing_address_2: "",
     billing_city: city,
     billing_pincode: pincode,
     billing_state: state,

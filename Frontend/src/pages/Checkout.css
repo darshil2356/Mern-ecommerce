@@ -119,6 +119,9 @@
   padding: 20px;
   box-shadow: 0 1px 4px rgba(0,0,0,0.06);
   border: 1px solid #f3f4f6;
+  box-sizing: border-box;
+  width: 100%;
+  overflow: hidden;
 }
 
 .co-card-head {
@@ -208,6 +211,8 @@
   flex-direction: column;
   gap: 6px;
   flex: 1;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .co-field-half {
@@ -245,12 +250,24 @@
   border-color: #ef4444 !important;
 }
 
+.co-input-static {
+  background: #f3f4f6;
+  color: #6b7280;
+  cursor: default;
+  font-weight: 600;
+  pointer-events: none;
+  border-color: #e5e7eb;
+}
+
 .co-select {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%236b7280' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 14px center;
   padding-right: 36px;
   cursor: pointer;
+  /* prevent native dropdown from overflowing viewport on mobile */
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .co-err {
@@ -799,6 +816,8 @@
   .co-steps { padding: 12px 10px; }
   .co-step-circle { width: 30px; height: 30px; }
   .co-step-label { font-size: 10px; }
+  /* State dropdown: keep inside screen on mobile */
+  .co-select { font-size: 14px; }
 }
 
 @media (min-width: 481px) and (max-width: 767px) {
@@ -863,4 +882,113 @@
 
 @media (max-width: 480px) {
   .co-pm-options { flex-direction: column; }
+}
+
+/* ── Pincode Validation Status ── */
+.co-pincode-status {
+  font-size: 13px;
+  font-weight: 600;
+  padding: 8px 12px;
+  border-radius: 8px;
+  margin-top: -6px;
+}
+
+.co-pincode-checking {
+  background: #f0f9ff;
+  color: #0369a1;
+  border: 1px solid #bae6fd;
+}
+
+.co-pincode-valid {
+  background: #f0fdf4;
+  color: #15803d;
+  border: 1px solid #86efac;
+}
+
+.co-pincode-invalid {
+  background: #fef2f2;
+  color: #dc2626;
+  border: 1px solid #fca5a5;
+}
+
+/* ── Address Preview Modal ── */
+.co-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.5);
+  z-index: 1100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+
+.co-modal {
+  background: #fff;
+  border-radius: 20px;
+  padding: 24px;
+  width: 100%;
+  max-width: 420px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+}
+
+.co-modal-title {
+  font-size: 17px;
+  font-weight: 700;
+  color: #111827;
+  margin: 0 0 6px;
+}
+
+.co-modal-sub {
+  font-size: 12px;
+  color: #ef4444;
+  font-weight: 600;
+  margin: 0 0 16px;
+}
+
+.co-modal-addr {
+  background: #f8fafc;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 14px 16px;
+  margin-bottom: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 14px;
+  color: #374151;
+  line-height: 1.6;
+}
+
+.co-modal-addr p { margin: 0; }
+
+.co-modal-name {
+  font-weight: 700;
+  font-size: 15px;
+  color: #111827;
+}
+
+.co-modal-phone {
+  font-weight: 600;
+  color: #6366f1;
+  margin-top: 4px !important;
+}
+
+.co-modal-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.co-modal-actions .co-back-btn,
+.co-modal-actions .co-pay-btn {
+  flex: 1;
+  justify-content: center;
+}
+
+/* ── Field hint ── */
+.co-hint {
+  font-size: 11px;
+  color: #6b7280;
+  font-weight: 500;
+  margin-top: 2px;
 }

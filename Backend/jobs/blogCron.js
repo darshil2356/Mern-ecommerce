@@ -386,7 +386,7 @@ const saveBlogs = async (blogsArray, newTopics) => {
         keywords: blog.keywords || "",
         readTime,
         isAI: true,
-        isPublished: false,
+        isPublished: true,
         blogType: blog.blog_type || "retail",
         author: "AI Growth Expert",
         images: image ? [{ url: image.url, alt: image.alt }] : [],
@@ -446,7 +446,7 @@ const runDailyBlogCron = async () => {
 const startDailyBlogCron = () => {
   setTimeout(runDailyBlogCron, 5000);
   cron.schedule("30 1 * * *", runDailyBlogCron, { timezone: "Asia/Kolkata" });
-  console.log("[BlogCron] Scheduled — runs daily at 7:00 AM IST");
+  console.log("[BlogCron] Scheduled — runs daily at 1:30 AM IST");
 };
 
 module.exports = { startDailyBlogCron, runDailyBlogCron };

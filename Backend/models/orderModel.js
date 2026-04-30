@@ -53,6 +53,7 @@ var orderSchema = new mongoose.Schema(
     shippingInfo: {
   firstname: { type: String },
   lastname: { type: String },
+  phone: { type: String },
   address: { type: String },
   city: { type: String },
   state: { type: String },

@@ -3501,6 +3501,14 @@ const validateShippingAddress = asyncHandler(async (req, res) => {
   res.json(result);
 });
 
+// Validate pincode via postal API — public endpoint, no auth needed
+const validatePincodeCtrl = asyncHandler(async (req, res) => {
+  const { pincode, state } = req.body;
+  const validatePincode = require("../utils/validatePincode");
+  const result = await validatePincode(pincode, state || "");
+  res.json(result);
+});
+
 module.exports = {
   createUser,
   validateShippingAddress,
@@ -3557,6 +3565,7 @@ module.exports = {
   awardCoinsOnOrder,
   getAllReferrals,
   validateCartStock,
+  validatePincodeCtrl,
   updateCustomerById,
   deleteCustomerById,
   addBundleToCart,

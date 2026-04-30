@@ -14,16 +14,77 @@ import trackingService from "../utils/trackingService";
 import "./Checkout.css";
 
 
+const INDIAN_STATES = [
+  "Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar", "Chhattisgarh",
+  "Goa", "Gujarat", "Haryana", "Himachal Pradesh", "Jharkhand", "Karnataka",
+  "Kerala", "Madhya Pradesh", "Maharashtra", "Manipur", "Meghalaya", "Mizoram",
+  "Nagaland", "Odisha", "Punjab", "Rajasthan", "Sikkim", "Tamil Nadu",
+  "Telangana", "Tripura", "Uttar Pradesh", "Uttarakhand", "West Bengal",
+  "Andaman and Nicobar Islands", "Chandigarh", "Dadra and Nagar Haveli and Daman and Diu",
+  "Delhi", "Jammu and Kashmir", "Ladakh", "Lakshadweep", "Puducherry",
+];
+
+const FAKE_PATTERNS = [
+  /^(test|fake|dummy|sample|abc|xyz|asdf|qwerty|zxcv|aaa|bbb|na|n\/a|nil|null|none|no|xxx|random|blah|idk|ok|address|home|house)$/i,
+  /^(.)\1{3,}$/,       // aaaa, 1111
+  /^[0-9]{1,3}$/,      // only 1-3 digits like "12", "999" — not a flat number
+  /^[a-zA-Z]{1,2}$/,   // single/double letter like "a", "ab"
+];
+const KEYBOARD_WALKS = ["qwerty", "asdfgh", "zxcvbn", "12345", "abcdef"];
+
+const isFakeAddress = (v) => {
+  if (!v || v.trim().length < 2) return true;
+  if (FAKE_PATTERNS.some((p) => p.test(v.trim()))) return true;
+  if (KEYBOARD_WALKS.some((w) => v.toLowerCase().includes(w))) return true;
+  // all same chars: "aaab", "1112"
+  const unique = new Set(v.replace(/\s/g, "").toLowerCase()).size;
+  if (unique <= 2 && v.replace(/\s/g, "").length >= 5) return true;
+  return false;
+};
+
+// House No. must be ≥4 chars AND contain a digit OR a known keyword
+// b204 ✅  B-204 ✅  Flat 3A ✅  Plot 12 ✅  12 ❌  b ❌
+const isValidHouseNo = (v) => {
+  if (!v || v.trim().length < 4) return false;
+  if (isFakeAddress(v)) return false;
+  const hasDigit = /\d/.test(v);
+  const hasKeyword = /(flat|apt|apartment|plot|house|shop|office|floor|wing|block|sector|unit|room|no\.|#)/i.test(v);
+  return hasDigit || hasKeyword;
+};
+
+// Street must be ≥4 chars and not fake
+// nikol ✅  MG Road ✅  na ❌  ab ❌
+const isValidStreet = (v) => {
+  if (!v || v.trim().length < 4) return false;
+  if (isFakeAddress(v)) return false;
+  return true;
+};
+
 const shippingSchema = yup.object({
   firstname: yup.string().required("First name is required").min(2, "First name is too short"),
   lastname: yup.string().required("Last name is required"),
+  phone: yup
+    .string()
+    .required("Mobile number is required")
+    .matches(/^[6-9][0-9]{9}$/, "Enter a valid 10-digit Indian mobile number"),
   address: yup
     .string()
-    .required("Address is required")
-    .min(10, "Address is too short — please enter full house no., street & area"),
+    .required("Flat / House No. is required")
+    .test(
+      "valid-house",
+      "Enter flat no. + building name (e.g. B-204, Gajanan Flora)",
+      (v) => isValidHouseNo(v || "")
+    ),
+  other: yup
+    .string()
+    .required("Area / Colony is required")
+    .test(
+      "valid-street",
+      "Enter your area or locality name (e.g. Nikol, Navrangpura)",
+      (v) => isValidStreet(v || "")
+    ),
   state: yup.string().required("State is required"),
   city: yup.string().required("City is required").min(2, "Enter a valid city name"),
-  country: yup.string().required("Country is required"),
   pincode: yup
     .string()
     .required("Pincode is required")
@@ -36,7 +97,7 @@ const STEPS = [
   { id: 3, label: "Done", icon: FiPackage },
 ];
 
-const Field = ({ formik, label, name, type = "text", placeholder, half, inputMode, maxLength }) => (
+const Field = ({ formik, label, name, type = "text", placeholder, half, inputMode, maxLength, hint }) => (
   <div className={half ? "co-field co-field-half" : "co-field"}>
     <label className="co-label">{label}</label>
     <input
@@ -50,14 +111,15 @@ const Field = ({ formik, label, name, type = "text", placeholder, half, inputMod
       inputMode={inputMode}
       maxLength={maxLength}
     />
+    {hint && !formik.errors[name] && <span className="co-hint">{hint}</span>}
     {formik.touched[name] && formik.errors[name] && (
       <span className="co-err">{formik.errors[name]}</span>
     )}
   </div>
 );
 
-const SelectField = ({ formik, label, name, options, onChange }) => (
-  <div className="co-field co-field-half">
+const SelectField = ({ formik, label, name, options, onChange, half }) => (
+  <div className={half ? "co-field co-field-half" : "co-field"}>
     <label className="co-label">{label}</label>
     <select
       className={`co-input co-select${formik.touched[name] && formik.errors[name] ? " co-input-err" : ""}`}
@@ -103,6 +165,10 @@ const Checkout = () => {
   const [sgstAmt, setSgstAmt] = useState(0);
   const [igstAmt, setIgstAmt] = useState(0);
   const [selectedState, setSelectedState] = useState("");
+  const [pincodeStatus, setPincodeStatus] = useState(null);
+  const [showAddrPreview, setShowAddrPreview] = useState(false);
+  const [pendingValues, setPendingValues] = useState(null);
+  // pincodeStatus: null | { valid, reason, city, state } | { checking: true }
 
   useEffect(() => {
     dispatch(getUserCart(getConfig()));
@@ -206,23 +272,88 @@ const Checkout = () => {
   const finalAmount = Math.max(0, totalAmount + gstSettings.shippingCharge + (gstSettings.taxIncluded ? 0 : taxAmount) - coinDiscount);
 
   const formik = useFormik({
-    initialValues: { firstname: "", lastname: "", address: "", state: "", city: "", country: "", pincode: "", other: "" },
+    initialValues: {
+      firstname: authState?.user?.firstname || "",
+      lastname: authState?.user?.lastname || "",
+      phone: authState?.user?.mobile || "",
+      address: "", state: "", city: "", pincode: "", other: "",
+    },
     validationSchema: shippingSchema,
     onSubmit: async (values) => {
-      localStorage.setItem("address", JSON.stringify(values));
+      // Block if pincode failed API validation
+      if (pincodeStatus && !pincodeStatus.checking && !pincodeStatus.valid && !pincodeStatus.skipped) {
+        return;
+      }
+      // Show address preview modal before proceeding
+      setPendingValues(values);
+      setShowAddrPreview(true);
+    },
+  });
+
+  const confirmAndProceed = () => {
+    setShowAddrPreview(false);
+    if (!pendingValues) return;
+    localStorage.setItem("address", JSON.stringify(pendingValues));
       if (saveAddress) {
         const isAlreadySaved = savedAddresses.some(
-          (a) => a.address === values.address && a.pincode === String(values.pincode) && a.city === values.city
+          (a) => a.address === pendingValues.address && a.pincode === String(pendingValues.pincode) && a.city === pendingValues.city
         );
         if (!isAlreadySaved) {
-          dispatch(addAddress({ ...values, label: addressLabel }));
+          dispatch(addAddress({ ...pendingValues, label: addressLabel }));
         }
       }
       setCurrentStep(2);
       setIsProcessing(true);
       setTimeout(() => checkOutHandler(), 500);
-    },
-  });
+  };
+
+  // Re-sync autofill when user data loads after mount
+  useEffect(() => {
+    if (authState?.user) {
+      formik.setFieldValue("firstname", authState.user.firstname || "");
+      formik.setFieldValue("lastname", authState.user.lastname || "");
+      if (!formik.values.phone)
+        formik.setFieldValue("phone", authState.user.mobile || "");
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authState?.user?.firstname, authState?.user?.lastname, authState?.user?.mobile]);
+
+  // Validate pincode against postal API when pincode (6 digits) or state changes
+  const checkPincode = async (pincode, state) => {
+    if (!/^[1-9][0-9]{5}$/.test(pincode)) { setPincodeStatus(null); return; }
+    setPincodeStatus({ checking: true });
+    try {
+      const res = await axiosInstance.post("user/validate-pincode", { pincode, state });
+      setPincodeStatus(res.data);
+    } catch {
+      setPincodeStatus(null);
+    }
+  };
+
+  useEffect(() => {
+    const pin = formik.values.pincode;
+    const state = formik.values.state;
+    if (/^[1-9][0-9]{5}$/.test(pin)) checkPincode(pin, state);
+    else setPincodeStatus(null);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formik.values.pincode, formik.values.state]);
+
+  // Auto-fill city from pincode API result
+  useEffect(() => {
+    if (pincodeStatus?.valid && !pincodeStatus.checking && pincodeStatus.district) {
+      // Only auto-fill if city is empty or was previously auto-filled
+      if (!formik.values.city || formik.values.city === formik.values._autoCityValue) {
+        formik.setFieldValue("city", pincodeStatus.district);
+        formik.setFieldValue("_autoCityValue", pincodeStatus.district);
+      }
+      // Auto-fill state too if empty
+      if (!formik.values.state && pincodeStatus.state) {
+        formik.setFieldValue("state", pincodeStatus.state);
+        setSelectedState(pincodeStatus.state);
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pincodeStatus]);
 
   const loadScript = (src) => new Promise((res) => {
     const s = document.createElement("script");
@@ -402,10 +533,10 @@ const Checkout = () => {
                               formik.setValues({
                                 firstname: addr.firstname || "",
                                 lastname: addr.lastname || "",
+                                phone: addr.phone || authState?.user?.mobile || "",
                                 address: addr.address || "",
                                 state: addr.state || "",
                                 city: addr.city || "",
-                                country: addr.country || "",
                                 pincode: addr.pincode || "",
                                 other: addr.other || "",
                               });
@@ -421,18 +552,30 @@ const Checkout = () => {
 
                   <form onSubmit={formik.handleSubmit} className="co-form">
                     <div className="co-row">
-                      <SelectField formik={formik} label="Country" name="country" options={["India"]} />
-                      <SelectField formik={formik} label="State" name="state" options={["Gujarat", "Maharashtra", "Delhi", "Karnataka", "Tamil Nadu", "Rajasthan", "Uttar Pradesh", "West Bengal", "Telangana", "Punjab"]} onChange={setSelectedState} />
-                    </div>
-                    <div className="co-row">
                       <Field formik={formik} label="First Name" name="firstname" placeholder="First name" half />
                       <Field formik={formik} label="Last Name" name="lastname" placeholder="Last name" half />
                     </div>
-                    <Field formik={formik} label="Street Address" name="address" placeholder="House no., street, area" />
-                    <Field formik={formik} label="Landmark / Apt (optional)" name="other" placeholder="Landmark, apartment, floor" />
+                    <Field formik={formik} label="Mobile Number" name="phone" placeholder="10-digit mobile number" type="tel" inputMode="numeric" maxLength={10} />
+                    <Field formik={formik} label="Flat / House No. / Building Name" name="address" placeholder="e.g. B-204, Gajanan Flora  OR  12, Shiv Apartment" hint="Write flat no. + building name together" />
+                    <Field formik={formik} label="Area / Street / Colony" name="other" placeholder="e.g. Nikol  OR  Navrangpura  OR  MG Road" hint="Your locality or area name" />
                     <div className="co-row">
                       <Field formik={formik} label="City" name="city" placeholder="City" half />
                       <Field formik={formik} label="Pincode" name="pincode" placeholder="6-digit pincode" type="text" inputMode="numeric" maxLength={6} half />
+                    </div>
+                    {/* Pincode validation status */}
+                    {pincodeStatus && (
+                      <div className={`co-pincode-status${pincodeStatus.checking ? " co-pincode-checking" : pincodeStatus.valid ? " co-pincode-valid" : " co-pincode-invalid"}`}>
+                        {pincodeStatus.checking && "⏳ Verifying pincode…"}
+                        {!pincodeStatus.checking && pincodeStatus.valid && `✅ Valid — ${pincodeStatus.district || pincodeStatus.city}, ${pincodeStatus.state}`}
+                        {!pincodeStatus.checking && !pincodeStatus.valid && !pincodeStatus.skipped && `❌ ${pincodeStatus.reason}`}
+                      </div>
+                    )}
+                    <div className="co-row">
+                      <div className="co-field co-field-half">
+                        <label className="co-label">Country</label>
+                        <div className="co-input co-input-static">🇮🇳 India</div>
+                      </div>
+                      <SelectField formik={formik} label="State" name="state" options={INDIAN_STATES} onChange={setSelectedState} half />
                     </div>
 
                     {/* Save address toggle */}
@@ -739,8 +882,31 @@ const Checkout = () => {
           </div>
         </div>
       )}
+
+      {/* ── Address Preview Modal ── */}
+      {showAddrPreview && pendingValues && (
+        <div className="co-modal-overlay" onClick={() => setShowAddrPreview(false)}>
+          <div className="co-modal" onClick={(e) => e.stopPropagation()}>
+            <h5 className="co-modal-title">📦 Confirm Delivery Address</h5>
+            <p className="co-modal-sub">Please verify before payment. Wrong address = delivery failure.</p>
+            <div className="co-modal-addr">
+              <p className="co-modal-name">{pendingValues.firstname} {pendingValues.lastname}</p>
+              <p>{pendingValues.address}</p>
+              {pendingValues.other && <p>{pendingValues.other}</p>}
+              <p>{pendingValues.city} – {pendingValues.pincode}</p>
+              <p>{pendingValues.state}, India</p>
+              <p className="co-modal-phone">📞 {pendingValues.phone}</p>
+            </div>
+            <div className="co-modal-actions">
+              <button className="co-back-btn" onClick={() => setShowAddrPreview(false)}>✏️ Edit Address</button>
+              <button className="co-pay-btn" onClick={confirmAndProceed}>✅ Confirm &amp; Pay</button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 };
 
 export default Checkout;
+

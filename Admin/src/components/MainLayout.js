@@ -18,7 +18,7 @@ import { Link } from "react-router-dom";
 import { Outlet, useLocation } from "react-router-dom";
 import { ImBlog } from "react-icons/im";
 import { IoIosNotifications } from "react-icons/io";
-import { FaClipboardList, FaBloggerB, FaChartLine, FaBox, FaUsers, FaTags, FaFileAlt, FaCube, FaLink, FaMagic, FaCoins, FaEye, FaChartBar, FaRocket, FaBook, FaRuler } from "react-icons/fa";
+import { FaClipboardList, FaBloggerB, FaChartLine, FaBox, FaUsers, FaTags, FaFileAlt, FaCube, FaLink, FaMagic, FaCoins, FaEye, FaChartBar, FaRocket, FaBook, FaRuler, FaHandshake } from "react-icons/fa";
 import { SiBrandfolder } from "react-icons/si";
 import { BiCategoryAlt } from "react-icons/bi";
 import { Layout, Menu, theme, Drawer } from "antd";
@@ -150,6 +150,11 @@ const MainLayout = () => {
       key: "rojmel",
       icon: <FaBook />,
       label: "Rojmel",
+    },
+    {
+      key: "udhar",
+      icon: <FaHandshake />,
+      label: "Udhar Khata",
     },
     {
       key: "reviews",

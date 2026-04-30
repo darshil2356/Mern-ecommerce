@@ -232,7 +232,7 @@ const deductStockFromProduct = async (product, item) => {
 const createOfflineOrder = asyncHandler(async (req, res) => {
 
   
-  const { items, paymentMethod, paymentDestination: reqPaymentDestination, customer, discount, offerDiscount: offerDiscountAmt, coinsUsed, coinAmount, gstBreakdown } = req.body;
+  const { items, paymentMethod, paymentDestination: reqPaymentDestination, customer, discount, offerDiscount: offerDiscountAmt, coinsUsed, coinAmount, gstBreakdown, amountPaid, paymentNote } = req.body;
   const adminId = req.user._id;
 
 
@@ -519,11 +519,36 @@ if (referrer) {
   }
 
   // Write POS sale to Rojmel ledger
+  const paidNow = (amountPaid !== undefined && amountPaid !== null) ? Number(amountPaid) : totalPriceAfterDiscount;
+  const balanceDue = Math.max(0, totalPriceAfterDiscount - paidNow);
+
+  // Auto-create Udhar entry if customer didn't pay full amount
+  if (balanceDue > 0) {
+    const Udhar = require("../models/udharModel");
+    const customerName = purchaseCustomer
+      ? `${purchaseCustomer.firstname} ${purchaseCustomer.lastname}`.trim()
+      : customer?.name || "Walk-in";
+    setImmediate(() =>
+      Udhar.create({
+        type: "PRODUCT_SALE",
+        personName: customerName,
+        personPhone: customer?.contact || "",
+        orderId: order._id,
+        productDetails: Object.values(req.body.items || []).map(i => i.barcode).join(", "),
+        totalAmount: totalPriceAfterDiscount,
+        paidAmount: paidNow,
+        payments: paidNow > 0 ? [{ amount: paidNow, date: new Date(), note: paymentNote || "Partial payment at POS" }] : [],
+        note: paymentNote || "",
+        status: paidNow === 0 ? "PENDING" : "PARTIAL",
+      }).catch(err => console.error("Udhar auto-entry failed:", err))
+    );
+  }
+
   setImmediate(() =>
     createAutoEntry({
       particulars: `POS Sale – ${purchaseCustomer ? (purchaseCustomer.firstname + " " + purchaseCustomer.lastname).trim() : "Walk-in"}`,
       type: "INCOME",
-      amount: totalPriceAfterDiscount,
+      amount: paidNow > 0 ? paidNow : totalPriceAfterDiscount,
       paymentMethod: paymentMethod === "CASH" ? "Cash" : "Online",
       referenceId: order._id,
       category: "POS Sales",

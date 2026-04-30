@@ -108,6 +108,9 @@ const LiveBilling = () => {
 
   // Payment method state
   const [paymentMethod, setPaymentMethod] = useState("CASH");
+  // Payment received state
+  const [amountPaid, setAmountPaid] = useState("");
+  const [paymentNote, setPaymentNote] = useState("");
   // ac: "C" = current (all GST products), "S" = saving (any non-GST product)
   const [ac, setAc] = useState("S");
   const GST_CHARS = ["K", "M", "R", "T", "W"];
@@ -242,31 +245,40 @@ const LiveBilling = () => {
     return Math.min(total, grandTotal);
   }, [activeOffers, cart, grandTotal]);
 
-  // Discount is always on grandTotal (subtotal)
-  const discountAmount = useMemo(
-    () => (grandTotal * discountPercent) / 100 + appliedOfferAmount + offerModelDiscount,
-    [grandTotal, discountPercent, appliedOfferAmount, offerModelDiscount]
-  );
+  // Discount is always on grandTotal (subtotal) — clamped so it never exceeds grandTotal
+  const discountAmount = useMemo(() => {
+    const raw = (grandTotal * discountPercent) / 100 + appliedOfferAmount + offerModelDiscount;
+    return Math.min(raw, grandTotal);
+  }, [grandTotal, discountPercent, appliedOfferAmount, offerModelDiscount]);
 
   const coinDiscountAmount = useMemo(() => {
     if (!useCoins || coinAmount <= 0) return 0;
     const amountBeforeCoins = taxIncluded
       ? grandTotal - discountAmount
       : grandTotal + totalTaxAmount - discountAmount;
-    const maxCoins = Math.min(customerCoins, Math.floor(amountBeforeCoins));
-    return Math.min(coinAmount, maxCoins);
+    const maxCoins = Math.min(customerCoins, Math.floor(Math.max(0, amountBeforeCoins)));
+    return Math.min(Math.max(0, coinAmount), maxCoins);
   }, [useCoins, coinAmount, customerCoins, grandTotal, totalTaxAmount, discountAmount, taxIncluded]);
 
   const payableAmount = useMemo(() => {
-    if (taxIncluded) {
-      return Math.max(0, grandTotal - discountAmount - coinDiscountAmount);
-    }
-    return Math.max(0, grandTotal + totalTaxAmount - discountAmount - coinDiscountAmount);
+    const base = taxIncluded
+      ? grandTotal - discountAmount - coinDiscountAmount
+      : grandTotal + totalTaxAmount - discountAmount - coinDiscountAmount;
+    return Math.max(0, Math.round(base * 100) / 100);
   }, [grandTotal, totalTaxAmount, discountAmount, coinDiscountAmount, taxIncluded]);
 
   // The amount coins are calculated on = final payable (after ALL discounts)
-  // This is what gets passed to awardCoinsOnOrder on the backend
   const coinBaseAmount = payableAmount;
+
+  // Payment received calculations
+  const parsedAmountPaid = useMemo(() => {
+    if (amountPaid === '') return payableAmount;
+    const n = Number(amountPaid);
+    return isNaN(n) ? payableAmount : Math.max(0, n);
+  }, [amountPaid, payableAmount]);
+
+  const balanceDue = useMemo(() => Math.max(0, Math.round((payableAmount - parsedAmountPaid) * 100) / 100), [payableAmount, parsedAmountPaid]);
+  const changeToReturn = useMemo(() => Math.max(0, Math.round((parsedAmountPaid - payableAmount) * 100) / 100), [parsedAmountPaid, payableAmount]);
 
   // Generate QR code whenever payment method, account type, or payable amount changes
   // Must be AFTER payableAmount is defined
@@ -805,7 +817,63 @@ const LiveBilling = () => {
 
   // Handle complete sale with spin wheel logic
   const handleCompleteSale = () => {
-    if (!Object.keys(cart).length || isProcessingSaleRef.current) return;
+    if (isProcessingSaleRef.current) return;
+
+    // 1. Cart must not be empty
+    if (!Object.keys(cart).length) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Cart is Empty',
+        text: 'Please scan or add at least one product before completing the sale.',
+        confirmButtonColor: '#d4af37',
+      });
+      return;
+    }
+
+    // 2. Customer name is required
+    if (!customer.name || !customer.name.trim()) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Customer Name Required',
+        text: 'Please enter the customer name before completing the sale.',
+        confirmButtonColor: '#d4af37',
+      });
+      return;
+    }
+
+    // 3. Online payment requires UPI ID
+    if (paymentMethod === 'ONLINE' && !upiIdA && !upiIdB) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'No UPI ID Configured',
+        text: 'Please set a UPI ID in Settings before using Online payment.',
+        confirmButtonColor: '#d4af37',
+      });
+      return;
+    }
+
+    // 4. Amount paid must be valid if entered
+    if (amountPaid !== '' && (isNaN(Number(amountPaid)) || Number(amountPaid) < 0)) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Invalid Amount',
+        text: 'Please enter a valid amount received (0 or more).',
+        confirmButtonColor: '#d4af37',
+      });
+      return;
+    }
+
+    // 5. Payable amount must be > 0
+    if (payableAmount <= 0) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Invalid Total',
+        text: 'Bill total must be greater than ₹0.',
+        confirmButtonColor: '#d4af37',
+      });
+      return;
+    }
+
     // Show spin wheel only if enabled AND customer has a contact
     if (showSpinner && customer.contact) {
       setShowSpinWheel(true);
@@ -1012,6 +1080,8 @@ const LiveBilling = () => {
           referralContact: customer.referralContact || null,
           coinsUsed: useCoins ? coinAmount : 0,
           coinAmount: useCoins ? coinDiscountAmount : 0,
+          amountPaid: parsedAmountPaid,
+          paymentNote: paymentNote || "",
           gstBreakdown: {
             cgst: cgstAmount,
             sgst: sgstAmount,
@@ -1061,6 +1131,9 @@ const LiveBilling = () => {
       const billCoinsUsed = coinAmount;
       const billPaymentMethod = paymentMethod;
       const billAc = ac;
+      const billPaidAmt = parsedAmountPaid;
+      const billBalanceDue = balanceDue;
+      const billChangeToReturn = changeToReturn;
 
       // Send WhatsApp message if customer has contact
       if (customerData.contact) {
@@ -1088,7 +1161,7 @@ const LiveBilling = () => {
         billCart, billCustomer, billPayable, billGstin,
         billCgst, billSgst, billIgst, billGstType,
         billDiscount, billSubtotal, billCoinDiscount, billCoinsUsed,
-        billPaymentMethod, billAc
+        billPaymentMethod, billAc, billPaidAmt, billBalanceDue, billChangeToReturn
       );
 
       setCart({});
@@ -1114,6 +1187,8 @@ const LiveBilling = () => {
       setPaymentMethod("CASH"); // Reset to CASH
       setAc("S"); // Reset account type
       setQrDataUrl(""); // Reset QR
+      setAmountPaid(""); // Reset payment received
+      setPaymentNote("");
     } catch (err) {
       console.error("Failed to complete sale:", err);
       Swal.fire({
@@ -1145,7 +1220,10 @@ const LiveBilling = () => {
     coinDiscountAmt = coinDiscountAmount,
     coinsUsedAmt = coinAmount,
     activePaymentMethod = paymentMethod,
-    activeAc = ac
+    activeAc = ac,
+    paidAmt = parsedAmountPaid,
+    balAmt = balanceDue,
+    changeAmt = changeToReturn
   ) => {
     const activeCart = cartData;
     const activeCustomer = customerData;
@@ -1182,6 +1260,18 @@ const LiveBilling = () => {
       : activeAc === "C"
       ? "#059669"
       : "#7c3aed";
+
+    const paymentSummaryRows = (() => {
+      const rows = [];
+      if (paidAmt < payableAmt) {
+        rows.push(`<tr class="s-row"><td>Paid Now</td><td style="text-align:right;color:#059669;font-weight:700">Rs.${paidAmt.toFixed(2)}</td></tr>`);
+        rows.push(`<tr class="s-row" style="background:#fff0f0"><td style="color:#dc2626;font-weight:700">Balance Due (Udhar)</td><td style="text-align:right;color:#dc2626;font-weight:700">Rs.${balAmt.toFixed(2)}</td></tr>`);
+      } else if (changeAmt > 0) {
+        rows.push(`<tr class="s-row"><td>Received</td><td style="text-align:right">Rs.${paidAmt.toFixed(2)}</td></tr>`);
+        rows.push(`<tr class="s-row" style="background:#f0fff4"><td style="color:#059669;font-weight:700">Return Change</td><td style="text-align:right;color:#059669;font-weight:700">Rs.${changeAmt.toFixed(2)}</td></tr>`);
+      }
+      return rows.join("");
+    })();
 
     // Generate QR BEFORE opening window to avoid delay
     let printQrDataUrl = "";
@@ -1291,6 +1381,7 @@ tbody td{padding:6px 4px;vertical-align:top}
     ${discountRows}
     ${gstRows}
     <tr class="total-row"><td>TOTAL</td><td style="text-align:right">Rs.${activePayable.toFixed(2)}</td></tr>
+    ${paymentSummaryRows}
   </table>
 
   <hr class="divider">
@@ -1350,24 +1441,23 @@ tbody td{padding:6px 4px;vertical-align:top}
                 {/* Customer Name */}
                 <div className="relative">
                   <label className="block text-xs font-medium text-gray-500 mb-1">
-                    Customer Name
+                    Customer Name <span className="text-red-500">*</span>
                   </label>
                   <div className="relative">
                     <FaUser className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
 
                     <input
-                      className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none transition-all"
+                      className={`w-full pl-10 pr-4 py-3 bg-gray-50 border rounded-xl focus:bg-white focus:ring-2 outline-none transition-all ${
+                        !customer.name.trim() && Object.keys(cart).length > 0
+                          ? 'border-red-400 focus:border-red-500 focus:ring-red-100'
+                          : 'border-gray-200 focus:border-indigo-500 focus:ring-indigo-100'
+                      }`}
                       value={customer.name}
                       placeholder="Enter customer name..."
                       onChange={(e) => {
                         const value = e.target.value;
-
-                        setCustomer(prev => ({
-                          ...prev,
-                          name: value
-                        }));
-
-                        setSearchTerm(value); // still allow searching
+                        setCustomer(prev => ({ ...prev, name: value }));
+                        setSearchTerm(value);
                         setShowDropdown(true);
                       }}
                       onFocus={() => setShowDropdown(true)}
@@ -1939,42 +2029,145 @@ tbody td{padding:6px 4px;vertical-align:top}
                   ac={ac}
                 />
                 
-                {/* Payment Method Selection */}
+                {/* Payment Method + Received Panel */}
                 <div className="bg-white/5 rounded-xl p-4 border border-white/20">
-                  <span className="text-indigo-200 text-sm font-semibold block mb-3">Payment Method</span>
-                  <div className="grid grid-cols-2 gap-2 mb-3">
+
+                  {/* ── Payment Method ── */}
+                  <span className="text-indigo-200 text-sm font-semibold block mb-3">💳 Payment Method</span>
+                  <div className="grid grid-cols-2 gap-2">
                     <button
                       onClick={() => setPaymentMethod("CASH")}
-                      className={`py-2 px-3 rounded-lg font-medium text-sm transition-all ${
+                      className={`py-2.5 px-3 rounded-lg font-bold text-sm transition-all border-2 ${
                         paymentMethod === "CASH"
-                          ? "bg-green-500 text-white"
-                          : "bg-white/10 text-indigo-200 hover:bg-white/20"
+                          ? "bg-green-500 border-green-400 text-white shadow-lg shadow-green-500/30"
+                          : "bg-white/5 border-white/20 text-indigo-300 hover:bg-white/10"
                       }`}
                     >
                       💵 Cash
                     </button>
                     <button
                       onClick={() => setPaymentMethod("ONLINE")}
-                      className={`py-2 px-3 rounded-lg font-medium text-sm transition-all ${
+                      className={`py-2.5 px-3 rounded-lg font-bold text-sm transition-all border-2 ${
                         paymentMethod === "ONLINE"
-                          ? "bg-blue-500 text-white"
-                          : "bg-white/10 text-indigo-200 hover:bg-white/20"
+                          ? "bg-blue-500 border-blue-400 text-white shadow-lg shadow-blue-500/30"
+                          : "bg-white/5 border-white/20 text-indigo-300 hover:bg-white/10"
                       }`}
                     >
                       💳 Online
                     </button>
                   </div>
 
+                  {/* Online account info / UPI warning */}
                   {paymentMethod === "ONLINE" && (
-                    <div className={`rounded-lg px-3 py-2 text-xs font-semibold border ${
-                      ac === "C"
-                        ? "bg-emerald-500/10 border-emerald-400/30 text-emerald-300"
-                        : "bg-violet-500/10 border-violet-400/30 text-violet-300"
-                    }`}>
-                      {ac === "C" ? "🟢 Account A" : "🟣 Account B"}
+                    <div className="mt-2">
+                      {(upiIdA || upiIdB) ? (
+                        <div className={`rounded-lg px-3 py-2 text-xs font-semibold border flex items-center justify-between ${
+                          ac === "C"
+                            ? "bg-emerald-500/10 border-emerald-400/30 text-emerald-300"
+                            : "bg-violet-500/10 border-violet-400/30 text-violet-300"
+                        }`}>
+                          <span>{ac === "C" ? "🟢 Account A" : "🟣 Account B"}</span>
+                          <span className="opacity-70 font-mono text-xs">{ac === "C" ? upiIdA : upiIdB}</span>
+                        </div>
+                      ) : (
+                        <div className="rounded-lg px-3 py-2 text-xs font-semibold border bg-red-500/10 border-red-400/30 text-red-300">
+                          ⚠️ No UPI ID set — go to Settings to add one
+                        </div>
+                      )}
                     </div>
                   )}
+
+                  {/* ── Amount Received ── */}
+                  <div className="mt-4 border-t border-white/10 pt-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-indigo-200 text-sm font-semibold">Amount Received (₹)</span>
+                      <button
+                        className="text-xs text-amber-400 underline hover:text-amber-300"
+                        onClick={() => setAmountPaid(payableAmount.toFixed(0))}
+                      >
+                        Full ₹{payableAmount.toFixed(0)}
+                      </button>
+                    </div>
+
+                    <input
+                      type="number"
+                      min="0"
+                      step="1"
+                      placeholder={`Enter amount (default: ₹${payableAmount.toFixed(0)})`}
+                      value={amountPaid}
+                      onChange={e => setAmountPaid(e.target.value)}
+                      className="w-full px-3 py-3 bg-white/10 border-2 border-white/20 rounded-lg text-white placeholder-white/30 text-center text-xl font-bold outline-none focus:border-amber-400 transition-colors"
+                    />
+
+                    {/* Live feedback */}
+                    <div className="mt-3 space-y-2">
+                      {amountPaid === "" && (
+                        <div className="flex justify-between items-center bg-emerald-500/10 border border-emerald-400/20 rounded-lg px-3 py-2">
+                          <span className="text-emerald-300 text-xs">Assuming full payment</span>
+                          <span className="text-emerald-300 font-bold">₹{payableAmount.toFixed(0)}</span>
+                        </div>
+                      )}
+                      {amountPaid !== "" && changeToReturn > 0 && (
+                        <div className="flex justify-between items-center bg-green-500/20 border border-green-400/40 rounded-lg px-3 py-2">
+                          <span className="text-green-300 text-sm font-bold">💵 Return Change</span>
+                          <span className="text-green-300 font-bold text-lg">₹{changeToReturn.toFixed(0)}</span>
+                        </div>
+                      )}
+                      {amountPaid !== "" && balanceDue > 0 && (
+                        <div className="flex justify-between items-center bg-red-500/20 border border-red-400/40 rounded-lg px-3 py-2">
+                          <span className="text-red-300 text-sm font-bold">🤝 Udhar Due</span>
+                          <span className="text-red-300 font-bold text-lg">₹{balanceDue.toFixed(0)}</span>
+                        </div>
+                      )}
+                      {amountPaid !== "" && balanceDue === 0 && changeToReturn === 0 && (
+                        <div className="flex justify-between items-center bg-emerald-500/20 border border-emerald-400/40 rounded-lg px-3 py-2">
+                          <span className="text-emerald-300 text-sm font-bold">✅ Fully Paid</span>
+                          <span className="text-emerald-300 font-bold">₹{payableAmount.toFixed(0)}</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Quick amount buttons */}
+                    <div className="grid grid-cols-4 gap-1.5 mt-3">
+                      {[0, 500, 1000, 2000].map(amt => (
+                        <button
+                          key={amt}
+                          onClick={() => setAmountPaid(amt === 0 ? "0" : String(amt))}
+                          className={`py-1.5 text-xs rounded-lg font-medium transition-all border ${
+                            (amountPaid === String(amt) || (amt === 0 && amountPaid === "0"))
+                              ? "bg-amber-500 border-amber-400 text-white"
+                              : "bg-white/10 border-white/20 text-indigo-200 hover:bg-white/20"
+                          }`}
+                        >
+                          {amt === 0 ? "Udhar" : `₹${amt}`}
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Note */}
+                    <input
+                      type="text"
+                      placeholder="Payment note (optional)"
+                      value={paymentNote}
+                      onChange={e => setPaymentNote(e.target.value)}
+                      className="w-full mt-2 px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/30 text-sm outline-none focus:border-white/40"
+                    />
+
+                    {/* Udhar auto-save notice */}
+                    {amountPaid !== "" && balanceDue > 0 && (
+                      <p className="text-xs text-amber-300 mt-2 text-center bg-amber-500/10 border border-amber-400/20 rounded-lg py-1.5">
+                        🤝 ₹{balanceDue.toFixed(0)} will be auto-saved to Udhar Khata
+                      </p>
+                    )}
+                  </div>
                 </div>
+
+                {/* Inline warnings */}
+                {Object.keys(cart).length > 0 && !customer.name.trim() && (
+                  <div className="flex items-center gap-2 bg-red-500/20 border border-red-400/40 rounded-xl px-3 py-2.5">
+                    <span className="text-red-300 text-sm">⚠️ Customer name is required</span>
+                  </div>
+                )}
 
                 <button
                   onClick={handleCompleteSale}

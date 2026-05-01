@@ -2,8 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { BsInstagram, BsFacebook, BsTwitter, BsYoutube, BsEnvelope, BsTelephone, BsPinMap } from "react-icons/bs";
 import { motion } from "framer-motion";
-import axios from "axios";
-import { base_url } from "../utils/axiosConfig";
+import { getPublicSettings } from "../utils/publicSettings";
 
 const Footer = () => {
   const [store, setStore] = useState({
@@ -15,17 +14,15 @@ const Footer = () => {
   });
 
   useEffect(() => {
-    axios.get(`${base_url}user/public-settings`)
-      .then(res => {
-        setStore({
-          storeName:    res.data.storeName    || "Yashoda Fashion",
-          storeTagline: res.data.storeTagline || "Your One-Stop Shopping Destination",
-          storeAddress: res.data.storeAddress || "",
-          storePhone:   res.data.storePhone   || "",
-          storeEmail:   res.data.storeEmail   || "",
-        });
-      })
-      .catch(() => {});
+    getPublicSettings().then((data) => {
+      setStore({
+        storeName:    data.storeName,
+        storeTagline: data.storeTagline,
+        storeAddress: data.storeAddress,
+        storePhone:   data.storePhone,
+        storeEmail:   data.storeEmail,
+      });
+    });
   }, []);
 
   return (

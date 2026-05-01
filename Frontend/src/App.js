@@ -43,9 +43,11 @@ function App() {
   usePushNotification(user?._id);
 
   useEffect(() => {
-    trackingService.init(user?._id);
+    // Only re-init tracking when the user ID actually changes (not on every render)
+    trackingService.init(user?._id || null);
     return () => trackingService.destroy();
-  }, [user]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?._id]);
 
   /* ── Keep-alive ping every 10 minutes ──────────────────────────────
      Free-tier backends (Render, Railway) sleep after ~15 min idle.

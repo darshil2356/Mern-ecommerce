@@ -1,6 +1,5 @@
-import { useSelector, useDispatch } from "react-redux";
+import { useSelector } from "react-redux";
 import { useEffect, useRef, useState } from "react";
-import { getAllProducts } from "../features/products/productSlilce";
 import { motion } from "framer-motion";
 import { BsPlay, BsHeart, BsHeartFill, BsBag } from "react-icons/bs";
 import axios from "axios";
@@ -13,15 +12,11 @@ const getYtId = (url) => {
 };
 
 const ShopTheLook = ({ navigate }) => {
-  const dispatch = useDispatch();
   const videoRefs = useRef([]);
   const [activeVideo, setActiveVideo] = useState(0);
   const [likes, setLikes] = useState({});
 
-  useEffect(() => {
-    dispatch(getAllProducts());
-  }, [dispatch]);
-
+  // Use products already in Redux — no extra fetch needed
   const productState = useSelector((state) => state?.product?.product || []);
 
   const dynamicVideos = productState
@@ -374,7 +369,7 @@ const ShopTheLook = ({ navigate }) => {
         </div>
       )}
 
-      <style jsx>{`
+      <style>{`
         .d-flex.gap-4.overflow-auto::-webkit-scrollbar {
           display: none;
         }

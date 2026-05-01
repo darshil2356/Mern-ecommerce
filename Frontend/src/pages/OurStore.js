@@ -47,11 +47,11 @@ const OurStore = () => {
       : location.state?.category || null;
     if (incomingCategory) {
       setCategory(incomingCategory);
-      const fs = { category: incomingCategory };
+      const fs = { category: incomingCategory, limit: 40 };
       setFilterState(fs);
       dispatch(getAllProducts(fs));
     } else {
-      dispatch(getAllProducts({}));
+      dispatch(getAllProducts({ limit: 40 }));
     }
   }, [dispatch, urlCategory]); // eslint-disable-line
 
@@ -66,7 +66,7 @@ const OurStore = () => {
   const applyFilter = (newFilters) => {
     setFilterState((prev) => {
       const updated = { ...prev, ...newFilters };
-      dispatch(getAllProducts(updated));
+      dispatch(getAllProducts({ ...updated, limit: 40 }));
       return updated;
     });
   };
@@ -76,7 +76,7 @@ const OurStore = () => {
     setMinPrice(null); setMaxPrice(null); setSort(null);
     setFilterState({});
     setVisibleCount(20);
-    dispatch(getAllProducts({}));
+    dispatch(getAllProducts({ limit: 40 }));
     setShowFilter(false);
   };
 

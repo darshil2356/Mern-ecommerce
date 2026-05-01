@@ -526,7 +526,7 @@ const getAllProduct = asyncHandler(async (req, res) => {
         queryObj.price = { ...queryObj.price, $lte: parseInt(req.query["price[lte]"]) };
       }
       
-      const limit = parseInt(req.query.limit) || 200;
+      const limit = Math.min(parseInt(req.query.limit) || 40, 100);
 
       if (req.query.sort) {
         const products = await Product.find(queryObj)

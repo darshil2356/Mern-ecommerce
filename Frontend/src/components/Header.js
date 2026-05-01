@@ -85,7 +85,8 @@ const Header = () => {
   }, []);
 
   useEffect(() => {
-    if (!productState?.length) dispatch(getAllProducts());
+    // Fetch lightweight product list for search typeahead only if not already loaded
+    if (!productState?.length) dispatch(getAllProducts({ limit: 60 }));
     dispatch(getCategoryTree());
   }, []);
   useEffect(() => { dispatch(getUserCart(config2)); }, [dispatch]);

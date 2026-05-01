@@ -1,6 +1,7 @@
 import io from 'socket.io-client';
 import axios from 'axios';
 import { base_url } from './axiosConfig';
+import { cachedFetch } from './apiCache';
 
 // Derive URLs from the single REACT_APP_BASE_URL source of truth
 const API_BASE_URL = (base_url || '').replace(/\/$/, ''); // strip trailing slash
@@ -17,17 +18,25 @@ class TrackingService {
     this.isInitialized = false;
   }
 
-  // Initialize tracking — only connects socket if tracking is enabled
+  // Initialize tracking — only connects socket if tracking is enabled.
+  // tracking/config is cached for 10 min so 1 lakh users don't hammer the server.
   async init(userId = null) {
+    // If already initialized for the same user, skip entirely
+    if (this.isInitialized && this.userId === (userId || null)) return;
+
     this.userId = userId;
     try {
-      const configRes = await axios.get(`${API_BASE_URL}/tracking/config`);
-      if (configRes.data.config?.isEnabled) {
+      const config = await cachedFetch(
+        'tracking/config',
+        () => axios.get(`${API_BASE_URL}/tracking/config`).then((r) => r.data),
+        10 * 60 * 1000 // 10 minutes
+      );
+      if (config?.config?.isEnabled) {
         if (!this.socket) this.connectSocket();
         await this.start(userId);
       }
     } catch (error) {
-      console.error('Failed to initialize tracking:', error);
+      // Silently fail — tracking should never break the app
     }
   }
 

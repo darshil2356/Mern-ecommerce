@@ -10,8 +10,7 @@ import { useDispatch, useSelector } from "react-redux";
 import { registerUser } from "../features/user/userSlice";
 import { authService } from "../features/user/userService";
 import { toast } from "react-toastify";
-import axios from "axios";
-import { base_url } from "../utils/axiosConfig";
+import { getPublicSettings } from "../utils/publicSettings";
 
 let signUpSchema = yup.object({
   firstname: yup.string().required("First Name is Required"),
@@ -43,10 +42,8 @@ const Signup = () => {
   useEffect(() => {
     const refCode = searchParams.get("ref");
     if (refCode) setReferralCode(refCode);
-    // Fetch OTP setting from public-settings
-    axios.get(`${base_url}user/public-settings`)
-      .then(res => setRequireOtp(res.data?.requireOtpForSignup === true))
-      .catch(() => {});
+    // Use shared cached public-settings
+    getPublicSettings().then((data) => setRequireOtp(data.requireOtpForSignup === true));
   }, [searchParams]);
 
   // Countdown timer for resend OTP

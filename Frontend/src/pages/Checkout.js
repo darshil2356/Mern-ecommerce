@@ -11,6 +11,7 @@ import axiosInstance, { base_url, getConfig } from "../utils/axiosConfig";
 import { createAnOrder, deleteUserCart, getUserCart, getAddresses, addAddress } from "../features/user/userSlice";
 import { getColorSwatch, getReadableColorName } from "../utils/colorDisplay";
 import trackingService from "../utils/trackingService";
+import { getPublicSettings } from "../utils/publicSettings";
 import "./Checkout.css";
 import { toast } from "react-toastify";
 
@@ -179,17 +180,17 @@ const Checkout = () => {
     dispatch(getUserCart(getConfig()));
     dispatch(getAddresses());
 
-    // Fetch GST settings from public endpoint (no auth needed)
-    axiosInstance.get(`${base_url}user/public-settings`).then(res => {
+    // Use shared cached public-settings (no duplicate network call)
+    getPublicSettings().then((data) => {
       setGstSettings({
-        cgst: res.data.cgst || 0,
-        sgst: res.data.sgst || 0,
-        igst: res.data.igst || 0,
-        storeState: res.data.storeState || "Gujarat",
-        taxIncluded: res.data.taxIncluded === true,
-        shippingCharge: res.data.shippingCharge ?? 100,
+        cgst: data.cgst || 0,
+        sgst: data.sgst || 0,
+        igst: data.igst || 0,
+        storeState: data.storeState || "Gujarat",
+        taxIncluded: data.taxIncluded === true,
+        shippingCharge: data.shippingCharge ?? 100,
       });
-    }).catch(() => {});
+    });
   }, [dispatch]);
 
   useEffect(() => {

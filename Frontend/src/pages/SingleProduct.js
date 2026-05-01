@@ -130,7 +130,7 @@ const SingleProduct = () => {
     if (getProductId) {
       dispatch(getAProduct(getProductId));
       dispatch(getUserCart());
-      dispatch(getAllProducts());
+      dispatch(getAllProducts({ tag: "popular", limit: 8 }));
     }
   }, [dispatch, getProductId]);
 

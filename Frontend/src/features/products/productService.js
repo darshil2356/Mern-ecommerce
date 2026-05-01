@@ -1,15 +1,17 @@
 import axios from "axios";
 import { base_url, getConfig } from "../../utils/axiosConfig";
+import { cachedFetch } from "../../utils/apiCache";
 
 const getProducts = async (data = {}) => {
   const response = await axios.get(`${base_url}product`, {
     params: {
       ...(data.tag && { tags: data.tag }),
+      ...(data.brand && { brand: data.brand }),
       ...(data.category && { category: data.category }),
       ...(data.minPrice && { "price[gte]": data.minPrice }),
       ...(data.maxPrice && { "price[lte]": data.maxPrice }),
       ...(data.sort && { sort: data.sort }),
-      limit: data.limit || 200,
+      limit: data.limit || 40,
       store: "true",
     },
   });
@@ -32,8 +34,11 @@ const rateProduct = async (data) => {
 };
 
 const getCategoryTree = async () => {
-  const response = await axios.get(`${base_url}category/tree`);
-  return response.data;
+  return cachedFetch(
+    "category/tree",
+    () => axios.get(`${base_url}category/tree`).then((r) => r.data),
+    60 * 60 * 1000
+  );
 };
 
 export const productSevice = {

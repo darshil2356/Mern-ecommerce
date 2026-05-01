@@ -404,7 +404,7 @@ const Cart = () => {
 
       {/* ── Sticky Bottom Bar — Mobile only ── */}
       {hasItems && (
-        <div style={{...s.stickyBar, bottom: 56}} className="d-lg-none">
+        <div style={s.stickyBar} className="d-lg-none">
           <div style={s.stickyInner}>
             <div>
               <p style={{ margin: 0, fontSize: 11, color: '#9ca3af', lineHeight: 1 }}>Total</p>
@@ -575,11 +575,10 @@ const s = {
 
   /* Sticky bottom bar */
   stickyBar: {
-    position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 999,
+    position: 'fixed', bottom: 'calc(56px + env(safe-area-inset-bottom))', left: 0, right: 0, zIndex: 999,
     background: '#fff', borderTop: '1px solid #f3f4f6',
     boxShadow: '0 -4px 20px rgba(0,0,0,0.08)',
     padding: '12px 16px',
-    paddingBottom: 'calc(12px + env(safe-area-inset-bottom))',
   },
   stickyInner: {
     display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16,

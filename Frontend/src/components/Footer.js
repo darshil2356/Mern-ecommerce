@@ -183,7 +183,7 @@ const Footer = () => {
         </div>
       </footer>
 
-      <style jsx>{`
+      <style>{`
         .footer-links { list-style: none; padding: 0; margin: 0; }
         .footer-links li { margin-bottom: 12px; }
         .footer-links a { color: rgba(255,255,255,0.7); text-decoration: none; font-size: 14px; transition: all 0.3s ease; }
@@ -192,6 +192,14 @@ const Footer = () => {
         .social-icon { width: 40px; height: 40px; background: rgba(255,255,255,0.1); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 18px; transition: all 0.3s ease; }
         .social-icon:hover { background: #d4af37; color: #1a1a1a !important; transform: translateY(-3px); }
         @media (max-width: 768px) { .footer-bottom { flex-direction: column; text-align: center; } }
+        /* Newsletter section mobile */
+        @media (max-width: 575px) {
+          .newsletter-section { padding: 40px 16px !important; }
+          .newsletter-title { font-size: 1.5rem !important; }
+          .newsletter-form { flex-direction: column; }
+          .newsletter-input { border-radius: 8px !important; width: 100% !important; }
+          .newsletter-btn { border-radius: 8px !important; width: 100%; padding: 14px !important; }
+        }
       `}</style>
     </>
   );

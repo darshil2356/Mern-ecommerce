@@ -497,6 +497,8 @@ const Header = () => {
           .h-logo   { font-size:19px; flex:1; text-align:center; }
           .h-mob-coins.logged { display:flex; }
           .h-mob-search.open  { display:flex; }
+          /* Show search toggle on mobile */
+          #mob-search-toggle { display:flex !important; }
         }
         @media (max-width:360px) {
           .h-bn-lbl { display:none; }
@@ -507,6 +509,10 @@ const Header = () => {
           .h-icon  { padding:6px 7px; font-size:20px; }
           .h-logo  { font-size:17px; }
           .h-row   { padding:0 10px; }
+        }
+        /* Hide search toggle on desktop */
+        @media (min-width:992px) {
+          #mob-search-toggle { display:none !important; }
         }
       `}</style>
 
@@ -549,7 +555,7 @@ const Header = () => {
 
           <div className="h-icons">
             <button className="h-icon" onClick={() => setSearchOpen(v => !v)} aria-label="Search"
-              style={{ display: "none" }} id="mob-search-toggle">
+              id="mob-search-toggle">
               {searchOpen ? <BsX /> : <BsSearch />}
             </button>
             <Link to={isLoggedIn ? "/my-profile" : "/login"} className="h-icon" title="Profile">
@@ -877,9 +883,7 @@ const Header = () => {
         </nav>
       )}
 
-      <style>{`
-        @media (max-width:991px) { #mob-search-toggle { display:flex !important; } }
-      `}</style>
+
     </>
   );
 };

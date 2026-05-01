@@ -143,11 +143,11 @@ const badgeFree = { ...badgeBase, background: "#16a34a", color: "#fff", maxWidth
 const wishBtn = { position: "absolute", top: 8, right: 8, width: 34, height: 34, borderRadius: "50%", background: "rgba(255,255,255,0.92)", border: "none", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", boxShadow: "0 2px 8px rgba(0,0,0,0.12)", backdropFilter: "blur(4px)" };
 const outOfStockOverlay = { position: "absolute", inset: 0, background: "rgba(0,0,0,0.35)", display: "flex", alignItems: "center", justifyContent: "center" };
 const outOfStockText = { background: "rgba(0,0,0,0.7)", color: "#fff", padding: "6px 14px", borderRadius: 20, fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.5px" };
-const infoWrap = { padding: "6px 8px 8px", flex: 1, display: "flex", flexDirection: "column", gap: 2 };
+const infoWrap = { padding: "8px 10px 10px", flex: 1, display: "flex", flexDirection: "column", gap: 3 };
 const brandText = { fontSize: 10, fontWeight: 700, color: "#d4af37", textTransform: "uppercase", letterSpacing: "0.8px", margin: 0 };
-const titleText = { fontSize: 11, fontWeight: 500, color: "#1a1a1a", lineHeight: 1.3, margin: 0, display: "-webkit-box", WebkitLineClamp: 1, WebkitBoxOrient: "vertical", overflow: "hidden" };
+const titleText = { fontSize: 12, fontWeight: 500, color: "#1a1a1a", lineHeight: 1.35, margin: 0, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" };
 const priceRow = { display: "flex", alignItems: "center", gap: 6, marginTop: 4, flexWrap: "wrap" };
-const priceMain = { fontSize: 12, fontWeight: 700, color: "#1a1a1a" };
+const priceMain = { fontSize: 13, fontWeight: 700, color: "#1a1a1a" };
 const priceOld = { fontSize: 10, color: "#aaa", textDecoration: "line-through" };
 const offerHint = { fontSize: 9, fontWeight: 700, color: "#ff6b35", background: "#fff3ee", padding: "2px 6px", borderRadius: 4 };
 

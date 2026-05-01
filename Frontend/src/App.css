@@ -1185,6 +1185,39 @@ footer {
   }
 }
 
+/* ── Home page product grid: 2 columns on mobile ── */
+@media (max-width: 575px) {
+  .prod-grid .col-6 {
+    padding-left: 4px !important;
+    padding-right: 4px !important;
+  }
+  .prod-grid.row {
+    margin-left: -4px !important;
+    margin-right: -4px !important;
+  }
+  /* Premium card image height on mobile */
+  .premium-card [style*="clamp(160px"] {
+    height: 180px !important;
+  }
+}
+
+/* ── Category scroll: better sizing on mobile ── */
+@media (max-width: 575px) {
+  .cat-scroll-item {
+    width: min(44vw, 175px) !important;
+  }
+  .cat-card-wrap {
+    height: 210px !important;
+  }
+}
+
+/* ── Stat cards: 2-up on mobile ── */
+@media (max-width: 575px) {
+  .stat-card {
+    padding: 18px 10px !important;
+  }
+}
+
 
 
 .home-wrapper-1 {
@@ -1473,15 +1506,109 @@ footer {
    MOBILE BOTTOM NAVIGATION SPACING
    ================================================ */
 
-/* Add bottom padding on mobile for bottom navigation */
 @media (max-width: 991px) {
+  /* Push all page content above the bottom nav */
   body {
     padding-bottom: calc(56px + env(safe-area-inset-bottom)) !important;
   }
-  
-  /* Ensure footer doesn't overlap with bottom nav */
+
+  /* Footer sits above bottom nav — no extra margin needed */
   footer {
-    margin-bottom: calc(56px + env(safe-area-inset-bottom));
+    margin-bottom: 0 !important;
+  }
+
+  /* Sticky top bars on store/product pages must clear the header */
+  .store-topbar-sticky {
+    top: 60px !important;
+  }
+
+  /* Prevent horizontal overflow on all pages */
+  .container-xxl,
+  .container {
+    padding-left: 12px !important;
+    padding-right: 12px !important;
+  }
+}
+
+/* ================================================
+   MOBILE TOUCH TARGETS & GENERAL UX
+   ================================================ */
+
+/* Minimum 44px touch targets for all interactive elements */
+@media (max-width: 991px) {
+  button,
+  a,
+  [role="button"] {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* Prevent text size adjustment on orientation change */
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+
+  /* Smooth momentum scrolling on iOS */
+  .cat-scroll-track,
+  .services-scroll,
+  .sp-thumbs {
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Product card title: show 2 lines on mobile for readability */
+  .store-product-item .product-title-text {
+    -webkit-line-clamp: 2 !important;
+    font-size: 12px !important;
+    line-height: 1.4 !important;
+  }
+
+  /* Larger product card image area on mobile */
+  .store-product-item [style*="aspectRatio"] {
+    aspect-ratio: 3/4 !important;
+  }
+
+  /* Home section spacing tighter on mobile */
+  .home-section {
+    padding: 36px 0 !important;
+  }
+
+  /* Section headings smaller on mobile */
+  .sec-h2 {
+    font-size: 1.25rem !important;
+  }
+}
+
+/* ================================================
+   MOBILE PRODUCT GRID IMPROVEMENTS
+   ================================================ */
+
+@media (max-width: 575px) {
+  /* 2-column grid with tighter gap */
+  .store-products-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 8px !important;
+  }
+
+  /* Reduce container padding on very small screens */
+  .store-wrapper .container-xxl {
+    padding-left: 10px !important;
+    padding-right: 10px !important;
+  }
+
+  /* Product card info padding */
+  .store-product-item > div > div:last-child {
+    padding: 6px 8px 8px !important;
+  }
+}
+
+/* ================================================
+   MOBILE BREADCRUMB
+   ================================================ */
+
+@media (max-width: 575px) {
+  .breadcrumb-wrapper {
+    padding: 8px 12px !important;
+    font-size: 12px !important;
   }
 }
 

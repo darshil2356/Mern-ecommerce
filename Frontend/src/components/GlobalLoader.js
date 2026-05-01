@@ -2,10 +2,11 @@ import React from "react";
 import { useSelector } from "react-redux";
 
 const GlobalLoader = () => {
-  const authLoading = useSelector((s) => s.auth.isLoading);
+  // Only block the screen for actions that truly need it.
+  // Background actions (cart, wishlist, referrals, orders) should be silent.
   const productLoading = useSelector((s) => s.product.isLoading);
 
-  if (!authLoading && !productLoading) return null;
+  if (!productLoading) return null;
 
   return <PremiumLoader />;
 };

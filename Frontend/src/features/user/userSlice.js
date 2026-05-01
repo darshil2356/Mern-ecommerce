@@ -348,9 +348,7 @@ export const authSlice = createSlice({
           toast.error(action.payload?.response?.data?.message || "Login failed");
         }
       })
-      .addCase(getuserProductWishlist.pending, (state) => {
-        state.isLoading = true;
-      })
+      .addCase(getuserProductWishlist.pending, (state) => { /* silent */ })
       .addCase(getuserProductWishlist.fulfilled, (state, action) => {
         state.isLoading = false;
         state.isError = false;
@@ -363,9 +361,7 @@ export const authSlice = createSlice({
         state.isSuccess = false;
         state.message = action.error;
       })
-      .addCase(addProdToCart.pending, (state) => {
-        state.isLoading = true;
-      })
+      .addCase(addProdToCart.pending, (state) => { /* silent */ })
       .addCase(addProdToCart.fulfilled, (state, action) => {
         state.isLoading = false;
         state.isError = false;
@@ -381,9 +377,7 @@ export const authSlice = createSlice({
         state.isSuccess = false;
         state.message = action.error;
       })
-      .addCase(addBundleToCart.pending, (state) => {
-        state.isLoading = true;
-      })
+      .addCase(addBundleToCart.pending, (state) => { /* silent */ })
       .addCase(addBundleToCart.fulfilled, (state, action) => {
         state.isLoading = false;
         state.isError = false;
@@ -396,9 +390,7 @@ export const authSlice = createSlice({
         state.isSuccess = false;
         state.message = action.error;
       })
-      .addCase(getUserCart.pending, (state) => {
-        state.isLoading = true;
-      })
+      .addCase(getUserCart.pending, (state) => { /* silent */ })
       .addCase(getUserCart.fulfilled, (state, action) => {
         state.isLoading = false;
         state.isError = false;
@@ -411,9 +403,7 @@ export const authSlice = createSlice({
         state.isSuccess = false;
         state.message = action.error;
       })
-      .addCase(getSingleOrder.pending, (state) => {
-        state.isLoading = true;
-      })
+      .addCase(getSingleOrder.pending, (state) => { /* silent */ })
       .addCase(getSingleOrder.fulfilled, (state, action) => {
         state.isLoading = false;
         state.isError = false;
@@ -426,9 +416,7 @@ export const authSlice = createSlice({
         state.isSuccess = false;
         state.message = action.error;
       })
-      .addCase(deleteCartProduct.pending, (state) => {
-        state.isLoading = true;
-      })
+      .addCase(deleteCartProduct.pending, (state) => { /* silent */ })
       .addCase(deleteCartProduct.fulfilled, (state, action) => {
         state.isLoading = false;
         state.isError = false;
@@ -447,9 +435,7 @@ export const authSlice = createSlice({
           toast.error("Something Went Wrong!");
         }
       })
-      .addCase(updateCartProduct.pending, (state) => {
-        state.isLoading = true;
-      })
+      .addCase(updateCartProduct.pending, (state) => { /* silent */ })
       .addCase(updateCartProduct.fulfilled, (state, action) => {
         state.isLoading = false;
         state.isError = false;
@@ -493,9 +479,7 @@ export const authSlice = createSlice({
           toast.error("Something Went Wrong!");
         }
       })
-      .addCase(getOrders.pending, (state) => {
-        state.isLoading = true;
-      })
+      .addCase(getOrders.pending, (state) => { /* silent */ })
       .addCase(getOrders.fulfilled, (state, action) => {
         state.isLoading = false;
         state.isError = false;
@@ -595,9 +579,7 @@ export const authSlice = createSlice({
           toast.error("Something Went Wrong!");
         }
       })
-      .addCase(deleteUserCart.pending, (state) => {
-        state.isLoading = true;
-      })
+      .addCase(deleteUserCart.pending, (state) => { /* silent */ })
       .addCase(deleteUserCart.fulfilled, (state, action) => {
         state.isLoading = false;
         state.isError = false;
@@ -611,9 +593,7 @@ export const authSlice = createSlice({
         state.message = action.error;
       })
       // Referral reducers
-      .addCase(getReferralCode.pending, (state) => {
-        state.isLoading = true;
-      })
+      .addCase(getReferralCode.pending, (state) => { /* silent */ })
       .addCase(getReferralCode.fulfilled, (state, action) => {
         state.isLoading = false;
         state.isError = false;
@@ -628,9 +608,7 @@ export const authSlice = createSlice({
         state.isSuccess = false;
         state.message = action.error;
       })
-      .addCase(getMyReferrals.pending, (state) => {
-        state.isLoading = true;
-      })
+      .addCase(getMyReferrals.pending, (state) => { /* silent */ })
       .addCase(getMyReferrals.fulfilled, (state, action) => {
         state.isLoading = false;
         state.isError = false;
@@ -686,9 +664,7 @@ export const authSlice = createSlice({
           toast.error(action.payload?.response?.data?.message || "Something Went Wrong!");
         }
       })
-      .addCase(cancelOrder.pending, (state) => {
-        state.isLoading = true;
-      })
+      .addCase(cancelOrder.pending, (state) => { /* silent */ })
       .addCase(cancelOrder.fulfilled, (state, action) => {
         state.isLoading = false;
         state.isError = false;

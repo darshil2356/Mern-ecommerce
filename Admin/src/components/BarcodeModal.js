@@ -140,7 +140,7 @@ const BarcodeModal = ({ open, onClose, barcode, title, productData }) => {
       onCancel={onClose}
       footer={null}
       centered
-      width={420}
+      width="min(420px, 95vw)"
       title={<span style={{ color: "#722ed1", fontWeight: "bold" }}>🏷️ Product Barcode Sticker</span>}
     >
       <div style={{ textAlign: "center", padding: "16px 0" }}>

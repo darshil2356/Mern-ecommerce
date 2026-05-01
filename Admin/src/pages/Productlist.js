@@ -328,7 +328,7 @@ const Productlist = () => {
   ];
 
   return (
-    <div style={{ background: "#f8fafc", minHeight: "100vh", padding: "24px" }}>
+    <div style={{ background: "#f8fafc", minHeight: "100vh", padding: "clamp(8px, 2vw, 24px)" }}>
 
       {/* Header */}
       <div style={{ background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)", borderRadius: 16, padding: "24px 28px", marginBottom: 24, boxShadow: "0 4px 20px rgba(102,126,234,0.3)" }}>
@@ -416,7 +416,7 @@ const Productlist = () => {
         open={sizeBarcodesModalOpen}
         onCancel={() => setSizeBarcodesModalOpen(false)}
         footer={null}
-        width={700}
+        width="min(700px, 95vw)"
       >
         <SizeBarcodesList
           barcodes={productSizeBarcodes}

@@ -19,6 +19,7 @@ const AdminDataTable = ({ columns, dataSource, loading, rowKey = "_id", paginati
           pagination={{ ...defaultPagination, ...paginationOptions }}
           className="admin-data-table"
           rowClassName="hover:bg-gray-50 transition-colors"
+          scroll={{ x: "max-content" }}
         />
       </div>
     </div>

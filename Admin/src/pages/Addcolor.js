@@ -71,7 +71,7 @@ const Addcolor = () => {
     },
   });
   return (
-    <div>
+    <div className="p-2 sm:p-4">
       <h3 className="mb-4 title">
         {getColorId !== undefined ? "Edit" : "Add"} Color
       </h3>

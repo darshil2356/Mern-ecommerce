@@ -604,7 +604,7 @@ const MainLayout = () => {
         }
         
         .content-wrapper {
-          padding: 24px;
+          padding: 16px;
           animation: fadeIn 0.4s ease;
         }
         
@@ -634,12 +634,12 @@ const MainLayout = () => {
 
         @media (max-width: 768px) {
           .site-layout { margin-left: 0 !important; }
-          .main-header { padding: 0 12px !important; height: 56px; }
+          .main-header { padding: 0 10px !important; height: 52px; }
           .user-info { display: none; }
-          .content-wrapper { padding: 12px; }
+          .content-wrapper { padding: 0; }
           .trigger-btn { width: 36px; height: 36px; }
           .user-profile { padding: 4px 8px 4px 4px; gap: 8px; }
-          .main-content { min-height: calc(100vh - 56px); }
+          .main-content { min-height: calc(100vh - 52px); }
         }
 
         @media (max-width: 576px) {

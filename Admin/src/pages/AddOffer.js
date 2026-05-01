@@ -79,7 +79,7 @@ const AddOffer = () => {
   const t = formik.values.offerType;
 
   return (
-    <div>
+    <div className="p-2 sm:p-4">
       <h3 className="mb-4 title">{offerId ? "Edit" : "Add"} Offer</h3>
       <form onSubmit={formik.handleSubmit}>
         <div className="row g-3">

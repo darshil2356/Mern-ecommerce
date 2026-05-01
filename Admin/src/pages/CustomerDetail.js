@@ -254,7 +254,7 @@ const CustomerDetail = () => {
       ),
       children: (
         <>
-          <div className="grid grid-cols-3 gap-3 mb-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-4">
             {[
               { label: "Balance", value: `${customer.coins || 0}`, color: "text-blue-600", bg: "bg-blue-50" },
               { label: "Earned", value: `+${totalCoinCredits}`, color: "text-green-600", bg: "bg-green-50" },
@@ -315,7 +315,7 @@ const CustomerDetail = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-gray-50/80">
+    <div className="min-h-screen bg-gray-50/80 p-2 sm:p-4 lg:p-6">
       {/* Header */}
       <div className="flex items-center gap-3 mb-6">
         <button

@@ -356,7 +356,7 @@ const Dashboard = () => {
   const topCustomers = dashboardStats?.topCustomers || [];
 
   return (
-    <div className="dashboard-container" style={{ backgroundColor: "#f0f2f5", minHeight: "100vh" }}>
+    <div className="dashboard-container" style={{ backgroundColor: "#f0f2f5", minHeight: "100vh", padding: "clamp(8px, 2vw, 24px)" }}>
       {/* Modern Gradient Header */}
       <div className="dashboard-header animate__animated animate__fadeInDown" style={{
         background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
@@ -393,8 +393,8 @@ const Dashboard = () => {
           </div>
 
           {/* Filter Buttons */}
-          <div className="d-flex gap-2 flex-wrap align-items-center mt-3">
-            <div className="filter-btn-group d-flex gap-1 flex-wrap" style={{ background: "rgba(255,255,255,0.15)", padding: "4px", borderRadius: "24px" }}>
+          <div className="d-flex gap-2 flex-wrap align-items-center mt-3" style={{ overflowX: "auto", paddingBottom: 4 }}>
+            <div className="filter-btn-group d-flex gap-1 flex-wrap" style={{ background: "rgba(255,255,255,0.15)", padding: "4px", borderRadius: "24px", flexShrink: 0 }}>
               {[{f: FILTERS.TODAY, label: "Today"}, {f: FILTERS.WEEK, label: "7 Days"}, {f: FILTERS.MONTH, label: "Month"}, {f: FILTERS.YEAR, label: "Year"}].map(({f, label}) => (
                 <Button key={f} type="text" style={getFilterButtonStyle(f)} onClick={() => { setSelectedFilter(f); setDateRange(null); }}>{label}</Button>
               ))}
@@ -780,7 +780,6 @@ const Dashboard = () => {
       <style>{`
         .dashboard-container {
           font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-          padding: 24px;
         }
         
         @keyframes fadeInUp {

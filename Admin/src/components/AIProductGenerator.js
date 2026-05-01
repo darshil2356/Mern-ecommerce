@@ -125,7 +125,7 @@ const AIProductGenerator = ({ onGenerated }) => {
             {loading ? "Analyzing..." : "Generate Listing"}
           </Button>,
         ]}
-        width={520}
+        width="min(520px, 95vw)"
         destroyOnClose
       >
         <div style={{ padding: "8px 0" }}>

@@ -185,7 +185,7 @@ const TrendingProducts = ({ products }) => {
                 <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0 }} 
                   style={{ overflow: "hidden", background: "#fafbff" }}>
                   <div style={{ padding: "24px" }}>
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24, marginBottom: 24 }}>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 24, marginBottom: 24 }}>
                       <div>
                         <div style={{ fontSize: 13, fontWeight: 700, color: "#6b7280", marginBottom: 12 }}>📍 TOP REGIONS</div>
                         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
@@ -390,7 +390,7 @@ const MarketIntelligence = () => {
   };
 
   return (
-    <div style={{ maxWidth: 1200, margin: "0 auto", padding: "0 20px", fontFamily: "'Inter', sans-serif" }}>
+    <div style={{ maxWidth: 1200, margin: "0 auto", padding: "clamp(8px, 2vw, 20px)", fontFamily: "'Inter', sans-serif" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 32, flexWrap: "wrap", gap: 16 }}>
         <div>
           <h1 style={{ fontSize: 32, fontWeight: 900, background: "linear-gradient(135deg, #1e293b, #334155)", webkitBackgroundClip: "text", webkitTextFillColor: "transparent", margin: 0 }}>

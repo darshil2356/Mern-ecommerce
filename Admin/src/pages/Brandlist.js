@@ -78,7 +78,7 @@ const Brandlist = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-6">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-2 sm:p-4 lg:p-6">
       <AdminPageHeader
         title="Brands"
         description="Manage your product brands"
@@ -102,7 +102,7 @@ const Brandlist = () => {
           <Button key="cancel" onClick={closeModal}>Cancel</Button>,
           <Button key="save" type="primary" loading={saving} onClick={handleSave}>Save</Button>,
         ]}
-        width={360}
+        width="min(360px, 95vw)"
       >
         <div className="mb-3">
           <label className="fw-medium mb-1 d-block">Brand Name</label>

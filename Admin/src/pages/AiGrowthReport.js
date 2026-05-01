@@ -150,7 +150,7 @@ const MarketResearch = ({ items }) => {
                   <div style={{ padding: "0 20px 20px", display: "grid", gap: 16 }}>
 
                     {/* Why trending + relevance */}
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 12 }}>
                       <div style={{ background: "#f8faff", borderRadius: 12, padding: 14 }}>
                         <div style={{ fontSize: 11, fontWeight: 700, color: "#94a3b8", marginBottom: 6 }}>WHY TRENDING</div>
                         <div style={{ fontSize: 13, color: "#374151", lineHeight: 1.7 }}>{item.why_trending}</div>
@@ -281,7 +281,7 @@ const BusinessSnapshot = ({ snapshot, context }) => {
 const TopProducts = ({ products }) => (
   <Card>
     <SectionTitle icon="🏆" title="Top 2 Products to Add Now" sub="AI recommends adding these based on your store's actual categories" />
-    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 16 }}>
       {products.map((p, i) => (
         <motion.div key={i} variants={fadeUp} whileHover={{ y: -4 }}
           style={{
@@ -438,7 +438,7 @@ const IdeaList = ({ items, color, bg, border }) => (
 const GrowthIdeas = ({ data }) => (
   <Card>
     <SectionTitle icon="💡" title="Growth Ideas" sub="Specific to your store's categories and real performance data" />
-    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, marginBottom: 20 }}>
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))", gap: 20, marginBottom: 20 }}>
       <div>
         <div style={{ fontWeight: 800, color: "#6366f1", marginBottom: 14, fontSize: 14 }}>📣 Marketing Strategies</div>
         <IdeaList items={data.marketing_strategies} color="#6366f1" bg="#f8faff" border="#e0e7ff" />
@@ -494,7 +494,7 @@ export default function AiGrowthReport() {
   };
 
   return (
-    <div style={{ maxWidth: 980, margin: "0 auto", fontFamily: "'Inter', sans-serif" }}>
+    <div style={{ maxWidth: 980, margin: "0 auto", fontFamily: "'Inter', sans-serif", padding: "clamp(8px, 2vw, 16px)" }}>
 
       {/* ── Top bar (only when data exists) ── */}
       {data && (

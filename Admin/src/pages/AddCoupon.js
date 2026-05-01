@@ -76,7 +76,7 @@ const AddCoupon = () => {
   const today = new Date().toISOString().split("T")[0];
 
   return (
-    <div style={{ minHeight: "100vh", background: "linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)", padding: "24px" }}>
+    <div style={{ minHeight: "100vh", background: "linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)", padding: "clamp(8px, 2vw, 24px)" }}>
       {/* Header */}
       <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 28 }}>
         <Link
@@ -100,7 +100,7 @@ const AddCoupon = () => {
         </div>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 380px", gap: 24, maxWidth: 900 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 340px), 1fr))", gap: 16, maxWidth: 900 }}>
         {/* Form Card */}
         <div style={{ background: "#fff", borderRadius: 20, padding: 32, boxShadow: "0 4px 24px rgba(0,0,0,0.06)", border: "1px solid #f1f5f9" }}>
           <form onSubmit={formik.handleSubmit}>

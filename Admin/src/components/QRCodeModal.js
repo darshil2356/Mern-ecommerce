@@ -73,7 +73,7 @@ const QRCodeModal = ({ open, onClose, value, title, productData }) => {
       onCancel={onClose}
       footer={null}
       centered
-      width={380}
+      width="min(380px, 95vw)"
       title={<span style={{ color: "#1677ff", fontWeight: "bold" }}>📱 Product QR Code</span>}
     >
       <div style={{ textAlign: "center", padding: "16px 0" }}>

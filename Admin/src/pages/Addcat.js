@@ -68,7 +68,7 @@ const Addcat = () => {
     },
   });
   return (
-    <div>
+    <div className="p-2 sm:p-4">
       <h3 className="mb-4  title">
         {getPCatId !== undefined ? "Edit" : "Add"} Category
       </h3>

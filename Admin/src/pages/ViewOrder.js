@@ -718,14 +718,14 @@ tbody td{padding:12px 14px;font-size:13px;vertical-align:top}
   const finalTotal = orderState?.totalPriceAfterDiscount || 0;
 
   return (
-    <div style={{ background: "#f0f2f5", minHeight: "100vh", padding: "20px 24px" }}>
+    <div style={{ background: "#f0f2f5", minHeight: "100vh", padding: "clamp(8px, 2vw, 24px)" }}>
       {/* Header */}
       <div style={{
         background: "linear-gradient(135deg, #1e1b4b 0%, #3730a3 100%)",
-        borderRadius: 20, padding: "22px 28px", marginBottom: 20, color: "#fff",
+        borderRadius: 20, padding: "clamp(14px, 3vw, 22px) clamp(14px, 4vw, 28px)", marginBottom: 16, color: "#fff",
         boxShadow: "0 8px 28px rgba(55,48,163,0.22)",
       }}>
-        <Row align="middle" justify="space-between" wrap>
+        <Row align="middle" justify="space-between" wrap gutter={[0, 12]}>
           <Col>
             <Space size={14}>
               <Button
@@ -1141,6 +1141,7 @@ tbody td{padding:12px 14px;font-size:13px;vertical-align:top}
           dataSource={data1}
           pagination={false}
           size="middle"
+          scroll={{ x: "max-content" }}
           style={{ borderRadius: '12px' }}
           summary={() => (
             <Table.Summary>

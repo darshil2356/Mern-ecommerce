@@ -86,3 +86,336 @@ main::-webkit-scrollbar {
 .single-calendar-range .ant-picker-cell-inner {
   font-size: 12px;
 }
+
+/* ═══════════════════════════════════════════════
+   GLOBAL MOBILE RESPONSIVE OVERRIDES
+   Applies to all admin pages
+═══════════════════════════════════════════════ */
+
+/* Prevent any element from overflowing viewport */
+* {
+  box-sizing: border-box;
+}
+
+
+/* Ant Design Table — always allow horizontal scroll */
+.ant-table-wrapper {
+  overflow-x: auto;
+}
+
+/* Ant Design Card body no overflow */
+.ant-card {
+  overflow: hidden;
+}
+
+/* Ant Design Pagination — wrap on small screens */
+.ant-pagination {
+  flex-wrap: wrap;
+}
+
+/* Ant Design Tabs — scrollable on mobile */
+.ant-tabs-nav-wrap {
+  overflow-x: auto !important;
+}
+.ant-tabs-nav-list {
+  flex-wrap: nowrap;
+}
+
+/* Fix Range Picker overflow on mobile */
+.ant-picker-range {
+  max-width: 100%;
+}
+
+/* Fix Select dropdown too wide on mobile */
+.ant-select {
+  max-width: 100%;
+}
+
+/* Ant Design Steps — horizontal scroll on mobile */
+.ant-steps-horizontal {
+  overflow-x: auto;
+}
+
+/* Filter bars — wrap items on mobile */
+.filter-bar-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+/* Stat/Summary card grids */
+.stat-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 12px;
+}
+
+@media (max-width: 768px) {
+  /* Page outer containers with inline padding */
+  [style*="padding: 20px 24px"],
+  [style*="padding: \"20px 24px\""] {
+    padding: 12px !important;
+  }
+
+  /* Dashboard and add-product pages — inline clamp handles their own padding */
+  .add-product-page {
+    padding: 0 !important;
+  }
+  .dashboard-container {
+    padding: 0 !important;
+  }
+
+  /* Ant Design Cards */
+  .ant-card-body {
+    padding: 12px !important;
+  }
+  .ant-card-head {
+    padding: 0 12px !important;
+  }
+
+  /* Ant Design Descriptions */
+  .ant-descriptions-item-label,
+  .ant-descriptions-item-content {
+    padding: 8px !important;
+    font-size: 12px;
+  }
+
+  /* Ant Design Table */
+  .ant-table {
+    font-size: 12px;
+  }
+  .ant-table-thead > tr > th,
+  .ant-table-tbody > tr > td {
+    padding: 8px 10px !important;
+    white-space: nowrap;
+  }
+
+  /* Ant Design Steps on mobile */
+  .ant-steps-item-title {
+    font-size: 11px !important;
+  }
+  .ant-steps-item-description {
+    font-size: 10px !important;
+  }
+
+  /* Ant Design Timeline */
+  .ant-timeline-item-content {
+    font-size: 12px;
+  }
+
+  /* Ant Design Modal */
+  .ant-modal {
+    max-width: calc(100vw - 24px) !important;
+    margin: 12px !important;
+  }
+
+  /* Ant Design Drawer */
+  .ant-drawer-content-wrapper {
+    max-width: 85vw !important;
+  }
+
+  /* Bootstrap grid — ensure col-lg stacks on mobile */
+  .col-lg-8, .col-lg-4, .col-lg-6, .col-lg-3 {
+    width: 100% !important;
+    max-width: 100% !important;
+    flex: 0 0 100% !important;
+  }
+
+  /* Header section flex — wrap on mobile */
+  .main-header .header-right {
+    gap: 8px !important;
+  }
+
+  /* Order page header stats — wrap */
+  .orders-header-stats {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  /* Hide overflow in filter rows */
+  .filter-row-wrap {
+    overflow-x: auto;
+    padding-bottom: 4px;
+  }
+
+  /* Page headers with flex — stack on mobile */
+  .page-header-flex {
+    flex-direction: column !important;
+    gap: 12px !important;
+  }
+
+  /* Input fields — full width on mobile */
+  .ant-input,
+  .ant-input-affix-wrapper {
+    width: 100% !important;
+  }
+
+  /* DatePicker RangePicker — full width on mobile */
+  .ant-picker.ant-picker-range {
+    width: 100% !important;
+  }
+
+  /* Select — full width on mobile */
+  .ant-select:not(.ant-select-customize-input) .ant-select-selector {
+    min-width: unset !important;
+  }
+
+  /* Tag — prevent overflow */
+  .ant-tag {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* Statistic value — adjust font size */
+  .ant-statistic-content-value {
+    font-size: 18px !important;
+  }
+  .ant-statistic-title {
+    font-size: 11px !important;
+  }
+
+  /* Quill editor — full width */
+  .ql-container,
+  .ql-toolbar {
+    width: 100% !important;
+  }
+
+  /* Dropzone — full width */
+  .dropzone {
+    width: 100% !important;
+  }
+
+  /* Button text — smaller on mobile */
+  .ant-btn {
+    font-size: 12px;
+  }
+
+  /* Pagination — center on mobile */
+  .ant-pagination {
+    justify-content: center;
+  }
+
+  /* Avatar size reduction */
+  .ant-avatar-lg {
+    width: 36px !important;
+    height: 36px !important;
+    line-height: 36px !important;
+    font-size: 14px !important;
+  }
+
+  /* Tabs — make tab labels smaller */
+  .ant-tabs-tab {
+    padding: 8px 10px !important;
+    font-size: 12px !important;
+  }
+
+  /* Reports page — stat cards fix */
+  .reports-stat-row .ant-col {
+    width: 50% !important;
+    max-width: 50% !important;
+    flex: 0 0 50% !important;
+  }
+
+  /* Ant Design Row gutter fix */
+  .ant-row {
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+  }
+}
+
+/* Reports page — Col responsiveness */
+@media (max-width: 768px) {
+  .reports-page .ant-col-6 {
+    width: 50% !important;
+    max-width: 50% !important;
+    flex: 0 0 50% !important;
+    padding: 0 4px !important;
+  }
+  .reports-page .ant-col-8 {
+    width: 50% !important;
+    max-width: 50% !important;
+    flex: 0 0 50% !important;
+    padding: 0 4px !important;
+  }
+  .reports-page .ant-col-12 {
+    width: 100% !important;
+    max-width: 100% !important;
+    flex: 0 0 100% !important;
+    padding: 0 4px !important;
+  }
+  .reports-page > .flex {
+    flex-direction: column;
+    gap: 12px;
+  }
+  .reports-page .flex.gap-4 {
+    flex-wrap: wrap;
+    gap: 8px !important;
+  }
+  .reports-page .ant-select {
+    width: 100% !important;
+  }
+  .reports-page .ant-space {
+    flex-wrap: wrap;
+  }
+  .reports-page .ant-btn {
+    flex: 1;
+    min-width: 0;
+  }
+}
+
+@media (max-width: 480px) {
+  .reports-page .ant-col-6,
+  .reports-page .ant-col-8 {
+    width: 100% !important;
+    max-width: 100% !important;
+    flex: 0 0 100% !important;
+  }
+}
+
+@media (max-width: 480px) {
+  /* Very small phones */
+  .ant-card-body {
+    padding: 8px !important;
+  }
+
+  .ant-table-thead > tr > th,
+  .ant-table-tbody > tr > td {
+    padding: 6px 8px !important;
+    font-size: 11px;
+  }
+
+  /* Reports stat cards — 1 per row on very small */
+  .reports-stat-row .ant-col {
+    width: 100% !important;
+    max-width: 100% !important;
+    flex: 0 0 100% !important;
+  }
+
+  /* Single stat value on small */
+  .ant-statistic-content-value {
+    font-size: 16px !important;
+  }
+
+  /* Button padding reduction */
+  .ant-btn {
+    padding: 4px 10px !important;
+    font-size: 11px;
+  }
+
+  /* Pagination smaller */
+  .ant-pagination-item,
+  .ant-pagination-prev,
+  .ant-pagination-next {
+    min-width: 28px !important;
+    height: 28px !important;
+    line-height: 28px !important;
+  }
+
+  /* Header avatar */
+  .user-avatar img {
+    width: 30px !important;
+    height: 30px !important;
+  }
+}

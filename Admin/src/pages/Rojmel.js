@@ -1189,12 +1189,30 @@ function RojmelStyles() {
 
       /* ── Responsive ── */
       @media (max-width: 700px) {
+        .rj-wrapper { padding: 8px 8px 20px; }
+        .rj-title { font-size: 22px; }
+        .rj-summary-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+        .rj-card { padding: 10px 12px; }
+        .rj-filters { flex-direction: column; gap: 8px; }
+        .rj-filters input[style*="minWidth"], .rj-filters .rj-input { min-width: unset !important; width: 100% !important; }
+        .rj-input { width: 100%; }
+        .rj-form-grid { grid-template-columns: 1fr; }
+        .rj-span2 { grid-column: span 1; }
         .rj-book-open { flex-direction: column; }
         .rj-spine { width: 100%; height: 16px; flex-direction: row; padding: 0 20px; }
         .rj-spine-line { width: 40px; height: 2px; }
         .rj-page { min-height: 350px; }
         .rj-page-inner { padding: 16px 14px 30px 40px; }
         .rj-flip-overlay { display: none; }
+        .rj-monthly-table { font-size: 12px; }
+        .rj-monthly-table th, .rj-monthly-table td { padding: 6px 8px; }
+        .rj-date-nav { flex-wrap: wrap; gap: 6px; }
+        .rj-pagination { flex-wrap: wrap; gap: 6px; justify-content: center; }
+      }
+
+      @media (max-width: 400px) {
+        .rj-summary-grid { grid-template-columns: 1fr 1fr; }
+        .rj-title { font-size: 18px; }
       }
     `}</style>
   );

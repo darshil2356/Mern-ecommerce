@@ -453,15 +453,15 @@ tbody td{padding:14px 14px;font-size:13px;color:#333}
   ];
 
   return (
-    <div style={{ background: "#f0f2f5", minHeight: "100vh", padding: "20px 24px" }}>
+    <div style={{ background: "#f0f2f5", minHeight: "100vh", padding: "clamp(8px, 2vw, 24px)" }}>
 
       {/* ── Header ── */}
       <div style={{
         background: "linear-gradient(135deg, #1e1b4b 0%, #3730a3 100%)",
-        borderRadius: 20, padding: "26px 32px", marginBottom: 16, color: "#fff",
+        borderRadius: 20, padding: "clamp(14px, 4vw, 26px) clamp(16px, 4vw, 32px)", marginBottom: 16, color: "#fff",
         boxShadow: "0 8px 32px rgba(55,48,163,0.22)",
       }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 20 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
             <div style={{
               width: 52, height: 52, borderRadius: 14,
@@ -478,7 +478,7 @@ tbody td{padding:14px 14px;font-size:13px;color:#333}
               <div style={{ fontSize: 13, color: "rgba(255,255,255,0.55)", marginTop: 2 }}>Track, manage, and fulfill all customer orders</div>
             </div>
           </div>
-          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             {[
               { label: "Total Orders", value: baseFilteredData.length, accent: "rgba(255,255,255,0.12)" },
               { label: "Delivered", value: deliveredCount, accent: "rgba(16,185,129,0.28)" },
@@ -487,7 +487,7 @@ tbody td{padding:14px 14px;font-size:13px;color:#333}
             ].map(s => (
               <div key={s.label} style={{
                 background: s.accent, border: "1px solid rgba(255,255,255,0.14)",
-                borderRadius: 14, padding: "13px 18px", minWidth: 108, textAlign: "center",
+                borderRadius: 14, padding: "10px 14px", minWidth: 80, textAlign: "center",
               }}>
                 <div style={{ fontSize: 20, fontWeight: 800 }}>{s.value}</div>
                 <div style={{ fontSize: 11, color: "rgba(255,255,255,0.62)", fontWeight: 600, marginTop: 2 }}>{s.label}</div>
@@ -532,27 +532,27 @@ tbody td{padding:14px 14px;font-size:13px;color:#333}
       </div>
 
       {/* ── Filters ── */}
-      <div style={{ background: "#fff", borderRadius: 14, padding: "14px 18px", marginBottom: 12, boxShadow: "0 1px 6px rgba(0,0,0,0.07)" }}>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center" }}>
+      <div style={{ background: "#fff", borderRadius: 14, padding: "12px 14px", marginBottom: 12, boxShadow: "0 1px 6px rgba(0,0,0,0.07)" }}>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
           <Input
-            placeholder="Search order ID, name, email, mobile…"
+            placeholder="Search order ID, name, email…"
             prefix={<SearchOutlined style={{ color: "#6366f1" }} />}
             value={searchText}
             onChange={(e) => setSearchText(e.target.value)}
             allowClear
-            style={{ width: 280, borderRadius: 10 }}
+            style={{ minWidth: 180, flex: "1 1 180px", borderRadius: 10 }}
           />
-          <RangePicker value={dateRange} onChange={setDateRange} style={{ borderRadius: 10 }} />
-          <Select value={paymentFilter} onChange={setPaymentFilter} style={{ width: 160 }}>
+          <RangePicker value={dateRange} onChange={setDateRange} style={{ borderRadius: 10, flex: "1 1 220px", minWidth: 0 }} />
+          <Select value={paymentFilter} onChange={setPaymentFilter} style={{ minWidth: 130, flex: "1 1 130px" }}>
             <Option value="All">All Payments</Option>
-            <Option value="Online-Current">Online - Current A/C</Option>
-            <Option value="Online-Other">Online - Other A/C</Option>
+            <Option value="Online-Current">Online - Current</Option>
+            <Option value="Online-Other">Online - Other</Option>
             <Option value="Cash">Cash (POS)</Option>
           </Select>
-          <Select value={modeFilter} onChange={setModeFilter} style={{ width: 140 }}>
+          <Select value={modeFilter} onChange={setModeFilter} style={{ minWidth: 120, flex: "1 1 120px" }}>
             <Option value="all">All Modes</Option>
             <Option value="online">🌐 Online</Option>
-            <Option value="offline">🏪 Offline (POS)</Option>
+            <Option value="offline">🏪 Offline</Option>
           </Select>
           <Button icon={<ReloadOutlined />} onClick={() => { setActiveStatus("All"); setSearchText(""); setDateRange(null); setPaymentFilter("All"); setModeFilter("all"); }} style={{ borderRadius: 10 }}>
             Reset

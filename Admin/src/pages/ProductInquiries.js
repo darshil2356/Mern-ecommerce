@@ -61,7 +61,7 @@ const ProductInquiries = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-6">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-2 sm:p-4 lg:p-6">
       <AdminPageHeader
         title="Stock Inquiries"
         description="Customers waiting for out-of-stock products — notify them when restocked"
@@ -70,7 +70,7 @@ const ProductInquiries = () => {
       />
 
       {/* Stats */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 14, marginBottom: 24 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))", gap: 14, marginBottom: 24 }}>
         {stats.map((s) => (
           <div key={s.label} style={{ background: "#fff", borderRadius: 12, padding: "16px 20px", boxShadow: "0 2px 8px rgba(0,0,0,0.06)", borderLeft: `4px solid ${s.color}` }}>
             <div style={{ fontSize: 26, fontWeight: 800, color: s.color }}>{s.value}</div>
@@ -154,7 +154,8 @@ const ProductInquiries = () => {
 
               {/* Inquiry Rows */}
               {isOpen && (
-                <div>
+                <div style={{ overflowX: "auto" }}>
+                  <div style={{ minWidth: 600 }}>
                   {/* Table Header */}
                   <div style={{ display: "grid", gridTemplateColumns: "2fr 1.2fr 1fr 1fr 130px 40px", gap: 12, padding: "10px 20px", background: "#f8fafc", fontSize: 11, fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.5px" }}>
                     <span>Customer</span>
@@ -173,6 +174,7 @@ const ProductInquiries = () => {
                       onStatusChange={(val) => dispatch(updateInquiryStatus({ id: inq._id, status: val }))}
                     />
                   ))}
+                  </div>
                 </div>
               )}
             </div>

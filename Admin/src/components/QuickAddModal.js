@@ -66,7 +66,7 @@ const QuickAddModal = ({ type, open, onClose, onCreated }) => {
         <Button key="cancel" onClick={onClose}>Cancel</Button>,
         <Button key="save" type="primary" loading={loading} onClick={handleSave}>Save</Button>,
       ]}
-      width={360}
+      width="min(360px, 95vw)"
     >
       <div className="mb-3">
         <label className="fw-medium mb-1 d-block">

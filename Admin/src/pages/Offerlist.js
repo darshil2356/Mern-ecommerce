@@ -87,7 +87,7 @@ const Offerlist = () => {
   }));
 
   return (
-    <div>
+    <div className="p-2 sm:p-4 lg:p-6">
       <div className="d-flex justify-content-between align-items-center mb-4">
         <h3 className="title mb-0">Offers</h3>
         <Link to="/admin/add-offer" className="btn btn-success">+ Add Offer</Link>

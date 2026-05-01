@@ -269,7 +269,7 @@ const ReferralDetails = () => {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 p-4 sm:p-6 lg:p-8">
+    <div className="min-h-screen bg-slate-50 p-2 sm:p-4 lg:p-8">
       {/* ── Header ── */}
       <div className="bg-white rounded-[32px] shadow-md mb-6 p-5 sm:p-6 lg:p-7">
         <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">

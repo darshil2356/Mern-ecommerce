@@ -462,7 +462,7 @@ const Addproduct = () => {
   };
 
   return (
-    <div className="add-product-page" style={{ backgroundColor: "#f5f5f5", minHeight: "100vh", padding: "24px" }}>
+    <div className="add-product-page" style={{ backgroundColor: "#f5f5f5", minHeight: "100vh", padding: "clamp(8px, 2vw, 24px)" }}>
       {/* Header Section */}
       <Card
         style={{

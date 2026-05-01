@@ -72,7 +72,7 @@ const Addbrand = () => {
   });
 
   return (
-    <div>
+    <div className="p-2 sm:p-4">
       <h3 className="mb-4 title">
         {getBrandId !== undefined ? "Edit" : "Add"} Brand
       </h3>

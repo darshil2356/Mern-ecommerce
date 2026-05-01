@@ -149,7 +149,7 @@ const SpinManagement = () => {
   );
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4 md:p-6 lg:p-8">
+    <div className="min-h-screen bg-gray-50 p-2 sm:p-4 md:p-6 lg:p-8">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="mb-8">
@@ -320,7 +320,7 @@ const SpinManagement = () => {
           onCancel={() => setSegmentModal({ open: false, editing: null })}
           okText="Save Segment"
           cancelText="Cancel"
-          width={600}
+          width="min(600px, 95vw)"
           okButtonProps={{ className: "bg-indigo-600 hover:bg-indigo-700" }}
         >
           <Form form={segForm} layout="vertical" className="mt-4">

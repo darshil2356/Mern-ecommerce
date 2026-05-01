@@ -627,6 +627,18 @@ function UdharStyles() {
         to   { opacity: 1; transform: scale(1) translateY(0); }
       }
 
+      @media (max-width: 700px) {
+        .ud-wrapper { padding: 8px 8px 20px; }
+        .ud-summary-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+        .ud-filters { flex-direction: column; gap: 8px; }
+        .ud-filters .ud-input { width: 100% !important; min-width: unset !important; }
+        .ud-tabs { flex-wrap: wrap; gap: 6px; }
+        .ud-tab { padding: 6px 12px; font-size: 13px; }
+        .ud-form-grid { grid-template-columns: 1fr; }
+        .ud-span2 { grid-column: span 1; }
+        .ud-header { flex-direction: column; align-items: flex-start; gap: 12px; }
+      }
+
       @media (max-width: 600px) {
         .ud-cards-grid { grid-template-columns: 1fr; }
         .ud-span2 { grid-column: span 1; }

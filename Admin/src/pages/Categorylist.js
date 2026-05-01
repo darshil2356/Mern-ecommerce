@@ -279,7 +279,7 @@ const Categorylist = () => {
     .map((c) => ({ label: c.title, value: c._id }));
 
   return (
-    <div style={{ minHeight: "100vh", background: "linear-gradient(135deg, #f8f7ff 0%, #f0fdf9 100%)", padding: 24 }}>
+    <div style={{ minHeight: "100vh", background: "linear-gradient(135deg, #f8f7ff 0%, #f0fdf9 100%)", padding: "clamp(8px, 2vw, 24px)" }}>
 
       {/* Header */}
       <div style={{
@@ -451,7 +451,7 @@ const Categorylist = () => {
             {editNode ? "Save Changes" : "Add Category"}
           </Button>,
         ]}
-        width={420}
+        width="min(420px, 95vw)"
       >
         <div style={{ paddingTop: 8 }}>
           <div style={{ marginBottom: 18 }}>

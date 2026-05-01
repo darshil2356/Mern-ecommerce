@@ -1422,7 +1422,7 @@ const Reports = () => {
   ];
 
   return (
-    <div className="reports-page">
+    <div className="reports-page p-2 sm:p-4 lg:p-6">
       <div className="flex justify-between items-center mb-6">
         <div>
           <h3 className="title" style={{ margin: 0, cursor: "default", userSelect: "none", display: "inline-flex", alignItems: "center", gap: 8 }} onClick={handleTitleClick}>

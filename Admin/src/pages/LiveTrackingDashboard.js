@@ -180,6 +180,7 @@ const LiveTrackingDashboard = () => {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5 }}
+      className="p-2 sm:p-4 lg:p-6"
     >
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
         <Title level={2} style={{ margin: 0 }}>Live User Tracking Dashboard</Title>
@@ -356,7 +357,7 @@ const LiveTrackingDashboard = () => {
         title={selectedUser ? `Activity: ${selectedUser.userId ? `${selectedUser.userId.firstname} ${selectedUser.userId.lastname}` : `Guest ${selectedUser.guestId.slice(-6)}`}` : 'User Activity'}
         open={!!selectedUser}
         onCancel={() => setSelectedUser(null)}
-        width={800}
+        width="min(800px, 95vw)"
         footer={null}
       >
         <List

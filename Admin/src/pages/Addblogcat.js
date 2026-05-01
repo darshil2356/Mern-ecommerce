@@ -68,7 +68,7 @@ const Addblogcat = () => {
     },
   });
   return (
-    <div>
+    <div className="p-2 sm:p-4">
       <h3 className="mb-4  title">
         {getBlogCatId !== undefined ? "Edit" : "Add"} Blog Category
       </h3>

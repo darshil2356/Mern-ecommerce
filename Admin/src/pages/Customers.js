@@ -188,7 +188,7 @@ const Customers = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-gray-50/80">
+    <div className="min-h-screen bg-gray-50/80 p-2 sm:p-4 lg:p-6">
       <AdminPageHeader
         title="Customers"
         description="Manage and track your customer base"
@@ -266,7 +266,7 @@ const Customers = () => {
         open={open}
         onCancel={handleCancel}
         footer={null}
-        width={520}
+        width="min(520px, 95vw)"
         className="customer-modal"
         centered
       >

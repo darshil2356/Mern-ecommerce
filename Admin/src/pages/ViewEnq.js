@@ -32,7 +32,7 @@ const ViewEnq = () => {
     }, 100);
   };
   return (
-    <div>
+    <div className="p-2 sm:p-4">
       <div className="d-flex justify-content-between align-items-center">
         <h3 className="mb-4 title">View Enquiry</h3>
         <button

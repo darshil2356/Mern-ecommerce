@@ -209,7 +209,7 @@ const AddBundle = () => {
     }));
 
   return (
-    <div>
+    <div className="p-2 sm:p-4">
       <h3 className="mb-4 title">
         {getBundleId !== undefined ? "Edit" : "Add"} Bundle
       </h3>

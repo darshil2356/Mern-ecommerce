@@ -144,7 +144,7 @@ const Addblog = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-6">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-3 sm:p-4 lg:p-6">
       {/* Header */}
       <div className="bg-gradient-to-r from-cyan-600 to-cyan-700 rounded-2xl p-6 mb-6 shadow-lg">
         <div className="flex items-center justify-between flex-wrap gap-4">

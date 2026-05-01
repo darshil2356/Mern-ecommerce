@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo, useRef } from "react";
-import { Table, Button, Select, Tag, message, Space, Tooltip, Input, DatePicker, Badge, Avatar, Modal, Dropdown } from "antd";
+import { Table, Button, Select, Tag, message, Space, Tooltip, Input, DatePicker, Badge, Avatar, Modal, Dropdown, Pagination } from "antd";
 import {
   FilterOutlined, EyeOutlined, PrinterOutlined, RocketOutlined,
   SearchOutlined, ShoppingOutlined, CarOutlined, CheckCircleOutlined,
@@ -18,6 +18,17 @@ import axios from "axios";
 const { RangePicker } = DatePicker;
 const { Option } = Select;
 
+/* ─── Mobile hook ─────────────────────────────────────────── */
+const useIsMobile = () => {
+  const [mobile, setMobile] = useState(() => window.innerWidth < 768);
+  useEffect(() => {
+    const handler = () => setMobile(window.innerWidth < 768);
+    window.addEventListener("resize", handler);
+    return () => window.removeEventListener("resize", handler);
+  }, []);
+  return mobile;
+};
+
 const STATUS_CONFIG = {
   All:              { icon: <ShoppingOutlined />, color: "#64748b", bg: "#f1f5f9", border: "#cbd5e1", gradient: "linear-gradient(135deg,#64748b,#94a3b8)" },
   Ordered:          { icon: <ClockCircleOutlined />, color: "#d97706", bg: "#fffbeb", border: "#fbbf24", gradient: "linear-gradient(135deg,#f59e0b,#fbbf24)" },
@@ -30,6 +41,99 @@ const STATUS_CONFIG = {
 };
 
 const LOCKED_STATUSES = ["Shipped", "Out for Delivery", "Delivered"];
+
+/* ─── Mobile Order Card ────────────────────────────────────── */
+const OrderMobileCard = ({ r, updateOrderStatus, printOrderBill, STATUS_CONFIG }) => {
+  const cfg = STATUS_CONFIG[r.status] || STATUS_CONFIG.All;
+  return (
+    <div style={{
+      background: "#fff", borderRadius: 14, border: "1px solid #f0f0f0",
+      marginBottom: 10, overflow: "hidden", boxShadow: "0 1px 6px rgba(0,0,0,0.07)",
+    }}>
+      <div style={{ padding: "12px 14px", background: "#fafafa", borderBottom: "1px solid #f0f0f0", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div>
+          <div style={{ fontWeight: 700, fontSize: 14, color: "#0f172a" }}>#{r.orderId.slice(-8).toUpperCase()}</div>
+          <div style={{ fontSize: 12, color: "#64748b", marginTop: 2 }}>📅 {r.date}</div>
+        </div>
+        <div style={{ display: "inline-flex", alignItems: "center", gap: 5, background: cfg.bg, color: cfg.color, border: `1.5px solid ${cfg.border}`, borderRadius: 20, padding: "4px 10px", fontWeight: 700, fontSize: 11 }}>
+          {cfg.icon} {r.status}
+        </div>
+      </div>
+      <div style={{ padding: "10px 14px" }}>
+        {[
+          { label: "Customer", value: `${r.name} · ${r.items} item${r.items !== 1 ? "s" : ""}` },
+          { label: "Amount", value: <span style={{ fontWeight: 800, color: "#059669" }}>₹{r.finalAmount?.toFixed(2)}{r.amount !== r.finalAmount && <span style={{ fontSize: 11, color: "#f87171", textDecoration: "line-through", marginLeft: 6 }}>₹{r.amount?.toFixed(2)}</span>}</span> },
+          { label: "Payment", value: <Tag color={r.payment === "Cash" ? "warning" : r.payment === "Online-Other" ? "purple" : "processing"} style={{ borderRadius: 12, fontWeight: 700, fontSize: 11 }}>{r.payment}</Tag> },
+          r.trackingId !== "—" ? { label: "Tracking", value: r.trackingUrl ? <a href={r.trackingUrl} target="_blank" rel="noopener noreferrer" style={{ color: "#6366f1", fontWeight: 600, fontSize: 12 }}>🔗 {r.trackingId}</a> : <span style={{ fontSize: 12, fontFamily: "monospace" }}>{r.trackingId}</span> } : null,
+        ].filter(Boolean).map((row, i, arr) => (
+          <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "5px 0", borderBottom: i < arr.length - 1 ? "1px solid #f9f9f9" : "none" }}>
+            <span style={{ fontSize: 11, color: "#9ca3af", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.3px", minWidth: 70 }}>{row.label}</span>
+            <span style={{ fontSize: 13, color: "#374151", textAlign: "right" }}>{row.value}</span>
+          </div>
+        ))}
+        {!r.isLocked && r.status !== "Cancelled" && (
+          <div style={{ marginTop: 10 }}>
+            <Select value={r.status} onChange={(v) => updateOrderStatus(r.orderId, v)} style={{ width: "100%" }} size="small">
+              {["Ordered", "Processing", "Packed"].map(s => (
+                <Option key={s} value={s}><span style={{ color: STATUS_CONFIG[s]?.color }}>{STATUS_CONFIG[s]?.icon} {s}</span></Option>
+              ))}
+              <Option value="Cancelled"><span style={{ color: "#dc2626" }}><CloseCircleOutlined /> Cancelled</span></Option>
+            </Select>
+          </div>
+        )}
+        <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+          <Link to={`/admin/order/${r.orderId}`} style={{ flex: 1 }}>
+            <Button block size="small" icon={<EyeOutlined />} style={{ borderRadius: 8, border: "2px solid #6366f1", color: "#6366f1", fontWeight: 600 }}>View</Button>
+          </Link>
+          <Button block size="small" icon={<PrinterOutlined />} onClick={() => printOrderBill(r.orderId)} style={{ flex: 1, borderRadius: 8, border: "2px solid #10b981", color: "#10b981", fontWeight: 600 }}>Print</Button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+/* ─── Table or Cards switcher ──────────────────────────────── */
+const OrderTableOrCards = ({ filteredData, columns, selectedRowKeys, setSelectedRowKeys, updateOrderStatus, printOrderBill, STATUS_CONFIG }) => {
+  const isMobile = useIsMobile();
+  const [page, setPage] = useState(1);
+  const pageSize = 20;
+
+  if (!isMobile) {
+    return (
+      <div style={{ background: "#fff", borderRadius: 14, boxShadow: "0 1px 6px rgba(0,0,0,0.07)", overflow: "hidden" }}>
+        <Table
+          columns={columns}
+          dataSource={filteredData}
+          rowSelection={{ selectedRowKeys, onChange: setSelectedRowKeys, getCheckboxProps: (r) => ({ disabled: r.isLocked || r.rawOrder?.shipmentId }) }}
+          pagination={{ pageSize, showSizeChanger: true, showQuickJumper: true, showTotal: (t, range) => `${range[0]}-${range[1]} of ${t} orders` }}
+          scroll={{ x: 1200 }}
+          size="middle"
+          rowClassName={() => "order-row"}
+        />
+      </div>
+    );
+  }
+
+  const total = filteredData.length;
+  const start = (page - 1) * pageSize;
+  const pageData = filteredData.slice(start, start + pageSize);
+
+  return (
+    <div>
+      {pageData.map((r) => (
+        <OrderMobileCard key={r.key} r={r} updateOrderStatus={updateOrderStatus} printOrderBill={printOrderBill} STATUS_CONFIG={STATUS_CONFIG} />
+      ))}
+      {total > pageSize && (
+        <div style={{ display: "flex", justifyContent: "center", marginTop: 12 }}>
+          <Pagination current={page} pageSize={pageSize} total={total} onChange={setPage} size="small" showSizeChanger={false} />
+        </div>
+      )}
+      {total === 0 && (
+        <div style={{ textAlign: "center", padding: 40, background: "#fff", borderRadius: 14, color: "#9ca3af" }}>No orders found</div>
+      )}
+    </div>
+  );
+};
 
 const Orders = () => {
   const dispatch = useDispatch();
@@ -499,7 +603,7 @@ tbody td{padding:14px 14px;font-size:13px;color:#333}
 
       {/* ── Status Tabs ── */}
       <div style={{ background: "#fff", borderRadius: 14, padding: "14px 18px", marginBottom: 12, boxShadow: "0 1px 6px rgba(0,0,0,0.07)" }}>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+        <div className="order-status-tabs" style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
           {Object.entries(STATUS_CONFIG).map(([status, cfg]) => {
             const isActive = activeStatus === status;
             return (
@@ -611,18 +715,17 @@ tbody td{padding:14px 14px;font-size:13px;color:#333}
         )}
       </Modal>
 
-      {/* ── Table ── */}
-      <div style={{ background: "#fff", borderRadius: 14, boxShadow: "0 1px 6px rgba(0,0,0,0.07)", overflow: "hidden" }}>
-        <Table
-          columns={columns}
-          dataSource={filteredData}
-          rowSelection={{ selectedRowKeys, onChange: setSelectedRowKeys, getCheckboxProps: (r) => ({ disabled: r.isLocked || r.rawOrder?.shipmentId }) }}
-          pagination={{ pageSize: 20, showSizeChanger: true, showQuickJumper: true, showTotal: (t, range) => `${range[0]}-${range[1]} of ${t} orders` }}
-          scroll={{ x: 1200 }}
-          size="middle"
-          rowClassName={() => "order-row"}
-        />
-      </div>
+      {/* ── Table (desktop) / Cards (mobile) ── */}
+      <OrderTableOrCards
+        filteredData={filteredData}
+        processedData={processedData}
+        columns={columns}
+        selectedRowKeys={selectedRowKeys}
+        setSelectedRowKeys={setSelectedRowKeys}
+        updateOrderStatus={updateOrderStatus}
+        printOrderBill={printOrderBill}
+        STATUS_CONFIG={STATUS_CONFIG}
+      />
 
       <style>{`
         .order-row:hover td { background: #f5f3ff !important; transition: background 0.15s; }

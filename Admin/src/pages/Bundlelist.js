@@ -1,16 +1,26 @@
 import React, { useEffect, useState } from "react";
-import { Table, Card, Tag, Button, Switch, Popconfirm, message, Tooltip } from "antd";
+import { Table, Tag, Button, Switch, Popconfirm, message, Tooltip, Pagination } from "antd";
 import { Link } from "react-router-dom";
-import { 
-  EditOutlined, 
-  DeleteOutlined, 
-  EyeOutlined, 
+import {
+  EditOutlined,
+  DeleteOutlined,
+  EyeOutlined,
   ShoppingCartOutlined,
-  ExclamationCircleOutlined 
+  ExclamationCircleOutlined
 } from "@ant-design/icons";
 import { useDispatch, useSelector } from "react-redux";
 import { getBundles, deleteBundle, updateBundle } from "../features/bundle/bundleSlice";
 import { getReadableColorName, getColorSwatch } from "../utils/colorDisplay";
+
+const useIsMobile = () => {
+  const [m, setM] = React.useState(() => window.innerWidth < 768);
+  React.useEffect(() => {
+    const h = () => setM(window.innerWidth < 768);
+    window.addEventListener("resize", h);
+    return () => window.removeEventListener("resize", h);
+  }, []);
+  return m;
+};
 
 const BundleList = () => {
   const dispatch = useDispatch();
@@ -206,34 +216,78 @@ const BundleList = () => {
     },
   ];
 
+  const isMobile = useIsMobile();
+  const [mobilePage, setMobilePage] = useState(1);
+  const mobilePageSize = 10;
+
   return (
     <div className="p-2 sm:p-4 lg:p-6">
       <div className="d-flex justify-content-between align-items-center mb-4">
         <h3 className="title">Bundle List</h3>
         <Link to="/admin/add-bundle">
-          <Button type="primary" icon={<ShoppingCartOutlined />}>
-            Add Bundle
-          </Button>
+          <Button type="primary" icon={<ShoppingCartOutlined />}>Add Bundle</Button>
         </Link>
       </div>
 
-      <Card>
-        <Table
-          columns={columns}
-          dataSource={bundles}
-          loading={isLoading}
-          rowKey="_id"
-          pagination={{
-            current: page,
-            pageSize: pageSize,
-            onChange: (page, pageSize) => {
-              setPage(page);
-              setPageSize(pageSize);
-            },
-          }}
-          scroll={{ x: 1000 }}
-        />
-      </Card>
+      {isMobile ? (
+        <div>
+          {(bundles || []).slice((mobilePage - 1) * mobilePageSize, mobilePage * mobilePageSize).map((bundle) => (
+            <div key={bundle._id} style={{ background: "#fff", borderRadius: 12, border: "1px solid #f0f0f0", marginBottom: 10, overflow: "hidden", boxShadow: "0 1px 4px rgba(0,0,0,0.06)" }}>
+              <div style={{ padding: "10px 14px", background: "#fafafa", borderBottom: "1px solid #f0f0f0", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: 14, color: "#111" }}>{bundle.title}</div>
+                  <div style={{ fontSize: 12, color: "#6b7280" }}>{bundle.category}</div>
+                </div>
+                <Tag icon={<ShoppingCartOutlined />} color="blue">{bundle.products?.length || 0} Products</Tag>
+              </div>
+              <div style={{ padding: "8px 14px" }}>
+                {[
+                  { label: "Original", value: `₹${bundle.originalPrice?.toLocaleString() || 0}` },
+                  { label: "Bundle Price", value: <span style={{ fontWeight: 700 }}>₹{bundle.bundlePrice?.toLocaleString() || 0}{bundle.discountPercent > 0 && <Tag color="green" style={{ marginLeft: 6 }}>-{bundle.discountPercent}%</Tag>}</span> },
+                  { label: "Stock", value: <span style={{ color: bundle.stock <= bundle.minStockWarning ? "#ef4444" : "#374151" }}>{bundle.stock}{bundle.stock <= bundle.minStockWarning && " ⚠️ Low"}</span> },
+                  { label: "On Product", value: <Switch checked={bundle.showOnProductPage} onChange={() => handleToggleShowOnProduct(bundle)} checkedChildren="Yes" unCheckedChildren="No" size="small" /> },
+                  { label: "Status", value: <Switch checked={bundle.isActive} onChange={() => handleToggleStatus(bundle)} checkedChildren="Active" unCheckedChildren="Inactive" size="small" /> },
+                ].map((row, i, arr) => (
+                  <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "5px 0", borderBottom: i < arr.length - 1 ? "1px solid #f9f9f9" : "none" }}>
+                    <span style={{ fontSize: 11, color: "#9ca3af", fontWeight: 600, textTransform: "uppercase", minWidth: 80 }}>{row.label}</span>
+                    <span style={{ fontSize: 13, color: "#374151" }}>{row.value}</span>
+                  </div>
+                ))}
+                <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+                  <Link to={`/admin/bundle/${bundle._id}`} style={{ flex: 1 }}>
+                    <Button block size="small" icon={<EditOutlined />} type="primary">Edit</Button>
+                  </Link>
+                  <Popconfirm title="Delete this bundle?" onConfirm={() => handleDelete(bundle._id)} okText="Yes" cancelText="No">
+                    <Button block size="small" icon={<DeleteOutlined />} danger style={{ flex: 1 }}>Delete</Button>
+                  </Popconfirm>
+                </div>
+              </div>
+            </div>
+          ))}
+          {(bundles || []).length > mobilePageSize && (
+            <div style={{ display: "flex", justifyContent: "center", marginTop: 12 }}>
+              <Pagination current={mobilePage} pageSize={mobilePageSize} total={(bundles || []).length} onChange={setMobilePage} size="small" showSizeChanger={false} />
+            </div>
+          )}
+        </div>
+      ) : (
+        <div style={{ background: "#fff", borderRadius: 12, overflow: "hidden", boxShadow: "0 1px 4px rgba(0,0,0,0.06)" }}>
+          <Table
+            columns={columns}
+            dataSource={bundles}
+            loading={isLoading}
+            rowKey="_id"
+            pagination={{
+              current: page,
+              pageSize: pageSize,
+              showSizeChanger: true,
+              showTotal: (t, r) => `${r[0]}-${r[1]} of ${t}`,
+              onChange: (page, pageSize) => { setPage(page); setPageSize(pageSize); },
+            }}
+            scroll={{ x: 1000 }}
+          />
+        </div>
+      )}
     </div>
   );
 };

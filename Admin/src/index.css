@@ -9,6 +9,31 @@ html, body {
   overflow-x: hidden;
 }
 
+/* Allow table containers to scroll horizontally */
+.ant-table-wrapper,
+.ant-table-content,
+.ant-table-body {
+  overflow-x: auto !important;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Ensure table cells don't wrap and break layout */
+.ant-table-thead > tr > th {
+  white-space: nowrap;
+}
+
+/* Mobile table: show scrollbar hint */
+@media (max-width: 768px) {
+  .ant-table-wrapper::after {
+    content: '';
+    display: block;
+  }
+  /* Ensure the main layout area can show table scroll */
+  main {
+    overflow-x: auto !important;
+  }
+}
+
 .trigger {
   padding: 0 24px;
   font-size: 18px;
@@ -47,6 +72,7 @@ html, body {
 main {
   height: 85vh;
   overflow-y: scroll;
+  overflow-x: auto;
   background-color: transparent !important;
 }
 main::-webkit-scrollbar {
@@ -417,5 +443,88 @@ main::-webkit-scrollbar {
   .user-avatar img {
     width: 30px !important;
     height: 30px !important;
+  }
+}
+
+/* ═══════════════════════════════════════════════
+   MOBILE TABLE FIXES — all pages
+═══════════════════════════════════════════════ */
+
+/* Ensure every ant table wrapper scrolls horizontally */
+.ant-table-wrapper {
+  overflow-x: auto !important;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Orders page — status tab row scrollable */
+@media (max-width: 768px) {
+  /* Orders status tabs */
+  .order-status-tabs {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 4px;
+  }
+
+  /* ProductInquiries inline grid rows — make scrollable */
+  [style*="gridTemplateColumns"] {
+    min-width: 560px;
+  }
+
+  /* Categorylist flat table */
+  .category-flat-table {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Rojmel ledger table */
+  .rj-ledger-wrap {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Reviews page table card */
+  .content-wrapper .ant-card {
+    overflow: hidden;
+  }
+
+  /* Reports page header flex — stack buttons */
+  .reports-page .flex.justify-between {
+    flex-direction: column;
+    gap: 12px;
+  }
+  .reports-page .ant-space {
+    flex-wrap: wrap;
+    gap: 6px !important;
+  }
+  .reports-page .ant-space .ant-btn {
+    font-size: 11px;
+    padding: 4px 8px !important;
+  }
+
+  /* Dashboard recent orders table */
+  .dashboard-container .ant-table-wrapper {
+    overflow-x: auto !important;
+  }
+
+  /* Bundlelist & Offerlist table containers */
+  .p-2 .ant-table-wrapper,
+  .p-4 .ant-table-wrapper {
+    overflow-x: auto !important;
+  }
+}
+
+@media (max-width: 480px) {
+  /* Orders page filter bar — stack vertically */
+  .orders-filter-bar {
+    flex-direction: column;
+  }
+
+  /* Stat cards in Orders header — 2 per row */
+  .orders-header-stats > div {
+    min-width: 70px !important;
+    padding: 8px 10px !important;
+  }
+  .orders-header-stats > div > div:first-child {
+    font-size: 16px !important;
   }
 }

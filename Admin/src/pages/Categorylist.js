@@ -397,7 +397,8 @@ const Categorylist = () => {
           )
         ) : (
           /* Flat list view */
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+          <div style={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 500 }}>
             <thead>
               <tr style={{ background: "#f9fafb" }}>
                 {["#", "Category", "Parent", "Level", "Actions"].map((h) => (
@@ -429,6 +430,7 @@ const Categorylist = () => {
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </div>
 

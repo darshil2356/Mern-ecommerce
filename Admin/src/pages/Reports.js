@@ -904,6 +904,7 @@ const Reports = () => {
                   ]}
                   pagination={false}
                   size="small"
+                  scroll={{ x: 500 }}
                 />
               </Card>
 
@@ -919,6 +920,7 @@ const Reports = () => {
                   ]}
                   pagination={false}
                   size="small"
+                  scroll={{ x: 500 }}
                 />
               </Card>
             </>
@@ -1059,6 +1061,7 @@ const Reports = () => {
                   ]}
                   pagination={false}
                   size="small"
+                  scroll={{ x: 500 }}
                 />
               </Card>
             </>
@@ -1327,6 +1330,7 @@ const Reports = () => {
                 ]}
                 pagination={{ pageSize: 20 }}
                 size="small"
+                scroll={{ x: 700 }}
                 summary={(pageData) => {
                   const totalQty = pageData.reduce((sum, p) => sum + p.quantitySold, 0);
                   const totalRev = pageData.reduce((sum, p) => sum + parseFloat(p.totalRevenue), 0);
@@ -1412,6 +1416,7 @@ const Reports = () => {
                   ]}
                   pagination={{ pageSize: 20 }}
                   size="small"
+                  scroll={{ x: 650 }}
                 />
               </Card>
             </>
@@ -1423,7 +1428,7 @@ const Reports = () => {
 
   return (
     <div className="reports-page p-2 sm:p-4 lg:p-6">
-      <div className="flex justify-between items-center mb-6">
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 24, flexWrap: "wrap", gap: 12 }}>
         <div>
           <h3 className="title" style={{ margin: 0, cursor: "default", userSelect: "none", display: "inline-flex", alignItems: "center", gap: 8 }} onClick={handleTitleClick}>
             Reports
@@ -1447,7 +1452,7 @@ const Reports = () => {
             />
           </div>
         )}
-        <Space>
+        <Space style={{ flexWrap: "wrap" }}>
           <Button 
             type="primary" 
             icon={<FilePdfOutlined />}

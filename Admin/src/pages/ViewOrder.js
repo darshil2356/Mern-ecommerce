@@ -315,6 +315,13 @@ const ViewOrder = () => {
   const navigate = useNavigate();
   const [cancelModalOpen, setCancelModalOpen] = useState(false);
   const [cancelReason, setCancelReason] = useState("");
+  const [isMobile, setIsMobile] = useState(typeof window !== "undefined" && window.innerWidth < 768);
+
+  useEffect(() => {
+    const h = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener("resize", h);
+    return () => window.removeEventListener("resize", h);
+  }, []);
 
   const printBill = async () => {
     try {
@@ -1111,7 +1118,131 @@ tbody td{padding:12px 14px;font-size:13px;vertical-align:top}
         </Col>
       </Row>
 
-      {/* Order Items Table */}
+      {/* Order Items — mobile cards / desktop table */}
+      {isMobile ? (
+        <div style={{ marginTop: 16 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+            <div style={{ fontWeight: 700, fontSize: 15, color: "#0f172a", display: "flex", alignItems: "center", gap: 8 }}>
+              <ShopOutlined /> Order Items <Badge count={data1.length} style={{ background: "#6366f1" }} />
+            </div>
+            <Button icon={<PrinterOutlined />} onClick={printBill} size="small" style={{ borderRadius: 8, border: "1.5px solid #6366f1", color: "#6366f1", fontWeight: 600 }}>Print</Button>
+          </div>
+
+          {data1.map((item) => (
+            <div key={item.key} style={{ background: "#fff", borderRadius: 12, border: "1px solid #e2e8f0", marginBottom: 10, overflow: "hidden", boxShadow: "0 1px 6px rgba(0,0,0,0.06)" }}>
+              <div style={{ padding: "10px 12px", display: "flex", gap: 10, alignItems: "flex-start" }}>
+                {item.isBundle ? (
+                  <div style={{ width: 44, height: 44, background: "linear-gradient(135deg,#0f172a,#334155)", borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                    <ShopOutlined style={{ fontSize: 18, color: "#fff" }} />
+                  </div>
+                ) : item.image ? (
+                  <img src={item.image} alt={item.product} style={{ width: 44, height: 44, objectFit: "cover", borderRadius: 8, flexShrink: 0 }} />
+                ) : (
+                  <div style={{ width: 44, height: 44, background: "#f5f5f5", borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                    <ShopOutlined style={{ fontSize: 18, color: "#ccc" }} />
+                  </div>
+                )}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginBottom: 2 }}>
+                    {item.isBundle && <span style={{ background: "#0f172a", color: "#fff", fontSize: 9, fontWeight: 700, padding: "1px 6px", borderRadius: 999 }}>BUNDLE</span>}
+                    {item.isFreeItem && <span style={{ background: "#dcfce7", color: "#15803d", fontSize: 9, fontWeight: 700, padding: "1px 6px", borderRadius: 999 }}>🎁 FREE</span>}
+                    {item.offerLabel && !item.isFreeItem && <span style={{ background: "#fff7ed", color: "#c2410c", fontSize: 9, fontWeight: 700, padding: "1px 6px", borderRadius: 999, border: "1px dashed #fb923c" }}>🏷️ {item.offerLabel}</span>}
+                  </div>
+                  <div style={{ fontWeight: 700, fontSize: 13, color: "#0f172a", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.product}</div>
+                  {!item.isBundle && <div style={{ fontSize: 11, color: "#94a3b8" }}>{item.brand}</div>}
+                  <div style={{ display: "flex", gap: 6, marginTop: 4, flexWrap: "wrap" }}>
+                    {item.color && (
+                      <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11, color: "#475569" }}>
+                        <span style={{ width: 10, height: 10, borderRadius: "50%", background: getColorSwatch(item.color), border: "1px solid #e2e8f0" }} />
+                        {getReadableColorName(item.color)}
+                      </span>
+                    )}
+                    {item.size && <span style={{ background: "#f0f0ff", color: "#4338ca", fontSize: 11, fontWeight: 700, padding: "1px 8px", borderRadius: 6, border: "1px solid #c7d2fe" }}>Size: {item.size}</span>}
+                  </div>
+                </div>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 12px", background: "#f8fafc", borderTop: "1px solid #f1f5f9" }}>
+                <span style={{ fontSize: 12, color: "#64748b" }}>Qty: <strong>{item.count}</strong></span>
+                <span style={{ fontSize: 12, color: "#64748b" }}>
+                  {item.isFreeItem ? "FREE" : `₹${item.amount?.toFixed(2)}`}
+                  {item.originalPrice && item.originalPrice > item.amount && !item.isFreeItem && (
+                    <span style={{ color: "#aaa", textDecoration: "line-through", fontSize: 11, marginLeft: 4 }}>₹{item.originalPrice?.toFixed(2)}</span>
+                  )}
+                </span>
+                <span style={{ fontWeight: 700, fontSize: 14, color: item.isFreeItem ? "#16a34a" : "#0f172a" }}>
+                  {item.isFreeItem ? "FREE" : `₹${item.total?.toFixed(2)}`}
+                </span>
+              </div>
+            </div>
+          ))}
+
+          {/* Summary card */}
+          <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #e2e8f0", overflow: "hidden", marginTop: 4, boxShadow: "0 1px 6px rgba(0,0,0,0.06)" }}>
+            <div style={{ padding: "10px 14px", borderBottom: "1px solid #f1f5f9", display: "flex", justifyContent: "space-between" }}>
+              <span style={{ fontSize: 13 }}>Subtotal</span>
+              <span style={{ fontWeight: 600 }}>₹{subtotal.toFixed(2)}</span>
+            </div>
+            {!isOffline && (
+              <div style={{ padding: "10px 14px", borderBottom: "1px solid #f1f5f9", display: "flex", justifyContent: "space-between" }}>
+                <span style={{ fontSize: 13 }}>🚚 Shipping</span>
+                <span style={{ color: shippingCost === 0 ? "#16a34a" : "#6b7280", fontWeight: 600 }}>{shippingCost === 0 ? "Free" : `₹${shippingCost.toFixed(2)}`}</span>
+              </div>
+            )}
+            {directDiscount > 0 && (
+              <div style={{ padding: "10px 14px", borderBottom: "1px solid #f1f5f9", display: "flex", justifyContent: "space-between" }}>
+                <span style={{ fontSize: 13 }}>🏷️ Direct Discount</span>
+                <span style={{ color: "#52c41a", fontWeight: 600 }}>-₹{directDiscount.toFixed(2)}</span>
+              </div>
+            )}
+            {offerDiscount > 0 && (
+              <div style={{ padding: "10px 14px", borderBottom: "1px solid #f1f5f9", display: "flex", justifyContent: "space-between" }}>
+                <span style={{ fontSize: 13 }}>🎁 Offer Discount</span>
+                <span style={{ color: "#fa8c16", fontWeight: 600 }}>-₹{offerDiscount.toFixed(2)}</span>
+              </div>
+            )}
+            {couponDiscount > 0 && (
+              <div style={{ padding: "10px 14px", borderBottom: "1px solid #f1f5f9", display: "flex", justifyContent: "space-between" }}>
+                <span style={{ fontSize: 13 }}>🏷️ Coupon{couponCode ? ` (${couponCode})` : ""}</span>
+                <span style={{ color: "#be185d", fontWeight: 600 }}>-₹{couponDiscount.toFixed(2)}</span>
+              </div>
+            )}
+            {coinDiscount > 0 && (
+              <div style={{ padding: "10px 14px", borderBottom: "1px solid #f1f5f9", display: "flex", justifyContent: "space-between" }}>
+                <span style={{ fontSize: 13 }}>🪙 Coins ({orderState?.coinsUsed || coinDiscount})</span>
+                <span style={{ color: "#722ed1", fontWeight: 600 }}>-₹{coinDiscount.toFixed(2)}</span>
+              </div>
+            )}
+            {hasGST && !taxIncluded && gstType === "CGST_SGST" && cgst > 0 && (
+              <div style={{ padding: "10px 14px", borderBottom: "1px solid #f1f5f9", display: "flex", justifyContent: "space-between" }}>
+                <span style={{ fontSize: 13 }}>🏛️ CGST ({cgstRate}%)</span>
+                <span style={{ color: "#ea580c", fontWeight: 600 }}>+₹{cgst.toFixed(2)}</span>
+              </div>
+            )}
+            {hasGST && !taxIncluded && gstType === "CGST_SGST" && sgst > 0 && (
+              <div style={{ padding: "10px 14px", borderBottom: "1px solid #f1f5f9", display: "flex", justifyContent: "space-between" }}>
+                <span style={{ fontSize: 13 }}>🏛️ SGST ({sgstRate}%)</span>
+                <span style={{ color: "#ea580c", fontWeight: 600 }}>+₹{sgst.toFixed(2)}</span>
+              </div>
+            )}
+            {hasGST && !taxIncluded && gstType === "IGST" && igst > 0 && (
+              <div style={{ padding: "10px 14px", borderBottom: "1px solid #f1f5f9", display: "flex", justifyContent: "space-between" }}>
+                <span style={{ fontSize: 13 }}>🌐 IGST ({igstRate}%)</span>
+                <span style={{ color: "#ea580c", fontWeight: 600 }}>+₹{igst.toFixed(2)}</span>
+              </div>
+            )}
+            {hasGST && taxIncluded && (
+              <div style={{ padding: "10px 14px", borderBottom: "1px solid #f1f5f9", display: "flex", justifyContent: "space-between" }}>
+                <span style={{ fontSize: 13 }}>✅ GST (included in price)</span>
+                <span style={{ color: "#16a34a", fontWeight: 600 }}>₹{gstTotal.toFixed(2)}</span>
+              </div>
+            )}
+            <div style={{ padding: "14px", background: "linear-gradient(135deg,#eff6ff,#dbeafe)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <span style={{ fontWeight: 800, fontSize: 16, color: "#1d4ed8" }}>🏆 Total</span>
+              <span style={{ fontWeight: 800, fontSize: 18, color: "#1d4ed8" }}>₹{finalTotal.toFixed(2)}</span>
+            </div>
+          </div>
+        </div>
+      ) : (
       <Card
         title={
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -1457,6 +1588,7 @@ tbody td{padding:12px 14px;font-size:13px;vertical-align:top}
           )}
         />
       </Card>
+      )}
     </div>
   );
 };

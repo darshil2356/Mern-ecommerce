@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Card, Row, Col, Table, Tag, Select, Typography, Statistic, Tooltip, Button, message } from 'antd';
+import AdminDataTable from '../components/AdminDataTable';
 import { ShoppingCartOutlined, CreditCardOutlined, UserOutlined, ReloadOutlined } from '@ant-design/icons';
 import { motion } from 'framer-motion';
 import axios from '../utils/axiosconfig';
@@ -287,14 +288,12 @@ const DropoffReports = () => {
         }
         extra={<Text type="secondary">Added to cart → never went to checkout</Text>}
       >
-        <Table
+        <AdminDataTable
           rowKey="sessionId"
           loading={cartLoading}
           dataSource={cartDropoffs}
           columns={cartColumns}
-          pagination={{ pageSize: 10, showTotal: (t) => `${t} users` }}
-          scroll={{ x: 800 }}
-          locale={{ emptyText: 'No cart drop-offs in this period' }}
+          paginationOptions={{ pageSize: 10 }}
         />
       </Card>
 
@@ -309,14 +308,12 @@ const DropoffReports = () => {
         }
         extra={<Text type="secondary">Started checkout → never paid</Text>}
       >
-        <Table
+        <AdminDataTable
           rowKey="sessionId"
           loading={checkoutLoading}
           dataSource={checkoutDropoffs}
           columns={checkoutColumns}
-          pagination={{ pageSize: 10, showTotal: (t) => `${t} users` }}
-          scroll={{ x: 800 }}
-          locale={{ emptyText: 'No checkout drop-offs in this period' }}
+          paginationOptions={{ pageSize: 10 }}
         />
       </Card>
     </motion.div>

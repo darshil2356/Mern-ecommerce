@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Card, Row, Col, Button, Modal, Form, Input, Select, Table, Tag, Space, message, Switch, Popconfirm } from 'antd';
+import AdminDataTable from '../components/AdminDataTable';
 import { PlusOutlined, EditOutlined, DeleteOutlined, SendOutlined, MailOutlined, MessageOutlined, PhoneOutlined } from '@ant-design/icons';
 import { motion } from 'framer-motion';
 import axios from 'axios';
@@ -283,11 +284,10 @@ const FollowUpAutomation = () => {
               </Button>
             }
           >
-            <Table
+            <AdminDataTable
               columns={automationColumns}
               dataSource={automations}
               rowKey="_id"
-              pagination={false}
             />
           </Card>
         </Col>
@@ -345,11 +345,11 @@ const FollowUpAutomation = () => {
 
       {/* Recent Notifications */}
       <Card title="Recent Notifications" style={{ marginTop: 24 }}>
-        <Table
+        <AdminDataTable
           columns={notificationColumns}
           dataSource={notifications}
           rowKey="_id"
-          pagination={{ pageSize: 10 }}
+          paginationOptions={{ pageSize: 10 }}
         />
       </Card>
 

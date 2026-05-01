@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Table, Tag, Card, Input, Select, Row, Col, Statistic, Spin, Button, Modal, message } from "antd";
+import { Table, Tag, Card, Input, Select, Row, Col, Statistic, Spin, Button, Modal, message, Pagination } from "antd";
 import { AiFillDelete, AiOutlineSearch, AiFillStar, AiOutlineUser } from "react-icons/ai";
 import ReactStars from "react-rating-stars-component";
 import axios from "axios";
@@ -16,6 +16,15 @@ const Reviews = () => {
   const [open, setOpen] = useState(false);
   const [deleteId, setDeleteId] = useState(null);
   const [productId, setProductId] = useState(null);
+  const [isMobile, setIsMobile] = useState(typeof window !== "undefined" && window.innerWidth < 768);
+  const [mobilePage, setMobilePage] = useState(1);
+  const mobilePageSize = 10;
+
+  useEffect(() => {
+    const h = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener("resize", h);
+    return () => window.removeEventListener("resize", h);
+  }, []);
 
   const getTokenFromLocalStorage = localStorage.getItem("user")
     ? JSON.parse(localStorage.getItem("user"))
@@ -78,6 +87,8 @@ const Reviews = () => {
     
     return matchesSearch && matchesStar;
   });
+
+  useEffect(() => { setMobilePage(1); }, [searchTerm, filterStar, reviews.length]);
 
   // Calculate stats
   const totalReviews = reviews.length;
@@ -339,24 +350,62 @@ const Reviews = () => {
         </Row>
       </Card>
 
-      {/* Reviews Table */}
-      <Card style={{ borderRadius: '12px' }}>
-        {loading ? (
-          <div className="text-center py-5">
-            <Spin size="large" />
-          </div>
-        ) : (
+      {/* Reviews Table / Mobile Cards */}
+      {loading ? (
+        <div className="text-center py-5"><Spin size="large" /></div>
+      ) : isMobile ? (
+        <div>
+          {filteredReviews.length === 0 ? (
+            <div style={{ background: "#fff", borderRadius: 14, padding: 32, textAlign: "center", color: "#94a3b8" }}>No reviews found</div>
+          ) : (
+            <>
+              {filteredReviews.slice((mobilePage - 1) * mobilePageSize, mobilePage * mobilePageSize).map((review, i) => (
+                <div key={review._id || i} style={{ background: "#fff", borderRadius: 14, border: "1px solid #e2e8f0", marginBottom: 10, overflow: "hidden", boxShadow: "0 2px 8px rgba(0,0,0,0.06)" }}>
+                  <div style={{ padding: "12px 14px", borderBottom: "1px solid #f1f5f9", display: "flex", gap: 10, alignItems: "flex-start" }}>
+                    <div style={{ width: 36, height: 36, borderRadius: "50%", background: "linear-gradient(135deg,#667eea,#764ba2)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 700, fontSize: 14, flexShrink: 0 }}>
+                      {(review.user?.firstname || "U").charAt(0).toUpperCase()}
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontWeight: 700, fontSize: 13, color: "#1e293b" }}>{review.user?.firstname} {review.user?.lastname}</div>
+                      <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{review.product?.title}</div>
+                    </div>
+                    <span style={{ color: "#faad14", fontWeight: 800, fontSize: 15, flexShrink: 0 }}>★ {review.star}</span>
+                  </div>
+                  {review.comment && (
+                    <div style={{ padding: "10px 14px", borderBottom: "1px solid #f1f5f9", fontSize: 13, color: "#374151", lineHeight: 1.6 }}>
+                      {review.comment.length > 120 ? `${review.comment.slice(0, 120)}…` : review.comment}
+                    </div>
+                  )}
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 14px", background: "#f8fafc" }}>
+                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                      <Tag color={review.isVerifiedPurchase ? "green" : "default"} style={{ borderRadius: 8, fontSize: 11 }}>
+                        {review.isVerifiedPurchase ? "Verified" : "Unverified"}
+                      </Tag>
+                      {review.images?.length > 0 && <Tag color="blue" style={{ borderRadius: 8, fontSize: 11 }}>{review.images.length} img</Tag>}
+                      <span style={{ fontSize: 11, color: "#94a3b8" }}>{new Date(review.createdAt).toLocaleDateString()}</span>
+                    </div>
+                    <Button type="text" danger icon={<AiFillDelete />} size="small" onClick={() => { setDeleteId(review._id); setProductId(review.product?._id); setOpen(true); }} />
+                  </div>
+                </div>
+              ))}
+              {filteredReviews.length > mobilePageSize && (
+                <div style={{ display: "flex", justifyContent: "center", marginTop: 12 }}>
+                  <Pagination current={mobilePage} pageSize={mobilePageSize} total={filteredReviews.length} onChange={setMobilePage} size="small" showSizeChanger={false} />
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      ) : (
+        <Card style={{ borderRadius: '12px' }}>
           <Table
             columns={columns}
-            dataSource={filteredReviews.map((review, index) => ({
-              ...review,
-              key: index + 1,
-            }))}
+            dataSource={filteredReviews.map((review, index) => ({ ...review, key: index + 1 }))}
             pagination={{ pageSize: 10 }}
             scroll={{ x: 1200 }}
           />
-        )}
-      </Card>
+        </Card>
+      )}
 
       {/* Delete Modal */}
       <CustomModal

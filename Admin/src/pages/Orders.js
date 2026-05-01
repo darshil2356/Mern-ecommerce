@@ -98,6 +98,9 @@ const OrderTableOrCards = ({ filteredData, columns, selectedRowKeys, setSelected
   const [page, setPage] = useState(1);
   const pageSize = 20;
 
+  // Reset to page 1 when filters change the result count
+  useEffect(() => { setPage(1); }, [filteredData?.length]);
+
   if (!isMobile) {
     return (
       <div style={{ background: "#fff", borderRadius: 14, boxShadow: "0 1px 6px rgba(0,0,0,0.07)", overflow: "hidden" }}>

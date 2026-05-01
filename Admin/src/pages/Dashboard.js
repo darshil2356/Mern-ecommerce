@@ -7,6 +7,7 @@ import {
 } from "react-icons/bs";
 import { Column, Pie, Bar } from "@ant-design/plots";
 import { Table, Card, Tag, DatePicker, Select, Row, Col, Avatar, Spin, Button, Empty, Tooltip } from "antd";
+import AdminDataTable from "../components/AdminDataTable";
 import { useDispatch, useSelector } from "react-redux";
 import { getMonthlyData, getOrders, getYearlyData, getDailySalesData, getDashboardStatsData } from "../features/auth/authSlice";
 import dayjs from "dayjs";
@@ -765,12 +766,11 @@ const Dashboard = () => {
             style={{ borderRadius: "20px", border: "none", boxShadow: "0 8px 24px rgba(0,0,0,0.08)" }}
             bodyStyle={{ padding: "0" }}
           >
-            <Table
+            <AdminDataTable
               columns={columns}
               dataSource={orderData}
-              pagination={{ pageSize: 5 }}
-              size="small"
-              scroll={{ x: 800 }}
+              paginationOptions={{ pageSize: 5 }}
+              loading={isLoading}
             />
           </Card>
         </Col>

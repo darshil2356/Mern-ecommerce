@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Table, Pagination } from "antd";
 
 /* ─── helpers ─────────────────────────────────────────────── */
@@ -18,6 +18,9 @@ const MobileCardList = ({ columns, dataSource, rowKey, paginationOptions }) => {
   const [page, setPage] = useState(1);
 
   const total = dataSource?.length || 0;
+
+  // Reset to page 1 whenever the dataset size changes (filter / delete / search)
+  useEffect(() => { setPage(1); }, [total]);
   const start = (page - 1) * pageSize;
   const pageData = (dataSource || []).slice(start, start + pageSize);
 

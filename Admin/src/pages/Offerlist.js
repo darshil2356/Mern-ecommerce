@@ -45,6 +45,8 @@ const Offerlist = () => {
 
   const offers = useSelector((s) => s.offer.offers);
 
+  useEffect(() => { setMobilePage(1); }, [offers?.length]);
+
   const handleDelete = () => {
     dispatch(deleteAnOffer(offerId));
     setOpen(false);

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Card, Row, Col, Select, DatePicker, Table, Tag, Space, Avatar, Typography } from 'antd';
+import AdminDataTable from '../components/AdminDataTable';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell, BarChart, Bar } from 'recharts';
 import { motion } from 'framer-motion';
 import axios from '../utils/axiosconfig';
@@ -313,26 +314,22 @@ const TrackingAnalytics = () => {
       <Row gutter={[16, 16]}>
         <Col xs={24} lg={12}>
           <Card title="Recent Events">
-            <Table
+            <AdminDataTable
               columns={eventColumns}
               dataSource={events.slice(0, 20)}
               rowKey="_id"
-              size="small"
-              pagination={{ pageSize: 10 }}
-              scroll={{ x: 800 }}
+              paginationOptions={{ pageSize: 10 }}
             />
           </Card>
         </Col>
 
         <Col xs={24} lg={12}>
           <Card title="Active Sessions">
-            <Table
+            <AdminDataTable
               columns={sessionColumns}
               dataSource={sessions}
               rowKey="_id"
-              size="small"
-              pagination={{ pageSize: 10 }}
-              scroll={{ x: 800 }}
+              paginationOptions={{ pageSize: 10 }}
             />
           </Card>
         </Col>

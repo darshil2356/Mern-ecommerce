@@ -34,6 +34,8 @@ const BundleList = () => {
   const bundleState = useSelector((state) => state.bundle);
   const { bundles, isLoading, isError, isSuccess } = bundleState;
 
+  useEffect(() => { setMobilePage(1); }, [bundles?.length]);
+
   const handleDelete = async (id) => {
     try {
       await dispatch(deleteBundle(id)).unwrap();

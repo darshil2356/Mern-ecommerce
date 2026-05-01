@@ -3,6 +3,7 @@ import {
   Card, Switch, InputNumber, Button, Table, Modal, Form,
   Input, Select, message, Popconfirm, Tag, DatePicker, Spin, Row, Col, Divider, Space
 } from "antd";
+import AdminDataTable from "../components/AdminDataTable";
 import { FaPlus, FaEdit, FaTrash, FaMagic, FaSave, FaCog, FaChartPie, FaToggleOn, FaToggleOff } from "react-icons/fa";
 import axios from "axios";
 import { base_url } from "../utils/baseUrl";
@@ -296,14 +297,12 @@ const SpinManagement = () => {
             </Button>
           }
         >
-          <Table
+          <AdminDataTable
             dataSource={spinConfig?.segments || []}
             columns={columns}
             rowKey="_id"
-            pagination={{ pageSize: 10, showSizeChanger: true, showQuickJumper: true }}
-            size="middle"
-            scroll={{ x: 600 }}
-            className="border rounded-lg"
+            loading={loading}
+            paginationOptions={{ pageSize: 10, showSizeChanger: true, showQuickJumper: true }}
           />
         </Card>
 

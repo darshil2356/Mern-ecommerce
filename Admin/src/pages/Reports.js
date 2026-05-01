@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
-import { 
-  Card, Row, Col, Select, DatePicker, Table, Button, Tabs, 
-  Statistic, Tag, Space, message, Spin, Empty 
+import {
+  Card, Row, Col, Select, DatePicker, Table, Button, Tabs,
+  Statistic, Tag, Space, message, Spin, Empty
 } from "antd";
+import AdminDataTable from "../components/AdminDataTable";
 import { 
   FilePdfOutlined, FileExcelOutlined, DownloadOutlined, 
   PrinterOutlined, BarChartOutlined, PieChartOutlined, 
@@ -893,7 +894,7 @@ const Reports = () => {
               </Row>
 
               <Card title="Top Products" size="small" className="mb-6">
-                <Table
+                <AdminDataTable
                   dataSource={monthlyReport.topProducts?.map((p, i) => ({ ...p, key: i }))}
                   columns={[
                     { title: '#', dataIndex: 'key', width: 50, render: (r) => r + 1 },
@@ -902,14 +903,12 @@ const Reports = () => {
                     { title: 'Quantity', dataIndex: 'quantity' },
                     { title: 'Revenue', dataIndex: 'revenue', render: (v) => `₹${v?.toFixed(2)}` }
                   ]}
-                  pagination={false}
-                  size="small"
-                  scroll={{ x: 500 }}
+                  rowKey="key"
                 />
               </Card>
 
               <Card title="Top Customers" size="small">
-                <Table
+                <AdminDataTable
                   dataSource={monthlyReport.topCustomers?.map((c, i) => ({ ...c, key: i }))}
                   columns={[
                     { title: '#', dataIndex: 'key', width: 50, render: (r) => r + 1 },
@@ -918,9 +917,7 @@ const Reports = () => {
                     { title: 'Orders', dataIndex: 'orders' },
                     { title: 'Total Spent', dataIndex: 'amount', render: (v) => `₹${v?.toFixed(2)}` }
                   ]}
-                  pagination={false}
-                  size="small"
-                  scroll={{ x: 500 }}
+                  rowKey="key"
                 />
               </Card>
             </>
@@ -1050,18 +1047,16 @@ const Reports = () => {
               </Row>
 
               <Card title="Monthly Breakdown" size="small">
-                <Table
+                <AdminDataTable
                   dataSource={yearlyReport.monthlyBreakdown?.map((m, i) => ({ ...m, key: i }))}
                   columns={[
                     { title: 'Month', dataIndex: 'month' },
-                    { title: 'Orders', dataIndex: 'orders', align: 'right' },
-                    { title: 'Sales', dataIndex: 'sales', align: 'right', render: (v) => `₹${v?.toFixed(2)}` },
-                    { title: 'Discount', dataIndex: 'discount', align: 'right', render: (v) => `₹${v?.toFixed(2)}` },
-                    { title: 'Revenue', dataIndex: 'revenue', align: 'right', render: (v) => `₹${v?.toFixed(2)}` }
+                    { title: 'Orders', dataIndex: 'orders' },
+                    { title: 'Sales', dataIndex: 'sales', render: (v) => `₹${v?.toFixed(2)}` },
+                    { title: 'Discount', dataIndex: 'discount', render: (v) => `₹${v?.toFixed(2)}` },
+                    { title: 'Revenue', dataIndex: 'revenue', render: (v) => `₹${v?.toFixed(2)}` }
                   ]}
-                  pagination={false}
-                  size="small"
-                  scroll={{ x: 500 }}
+                  rowKey="key"
                 />
               </Card>
             </>
@@ -1252,6 +1247,7 @@ const Reports = () => {
               </Row>
 
               <Card title="Invoice Details" size="small">
+                <div style={{ overflowX: "auto" }}>
                 <Table
                   dataSource={gstReport.invoices?.slice(0, 50).map((inv, i) => ({ ...inv, key: i }))}
                   columns={[
@@ -1286,6 +1282,7 @@ const Reports = () => {
                   size="small"
                   scroll={{ x: 900 }}
                 />
+                </div>
               </Card>
             </>
           )}
@@ -1316,6 +1313,7 @@ const Reports = () => {
 
           {productWiseReport && (
             <Card>
+              <div style={{ overflowX: "auto" }}>
               <Table
                 dataSource={productWiseReport.products?.map((p, i) => ({ ...p, key: i }))}
                 columns={[
@@ -1344,6 +1342,7 @@ const Reports = () => {
                   );
                 }}
               />
+              </div>
             </Card>
           )}
         </div>
@@ -1403,20 +1402,19 @@ const Reports = () => {
               </Row>
 
               <Card>
-                <Table
+                <AdminDataTable
                   dataSource={customerWiseReport.customers?.map((c, i) => ({ ...c, key: i }))}
                   columns={[
                     { title: '#', dataIndex: 'key', width: 50, render: (r) => r + 1 },
                     { title: 'Customer', dataIndex: 'name' },
                     { title: 'Mobile', dataIndex: 'mobile' },
-                    { title: 'Email', dataIndex: 'email', ellipsis: true },
-                    { title: 'Orders', dataIndex: 'totalOrders', align: 'right' },
-                    { title: 'Avg Order', dataIndex: 'avgOrderValue', align: 'right', render: (v) => `₹${v}` },
-                    { title: 'Total Spent', dataIndex: 'totalPurchase', align: 'right', render: (v) => <b>₹{v}</b> }
+                    { title: 'Email', dataIndex: 'email' },
+                    { title: 'Orders', dataIndex: 'totalOrders' },
+                    { title: 'Avg Order', dataIndex: 'avgOrderValue', render: (v) => `₹${v}` },
+                    { title: 'Total Spent', dataIndex: 'totalPurchase', render: (v) => <b>₹{v}</b> }
                   ]}
-                  pagination={{ pageSize: 20 }}
-                  size="small"
-                  scroll={{ x: 650 }}
+                  rowKey="key"
+                  paginationOptions={{ pageSize: 20 }}
                 />
               </Card>
             </>

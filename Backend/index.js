@@ -269,6 +269,10 @@ io.on("connection", (socket) => {
 // Make io accessible in routes
 app.set("io", io);
 
+app.get("/api/health", (req, res) => {
+  res.status(200).json({ status: "ok", uptime: process.uptime() });
+});
+
 app.use(notFound);
 app.use(errorHandler);
 server.listen(PORT, () => {

@@ -9,6 +9,16 @@ html, body {
   overflow-x: hidden;
 }
 
+/* Prevent iOS auto-zoom on input focus (font-size < 16px triggers zoom) */
+@media (max-width: 768px) {
+  input, textarea, select,
+  .ant-input, .ant-input-affix-wrapper input,
+  .ant-select-selection-search-input,
+  .ant-picker-input input {
+    font-size: 16px !important;
+  }
+}
+
 /* Allow table containers to scroll horizontally */
 .ant-table-wrapper,
 .ant-table-content,

@@ -70,8 +70,7 @@ html, body {
   height: 64px;
 }
 main {
-  height: 85vh;
-  overflow-y: scroll;
+  overflow-y: auto;
   overflow-x: auto;
   background-color: transparent !important;
 }

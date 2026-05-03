@@ -599,12 +599,13 @@ const MainLayout = () => {
         .main-content {
           margin: 0 !important;
           padding: 0 !important;
-          min-height: calc(100vh - 60px);
+          min-height: calc(100svh - 60px);
           background: #f0f2f5;
         }
         
         .content-wrapper {
           padding: 16px;
+          padding-bottom: calc(16px + env(safe-area-inset-bottom));
           animation: fadeIn 0.4s ease;
         }
         
@@ -636,10 +637,10 @@ const MainLayout = () => {
           .site-layout { margin-left: 0 !important; }
           .main-header { padding: 0 10px !important; height: 52px; }
           .user-info { display: none; }
-          .content-wrapper { padding: 0; }
+          .content-wrapper { padding: 8px; padding-bottom: calc(8px + env(safe-area-inset-bottom)); }
           .trigger-btn { width: 36px; height: 36px; }
           .user-profile { padding: 4px 8px 4px 4px; gap: 8px; }
-          .main-content { min-height: calc(100vh - 52px); }
+          .main-content { min-height: calc(100svh - 52px); }
         }
 
         @media (max-width: 576px) {

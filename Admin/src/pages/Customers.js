@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from "react";
-import { Modal, Form, Input, Avatar, Tooltip, Badge } from "antd";
+import { Modal, Form, Input, Tooltip, message } from "antd";
 import { useDispatch, useSelector } from "react-redux";
 import { getCustomers, createCustomer, updateCustomer, deleteCustomer } from "../features/customers/customerSlice";
-import { FaSearch, FaEdit, FaTrash, FaUser, FaEnvelope, FaPhone, FaMapMarkerAlt, FaUserPlus, FaEye, FaUsers } from "react-icons/fa";
+import { FaSearch, FaEdit, FaTrash, FaUser, FaEnvelope, FaPhone, FaMapMarkerAlt, FaUserPlus, FaEye, FaUsers, FaTag } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
 import CustomModal from "../components/CustomModal";
 import AdminPageHeader from "../components/AdminPageHeader";
@@ -43,11 +43,19 @@ const Customers = () => {
 
   const handleSubmit = (values) => {
     if (editingCustomer) {
-      dispatch(updateCustomer({ id: editingCustomer._id, customerData: values })).then(() => {
+      dispatch(updateCustomer({ id: editingCustomer._id, customerData: values })).then((action) => {
+        if (action.type.endsWith("/rejected")) {
+          message.error(action.payload || "Failed to update customer");
+          return;
+        }
         dispatch(getCustomers()); setOpen(false); form.resetFields(); setEditingCustomer(null);
       });
     } else {
-      dispatch(createCustomer(values)).then(() => {
+      dispatch(createCustomer(values)).then((action) => {
+        if (action.type.endsWith("/rejected")) {
+          message.error(action.payload || "Failed to create customer");
+          return;
+        }
         dispatch(getCustomers()); setOpen(false); form.resetFields();
       });
     }
@@ -55,7 +63,14 @@ const Customers = () => {
 
   const handleEdit = (customer) => {
     setEditingCustomer(customer);
-    form.setFieldsValue({ firstname: customer.firstname, lastname: customer.lastname, email: customer.email, mobile: customer.mobile, address: customer.address });
+    form.setFieldsValue({
+      firstname: customer.firstname,
+      lastname: customer.lastname,
+      email: customer.email,
+      mobile: customer.mobile,
+      address: customer.address || "",
+      referredByMobile: customer.referredByMobile || "",
+    });
     setOpen(true);
   };
 
@@ -127,6 +142,15 @@ const Customers = () => {
       ),
     },
     {
+      title: "Referral Code",
+      dataIndex: "referralCode",
+      key: "referralCode",
+      responsive: ["lg"],
+      render: (code) => code
+        ? <span className="font-mono text-xs bg-blue-50 text-blue-600 px-2 py-1 rounded-lg">{code}</span>
+        : <span className="text-gray-300 text-xs">—</span>,
+    },
+    {
       title: "Joined",
       dataIndex: "createdAt",
       key: "createdAt",
@@ -174,7 +198,9 @@ const Customers = () => {
 
   const data1 = filteredCustomers?.map((item, index) => ({
     key: index + 1, _id: item._id, firstname: item.firstname, lastname: item.lastname,
-    email: item.email, mobile: item.mobile, address: item.address, createdAt: item.createdAt,
+    email: item.email, mobile: item.mobile, address: item.address || "", createdAt: item.createdAt,
+    referralCode: item.referralCode,
+    referredByMobile: item.referredBy?.mobile || item.referredBy || "",
   })) || [];
 
   const totalCustomers = customerState?.length || 0;
@@ -266,9 +292,10 @@ const Customers = () => {
         open={open}
         onCancel={handleCancel}
         footer={null}
-        width="min(520px, 95vw)"
+        width={540}
         className="customer-modal"
         centered
+        styles={{ body: { maxHeight: '75vh', overflowY: 'auto', paddingRight: 4 } }}
       >
         <Form form={form} layout="vertical" onFinish={handleSubmit} className="pt-4">
           <div className="grid grid-cols-2 gap-x-4">
@@ -287,6 +314,34 @@ const Customers = () => {
           </Form.Item>
           <Form.Item name="address" label={<span className="text-gray-600 text-sm font-medium">Address <span className="text-gray-400 font-normal">(optional)</span></span>}>
             <Input.TextArea placeholder="Enter address" rows={3} className="rounded-xl" />
+          </Form.Item>
+          {!editingCustomer && (
+            <Form.Item
+              name="referralCode"
+              label={<span className="text-gray-600 text-sm font-medium">Referral Code <span className="text-gray-400 font-normal">(optional — auto-generated if blank)</span></span>}
+              rules={[{ pattern: /^[A-Z0-9]{4,12}$/i, message: "4–12 alphanumeric chars" }]}
+            >
+              <Input
+                prefix={<FaTag className="text-gray-300" size={12} />}
+                placeholder="e.g. JOHN123"
+                size="large"
+                className="rounded-xl"
+                onChange={(e) => form.setFieldValue("referralCode", e.target.value.toUpperCase())}
+              />
+            </Form.Item>
+          )}
+          <Form.Item
+            name="referredByMobile"
+            label={<span className="text-gray-600 text-sm font-medium">Referred By Mobile <span className="text-gray-400 font-normal">(optional)</span></span>}
+            rules={[{ pattern: /^[0-9]{10}$/, message: "Must be 10 digits" }]}
+          >
+            <Input
+              prefix={<FaPhone className="text-gray-300" size={12} />}
+              placeholder="Referrer's 10-digit mobile"
+              size="large"
+              maxLength={10}
+              className="rounded-xl"
+            />
           </Form.Item>
           <div className="flex gap-3 pt-2">
             <button type="button" onClick={handleCancel} className="flex-1 h-11 border border-gray-200 text-gray-600 rounded-xl hover:bg-gray-50 font-medium text-sm transition-colors cursor-pointer bg-white">

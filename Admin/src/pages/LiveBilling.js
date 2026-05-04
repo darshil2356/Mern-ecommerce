@@ -3,7 +3,7 @@ import axios from "axios";
 import QRCode from "qrcode";
 import { base_url } from "../utils/baseUrl";
 import { config } from "../utils/axiosconfig";
-import { Modal, Input } from "antd";
+import { Modal, Input, Form } from "antd";
 import Swal from "sweetalert2";
 import { 
   FaBarcode, 
@@ -23,7 +23,8 @@ import {
   FaBuilding,
   FaGift,
   FaTag,
-  FaCoins
+  FaCoins,
+  FaUserPlus
 } from "react-icons/fa";
 import SpinWheel from "../components/SpinWheel";
 import PrintBillButton from "../components/PrintBillButton";
@@ -853,17 +854,68 @@ const LiveBilling = () => {
     }
   };
 
+  // Quick-add customer modal state
+  const [addCustomerOpen, setAddCustomerOpen] = useState(false);
+  const [addCustomerLoading, setAddCustomerLoading] = useState(false);
+  const [addCustomerForm] = Form.useForm();
+
+  const openAddCustomer = () => {
+    // Pre-fill mobile from contact search, name parts from name search if available
+    const nameParts = searchTerm.trim().split(' ').filter(Boolean);
+    addCustomerForm.setFieldsValue({
+      mobile: contactSearch.trim() || "",
+      firstname: nameParts[0] || "",
+      lastname: nameParts.slice(1).join(' ') || "",
+      email: "",
+      address: "",
+    });
+    setAddCustomerOpen(true);
+  };
+
+  const handleAddCustomerSubmit = async (values) => {
+    setAddCustomerLoading(true);
+    try {
+      const res = await axios.post(`${base_url}user/create-customer`, values, config);
+      const newUser = res.data;
+      const fullName = `${newUser.firstname} ${newUser.lastname}`.trim();
+      setCustomer({ name: fullName, address: newUser.address || "", contact: newUser.mobile || "", referralContact: "", referralCode: "" });
+      setContactSearch("");
+      setSearchTerm("");
+      setContactResults([]);
+      setNameResults([]);
+      setContactSearchDone(false);
+      setNameSearchDone(false);
+      setAddCustomerOpen(false);
+      addCustomerForm.resetFields();
+      fetchCustomerOffer(newUser.mobile);
+    } catch (err) {
+      Swal.fire({ icon: "error", title: "Failed", text: err.response?.data?.message || "Could not add customer", confirmButtonColor: "#d4af37" });
+    } finally {
+      setAddCustomerLoading(false);
+    }
+  };
+
+  // Show + Add button: typed 10 digits, search done, no results, no confirmed customer
+  const [contactSearchDone, setContactSearchDone] = useState(false);
+  const showAddButton = contactSearch.trim().length >= 10 && contactSearchDone && contactResults.length === 0;
+
+  const [nameSearchDone, setNameSearchDone] = useState(false);
+  const showAddButtonByName = searchTerm.trim().length >= 2 && nameSearchDone && nameResults.length === 0;
+
   // Search by name
   useEffect(() => {
     if (searchTerm.trim().length < 2) {
       setNameResults([]);
+      setNameSearchDone(false);
       return;
     }
+    setNameSearchDone(false);
     const delay = setTimeout(async () => {
       try {
         const res = await axios.get(`${base_url}user/search?query=${encodeURIComponent(searchTerm.trim())}`, config);
         setNameResults(res.data || []);
       } catch (err) { console.error(err); }
+      finally { setNameSearchDone(true); }
     }, 300);
     return () => clearTimeout(delay);
   }, [searchTerm]);
@@ -872,13 +924,16 @@ const LiveBilling = () => {
   useEffect(() => {
     if (contactSearch.trim().length < 2) {
       setContactResults([]);
+      setContactSearchDone(false);
       return;
     }
+    setContactSearchDone(false);
     const delay = setTimeout(async () => {
       try {
         const res = await axios.get(`${base_url}user/search?query=${encodeURIComponent(contactSearch.trim())}`, config);
         setContactResults(res.data || []);
       } catch (err) { console.error(err); }
+      finally { setContactSearchDone(true); }
     }, 300);
     return () => clearTimeout(delay);
   }, [contactSearch]);
@@ -1107,6 +1162,8 @@ const LiveBilling = () => {
       setContactSearch("");
       setNameResults([]);
       setContactResults([]);
+      setContactSearchDone(false);
+      setNameSearchDone(false);
       setShowDropdown(false);
       setShowContactDropdown(false);
       setReferralSearch("");
@@ -1385,26 +1442,37 @@ tbody td{padding:6px 4px;vertical-align:top}
                   <label className="block text-xs font-medium text-gray-500 mb-1">
                     Customer Name <span className="text-red-500">*</span>
                   </label>
-                  <div className="relative">
-                    <FaUser className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                    <input
-                      className={`w-full pl-10 pr-4 py-3 bg-gray-50 border rounded-xl focus:bg-white focus:ring-2 outline-none transition-all ${
-                        !customer.name.trim() && Object.keys(cart).length > 0
-                          ? 'border-red-400 focus:border-red-500 focus:ring-red-100'
-                          : 'border-gray-200 focus:border-indigo-500 focus:ring-indigo-100'
-                      }`}
-                      value={customer.name}
-                      placeholder="Type 2+ chars to search..."
-                      autoComplete="off"
-                      onChange={(e) => {
-                        const value = e.target.value;
-                        setCustomer(prev => ({ ...prev, name: value }));
-                        setSearchTerm(value);
-                        setShowDropdown(true);
-                      }}
-                      onFocus={() => { if (searchTerm.trim()) setShowDropdown(true); }}
-                      onBlur={() => setTimeout(() => setShowDropdown(false), 150)}
-                    />
+                  <div className="relative flex items-center gap-2">
+                    <div className="relative flex-1">
+                      <FaUser className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                      <input
+                        className={`w-full pl-10 pr-4 py-3 bg-gray-50 border rounded-xl focus:bg-white focus:ring-2 outline-none transition-all ${
+                          !customer.name.trim() && Object.keys(cart).length > 0
+                            ? 'border-red-400 focus:border-red-500 focus:ring-red-100'
+                            : 'border-gray-200 focus:border-indigo-500 focus:ring-indigo-100'
+                        }`}
+                        value={customer.name}
+                        placeholder="Type 2+ chars to search..."
+                        autoComplete="off"
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          setCustomer(prev => ({ ...prev, name: value }));
+                          setSearchTerm(value);
+                          setShowDropdown(true);
+                        }}
+                        onFocus={() => { if (searchTerm.trim()) setShowDropdown(true); }}
+                        onBlur={() => setTimeout(() => setShowDropdown(false), 150)}
+                      />
+                    </div>
+                    {showAddButtonByName && (
+                      <button
+                        type="button"
+                        onClick={openAddCustomer}
+                        className="flex items-center gap-1.5 px-3 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold transition-all whitespace-nowrap shadow-md"
+                      >
+                        <FaUserPlus size={12} /> Add
+                      </button>
+                    )}
                   </div>
                   {showDropdown && nameResults.length > 0 && (
                     <div className="absolute top-full left-0 w-full bg-white border border-gray-200 rounded-xl shadow-xl max-h-52 overflow-y-auto mt-1" style={{zIndex:9999}}>
@@ -1426,6 +1494,8 @@ tbody td{padding:6px 4px;vertical-align:top}
                             setContactSearch('');
                             setNameResults([]);
                             setContactResults([]);
+                            setContactSearchDone(false);
+                            setNameSearchDone(false);
                             setShowDropdown(false);
                             setShowContactDropdown(false);
                           }}
@@ -1436,6 +1506,9 @@ tbody td{padding:6px 4px;vertical-align:top}
                       ))}
                     </div>
                   )}
+                  {showAddButtonByName && (
+                    <p className="text-xs text-blue-500 mt-1">No customer found — click <b>Add</b> to register</p>
+                  )}
                 </div>
 
                 {/* Contact */}
@@ -1443,22 +1516,33 @@ tbody td{padding:6px 4px;vertical-align:top}
                   <label className="block text-xs font-medium text-gray-500 mb-1">
                     Contact Number
                   </label>
-                  <div className="relative">
-                    <FaPhone className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                    <input
-                      className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none transition-all"
-                      value={customer.contact}
-                      placeholder="Type 2+ digits to search..."
-                      autoComplete="off"
-                      onChange={(e) => {
-                        const value = e.target.value;
-                        setCustomer(prev => ({ ...prev, contact: value }));
-                        setContactSearch(value);
-                        setShowContactDropdown(true);
-                      }}
-                      onFocus={() => { if (contactSearch.trim()) setShowContactDropdown(true); }}
-                      onBlur={() => setTimeout(() => setShowContactDropdown(false), 150)}
-                    />
+                  <div className="relative flex items-center gap-2">
+                    <div className="relative flex-1">
+                      <FaPhone className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                      <input
+                        className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none transition-all"
+                        value={customer.contact}
+                        placeholder="Type 2+ digits to search..."
+                        autoComplete="off"
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          setCustomer(prev => ({ ...prev, contact: value }));
+                          setContactSearch(value);
+                          setShowContactDropdown(true);
+                        }}
+                        onFocus={() => { if (contactSearch.trim()) setShowContactDropdown(true); }}
+                        onBlur={() => setTimeout(() => setShowContactDropdown(false), 150)}
+                      />
+                    </div>
+                    {showAddButton && (
+                      <button
+                        type="button"
+                        onClick={openAddCustomer}
+                        className="flex items-center gap-1.5 px-3 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-semibold transition-all whitespace-nowrap shadow-md"
+                      >
+                        <FaUserPlus size={12} /> Add
+                      </button>
+                    )}
                   </div>
                   {showContactDropdown && contactResults.length > 0 && (
                     <div className="absolute top-full left-0 w-full bg-white border border-gray-200 rounded-xl shadow-xl max-h-52 overflow-y-auto mt-1" style={{zIndex:9999}}>
@@ -1480,6 +1564,7 @@ tbody td{padding:6px 4px;vertical-align:top}
                             setContactSearch('');
                             setNameResults([]);
                             setContactResults([]);
+                            setContactSearchDone(false);
                             setShowDropdown(false);
                             setShowContactDropdown(false);
                           }}
@@ -1489,6 +1574,9 @@ tbody td{padding:6px 4px;vertical-align:top}
                         </div>
                       ))}
                     </div>
+                  )}
+                  {showAddButton && (
+                    <p className="text-xs text-indigo-500 mt-1">No customer found — click <b>Add</b> to register</p>
                   )}
                 </div>
 
@@ -2216,6 +2304,105 @@ tbody td{padding:6px 4px;vertical-align:top}
           </div>
         </div>
       </div>
+
+      {/* Quick Add Customer Modal */}
+      <Modal
+        title={
+          <div className="flex items-center gap-3 pb-3 border-b border-gray-100">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white">
+              <FaUserPlus size={14} />
+            </div>
+            <span className="text-base font-semibold text-gray-800">Add New Customer</span>
+          </div>
+        }
+        open={addCustomerOpen}
+        onCancel={() => { setAddCustomerOpen(false); addCustomerForm.resetFields(); }}
+        footer={null}
+        width={540}
+        centered
+        styles={{ body: { maxHeight: '75vh', overflowY: 'auto', paddingRight: 4 } }}
+      >
+        <Form form={addCustomerForm} layout="vertical" onFinish={handleAddCustomerSubmit} className="pt-4">
+          <div className="grid grid-cols-2 gap-x-4">
+            <Form.Item
+              name="firstname"
+              label={<span className="text-gray-600 text-sm font-medium">First Name</span>}
+              rules={[{ required: true, message: "Required" }, { min: 2, message: "Min 2 chars" }]}
+            >
+              <Input prefix={<FaUser className="text-gray-300" size={12} />} placeholder="First name" size="large" className="rounded-xl" />
+            </Form.Item>
+            <Form.Item
+              name="lastname"
+              label={<span className="text-gray-600 text-sm font-medium">Last Name</span>}
+              rules={[{ required: true, message: "Required" }, { min: 2, message: "Min 2 chars" }]}
+            >
+              <Input prefix={<FaUser className="text-gray-300" size={12} />} placeholder="Last name" size="large" className="rounded-xl" />
+            </Form.Item>
+          </div>
+          <Form.Item
+            name="email"
+            label={<span className="text-gray-600 text-sm font-medium">Email Address <span className="text-gray-400 font-normal">(optional)</span></span>}
+            rules={[{ type: "email", message: "Invalid email" }]}
+          >
+            <Input prefix={<FaUser className="text-gray-300" size={12} />} placeholder="email@example.com" size="large" className="rounded-xl" />
+          </Form.Item>
+          <Form.Item
+            name="mobile"
+            label={<span className="text-gray-600 text-sm font-medium">Mobile Number</span>}
+            rules={[{ required: true, message: "Required" }, { pattern: /^[0-9]{10}$/, message: "Must be 10 digits" }]}
+          >
+            <Input prefix={<FaPhone className="text-gray-300" size={12} />} placeholder="10-digit mobile" size="large" maxLength={10} className="rounded-xl" />
+          </Form.Item>
+          <Form.Item
+            name="address"
+            label={<span className="text-gray-600 text-sm font-medium">Address <span className="text-gray-400 font-normal">(optional)</span></span>}
+          >
+            <Input.TextArea placeholder="Enter address" rows={3} className="rounded-xl" />
+          </Form.Item>
+          <Form.Item
+            name="referralCode"
+            label={<span className="text-gray-600 text-sm font-medium">Referral Code <span className="text-gray-400 font-normal">(optional — auto-generated if blank)</span></span>}
+            rules={[{ pattern: /^[A-Z0-9]{4,12}$/i, message: "4–12 alphanumeric chars" }]}
+          >
+            <Input
+              prefix={<FaTag className="text-gray-300" size={12} />}
+              placeholder="e.g. JOHN123"
+              size="large"
+              className="rounded-xl"
+              onChange={(e) => addCustomerForm.setFieldValue("referralCode", e.target.value.toUpperCase())}
+            />
+          </Form.Item>
+          <Form.Item
+            name="referredByMobile"
+            label={<span className="text-gray-600 text-sm font-medium">Referred By Mobile <span className="text-gray-400 font-normal">(optional)</span></span>}
+            rules={[{ pattern: /^[0-9]{10}$/, message: "Must be 10 digits" }]}
+          >
+            <Input
+              prefix={<FaPhone className="text-gray-300" size={12} />}
+              placeholder="Referrer's 10-digit mobile"
+              size="large"
+              maxLength={10}
+              className="rounded-xl"
+            />
+          </Form.Item>
+          <div className="flex gap-3 pt-2">
+            <button
+              type="button"
+              onClick={() => { setAddCustomerOpen(false); addCustomerForm.resetFields(); }}
+              className="flex-1 h-11 border border-gray-200 text-gray-600 rounded-xl hover:bg-gray-50 font-medium text-sm transition-colors cursor-pointer bg-white"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={addCustomerLoading}
+              className="flex-1 h-11 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-xl font-medium text-sm transition-all shadow-md shadow-blue-200 cursor-pointer border-0 disabled:opacity-60"
+            >
+              {addCustomerLoading ? "Adding..." : "Add Customer"}
+            </button>
+          </div>
+        </Form>
+      </Modal>
 
       {/* GSTIN Modal */}
       <Modal

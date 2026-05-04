@@ -54,13 +54,17 @@ export const getCustomers = createAsyncThunk(
 // CREATE offline user
 export const createCustomer = createAsyncThunk(
   "customer/createCustomer",
-  async (data) => {
-    const response = await axios.post(
-      `${base_url}user/create-customer`,
-      data,
-      config
-    );
-    return response.data;
+  async (data, { rejectWithValue }) => {
+    try {
+      const response = await axios.post(
+        `${base_url}user/create-customer`,
+        data,
+        config
+      );
+      return response.data;
+    } catch (err) {
+      return rejectWithValue(err.response?.data?.message || err.message);
+    }
   }
 );
 
@@ -76,13 +80,17 @@ export const getCustomerDetails = createAsyncThunk(
 // UPDATE customer
 export const updateCustomer = createAsyncThunk(
   "customer/updateCustomer",
-  async ({ id, customerData }) => {
-    const response = await axios.put(
-      `${base_url}user/update-customer/${id}`,
-      customerData,
-      config
-    );
-    return response.data;
+  async ({ id, customerData }, { rejectWithValue }) => {
+    try {
+      const response = await axios.put(
+        `${base_url}user/update-customer/${id}`,
+        customerData,
+        config
+      );
+      return response.data;
+    } catch (err) {
+      return rejectWithValue(err.response?.data?.message || err.message);
+    }
   }
 );
 
@@ -115,6 +123,7 @@ const customerSlice = createSlice({
     referrals: null,
     referralStats: null,
     loading: false,
+    error: null,
   },
   reducers: {},
   extraReducers: (builder) => {
@@ -124,8 +133,16 @@ const customerSlice = createSlice({
       })
       .addCase(createCustomer.fulfilled, (state, action) => {
         state.customers.push(action.payload);
+        state.error = null;
+      })
+      .addCase(createCustomer.rejected, (state, action) => {
+        state.error = action.payload;
+      })
+      .addCase(updateCustomer.rejected, (state, action) => {
+        state.error = action.payload;
       })
       .addCase(updateCustomer.fulfilled, (state, action) => {
+        state.error = null;
         const index = state.customers.findIndex(c => c._id === action.payload._id);
         if (index !== -1) {
           state.customers[index] = action.payload;

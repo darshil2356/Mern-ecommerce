@@ -671,6 +671,65 @@ const Home = () => {
         </div>
       </div>
 
+
+      {/* ════════════════════════════════════════
+          BUNDLES
+      ════════════════════════════════════════ */}
+      {activeBundles.length > 0 && (
+        <div className="home-section" style={{ background: "#faf9f7", padding: "56px 0" }}>
+          <Container class1="">
+            <SectionHeader title="Frequently Bought Together" subtitle="Bundle & Save" linkTo="/bundles" linkText="View All" />
+            <div className="row g-3">
+              {activeBundles.slice(0, 3).map((bundle, index) => (
+                <div key={index} className="col-12 col-md-6 col-lg-4">
+                  <motion.div initial={{ opacity: 0, y: 24 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.45, delay: index * 0.1 }}
+                    style={{ background: "#fff", borderRadius: 20, boxShadow: "0 6px 28px rgba(0,0,0,0.07)", border: "1px solid #f0ece4", overflow: "hidden", height: "100%", display: "flex", flexDirection: "column" }}>
+                    <div style={{ background: "linear-gradient(135deg,#1a1a1a,#2d2d2d)", padding: "18px 20px" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                        <div>
+                          <h4 style={{ margin: 0, fontSize: 15, fontWeight: 800, color: "#fff", lineHeight: 1.3 }}>{bundle.title}</h4>
+                          <p style={{ margin: "3px 0 0", fontSize: 11, color: "rgba(255,255,255,0.55)" }}>{bundle.products?.length} products included</p>
+                        </div>
+                        <span style={{ background: "#d4af37", color: "#1a1a1a", padding: "3px 9px", borderRadius: 20, fontSize: "10px", fontWeight: 800, whiteSpace: "nowrap", marginLeft: 8 }}>{bundle.discountPercent}% OFF</span>
+                      </div>
+                    </div>
+                    <div style={{ padding: 14, flex: 1 }}>
+                      {bundle.products?.slice(0, 3).map((item, idx) => (
+                        <div key={idx} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8, padding: 9, background: "#faf9f7", borderRadius: 10, border: "1px solid #f0ece4" }}>
+                          <div style={{ width: 40, height: 40, borderRadius: 8, overflow: "hidden", flexShrink: 0, background: "#f0ece4" }}>
+                            {item.product?.images?.[0]?.url ? <img src={item.product.images[0].url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}><FiPackage style={{ color: "#ccc" }} /></div>}
+                          </div>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <p style={{ margin: 0, fontSize: 12, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: "#1a1a1a" }}>{item.product?.title}</p>
+                            <p style={{ margin: "1px 0 0", fontSize: "10px", color: "#999" }}>Qty {item.quantity} · ₹{item.price?.toLocaleString()}</p>
+                          </div>
+                          {!hasProductStock(item.product) && <span style={{ background: "#fee2e2", color: "#dc2626", padding: "2px 7px", borderRadius: 10, fontSize: "9px", fontWeight: 700, whiteSpace: "nowrap" }}>OOS</span>}
+                        </div>
+                      ))}
+                      {bundle.products?.length > 3 && <p style={{ fontSize: "10px", color: "#999", margin: "3px 0 0", textAlign: "center" }}>+{bundle.products.length - 3} more</p>}
+                      <div style={{ background: "linear-gradient(135deg,#faf9f7,#f5f0e8)", borderRadius: 12, padding: "12px 14px", marginTop: 12, border: "1px solid #e8dfc8" }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 5 }}>
+                          <span style={{ fontSize: "11px", color: "#bbb", textDecoration: "line-through" }}>₹{bundle.originalPrice?.toLocaleString()}</span>
+                          <span style={{ fontSize: "10px", background: "#dcfce7", color: "#166534", padding: "2px 8px", borderRadius: 10, fontWeight: 700 }}>Save ₹{(bundle.originalPrice - bundle.bundlePrice)?.toLocaleString()}</span>
+                        </div>
+                        <p style={{ margin: 0, fontSize: 20, fontWeight: 900, color: "#1a1a1a", fontFamily: "'Playfair Display',serif" }}>₹{bundle.bundlePrice?.toLocaleString()}</p>
+                      </div>
+                    </div>
+                    <div style={{ padding: "0 14px 14px" }}>
+                      {!isBundleAvailable(bundle) && <div style={{ marginBottom: 8, padding: 9, background: "#fee2e2", color: "#dc2626", borderRadius: 8, textAlign: "center", fontWeight: 600, fontSize: 11 }}>Contains out-of-stock items</div>}
+                      <button onClick={e => handleAddBundle(e, bundle)} disabled={addingBundle === bundle._id || !isBundleAvailable(bundle)}
+                        style={{ width: "100%", padding: "13px 10px", background: (addingBundle === bundle._id || !isBundleAvailable(bundle)) ? "#e5e7eb" : "linear-gradient(135deg,#1a1a1a,#333)", color: (addingBundle === bundle._id || !isBundleAvailable(bundle)) ? "#999" : "#d4af37", border: "none", borderRadius: 10, fontWeight: 800, cursor: (addingBundle === bundle._id || !isBundleAvailable(bundle)) ? "not-allowed" : "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 7, fontSize: "12px", textTransform: "uppercase", letterSpacing: "0.8px" }}>
+                        <AiOutlineShoppingCart style={{ fontSize: 15 }} />
+                        {addingBundle === bundle._id ? "Adding…" : !isBundleAvailable(bundle) ? "Out of Stock" : bundleNeedsSelection(bundle) ? "Select & Add" : "Add to Cart"}
+                      </button>
+                    </div>
+                  </motion.div>
+                </div>
+              ))}
+            </div>
+          </Container>
+        </div>
+      )}
       {/* ════════════════════════════════════════
           SHOP BY CATEGORY
       ════════════════════════════════════════ */}
@@ -784,65 +843,6 @@ const Home = () => {
               {(isLoading ? Array.from({ length: 4 }) : featuredProducts.slice(0, 4)).map((item, i) => (
                 <div key={i} className="col-6 col-lg-3">
                   {isLoading ? <ProductSkeleton /> : <HomeProductCard item={item} navigate={navigate} offer={item?.offer} index={i} />}
-                </div>
-              ))}
-            </div>
-          </Container>
-        </div>
-      )}
-
-      {/* ════════════════════════════════════════
-          BUNDLES
-      ════════════════════════════════════════ */}
-      {activeBundles.length > 0 && (
-        <div className="home-section" style={{ background: "#faf9f7", padding: "56px 0" }}>
-          <Container class1="">
-            <SectionHeader title="Frequently Bought Together" subtitle="Bundle & Save" linkTo="/bundles" linkText="View All" />
-            <div className="row g-3">
-              {activeBundles.slice(0, 3).map((bundle, index) => (
-                <div key={index} className="col-12 col-md-6 col-lg-4">
-                  <motion.div initial={{ opacity: 0, y: 24 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.45, delay: index * 0.1 }}
-                    style={{ background: "#fff", borderRadius: 20, boxShadow: "0 6px 28px rgba(0,0,0,0.07)", border: "1px solid #f0ece4", overflow: "hidden", height: "100%", display: "flex", flexDirection: "column" }}>
-                    <div style={{ background: "linear-gradient(135deg,#1a1a1a,#2d2d2d)", padding: "18px 20px" }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                        <div>
-                          <h4 style={{ margin: 0, fontSize: 15, fontWeight: 800, color: "#fff", lineHeight: 1.3 }}>{bundle.title}</h4>
-                          <p style={{ margin: "3px 0 0", fontSize: 11, color: "rgba(255,255,255,0.55)" }}>{bundle.products?.length} products included</p>
-                        </div>
-                        <span style={{ background: "#d4af37", color: "#1a1a1a", padding: "3px 9px", borderRadius: 20, fontSize: "10px", fontWeight: 800, whiteSpace: "nowrap", marginLeft: 8 }}>{bundle.discountPercent}% OFF</span>
-                      </div>
-                    </div>
-                    <div style={{ padding: 14, flex: 1 }}>
-                      {bundle.products?.slice(0, 3).map((item, idx) => (
-                        <div key={idx} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8, padding: 9, background: "#faf9f7", borderRadius: 10, border: "1px solid #f0ece4" }}>
-                          <div style={{ width: 40, height: 40, borderRadius: 8, overflow: "hidden", flexShrink: 0, background: "#f0ece4" }}>
-                            {item.product?.images?.[0]?.url ? <img src={item.product.images[0].url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}><FiPackage style={{ color: "#ccc" }} /></div>}
-                          </div>
-                          <div style={{ flex: 1, minWidth: 0 }}>
-                            <p style={{ margin: 0, fontSize: 12, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: "#1a1a1a" }}>{item.product?.title}</p>
-                            <p style={{ margin: "1px 0 0", fontSize: "10px", color: "#999" }}>Qty {item.quantity} · ₹{item.price?.toLocaleString()}</p>
-                          </div>
-                          {!hasProductStock(item.product) && <span style={{ background: "#fee2e2", color: "#dc2626", padding: "2px 7px", borderRadius: 10, fontSize: "9px", fontWeight: 700, whiteSpace: "nowrap" }}>OOS</span>}
-                        </div>
-                      ))}
-                      {bundle.products?.length > 3 && <p style={{ fontSize: "10px", color: "#999", margin: "3px 0 0", textAlign: "center" }}>+{bundle.products.length - 3} more</p>}
-                      <div style={{ background: "linear-gradient(135deg,#faf9f7,#f5f0e8)", borderRadius: 12, padding: "12px 14px", marginTop: 12, border: "1px solid #e8dfc8" }}>
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 5 }}>
-                          <span style={{ fontSize: "11px", color: "#bbb", textDecoration: "line-through" }}>₹{bundle.originalPrice?.toLocaleString()}</span>
-                          <span style={{ fontSize: "10px", background: "#dcfce7", color: "#166534", padding: "2px 8px", borderRadius: 10, fontWeight: 700 }}>Save ₹{(bundle.originalPrice - bundle.bundlePrice)?.toLocaleString()}</span>
-                        </div>
-                        <p style={{ margin: 0, fontSize: 20, fontWeight: 900, color: "#1a1a1a", fontFamily: "'Playfair Display',serif" }}>₹{bundle.bundlePrice?.toLocaleString()}</p>
-                      </div>
-                    </div>
-                    <div style={{ padding: "0 14px 14px" }}>
-                      {!isBundleAvailable(bundle) && <div style={{ marginBottom: 8, padding: 9, background: "#fee2e2", color: "#dc2626", borderRadius: 8, textAlign: "center", fontWeight: 600, fontSize: 11 }}>Contains out-of-stock items</div>}
-                      <button onClick={e => handleAddBundle(e, bundle)} disabled={addingBundle === bundle._id || !isBundleAvailable(bundle)}
-                        style={{ width: "100%", padding: "13px 10px", background: (addingBundle === bundle._id || !isBundleAvailable(bundle)) ? "#e5e7eb" : "linear-gradient(135deg,#1a1a1a,#333)", color: (addingBundle === bundle._id || !isBundleAvailable(bundle)) ? "#999" : "#d4af37", border: "none", borderRadius: 10, fontWeight: 800, cursor: (addingBundle === bundle._id || !isBundleAvailable(bundle)) ? "not-allowed" : "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 7, fontSize: "12px", textTransform: "uppercase", letterSpacing: "0.8px" }}>
-                        <AiOutlineShoppingCart style={{ fontSize: 15 }} />
-                        {addingBundle === bundle._id ? "Adding…" : !isBundleAvailable(bundle) ? "Out of Stock" : bundleNeedsSelection(bundle) ? "Select & Add" : "Add to Cart"}
-                      </button>
-                    </div>
-                  </motion.div>
                 </div>
               ))}
             </div>

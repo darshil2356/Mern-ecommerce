@@ -851,11 +851,10 @@ const Addproduct = () => {
                   style={{ width: "100%" }}
                   dropdownStyle={{ maxHeight: 400, overflow: "auto", borderRadius: 12 }}
                   value={formik.values.categoryId || undefined}
-                  onChange={(value, label, extra) => {
-                    // Find the selected node's title from flat list
+                  onChange={(value) => {
                     const selectedCat = catState.find((c) => c._id === value);
                     formik.setFieldValue("categoryId", value || null);
-                    formik.setFieldValue("category", selectedCat?.title || label?.[0] || "");
+                    formik.setFieldValue("category", selectedCat?.title || "");
                   }}
                   onBlur={formik.handleBlur("category")}
                   treeData={(() => {
@@ -882,18 +881,21 @@ const Addproduct = () => {
                     {(() => {
                       const path = [];
                       let cur = catState.find((c) => c._id === formik.values.categoryId);
-                      while (cur) {
-                        path.unshift(cur.title);
-                        cur = catState.find((c) => c._id === (cur.parent?._id || cur.parent));
+                      if (cur) {
+                        while (cur) {
+                          path.unshift(cur.title);
+                          cur = catState.find((c) => c._id === (cur.parent?._id || cur.parent));
+                        }
+                      } else {
+                        // fallback: show category string when categoryId not linked
+                        path.push(formik.values.category);
                       }
-                      return path.length > 0
-                        ? path.map((p, i) => (
-                          <span key={i} style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                            {i > 0 && <span style={{ color: "#d1d5db" }}>›</span>}
-                            <span style={{ fontSize: 12, background: "#f0f0ff", color: "#6366f1", padding: "2px 8px", borderRadius: 20, fontWeight: 600 }}>{p}</span>
-                          </span>
-                        ))
-                        : <span style={{ fontSize: 12, color: "#10b981" }}>{formik.values.category}</span>;
+                      return path.map((p, i) => (
+                        <span key={i} style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                          {i > 0 && <span style={{ color: "#d1d5db" }}>›</span>}
+                          <span style={{ fontSize: 12, background: "#f0f0ff", color: "#6366f1", padding: "2px 8px", borderRadius: 20, fontWeight: 600 }}>{p}</span>
+                        </span>
+                      ));
                     })()}
                   </div>
                 )}

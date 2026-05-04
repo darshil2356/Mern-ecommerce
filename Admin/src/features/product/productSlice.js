@@ -133,6 +133,7 @@ export const productSlice = createSlice({
         state.sizeStock = action.payload.sizeStock || [];
         state.variants = action.payload.variants || [];
         state.productImages = action.payload.images;
+        state.categoryId = action.payload.categoryId || null;
         state.subcategory = action.payload.subcategory || "";
         state.short_description = action.payload.short_description || "";
         state.highlights = action.payload.highlights || [];

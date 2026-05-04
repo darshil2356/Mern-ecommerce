@@ -37,6 +37,7 @@ const OrderDetails = lazy(() => import("./pages/OrderDetails"));
 const Profile = lazy(() => import("./pages/Profile"));
 const Reels = lazy(() => import("./pages/Reels"));
 const Bundles = lazy(() => import("./pages/Bundles"));
+const NotFound = lazy(() => import("./pages/NotFound"));
 
 function App() {
   const user = useSelector((state) => state.auth?.user);
@@ -76,7 +77,7 @@ function App() {
             <Route path="product/category/:category" element={<OurStore />} />
             <Route path="product/:slug" element={<SingleProduct />} />
             <Route path="blogs" element={<Blog />} />
-            <Route path="blog/:id" element={<SingleBlog />} />
+            <Route path="blog/:slug" element={<SingleBlog />} />
             
             {/* Reels Page - Full Screen Reel-Based Shopping */}
             <Route path="reels" element={<Reels />} />
@@ -154,6 +155,7 @@ function App() {
             <Route path="shipping-policy" element={<ShippingPolicy />} />
             <Route path="term-conditions" element={<TermAndContions />} />
           </Route>
+          <Route path="*" element={<NotFound />} />
         </Routes>
         </Suspense>
       </BrowserRouter>

@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import Meta from "../components/Meta";
+import { cloudImg } from "../utils/cloudinaryUtils";
 import axios from "axios";
 import { base_url, getConfig } from "../utils/axiosConfig";
 import { productUrl } from "../utils/seoUrl";
@@ -271,6 +272,7 @@ const Reels = () => {
                 <img
                   src={`https://img.youtube.com/vi/${ytId}/mqdefault.jpg`}
                   alt={item.title}
+                  loading="lazy"
                   style={{ width: "100%", height: "100%", objectFit: "cover" }}
                 />
               ) : (
@@ -443,7 +445,7 @@ const Reels = () => {
                   }}>
                     {/* product avatar */}
                     <div style={{ width: "48px", height: "48px", borderRadius: "50%", border: "2px solid rgba(255,255,255,0.9)", overflow: "hidden", boxShadow: "0 2px 10px rgba(0,0,0,0.5)" }}>
-                      <img src={item.images?.[0]?.url} alt="" loading="lazy" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                      <img src={cloudImg(item.images?.[0]?.url, 96, 96)} alt={item.title || "Product"} width="96" height="96" loading="lazy" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                     </div>
 
                     {/* like */}
@@ -491,7 +493,7 @@ const Reels = () => {
                       }}
                     >
                       <div style={{ width: "42px", height: "42px", borderRadius: "8px", overflow: "hidden", flexShrink: 0 }}>
-                        <img src={item.images?.[0]?.url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                        <img src={cloudImg(item.images?.[0]?.url, 200, 200)} alt={item.title || "Product"} width="200" height="200" loading="lazy" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                       </div>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <p style={{ color: "#fff", fontSize: "12px", fontWeight: 600, margin: "0 0 2px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.title}</p>
@@ -533,7 +535,7 @@ const Reels = () => {
                   </button>
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: "12px", background: "rgba(255,255,255,0.06)", borderRadius: "12px", padding: "10px", marginBottom: "18px" }}>
-                  <img src={shareItem.images?.[0]?.url} alt="" style={{ width: "46px", height: "46px", borderRadius: "8px", objectFit: "cover" }} />
+                  <img src={cloudImg(shareItem.images?.[0]?.url, 92, 92)} alt={shareItem.title || "Product"} width="92" height="92" loading="lazy" style={{ width: "46px", height: "46px", borderRadius: "8px", objectFit: "cover" }} />
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <p style={{ color: "#fff", fontSize: "13px", fontWeight: 600, margin: "0 0 2px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{shareItem.title}</p>
                     <p style={{ color: "#d4af37", fontSize: "13px", fontWeight: 700, margin: 0 }}>₹{shareItem.price?.toLocaleString()}</p>

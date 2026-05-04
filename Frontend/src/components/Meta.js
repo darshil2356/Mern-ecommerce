@@ -1,5 +1,6 @@
 import { Helmet } from "react-helmet";
 import React from "react";
+import { cloudImg } from "../utils/cloudinaryUtils";
 
 const Meta = ({
   title,
@@ -14,6 +15,7 @@ const Meta = ({
   schema,
   aggregateRating,
   breadcrumbs, // array of { name, url }
+  faqs,        // array of { question, answer }
 }) => {
   const siteUrl = "https://www.yashodafashion.com";
   const siteName = "Yashoda Fashion";
@@ -23,7 +25,7 @@ const Meta = ({
 
   const metaTitle = title ? `${title} | ${siteName}` : `${siteName} – Premium Fashion`;
   const metaDesc = description || defaultDesc;
-  const metaImage = image || defaultImage;
+  const metaImage = cloudImg(image || defaultImage, 1200);
   const metaUrl = url ? (url.startsWith("http") ? url : `${siteUrl}${url}`) : siteUrl;
   const metaKeywords =
     keywords ||
@@ -77,6 +79,20 @@ const Meta = ({
     }
   }
 
+  // FAQPage schema
+  const faqSchema =
+    faqs && faqs.length > 0
+      ? {
+          "@context": "https://schema.org",
+          "@type": "FAQPage",
+          mainEntity: faqs.map((f) => ({
+            "@type": "Question",
+            name: f.question,
+            acceptedAnswer: { "@type": "Answer", text: f.answer },
+          })),
+        }
+      : null;
+
   // BreadcrumbList schema
   const breadcrumbSchema =
     breadcrumbs && breadcrumbs.length > 0
@@ -110,6 +126,8 @@ const Meta = ({
       <meta property="og:title" content={metaTitle} />
       <meta property="og:description" content={metaDesc} />
       <meta property="og:image" content={metaImage} />
+      <meta property="og:image:width" content="1200" />
+      <meta property="og:image:height" content="630" />
       <meta property="og:url" content={metaUrl} />
       <meta property="og:type" content={type} />
       <meta property="og:site_name" content={siteName} />
@@ -117,6 +135,7 @@ const Meta = ({
 
       {/* Twitter Card */}
       <meta name="twitter:card" content="summary_large_image" />
+      <meta name="twitter:site" content="@yashodafashion" />
       <meta name="twitter:title" content={metaTitle} />
       <meta name="twitter:description" content={metaDesc} />
       <meta name="twitter:image" content={metaImage} />
@@ -131,6 +150,11 @@ const Meta = ({
       {/* JSON-LD: BreadcrumbList */}
       {breadcrumbSchema && (
         <script type="application/ld+json">{JSON.stringify(breadcrumbSchema)}</script>
+      )}
+
+      {/* JSON-LD: FAQPage */}
+      {faqSchema && (
+        <script type="application/ld+json">{JSON.stringify(faqSchema)}</script>
       )}
     </Helmet>
   );

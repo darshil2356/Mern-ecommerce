@@ -7,20 +7,16 @@ import { useDispatch, useSelector } from "react-redux";
 import { getAllBlogs } from "../features/blogs/blogSlice";
 import moment from "moment";
 
-const CATEGORIES = ["All", "Fashion & Trends", "Style Tips", "Wholesale", "AI Generated"];
-
 const BlogCard = ({ blog }) => {
   const clean = (blog.description || "").replace(/<[^>]*>/g, "").replace(/#{1,6}\s/g, "").slice(0, 120) + "...";
   return (
     <div style={{ background: "#fff", borderRadius: 16, overflow: "hidden", boxShadow: "0 4px 20px rgba(0,0,0,0.06)", display: "flex", flexDirection: "column", height: "100%" }}>
       <div style={{ height: 200, overflow: "hidden", background: "linear-gradient(135deg, #667eea22, #764ba222)", position: "relative" }}>
         {blog.images?.[0]?.url
-          ? <img src={blog.images[0].url} alt={blog.title} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+          ? <img src={blog.images[0].url} alt={blog.images[0].alt || blog.title} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
           : <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 48 }}>👗</div>
         }
-        {blog.isAI && (
-          <span style={{ position: "absolute", top: 12, left: 12, background: "linear-gradient(135deg,#667eea,#764ba2)", color: "#fff", fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 20 }}>🤖 AI</span>
-        )}
+
       </div>
       <div style={{ padding: 20, flex: 1, display: "flex", flexDirection: "column" }}>
         <div style={{ display: "flex", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
@@ -33,7 +29,7 @@ const BlogCard = ({ blog }) => {
         <p style={{ fontSize: 13, color: "#666", lineHeight: 1.7, marginBottom: 14, flex: 1 }}>{clean}</p>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <span style={{ fontSize: 12, color: "#94a3b8" }}>{moment(blog.createdAt).format("DD MMM YYYY")}</span>
-          <Link to={`/blog/${blog._id}`} style={{ color: "#667eea", fontWeight: 600, fontSize: 13, textDecoration: "none" }}>Read More →</Link>
+          <Link to={`/blog/${blog.slug || blog._id}`} style={{ color: "#667eea", fontWeight: 600, fontSize: 13, textDecoration: "none" }}>Read More →</Link>
         </div>
       </div>
     </div>
@@ -51,6 +47,9 @@ const Blog = () => {
 
   useEffect(() => { dispatch(getAllBlogs()); }, []);
 
+  // Derive categories dynamically from fetched blogs
+  const categories = ["All", ...Array.from(new Set((blogState || []).map(b => b.category).filter(Boolean)))];
+
   const filtered = (blogState || []).filter(b => {
     const matchCat = activeCategory === "All" || b.category === activeCategory;
     const matchSearch = !search || b.title?.toLowerCase().includes(search.toLowerCase());
@@ -67,8 +66,8 @@ const Blog = () => {
     <>
       <Meta
         title="Fashion Blog — Latest Clothing Trends India"
-        description="Read the latest fashion tips, style guides, wholesale clothing trends and AI-curated content for Indian shoppers."
-        keywords="fashion blog India, clothing trends 2024, wholesale fashion tips, style guide India, AI fashion blog"
+        description="Read the latest fashion tips, style guides, ethnic wear trends and buying guides for Indian shoppers."
+        keywords="fashion blog India, clothing trends 2025, wholesale fashion tips, style guide India, ethnic wear guide"
         url="/blog"
         schema={{
           "@context": "https://schema.org",
@@ -95,7 +94,7 @@ const Blog = () => {
             </div>
             <div style={{ background: "#fff", borderRadius: 12, padding: 20, boxShadow: "0 2px 12px rgba(0,0,0,0.06)" }}>
               <h6 style={{ fontWeight: 700, marginBottom: 14, color: "#1a1a2e" }}>📂 Categories</h6>
-              {CATEGORIES.map(cat => (
+              {categories.map(cat => (
                 <div
                   key={cat}
                   onClick={() => handleCategoryChange(cat)}

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { productUrl } from "../utils/seoUrl";
+import { cloudImg } from "../utils/cloudinaryUtils";
 import { useDispatch, useSelector } from "react-redux";
 import { addToWishlist } from "../features/products/productSlilce";
 import { AiFillHeart, AiOutlineHeart } from "react-icons/ai";
@@ -79,7 +80,7 @@ const ProductCard = ({ data }) => {
                 {item?.videos?.[0]?.url ? (
                   <video src={item.videos[0].url} muted loop playsInline autoPlay style={mediaStyle} />
                 ) : item?.images?.[0]?.url ? (
-                  <img src={item.images[0].url} alt={item.title || "product"} style={mediaStyle} loading="lazy" />
+                  <img src={cloudImg(item.images[0].url, 600, 600)} alt={item.title || "product"} width="600" height="600" style={mediaStyle} loading="lazy" />
                 ) : (
                   <div style={noMediaStyle}>No Image</div>
                 )}

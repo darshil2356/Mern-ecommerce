@@ -15,7 +15,15 @@ const getBlog = async (id) => {
   }
 };
 
+const getBlogBySlug = async (slug) => {
+  const response = await axios.get(`${base_url}blog/slug/${slug}`);
+  if (response.data) {
+    return response.data;
+  }
+};
+
 export const blogService = {
   getBlogs,
   getBlog,
+  getBlogBySlug,
 };

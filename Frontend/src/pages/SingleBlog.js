@@ -4,7 +4,7 @@ import BreadCrumb from "../components/BreadCrumb";
 import Meta from "../components/Meta";
 import Container from "../components/Container";
 import { useDispatch, useSelector } from "react-redux";
-import { getABlog, getAllBlogs } from "../features/blogs/blogSlice";
+import { getABlogBySlug, getAllBlogs } from "../features/blogs/blogSlice";
 import moment from "moment";
 import { HiOutlineArrowLeft } from "react-icons/hi";
 
@@ -24,18 +24,18 @@ const SingleBlog = () => {
   const blogState = useSelector((state) => state?.blog?.singleblog);
   const allBlogs = useSelector((state) => state?.blog?.blog);
   const location = useLocation();
-  const getBlogId = location.pathname.split("/")[2];
+  const getBlogSlug = location.pathname.split("/")[2];
   const dispatch = useDispatch();
 
   useEffect(() => {
-    dispatch(getABlog(getBlogId));
+    dispatch(getABlogBySlug(getBlogSlug));
     dispatch(getAllBlogs());
     window.scrollTo(0, 0);
-  }, [getBlogId]);
+  }, [getBlogSlug]);
 
-  const related = (allBlogs || []).filter(b => b._id !== getBlogId && b.category === blogState?.category).slice(0, 3);
+  const related = (allBlogs || []).filter(b => b.slug !== getBlogSlug && b.category === blogState?.category).slice(0, 3);
   const siteUrl = "https://www.yashodafashion.com";
-  const blogSlug = blogState?.slug || getBlogId;
+  const blogSlug = blogState?.slug || getBlogSlug;
   const blogUrl = `/blog/${blogSlug}`;
 
   const articleSchema = blogState ? {
@@ -97,7 +97,6 @@ const SingleBlog = () => {
                   {/* Meta row */}
                   <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 16, alignItems: "center" }}>
                     <span style={{ fontSize: 12, background: "linear-gradient(135deg,#667eea,#764ba2)", color: "#fff", padding: "3px 12px", borderRadius: 20, fontWeight: 600 }}>{blogState.category}</span>
-                    {blogState.isAI && <span style={{ fontSize: 12, background: "#f0fdf4", color: "#16a34a", padding: "3px 12px", borderRadius: 20, fontWeight: 600 }}>🤖 AI Generated</span>}
                     {blogState.readTime && <span style={{ fontSize: 12, color: "#94a3b8" }}>⏱ {blogState.readTime}</span>}
                     <span style={{ fontSize: 12, color: "#94a3b8" }}>👁 {blogState.numViews} views</span>
                   </div>
@@ -147,7 +146,7 @@ const SingleBlog = () => {
                 <div className="row g-3">
                   {related.map(b => (
                     <div className="col-12 col-sm-4" key={b._id}>
-                      <Link to={`/blog/${b._id}`} style={{ textDecoration: "none" }}>
+                      <Link to={`/blog/${b.slug || b._id}`} style={{ textDecoration: "none" }}>
                         <div style={{ background: "#fff", borderRadius: 12, overflow: "hidden", boxShadow: "0 2px 12px rgba(0,0,0,0.06)" }}>
                           <div style={{ height: 120, background: "linear-gradient(135deg,#667eea22,#764ba222)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 36 }}>
                             {b.images?.[0]?.url ? <img src={b.images[0].url} alt={b.title} style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : "👗"}

@@ -28,6 +28,8 @@ const rewardRouter = require("./routes/rewardRoute");
 const shiprocketRouter = require("./routes/shiprocketRoute");
 const { startTrackingCron } = require("./jobs/trackingCron");
 const { startDailyBlogCron } = require("./jobs/blogCron");
+const { startFeedCron } = require("./jobs/feedCron");
+const feedRouter = require("./routes/feedRoute");
 const notificationRouter = require("./routes/notificationRoute");
 const { initFirebase } = require("./config/firebaseAdmin");
 const trackingRouter = require("./routes/trackingRoute");
@@ -109,6 +111,7 @@ app.use("/api/google-review", googleReviewRouter);
 app.use("/api/product-inquiry", productInquiryRouter);
 app.use("/api/udhar", udharRouter);
 app.use("/api/vendor", vendorRouter);
+app.use("/", feedRouter); // /feed.xml  /feed.json  /feed/refresh
 
 app.get("/ppt", (req, res) => {
   res.sendFile(__dirname + "/public/ppt.html");
@@ -279,4 +282,5 @@ server.listen(PORT, () => {
   console.log(`Server is running at PORT ${PORT}`);
   startTrackingCron();
   startDailyBlogCron();
+  startFeedCron();
 });

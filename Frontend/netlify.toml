@@ -1,3 +1,16 @@
+# Proxy feed routes to backend
+[[redirects]]
+  from = "/feed.xml"
+  to = "https://your-backend-domain.com/feed.xml"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/feed.json"
+  to = "https://your-backend-domain.com/feed.json"
+  status = 200
+  force = true
+
 [[redirects]]
   from = "/*"
   to = "/"

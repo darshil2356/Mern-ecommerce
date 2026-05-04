@@ -102,6 +102,12 @@ const NOTIFICATION_EVENTS = {
     body: "{productName} is back in stock! Grab it before it sells out again.",
     data: { screen: "product", productId: "{productId}" },
   },
+  NEW_STOCK_INQUIRY: {
+    event: "NEW_STOCK_INQUIRY",
+    title: "📦 New Stock Inquiry",
+    body: "{customerName} requested {productName} — check stock inquiries.",
+    data: { screen: "product-inquiries" },
+  },
 
   // ── Account Events ────────────────────────────────────────────────────────────
   WELCOME: {
@@ -121,7 +127,7 @@ const NOTIFICATION_EVENTS = {
 // Map order status strings → notification event keys
 const ORDER_STATUS_EVENT_MAP = {
   Ordered: "ORDER_PLACED",
-  Confirmed: "ORDER_CONFIRMED",
+  Processing: "ORDER_CONFIRMED",
   Packed: "ORDER_PACKED",
   Shipped: "ORDER_SHIPPED",
   "Out for Delivery": "OUT_FOR_DELIVERY",

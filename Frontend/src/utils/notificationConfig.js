@@ -17,6 +17,8 @@ export const NOTIFICATION_EVENTS = {
   REFERRAL_BONUS:    { title: "🤝 Referral Bonus!", body: "{referredName} purchased using your referral. +{coins} coins!" },
   NEW_OFFER:         { title: "🔥 Special Offer!", body: "{discount}% {offerType} discount on your next order." },
   SPIN_WIN:          { title: "🎡 You Won!", body: "You won {prize} on the spin wheel!" },
+  PRODUCT_RESTOCKED: { title: "🎉 Back in Stock!", body: "{productName} is back in stock! Grab it before it sells out again." },
+  NEW_STOCK_INQUIRY: { title: "📦 New Stock Inquiry", body: "{customerName} requested {productName} — check stock inquiries." },
   WELCOME:           { title: "👋 Welcome!", body: "Hi {name}! Welcome to {storeName}. Start shopping!" },
   PASSWORD_CHANGED:  { title: "🔐 Password Changed", body: "Your password was changed successfully." },
 };

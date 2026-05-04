@@ -1,6 +1,7 @@
 const asyncHandler = require("express-async-handler");
 const ProductInquiry = require("../models/productInquiryModel");
 const Product = require("../models/productModel");
+const User = require("../models/userModel");
 const validateMongoDbId = require("../utils/validateMongodbId");
 const { sendPushNotification } = require("./notificationCtrl");
 
@@ -33,6 +34,19 @@ const createProductInquiry = asyncHandler(async (req, res) => {
     quantity: quantity || 1,
     note: note || "",
   });
+
+  // Notify all admin users about the new inquiry
+  try {
+    const admins = await User.find({ role: "admin", fcmTokens: { $exists: true, $not: { $size: 0 } } }).select("fcmTokens");
+    const adminTokens = admins.flatMap((a) => a.fcmTokens || []);
+    if (adminTokens.length > 0) {
+      await sendPushNotification(adminTokens, "NEW_STOCK_INQUIRY", {
+        productName: product.title,
+        customerName: name,
+        productId: productId.toString(),
+      });
+    }
+  } catch (_) {}
 
   res.status(201).json({ success: true, message: "Inquiry submitted successfully", inquiry });
 });
@@ -112,16 +126,20 @@ const notifyRestockedInquirers = asyncHandler(async (req, res) => {
     pushSent = tokens.length;
   }
 
-  // Mark all as Notified
-  await ProductInquiry.updateMany(
-    { product: req.params.productId, status: "Pending" },
-    { status: "Notified", notifiedAt: new Date() }
-  );
+  // Only mark as Notified if at least one push was sent
+  if (pushSent > 0) {
+    await ProductInquiry.updateMany(
+      { product: req.params.productId, status: "Pending" },
+      { status: "Notified", notifiedAt: new Date() }
+    );
+  }
 
   res.json({
     success: true,
-    message: `Notified ${inquiries.length} inquirer(s) via ${pushSent} device(s)`,
-    notified: inquiries.length,
+    message: pushSent > 0
+      ? `Notified ${inquiries.length} inquirer(s) via ${pushSent} device(s)`
+      : `Found ${inquiries.length} pending inquirer(s) but none have push notifications enabled`,
+    notified: pushSent > 0 ? inquiries.length : 0,
     pushSent,
   });
 });

@@ -107,7 +107,7 @@ const ShippingPolicy = () => {
                 For any shipping-related queries, reach out to us:<br />
                 📧 <a href="mailto:info@yashodafashion.com" style={{ color: "#d4af37" }}>info@yashodafashion.com</a><br />
                 📞 <a href="tel:+917046252356" style={{ color: "#d4af37" }}>+91 70462 52356</a><br />
-                📍 B-204 Gajanan Flora, Opp Uma School, Nikol Naroda, Ahmedabad – 382350
+                📍Shop no. 1-2 Greendhara apartment, Near bhagawati school, India Colony, Bapunagar, Ahmedabad, Gujarat 382350
               </p>
             </div>
           </div>

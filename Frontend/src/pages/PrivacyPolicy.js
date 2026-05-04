@@ -38,7 +38,7 @@ const PrivacyPolicy = () => {
                 1. About Us
               </h4>
               <p style={{ color: "#666", lineHeight: 1.8, marginBottom: "20px" }}>
-                Yashoda Fashion is an online fashion store based at B-204 Gajanan Flora, Opp Uma School, Nikol Naroda, Ahmedabad – 382350, Gujarat, India. We operate this website to provide you with a seamless online shopping experience.
+                Yashoda Fashion is an online fashion store based atShop no. 1-2 Greendhara apartment, Near bhagawati school, India Colony, Bapunagar, Ahmedabad, Gujarat 382350, Gujarat, India. We operate this website to provide you with a seamless online shopping experience.
               </p>
 
               <h4 style={{ fontFamily: "'Playfair Display', serif", fontSize: "22px", marginBottom: "15px", marginTop: "30px" }}>
@@ -116,7 +116,7 @@ const PrivacyPolicy = () => {
                 For any privacy-related queries, contact us at:<br />
                 📧 <a href="mailto:info@yashodafashion.com" style={{ color: "#d4af37" }}>info@yashodafashion.com</a><br />
                 📞 <a href="tel:+917046252356" style={{ color: "#d4af37" }}>+91 70462 52356</a><br />
-                📍 B-204 Gajanan Flora, Opp Uma School, Nikol Naroda, Ahmedabad – 382350
+                📍Shop no. 1-2 Greendhara apartment, Near bhagawati school, India Colony, Bapunagar, Ahmedabad, Gujarat 382350
               </p>
             </div>
           </div>

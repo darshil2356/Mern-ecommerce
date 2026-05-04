@@ -3,14 +3,22 @@ import { Form, Input, Switch, Button, Card, message, Spin } from "antd";
 import {
   FaBuilding, FaEnvelope, FaStore, FaMapMarkerAlt, FaPhone,
   FaMagic, FaSave, FaQuoteRight, FaPercentage, FaTruck,
+  FaRss, FaSyncAlt, FaExternalLinkAlt, FaCopy,
 } from "react-icons/fa";
 import axios from "axios";
 import { base_url } from "../utils/baseUrl";
 import { config } from "../utils/axiosconfig";
 
+// base_url = "http://localhost:8000/api/" → strip /api/ to get backend root
+const BACKEND_ROOT  = (process.env.REACT_APP_API_URL || "").replace(/\/api\/?$/, "");
+const FEED_XML_URL  = `${BACKEND_ROOT}/feed.xml`;
+const FEED_JSON_URL = `${BACKEND_ROOT}/feed.json`;
+
 const Settings = () => {
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving]   = useState(false);
+  const [loading, setLoading]       = useState(true);
+  const [saving, setSaving]         = useState(false);
+  const [feedRefreshing, setFeedRefreshing] = useState(false);
+  const [feedInfo, setFeedInfo]     = useState(null); // { builtAt, count }
   const [form] = Form.useForm();
 
   const [taxIncluded, setTaxIncluded]                       = useState(false);
@@ -76,6 +84,30 @@ const Settings = () => {
     } finally {
       setSaving(false);
     }
+  };
+
+  const refreshFeed = async () => {
+    const secret = process.env.REACT_APP_FEED_REFRESH_SECRET || "";
+    try {
+      setFeedRefreshing(true);
+      const res = await axios.post(
+        // base_url ends with /api/ — feed/refresh is at root level
+        `${base_url.replace(/\/api\/?$/, "")}/feed/refresh`,
+        {},
+        { headers: { "x-feed-secret": secret } }
+      );
+      setFeedInfo({ builtAt: res.data.builtAt, count: res.data.count });
+      message.success(`Feed refreshed — ${res.data.count} products`);
+    } catch {
+      message.error("Feed refresh failed. Check FEED_REFRESH_SECRET.");
+    } finally {
+      setFeedRefreshing(false);
+    }
+  };
+
+  const copyToClipboard = (text) => {
+    navigator.clipboard.writeText(text);
+    message.success("Copied!");
   };
 
   if (loading) {
@@ -276,6 +308,67 @@ const Settings = () => {
           </Button>
         </div>
       </Form>
+
+      {/* ── Google Merchant Feed ── */}
+      <Card
+        className="mt-6 shadow-sm"
+        title={<span className="flex items-center gap-2"><FaRss className="text-orange-500" /> Google Merchant Center Feed</span>}
+      >
+        <p className="text-sm text-gray-500 mb-4">
+          Feed is auto-regenerated daily at <strong>2:00 AM IST</strong>. Use the button below to force-refresh immediately after adding/updating products.
+        </p>
+
+        {/* Feed URLs */}
+        <div className="space-y-3 mb-5">
+          {[
+            { label: "XML Feed (paste in Merchant Center)", url: FEED_XML_URL, highlight: true },
+            { label: "JSON Feed", url: FEED_JSON_URL, highlight: false },
+          ].map(({ label, url, highlight }) => (
+            <div key={url} className={`flex items-center gap-2 p-3 rounded-lg border ${
+              highlight ? "bg-orange-50 border-orange-200" : "bg-gray-50 border-gray-200"
+            }`}>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs text-gray-500 mb-0.5">{label}</p>
+                <p className="text-sm font-mono text-gray-800 truncate">{url}</p>
+              </div>
+              <Button
+                size="small"
+                icon={<FaCopy />}
+                onClick={() => copyToClipboard(url)}
+                title="Copy URL"
+              />
+              <Button
+                size="small"
+                icon={<FaExternalLinkAlt />}
+                onClick={() => window.open(url, "_blank")}
+                title="Open in new tab"
+              />
+            </div>
+          ))}
+        </div>
+
+        {/* Last built info */}
+        {feedInfo && (
+          <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg text-sm text-green-700">
+            ✅ Last refreshed: <strong>{new Date(feedInfo.builtAt).toLocaleString("en-IN")}</strong>
+            &nbsp;·&nbsp; <strong>{feedInfo.count}</strong> products in feed
+          </div>
+        )}
+
+        <Button
+          type="primary"
+          icon={<FaSyncAlt className={feedRefreshing ? "animate-spin" : ""} />}
+          loading={feedRefreshing}
+          onClick={refreshFeed}
+          className="bg-orange-500 hover:bg-orange-600 border-orange-500"
+        >
+          Refresh Feed Now
+        </Button>
+
+        <p className="text-xs text-gray-400 mt-3">
+          Tip: In Google Merchant Center → Products → Feeds → Add feed → Scheduled fetch → paste the XML URL above.
+        </p>
+      </Card>
     </div>
   );
 };

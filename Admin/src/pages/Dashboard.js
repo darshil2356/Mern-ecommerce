@@ -75,17 +75,20 @@ const Dashboard = () => {
     return params.toString();
   };
 
-  // Fetch data based on filter
+  // Fetch monthly/yearly data once on mount — these don't depend on filters
+  useEffect(() => {
+    dispatch(getMonthlyData(config3));
+    dispatch(getYearlyData(config3));
+  }, []);
+
+  // Fetch filter-dependent data
   useEffect(() => {
     setIsLoading(true);
     const params = buildQueryParams();
     dispatch(getDashboardStatsData({ params, config: config3 }));
     dispatch(getDailySalesData({ params, config: config3 }));
-    dispatch(getMonthlyData(config3));
-    dispatch(getYearlyData(config3));
     dispatch(getOrders(showAll ? 'all' : 'online_current'));
-    
-    // Small delay to show loading state
+
     const timer = setTimeout(() => setIsLoading(false), 500);
     return () => clearTimeout(timer);
   }, [selectedFilter, selectedMode, dateRange, showAll]);

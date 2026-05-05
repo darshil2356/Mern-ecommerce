@@ -34,7 +34,6 @@ const Customers = () => {
   const handleDelete = () => {
     if (customerToDelete) {
       dispatch(deleteCustomer(customerToDelete._id)).then(() => {
-        dispatch(getCustomers());
         setDeleteModalOpen(false);
         setCustomerToDelete(null);
       });
@@ -48,7 +47,7 @@ const Customers = () => {
           message.error(action.payload || "Failed to update customer");
           return;
         }
-        dispatch(getCustomers()); setOpen(false); form.resetFields(); setEditingCustomer(null);
+        setOpen(false); form.resetFields(); setEditingCustomer(null);
       });
     } else {
       dispatch(createCustomer(values)).then((action) => {
@@ -56,7 +55,7 @@ const Customers = () => {
           message.error(action.payload || "Failed to create customer");
           return;
         }
-        dispatch(getCustomers()); setOpen(false); form.resetFields();
+        setOpen(false); form.resetFields();
       });
     }
   };

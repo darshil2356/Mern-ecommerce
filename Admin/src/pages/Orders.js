@@ -174,7 +174,6 @@ const Orders = () => {
     try {
       await dispatch(updateAOrder({ id: orderId, status: newStatus })).unwrap();
       message.success(`Status updated to ${newStatus}`);
-      dispatch(getOrders(showAll ? 'all' : 'online_current'));
     } catch { message.error("Failed to update status"); }
   };
 
@@ -183,7 +182,6 @@ const Orders = () => {
     try {
       await dispatch(adminCancelAOrder({ id: cancelModal.orderId, cancelReason: cancelModal.reason.trim() })).unwrap();
       message.success("Order cancelled successfully");
-      dispatch(getOrders(showAll ? 'all' : 'online_current'));
     } catch { message.error("Failed to cancel order"); }
     setCancelModal({ open: false, orderId: null, reason: "" });
   };

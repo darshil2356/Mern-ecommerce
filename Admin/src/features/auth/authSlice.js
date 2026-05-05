@@ -231,9 +231,12 @@ export const authSlice = createSlice({
         state.isLoading = false;
         state.isSuccess = true;
         state.updateorder = action.payload;
-        if (state.isSuccess === true) {
-          toast.success("Order Status Changed");
+        const updated = action.payload?.order || action.payload;
+        if (updated?._id) {
+          const idx = state.orders.findIndex((o) => o._id === updated._id);
+          if (idx !== -1) state.orders[idx] = updated;
         }
+        toast.success("Order Status Changed");
       })
       .addCase(updateAOrder.rejected, (state, action) => {
         state.isError = true;
@@ -248,7 +251,12 @@ export const authSlice = createSlice({
         state.isError = false;
         state.isLoading = false;
         state.isSuccess = true;
-        state.singleorder = { orders: action.payload.order };
+        const cancelled = action.payload?.order;
+        state.singleorder = { orders: cancelled };
+        if (cancelled?._id) {
+          const idx = state.orders.findIndex((o) => o._id === cancelled._id);
+          if (idx !== -1) state.orders[idx] = cancelled;
+        }
         toast.success("Order cancelled successfully");
       })
       .addCase(adminCancelAOrder.rejected, (state, action) => {

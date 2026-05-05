@@ -40,11 +40,12 @@ const appendCoinTransaction = (userDoc, transaction) => {
 
 const findProductByBarcode = async (barcode) => {
   if (!barcode) return null;
-  const product = await Product.findOne({ barcode }).populate("color").populate("variants.color");
+  const normalized = barcode.toUpperCase();
+  const product = await Product.findOne({ barcode: normalized }).populate("color").populate("variants.color");
   if (product) return product;
-  const product2 = await Product.findOne({ "sizeStock.barcode": barcode }).populate("color").populate("variants.color");
+  const product2 = await Product.findOne({ "sizeStock.barcode": normalized }).populate("color").populate("variants.color");
   if (product2) return product2;
-  return await Product.findOne({ "variants.sizeStock.barcode": barcode }).populate("color").populate("variants.color");
+  return await Product.findOne({ "variants.sizeStock.barcode": normalized }).populate("color").populate("variants.color");
 };
 
 const normalizeProductQuantity = (product) => {

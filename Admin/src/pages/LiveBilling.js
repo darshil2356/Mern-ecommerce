@@ -37,6 +37,8 @@ const LiveBilling = () => {
   const [sgstPercent, setSgstPercent] = useState(0);
   const [igstPercent, setIgstPercent] = useState(0);
   const [discountPercent, setDiscountPercent] = useState(0);
+  const [flatDiscount, setFlatDiscount] = useState(0);
+  const [discountType, setDiscountType] = useState("percent"); // "percent" | "flat"
   // GST type: "CGST_SGST" for intra-state, "IGST" for inter-state, "NONE" for no tax
   const [gstType, setGstType] = useState("CGST_SGST");
   const [storeState, setStoreState] = useState("Gujarat");
@@ -250,9 +252,12 @@ const LiveBilling = () => {
 
   // Discount is always on grandTotal (subtotal) — clamped so it never exceeds grandTotal
   const discountAmount = useMemo(() => {
-    const raw = (grandTotal * discountPercent) / 100 + appliedOfferAmount + offerModelDiscount;
+    const manualDiscount = discountType === "flat"
+      ? flatDiscount
+      : (grandTotal * discountPercent) / 100;
+    const raw = manualDiscount + appliedOfferAmount + offerModelDiscount;
     return Math.min(raw, grandTotal);
-  }, [grandTotal, discountPercent, appliedOfferAmount, offerModelDiscount]);
+  }, [grandTotal, discountPercent, flatDiscount, discountType, appliedOfferAmount, offerModelDiscount]);
 
   const coinDiscountAmount = useMemo(() => {
     if (!useCoins || coinAmount <= 0) return 0;
@@ -985,7 +990,7 @@ const LiveBilling = () => {
       if (cgstPercent > 0) whatsAppMessage += `CGST (${cgstPercent}%): ₹${cgstAmount.toFixed(2)}\n`;
       if (sgstPercent > 0) whatsAppMessage += `SGST (${sgstPercent}%): ₹${sgstAmount.toFixed(2)}\n`;
     }
-    if (discountPercent > 0) whatsAppMessage += `Additional Discount: -₹${((grandTotal * discountPercent) / 100).toFixed(2)}\n`;
+    if (discountPercent > 0 || flatDiscount > 0) whatsAppMessage += `Additional Discount: -₹${(discountType === "flat" ? flatDiscount : (grandTotal * discountPercent) / 100).toFixed(2)}\n`;
     if (activeAppliedAmount > 0) whatsAppMessage += `Customer Offer: -₹${activeAppliedAmount.toFixed(2)}\n`;
     whatsAppMessage += `*Total: ₹${payableAmount.toFixed(2)}*\n`;
     whatsAppMessage += `─────────────\n\n`;
@@ -1179,6 +1184,7 @@ const LiveBilling = () => {
       setIgstPercent(0);
       setGstType("CGST_SGST");
       setDiscountPercent(0);
+      setFlatDiscount(0);
       setAppliedOfferAmount(0);
       setCustomerOffer({ hasOffer: false, offerDiscount: 0, offerType: "" });
       setUseCoins(false);
@@ -1859,21 +1865,57 @@ tbody td{padding:6px 4px;vertical-align:top}
 
               {/* Discount */}
               <div className="bg-white/5 rounded-xl p-4">
-                <div className="flex justify-between items-center mb-2">
+                <div className="flex justify-between items-center mb-3">
                   <span className="text-indigo-200">Discount</span>
                   <span className="font-semibold text-green-400">-₹{discountAmount.toFixed(2)}</span>
                 </div>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="number"
-                    min={0}
-                    step={1}
-                    className="w-20 px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-center text-white placeholder-white/50"
-                    value={discountPercent}
-                    onChange={(e) => setDiscountPercent(clampNonNegative(e.target.value))}
-                  />
-                  <span className="text-indigo-200">%</span>
+                {/* Toggle */}
+                <div className="flex rounded-lg overflow-hidden border border-white/20 mb-3">
+                  <button
+                    onClick={() => setDiscountType("percent")}
+                    className={`flex-1 py-1.5 text-xs font-bold transition-all ${
+                      discountType === "percent" ? "bg-amber-500 text-white" : "bg-white/5 text-indigo-300 hover:bg-white/10"
+                    }`}
+                  >
+                    % Percent
+                  </button>
+                  <button
+                    onClick={() => setDiscountType("flat")}
+                    className={`flex-1 py-1.5 text-xs font-bold transition-all ${
+                      discountType === "flat" ? "bg-amber-500 text-white" : "bg-white/5 text-indigo-300 hover:bg-white/10"
+                    }`}
+                  >
+                    ₹ Flat
+                  </button>
                 </div>
+                {discountType === "percent" ? (
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="number"
+                      min={0}
+                      max={100}
+                      step={1}
+                      className="w-20 px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-center text-white placeholder-white/50"
+                      value={discountPercent}
+                      onChange={(e) => setDiscountPercent(clampNonNegative(e.target.value))}
+                    />
+                    <span className="text-indigo-200">%</span>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <span className="text-indigo-200">₹</span>
+                    <input
+                      type="number"
+                      min={0}
+                      step={1}
+                      className="w-28 px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-center text-white placeholder-white/50"
+                      value={flatDiscount}
+                      onChange={(e) => setFlatDiscount(clampNonNegative(e.target.value))}
+                      placeholder="0"
+                    />
+                    <span className="text-indigo-200 text-xs">flat off</span>
+                  </div>
+                )}
               </div>
 
               {/* Coins Payment Option - Show when customer is selected */}

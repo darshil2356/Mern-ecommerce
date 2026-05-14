@@ -3532,6 +3532,43 @@ const updateCustomerById = asyncHandler(async (req, res) => {
   res.json(updated);
 });
 
+// Manual coin deduction (admin)
+const manualDeductCoins = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  validateMongoDbId(id);
+  const { coins, reason } = req.body;
+
+  if (!coins || coins <= 0) {
+    res.status(400);
+    throw new Error("Coins must be a positive number");
+  }
+  if (!reason || !reason.trim()) {
+    res.status(400);
+    throw new Error("Reason is required");
+  }
+
+  const customer = await User.findById(id);
+  if (!customer) { res.status(404); throw new Error("Customer not found"); }
+
+  if ((customer.coins || 0) < coins) {
+    res.status(400);
+    throw new Error(`Customer only has ${customer.coins || 0} coins`);
+  }
+
+  customer.coins -= coins;
+  appendCoinTransaction(customer, {
+    type: "debit",
+    coins,
+    reason: reason.trim(),
+    source: "admin_adjustment",
+    description: `Admin deducted ${coins} coins: ${reason.trim()}`,
+    metadata: { adminId: req.user._id },
+  });
+  await customer.save();
+
+  res.json({ success: true, coins: customer.coins, deducted: coins });
+});
+
 // Delete customer (admin)
 const deleteCustomerById = asyncHandler(async (req, res) => {
   const { id } = req.params;
@@ -3618,4 +3655,5 @@ module.exports = {
   addBundleToCart,
   cancelOrder,
   adminCancelOrder,
+  manualDeductCoins,
 };

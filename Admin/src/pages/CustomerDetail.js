@@ -1,5 +1,5 @@
-import React, { useEffect } from "react";
-import { Table, Tag, Button, Spin, Tooltip, Tabs } from "antd";
+import React, { useEffect, useState } from "react";
+import { Table, Tag, Button, Spin, Tooltip, Tabs, Modal, Form, InputNumber, Input, message } from "antd";
 import { useDispatch, useSelector } from "react-redux";
 import { useLocation, useNavigate, Link } from "react-router-dom";
 import {
@@ -9,9 +9,9 @@ import {
 import {
   FaUser, FaEnvelope, FaPhone, FaMapMarkerAlt, FaCalendarAlt,
   FaIdCard, FaShoppingBag, FaCoins, FaGift, FaChartLine,
-  FaArrowUp, FaArrowDown, FaTag, FaUsers,
+  FaArrowUp, FaArrowDown, FaTag, FaUsers, FaMinusCircle,
 } from "react-icons/fa";
-import { getCustomerDetails } from "../features/customers/customerSlice";
+import { getCustomerDetails, deductCoins } from "../features/customers/customerSlice";
 
 const statusConfig = {
   Ordered: { color: "default", bg: "#f5f5f5", text: "#595959" },
@@ -63,10 +63,27 @@ const CustomerDetail = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const { customerDetails, loading } = useSelector((state) => state.customer);
+  const [deductModal, setDeductModal] = useState(false);
+  const [deductLoading, setDeductLoading] = useState(false);
+  const [deductForm] = Form.useForm();
 
   useEffect(() => {
     if (customerId) dispatch(getCustomerDetails(customerId));
   }, [dispatch, customerId]);
+
+  const handleDeductCoins = async (values) => {
+    setDeductLoading(true);
+    const action = await dispatch(deductCoins({ id: customerId, coins: values.coins, reason: values.reason }));
+    setDeductLoading(false);
+    if (action.type.endsWith("/fulfilled")) {
+      message.success(`${values.coins} coins deducted successfully`);
+      setDeductModal(false);
+      deductForm.resetFields();
+      dispatch(getCustomerDetails(customerId));
+    } else {
+      message.error(action.payload || "Failed to deduct coins");
+    }
+  };
 
   if (loading || !customerDetails) {
     return (
@@ -353,6 +370,12 @@ const CustomerDetail = () => {
                 <span className="inline-flex items-center gap-1 text-xs bg-amber-50 text-amber-600 font-semibold px-2.5 py-1 rounded-full">
                   <FaCoins size={9} /> {customer.coins || 0} coins
                 </span>
+                <button
+                  onClick={() => setDeductModal(true)}
+                  className="inline-flex items-center gap-1 text-xs bg-red-50 text-red-500 hover:bg-red-500 hover:text-white font-semibold px-2.5 py-1 rounded-full transition-all cursor-pointer border-0"
+                >
+                  <FaMinusCircle size={9} /> Deduct Coins
+                </button>
               </div>
             </div>
           </div>
@@ -395,6 +418,75 @@ const CustomerDetail = () => {
           </div>
         </div>
       </div>
+
+      <Modal
+        title={
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-red-100 flex items-center justify-center text-red-500">
+              <FaMinusCircle size={14} />
+            </div>
+            <span className="font-semibold text-gray-800">Deduct Coins Manually</span>
+          </div>
+        }
+        open={deductModal}
+        onCancel={() => { setDeductModal(false); deductForm.resetFields(); }}
+        footer={null}
+        centered
+        width={420}
+      >
+        <div className="mb-3 mt-2 bg-amber-50 rounded-xl px-4 py-2 flex items-center gap-2">
+          <FaCoins className="text-amber-500" size={14} />
+          <span className="text-sm text-amber-700 font-medium">Current Balance: <strong>{customer.coins || 0} coins</strong></span>
+        </div>
+        <Form form={deductForm} layout="vertical" onFinish={handleDeductCoins}>
+          <Form.Item
+            name="coins"
+            label={<span className="text-gray-600 text-sm font-medium">Coins to Deduct</span>}
+            rules={[
+              { required: true, message: "Enter coins amount" },
+              { type: "number", min: 1, message: "Must be at least 1" },
+              { type: "number", max: customer.coins || 0, message: `Max ${customer.coins || 0} coins` },
+            ]}
+          >
+            <InputNumber
+              min={1}
+              max={customer.coins || 0}
+              placeholder="e.g. 100"
+              size="large"
+              className="w-full rounded-xl"
+            />
+          </Form.Item>
+          <Form.Item
+            name="reason"
+            label={<span className="text-gray-600 text-sm font-medium">Short Reason</span>}
+            rules={[{ required: true, message: "Reason is required" }, { min: 3, message: "Min 3 characters" }]}
+          >
+            <Input.TextArea
+              rows={2}
+              placeholder="e.g. Fraud activity, Manual correction, Partner adjustment..."
+              className="rounded-xl"
+              maxLength={200}
+              showCount
+            />
+          </Form.Item>
+          <div className="flex gap-3 pt-1">
+            <button
+              type="button"
+              onClick={() => { setDeductModal(false); deductForm.resetFields(); }}
+              className="flex-1 h-10 border border-gray-200 text-gray-600 rounded-xl hover:bg-gray-50 font-medium text-sm cursor-pointer bg-white"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={deductLoading}
+              className="flex-1 h-10 bg-red-500 hover:bg-red-600 text-white rounded-xl font-medium text-sm cursor-pointer border-0 disabled:opacity-60"
+            >
+              {deductLoading ? "Deducting..." : "Deduct Coins"}
+            </button>
+          </div>
+        </Form>
+      </Modal>
 
       <style>{`
         .detail-table .ant-table-thead > tr > th {

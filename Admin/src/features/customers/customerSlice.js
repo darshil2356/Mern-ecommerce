@@ -106,6 +106,23 @@ export const deleteCustomer = createAsyncThunk(
   }
 );
 
+// Manual coin deduction (admin)
+export const deductCoins = createAsyncThunk(
+  "customer/deductCoins",
+  async ({ id, coins, reason }, { rejectWithValue }) => {
+    try {
+      const response = await axios.post(
+        `${base_url}user/deduct-coins/${id}`,
+        { coins, reason },
+        config
+      );
+      return { id, ...response.data };
+    } catch (err) {
+      return rejectWithValue(err.response?.data?.message || err.message);
+    }
+  }
+);
+
 // GET all referrals (for admin)
 export const getAllReferrals = createAsyncThunk(
   "customer/getAllReferrals",
@@ -171,6 +188,11 @@ const customerSlice = createSlice({
       })
       .addCase(getAllReferrals.rejected, (state) => {
         state.loading = false;
+      })
+      .addCase(deductCoins.fulfilled, (state, action) => {
+        if (state.customerDetails?.customer?._id === action.payload.id) {
+          state.customerDetails.customer.coins = action.payload.coins;
+        }
       });
   },
 });

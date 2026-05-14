@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
+import { useSelector } from "react-redux";
 import { MenuFoldOutlined, MenuUnfoldOutlined, CloseOutlined } from "@ant-design/icons";
 import {
   AiOutlineDashboard,
@@ -18,7 +19,7 @@ import { Link } from "react-router-dom";
 import { Outlet, useLocation } from "react-router-dom";
 import { ImBlog } from "react-icons/im";
 import { IoIosNotifications } from "react-icons/io";
-import { FaClipboardList, FaBloggerB, FaChartLine, FaBox, FaUsers, FaTags, FaFileAlt, FaCube, FaLink, FaMagic, FaCoins, FaEye, FaChartBar, FaRocket, FaBook, FaRuler, FaHandshake } from "react-icons/fa";
+import { FaClipboardList, FaBloggerB, FaChartLine, FaBox, FaUsers, FaTags, FaFileAlt, FaCube, FaLink, FaMagic, FaCoins, FaEye, FaChartBar, FaRocket, FaBook, FaRuler, FaHandshake, FaShoppingBasket, FaStore } from "react-icons/fa";
 import { SiBrandfolder } from "react-icons/si";
 import { BiCategoryAlt } from "react-icons/bi";
 import { Layout, Menu, theme, Drawer } from "antd";
@@ -35,6 +36,7 @@ const MainLayout = () => {
   } = theme.useToken();
   const navigate = useNavigate();
   const location = useLocation();
+  const vendorsVisible = useSelector(s => s.purchase?.vendorsVisible ?? false);
 
   useEffect(() => {
     const handleResize = () => {
@@ -144,6 +146,16 @@ const MainLayout = () => {
         { key: "offer-list", icon: <FaTags />, label: "Offers" },
         { key: "blog-list", icon: <FaBloggerB />, label: "Blogs" },
         { key: "blog-category-list", icon: <ImBlog />, label: "Blog Categories" },
+      ],
+    },
+    {
+      key: "purchase-module",
+      icon: <FaShoppingBasket />,
+      label: "Purchase",
+      children: [
+        { key: "purchase-list", icon: <FaFileAlt />, label: "Purchase Bills" },
+        { key: "add-purchase", icon: <FaShoppingBasket />, label: "Add Bill" },
+        ...(vendorsVisible ? [{ key: "vendors", icon: <FaStore />, label: "Vendors (Vepari)" }] : []),
       ],
     },
     {

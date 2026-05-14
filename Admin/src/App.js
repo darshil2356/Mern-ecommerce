@@ -45,6 +45,9 @@ import AddOffer from "./pages/AddOffer";
 import Offerlist from "./pages/Offerlist";
 import ProductInquiries from "./pages/ProductInquiries";
 import Udhar from "./pages/Udhar";
+import Vendors from "./pages/Vendors";
+import AddPurchase from "./pages/AddPurchase";
+import PurchaseList from "./pages/PurchaseList";
 
 function App() {
   return (
@@ -111,6 +114,9 @@ function App() {
           <Route path="offer-list" element={<Offerlist />} />
           <Route path="product-inquiries" element={<ProductInquiries />} />
           <Route path="udhar" element={<Udhar />} />
+          <Route path="vendors" element={<Vendors />} />
+          <Route path="add-purchase" element={<AddPurchase />} />
+          <Route path="purchase-list" element={<PurchaseList />} />
         </Route>
       </Routes>
     </Router>

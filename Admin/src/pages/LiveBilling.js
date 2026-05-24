@@ -865,7 +865,6 @@ const LiveBilling = () => {
   const [addCustomerForm] = Form.useForm();
 
   const openAddCustomer = () => {
-    // Pre-fill mobile from contact search, name parts from name search if available
     const nameParts = searchTerm.trim().split(' ').filter(Boolean);
     addCustomerForm.setFieldsValue({
       mobile: contactSearch.trim() || "",
@@ -873,6 +872,7 @@ const LiveBilling = () => {
       lastname: nameParts.slice(1).join(' ') || "",
       email: "",
       address: "",
+      referredByMobile: customer.referralContact || "",
     });
     setAddCustomerOpen(true);
   };
@@ -883,7 +883,13 @@ const LiveBilling = () => {
       const res = await axios.post(`${base_url}user/create-customer`, values, config);
       const newUser = res.data;
       const fullName = `${newUser.firstname} ${newUser.lastname}`.trim();
-      setCustomer({ name: fullName, address: newUser.address || "", contact: newUser.mobile || "", referralContact: "", referralCode: "" });
+      setCustomer({
+        name: fullName,
+        address: newUser.address || "",
+        contact: newUser.mobile || "",
+        referralContact: customer.referralContact || "",
+        referralCode: customer.referralCode || "",
+      });
       setContactSearch("");
       setSearchTerm("");
       setContactResults([]);

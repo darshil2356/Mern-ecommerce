@@ -118,6 +118,12 @@ const ProductCard = ({ data }) => {
                   {showDiscountedPrice && (
                     <span style={priceOld}>₹{item.price?.toLocaleString()}</span>
                   )}
+                  {!showDiscountedPrice && item.mrp && item.mrp > item.price && (
+                    <span style={priceOld}>₹{item.mrp?.toLocaleString()}</span>
+                  )}
+                  {!showDiscountedPrice && item.mrp && item.mrp > item.price && (
+                    <span style={discountBadge}>{Math.round((1 - item.price / item.mrp) * 100)}% off</span>
+                  )}
                   {offerDisplay && !showDiscountedPrice && (
                     <span style={offerHint}>{offerDisplay.label}</span>
                   )}
@@ -150,6 +156,7 @@ const titleText = { fontSize: 12, fontWeight: 500, color: "#1a1a1a", lineHeight:
 const priceRow = { display: "flex", alignItems: "center", gap: 6, marginTop: 4, flexWrap: "wrap" };
 const priceMain = { fontSize: 13, fontWeight: 700, color: "#1a1a1a" };
 const priceOld = { fontSize: 10, color: "#aaa", textDecoration: "line-through" };
+const discountBadge = { fontSize: 9, fontWeight: 700, color: "#e53935", background: "#ffeaea", padding: "2px 5px", borderRadius: 4 };
 const offerHint = { fontSize: 9, fontWeight: 700, color: "#ff6b35", background: "#fff3ee", padding: "2px 6px", borderRadius: 4 };
 
 export default ProductCard;

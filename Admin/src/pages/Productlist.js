@@ -421,7 +421,7 @@ const Productlist = () => {
         <SizeBarcodesList
           barcodes={productSizeBarcodes}
           onDownload={downloadBarcode}
-          productData={{ title: selectedTitle, color: selectedRecord?.color, price: selectedRecord?.price }}
+          productData={{ title: selectedTitle, color: selectedRecord?.color, price: selectedRecord?.price, mrp: selectedRecord?.mrp }}
         />
       </Modal>
     </div>

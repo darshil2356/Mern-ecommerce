@@ -22,7 +22,7 @@ const BarcodeModal = ({ open, onClose, barcode, title, productData }) => {
     }
   }, [open, barcode]);
 
-  const stickerParams = { barcode, size: productData?.size, price: productData?.price, title };
+  const stickerParams = { barcode, size: productData?.size, price: productData?.price, mrp: productData?.mrp, title };
   const handlePrint = () => printSticker(stickerParams);
   const handleDownload = () => downloadStickerPNG(stickerParams);
 
@@ -38,16 +38,22 @@ const BarcodeModal = ({ open, onClose, barcode, title, productData }) => {
       <div style={{ textAlign: "center", padding: "16px 0" }}>
         {productData && (
           <div style={{ marginBottom: "14px", fontSize: "14px" }}>
-            <Space direction="vertical" size="small">
+            <Space direction="vertical" size={2} style={{ alignItems: "center" }}>
               {productData.price && (
-                <div style={{ fontSize: "22px", fontWeight: "bold", color: "#000" }}>
-                  ₹{productData.price}
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <span style={{ fontSize: "26px", fontWeight: "bold", color: "#000" }}>₹{productData.price}</span>
+                  {productData.mrp && productData.mrp > productData.price && (
+                    <span style={{ fontSize: "14px", color: "#aaa", textDecoration: "line-through" }}>MRP ₹{productData.mrp}</span>
+                  )}
+                  {productData.mrp && productData.mrp > productData.price && (
+                    <span style={{ fontSize: "12px", fontWeight: 700, background: "#e53935", color: "#fff", padding: "2px 7px", borderRadius: 4 }}>
+                      {Math.round((1 - productData.price / productData.mrp) * 100)}% OFF
+                    </span>
+                  )}
                 </div>
               )}
               {productData.size && (
-                <div>
-                  Size: <strong>{productData.size}</strong>
-                </div>
+                <div style={{ fontSize: 13, color: "#555" }}>Size: <strong>{productData.size}</strong></div>
               )}
             </Space>
           </div>

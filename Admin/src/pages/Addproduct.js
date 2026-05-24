@@ -143,7 +143,7 @@ const Addproduct = () => {
   }, []);
 
   const brandState = useSelector((state) => state.brand.brands);
-  const vendorState = useSelector((state) => state.vendor.vendors);
+  const vendorState = useSelector((state) => state.vendor.vendors) || [];
   const catState = useSelector((state) => state.pCategory.pCategories);
   const categoryTree = useSelector((state) => state.pCategory.categoryTree);
   const colorState = useSelector((state) => state.color.colors);
@@ -1547,6 +1547,7 @@ const Addproduct = () => {
         title={selectedBarcodeTitle}
         productData={{
           price: formik.values.price,
+          mrp: formik.values.mrp,
           color: formik.values.color,
           size: selectedBarcodeTitle?.split(" - ").slice(-1)[0] || "",
         }}

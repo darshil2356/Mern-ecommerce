@@ -1,6 +1,6 @@
 import JsBarcode from "jsbarcode";
 
-export const buildStickerHTML = ({ barcode, size, price, title }) => {
+export const buildStickerHTML = ({ barcode, size, price, mrp, title }) => {
   const barcodeCanvas = document.createElement("canvas");
   JsBarcode(barcodeCanvas, barcode, {
     format: "CODE128",
@@ -9,6 +9,7 @@ export const buildStickerHTML = ({ barcode, size, price, title }) => {
     displayValue: false,
   });
   const barcodeDataUrl = barcodeCanvas.toDataURL("image/png");
+  const discountPct = mrp && price && mrp > price ? Math.round((1 - price / mrp) * 100) : null;
 
   return `
     <html>
@@ -29,7 +30,10 @@ export const buildStickerHTML = ({ barcode, size, price, title }) => {
           .barcode-img { max-width: 100%; height: 60px; }
           .barcode-row { display: flex; align-items: center; justify-content: center; gap: 12px; margin-top: 2px; }
           .barcode-code { font-size: 9px; font-family: monospace; color: #555; }
-          .price { font-size: 20px; font-weight: bold; color: #000; }
+          .price-row { display: flex; align-items: center; gap: 8px; }
+          .price { font-size: 22px; font-weight: bold; color: #000; }
+          .mrp { font-size: 13px; color: #888; text-decoration: line-through; }
+          .discount-badge { font-size: 11px; font-weight: bold; color: #fff; background: #e53935; padding: 2px 6px; border-radius: 4px; }
           @media print {
             @page { margin: 0; size: 9cm 5cm; }
             body { margin: 0; }
@@ -42,15 +46,20 @@ export const buildStickerHTML = ({ barcode, size, price, title }) => {
           <img class="barcode-img" src="${barcodeDataUrl}" />
           <div class="barcode-row">
             <span class="barcode-code">${barcode}</span>
-            ${price ? `<span class="price">₹${price}</span>` : ""}
           </div>
+          ${price ? `
+          <div class="price-row">
+            <span class="price">₹${price}</span>
+            ${mrp && mrp > price ? `<span class="mrp">MRP ₹${mrp}</span>` : ""}
+            ${discountPct ? `<span class="discount-badge">${discountPct}% OFF</span>` : ""}
+          </div>` : ""}
         </div>
       </body>
     </html>
   `;
 };
 
-export const downloadStickerPNG = ({ barcode, size, price, title }) => {
+export const downloadStickerPNG = ({ barcode, size, price, mrp, title }) => {
   const canvas = document.createElement("canvas");
   const ctx = canvas.getContext("2d");
   canvas.width = 1080;
@@ -102,6 +111,35 @@ export const downloadStickerPNG = ({ barcode, size, price, title }) => {
     ctx.font = "bold 22px Arial";
     ctx.fillStyle = "#000";
     ctx.fillText(priceText, textX, belowBarcode);
+  }
+
+  if (mrp && price && mrp > price) {
+    const discountPct = Math.round((1 - price / mrp) * 100);
+    const mrpY = belowBarcode + 34;
+    ctx.font = "18px Arial";
+    ctx.fillStyle = "#888";
+    ctx.textAlign = "center";
+    ctx.fillText(`MRP ₹${mrp}`, canvas.width / 2 - 60, mrpY);
+    // strikethrough
+    const mrpW = ctx.measureText(`MRP ₹${mrp}`).width;
+    ctx.beginPath();
+    ctx.strokeStyle = "#888";
+    ctx.lineWidth = 1.5;
+    ctx.moveTo(canvas.width / 2 - 60 - mrpW / 2, mrpY - 6);
+    ctx.lineTo(canvas.width / 2 - 60 + mrpW / 2, mrpY - 6);
+    ctx.stroke();
+    // discount badge
+    ctx.font = "bold 18px Arial";
+    ctx.fillStyle = "#fff";
+    const badgeText = `${discountPct}% OFF`;
+    const badgeW = ctx.measureText(badgeText).width + 16;
+    const badgeX = canvas.width / 2 + 20;
+    ctx.fillStyle = "#e53935";
+    ctx.beginPath();
+    ctx.roundRect(badgeX - badgeW / 2, mrpY - 22, badgeW, 28, 6);
+    ctx.fill();
+    ctx.fillStyle = "#fff";
+    ctx.fillText(badgeText, badgeX, mrpY - 4);
   }
 
   const link = document.createElement("a");

@@ -37,10 +37,16 @@ const SizeBarcodesList = ({ barcodes, productData }) => {
   return (
     <div className="p-2">
       {productData?.price && (
-        <div className="mb-3 text-center">
-          <span style={{ fontSize: "16px", fontWeight: "bold", color: "#000" }}>
-            ₹{productData.price}
-          </span>
+        <div className="mb-3 text-center" style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+          <span style={{ fontSize: "20px", fontWeight: "bold", color: "#000" }}>₹{productData.price}</span>
+          {productData?.mrp && productData.mrp > productData.price && (
+            <span style={{ fontSize: "13px", color: "#aaa", textDecoration: "line-through" }}>MRP ₹{productData.mrp}</span>
+          )}
+          {productData?.mrp && productData.mrp > productData.price && (
+            <span style={{ fontSize: "11px", fontWeight: 700, background: "#e53935", color: "#fff", padding: "2px 7px", borderRadius: 4 }}>
+              {Math.round((1 - productData.price / productData.mrp) * 100)}% OFF
+            </span>
+          )}
         </div>
       )}
 
@@ -69,7 +75,7 @@ const SizeBarcodesList = ({ barcodes, productData }) => {
                     type="primary"
                     size="small"
                     icon={<AiOutlineDownload />}
-                    onClick={() => downloadStickerPNG({ barcode: item.barcode, size: item.size, price: productData?.price })}
+                    onClick={() => downloadStickerPNG({ barcode: item.barcode, size: item.size, price: productData?.price, mrp: productData?.mrp })}
                     style={{
                       backgroundColor: "#52c41a",
                       borderColor: "#52c41a",
@@ -84,7 +90,7 @@ const SizeBarcodesList = ({ barcodes, productData }) => {
                     type="primary"
                     size="small"
                     icon={<AiOutlinePrinter />}
-                    onClick={() => printSticker({ barcode: item.barcode, size: item.size, price: productData?.price })}
+                    onClick={() => printSticker({ barcode: item.barcode, size: item.size, price: productData?.price, mrp: productData?.mrp })}
                     style={{
                       backgroundColor: "#722ed1",
                       borderColor: "#722ed1",

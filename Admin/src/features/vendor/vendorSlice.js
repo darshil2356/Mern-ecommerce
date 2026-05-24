@@ -20,7 +20,8 @@ const vendorSlice = createSlice({
       .addCase(getVendors.pending, (state) => { state.isLoading = true; })
       .addCase(getVendors.fulfilled, (state, action) => {
         state.isLoading = false;
-        state.vendors = action.payload;
+        const payload = action.payload;
+        state.vendors = Array.isArray(payload) ? payload : (payload?.vendors || payload?.data || []);
       })
       .addCase(getVendors.rejected, (state) => { state.isLoading = false; state.isError = true; })
       .addCase(createVendor.fulfilled, (state, action) => {

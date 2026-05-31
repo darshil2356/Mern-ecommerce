@@ -232,13 +232,7 @@ const deductStockFromProduct = async (product, item) => {
 
 const createOfflineOrder = asyncHandler(async (req, res) => {
 
-  
   const { items, paymentMethod, paymentDestination: reqPaymentDestination, customer, discount, offerDiscount: offerDiscountAmt, coinsUsed, coinAmount, gstBreakdown, amountPaid, paymentNote } = req.body;
-  const adminId = req.user._id;
-
-
-   console.log("Incoming body:", req.body);
-  console.log("Incoming customer:", customer);
 
   if (!items || items.length === 0) {
     res.status(400);
@@ -275,15 +269,10 @@ const createOfflineOrder = asyncHandler(async (req, res) => {
   
   // If referralContact is provided, try to find the referrer
   if (referralContact && referralContact.length >= 10) {
-    // Find user by mobile number (referrer)
     referrer = await User.findOne({ 
       mobile: referralContact, 
       role: "user" 
     });
-    
-    if (referrer) {
-      console.log("Referrer found:", referrer.firstname, referrer.lastname, referrer.referralCode);
-    }
   }
 
   // Prevent self-referral in offline billing.
@@ -298,40 +287,50 @@ const createOfflineOrder = asyncHandler(async (req, res) => {
 
   let orderItems = [];
   let totalPrice = 0;
-  // Stage 1: validate all stock WITHOUT saving — collect deductions in memory
-  const stockDeductions = [];
+
+  // Stage 1 + 2: validate stock and persist atomically with retry on conflict
+  const MAX_RETRIES = 3;
   for (const item of items) {
-    const product = await findProductByBarcode(item.barcode);
-    if (!product) {
-      res.status(404);
-      throw new Error(`Product not found for barcode ${item.barcode}`);
-    }
-    const { deducted, barcode: deductedBarcode } = await deductStockFromProduct(product, item);
-    if (!deducted) {
-      res.status(400);
-      throw new Error(`Insufficient stock for ${product.title}${item.size ? ` (Size: ${item.size})` : ''}`);
-    }
-    stockDeductions.push({ product, item, deductedBarcode });
-    totalPrice += product.price * item.quantity;
-  }
+    let saved = null;
+    let product = null;
+    let deductedBarcode = null;
 
-  // Stage 2: all items validated — persist atomically using optimistic concurrency (__v check)
-  // This prevents two concurrent POS sessions from both deducting the last unit.
-  for (const { product, item, deductedBarcode } of stockDeductions) {
-    item.barcode = deductedBarcode || item.barcode;
-    product.sold = (product.sold || 0) + item.quantity;
-    product.quantity = normalizeProductQuantity(product);
+    for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+      // Re-fetch fresh product on every attempt to get latest __v and stock
+      product = await findProductByBarcode(item.barcode);
+      if (!product) {
+        res.status(404);
+        throw new Error(`Product not found for barcode ${item.barcode}`);
+      }
 
-    // Atomic save: only succeeds if no other session modified this product since we read it
-    const saved = await Product.findOneAndUpdate(
-      { _id: product._id, __v: product.__v },
-      { $set: { sizeStock: product.sizeStock, variants: product.variants, quantity: product.quantity, sold: product.sold }, $inc: { __v: 1 } },
-      { new: true }
-    );
+      const { deducted, barcode: db } = await deductStockFromProduct(product, item);
+      if (!deducted) {
+        res.status(400);
+        throw new Error(`Insufficient stock for ${product.title}${item.size ? ` (Size: ${item.size})` : ''}`);
+      }
+      deductedBarcode = db;
+
+      product.sold = (product.sold || 0) + item.quantity;
+      product.quantity = normalizeProductQuantity(product);
+
+      // Atomic save: only succeeds if no other session modified this product since we read it
+      saved = await Product.findOneAndUpdate(
+        { _id: product._id, __v: product.__v },
+        { $set: { sizeStock: product.sizeStock, variants: product.variants, quantity: product.quantity, sold: product.sold }, $inc: { __v: 1 } },
+        { new: true }
+      );
+
+      if (saved) break; // success — move on to next item
+      // else: another session beat us — loop and retry with fresh data
+    }
+
     if (!saved) {
       res.status(409);
       throw new Error(`Stock conflict for ${product.title} — please retry the sale`);
     }
+
+    item.barcode = deductedBarcode || item.barcode;
+    totalPrice += product.price * item.quantity;
 
     orderItems.push({
       product: product._id,
@@ -2813,7 +2812,7 @@ const getSettings = asyncHandler(async (req, res) => {
 
   try {
     const user = await User.findById(_id).select(
-      "gstin email storeName storeTagline storeAddress storePhone storeEmail cgst sgst igst storeState taxIncluded onlinePaymentDestination shippingCharge upiIdA upiIdB requireOtpForSignup"
+      "gstin email storeName storeTagline storeAddress storePhone storeEmail cgst sgst igst storeState taxIncluded onlinePaymentDestination shippingCharge upiIdA upiIdB requireOtpForSignup posLockEnabled posLockPassword lockCustomers lockOrders lockCatalog lockAnalytics lockRewards lockMarketing lockPurchase lockRojmel lockUdhar lockReviews lockEnquiries lockSettings"
     );
     res.json({
       gstin: user.gstin || "",
@@ -2833,6 +2832,19 @@ const getSettings = asyncHandler(async (req, res) => {
       upiIdA: user.upiIdA || "",
       upiIdB: user.upiIdB || "",
       requireOtpForSignup: user.requireOtpForSignup === true,
+      posLockPasswordSet: !!(user.posLockPassword),
+      lockCustomers: user.lockCustomers === true,
+      lockOrders:    user.lockOrders    === true,
+      lockCatalog:   user.lockCatalog   === true,
+      lockAnalytics: user.lockAnalytics === true,
+      lockRewards:   user.lockRewards   === true,
+      lockMarketing: user.lockMarketing === true,
+      lockPurchase:  user.lockPurchase  === true,
+      lockRojmel:    user.lockRojmel    === true,
+      lockUdhar:     user.lockUdhar     === true,
+      lockReviews:   user.lockReviews   === true,
+      lockEnquiries: user.lockEnquiries === true,
+      lockSettings:  user.lockSettings  === true,
     });
   } catch (error) {
     throw new Error(error);
@@ -2847,7 +2859,10 @@ const updateSettings = asyncHandler(async (req, res) => {
     cgst, sgst, igst, storeState, taxIncluded,
     storeName, storeTagline, storeAddress, storePhone, storeEmail,
     onlinePaymentDestination, shippingCharge, upiIdA, upiIdB,
-    requireOtpForSignup,
+    requireOtpForSignup, posLockPassword,
+    lockCustomers, lockOrders, lockCatalog, lockAnalytics, lockRewards,
+    lockMarketing, lockPurchase, lockRojmel, lockUdhar, lockReviews,
+    lockEnquiries, lockSettings,
   } = req.body;
 
   const updatedUser = await User.findByIdAndUpdate(
@@ -2868,6 +2883,19 @@ const updateSettings = asyncHandler(async (req, res) => {
       ...(upiIdA !== undefined && { upiIdA: upiIdA || "" }),
       ...(upiIdB !== undefined && { upiIdB: upiIdB || "" }),
       ...(requireOtpForSignup !== undefined && { requireOtpForSignup: Boolean(requireOtpForSignup) }),
+      ...(posLockPassword     !== undefined && posLockPassword !== "" && { posLockPassword }),
+      ...(lockCustomers !== undefined && { lockCustomers: Boolean(lockCustomers) }),
+      ...(lockOrders    !== undefined && { lockOrders:    Boolean(lockOrders) }),
+      ...(lockCatalog   !== undefined && { lockCatalog:   Boolean(lockCatalog) }),
+      ...(lockAnalytics !== undefined && { lockAnalytics: Boolean(lockAnalytics) }),
+      ...(lockRewards   !== undefined && { lockRewards:   Boolean(lockRewards) }),
+      ...(lockMarketing !== undefined && { lockMarketing: Boolean(lockMarketing) }),
+      ...(lockPurchase  !== undefined && { lockPurchase:  Boolean(lockPurchase) }),
+      ...(lockRojmel    !== undefined && { lockRojmel:    Boolean(lockRojmel) }),
+      ...(lockUdhar     !== undefined && { lockUdhar:     Boolean(lockUdhar) }),
+      ...(lockReviews   !== undefined && { lockReviews:   Boolean(lockReviews) }),
+      ...(lockEnquiries !== undefined && { lockEnquiries: Boolean(lockEnquiries) }),
+      ...(lockSettings  !== undefined && { lockSettings:  Boolean(lockSettings) }),
     },
     { new: true }
   );
@@ -2887,6 +2915,20 @@ const updateSettings = asyncHandler(async (req, res) => {
 });
 
 // Update GSTIN for logged in user
+// Verify POS lock password
+const verifyPosLock = asyncHandler(async (req, res) => {
+  const { _id } = req.user;
+  const { password } = req.body;
+  const user = await User.findById(_id).select("posLockPassword");
+  if (!user.posLockPassword) {
+    return res.json({ success: true }); // no password set — always pass
+  }
+  if (password === user.posLockPassword) {
+    return res.json({ success: true });
+  }
+  res.status(401).json({ success: false, message: "Wrong password" });
+});
+
 const updateGstin = asyncHandler(async (req, res) => {
   const { _id } = req.user;
   validateMongoDbId(_id);
@@ -3639,6 +3681,7 @@ module.exports = {
   updateGstin,
   getSettings,
   updateSettings,
+  verifyPosLock,
   getCustomerOffer,
   updateCustomerOffer,
   getCustomerDetails,

@@ -4,9 +4,11 @@ export const buildStickerHTML = ({ barcode, size, price, mrp, title }) => {
   const barcodeCanvas = document.createElement("canvas");
   JsBarcode(barcodeCanvas, barcode, {
     format: "CODE128",
-    width: 3,
-    height: 100,
-    displayValue: false,
+    width: 2,
+    height: 60,
+    displayValue: true,
+    fontSize: 11,
+    margin: 2,
   });
   const barcodeDataUrl = barcodeCanvas.toDataURL("image/png");
   const discountPct = mrp && price && mrp > price ? Math.round((1 - price / mrp) * 100) : null;
@@ -19,34 +21,31 @@ export const buildStickerHTML = ({ barcode, size, price, mrp, title }) => {
           * { margin: 0; padding: 0; box-sizing: border-box; }
           body { font-family: Arial, sans-serif; background: #fff; }
           .sticker {
-            width: 9cm; height: 5cm;
-            border: 2px solid #000;
-            padding: 8px 12px;
+            width: 70mm; height: 63mm;
+            border: 1.5px solid #000;
+            padding: 2mm 3mm;
             display: flex; flex-direction: column;
-            align-items: center; justify-content: center;
-            gap: 4px;
+            align-items: center; justify-content: space-evenly;
+            overflow: hidden;
           }
-          .meta { font-size: 11px; color: #333; }
-          .barcode-img { max-width: 100%; height: 60px; }
-          .barcode-row { display: flex; align-items: center; justify-content: center; gap: 12px; margin-top: 2px; }
-          .barcode-code { font-size: 9px; font-family: monospace; color: #555; }
-          .price-row { display: flex; align-items: center; gap: 8px; }
-          .price { font-size: 22px; font-weight: bold; color: #000; }
-          .mrp { font-size: 13px; color: #888; text-decoration: line-through; }
-          .discount-badge { font-size: 11px; font-weight: bold; color: #fff; background: #e53935; padding: 2px 6px; border-radius: 4px; }
+          .title { font-size: 9px; font-weight: bold; color: #000; text-align: center; line-height: 1.2; max-width: 100%; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+          .meta { font-size: 9px; color: #333; }
+          .barcode-img { width: 100%; height: 38mm; object-fit: fill; display: block; }
+          .price-row { display: flex; align-items: center; gap: 4px; }
+          .price { font-size: 16px; font-weight: bold; color: #000; }
+          .mrp { font-size: 9px; color: #888; text-decoration: line-through; }
+          .discount-badge { font-size: 8px; font-weight: bold; color: #fff; background: #e53935; padding: 1px 4px; border-radius: 3px; }
           @media print {
-            @page { margin: 0; size: 9cm 5cm; }
+            @page { margin: 0; size: 70mm 63mm; }
             body { margin: 0; }
           }
         </style>
       </head>
       <body>
         <div class="sticker">
-          ${size ? `<div class="meta">Size: ${size}</div>` : ""}
+          ${title ? `<div class="title">${title}</div>` : ""}
+          ${size ? `<div class="meta">Size: <strong>${size}</strong></div>` : ""}
           <img class="barcode-img" src="${barcodeDataUrl}" />
-          <div class="barcode-row">
-            <span class="barcode-code">${barcode}</span>
-          </div>
           ${price ? `
           <div class="price-row">
             <span class="price">₹${price}</span>
@@ -59,87 +58,104 @@ export const buildStickerHTML = ({ barcode, size, price, mrp, title }) => {
   `;
 };
 
+// 70mm x 63mm at 300dpi = 826 x 744px
+const W = 826;
+const H = 744;
+const PAD = 20;
+
 export const downloadStickerPNG = ({ barcode, size, price, mrp, title }) => {
   const canvas = document.createElement("canvas");
   const ctx = canvas.getContext("2d");
-  canvas.width = 1080;
-  canvas.height = 600;
+  canvas.width = W;
+  canvas.height = H;
 
-  ctx.fillStyle = "#ffffff";
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-  ctx.strokeStyle = "#000000";
-  ctx.lineWidth = 4;
-  ctx.strokeRect(10, 10, canvas.width - 20, canvas.height - 20);
+  ctx.fillStyle = "#fff";
+  ctx.fillRect(0, 0, W, H);
+  ctx.strokeStyle = "#000";
+  ctx.lineWidth = 3;
+  ctx.strokeRect(PAD / 2, PAD / 2, W - PAD, H - PAD);
 
-  ctx.fillStyle = "#000";
-  ctx.textAlign = "center";
+  let y = PAD + 8;
 
-  let y = 70;
-  if (size) {
-    ctx.font = "26px Arial";
-    ctx.fillText(`Size: ${size}`, canvas.width / 2, y);
-    y += 34;
+  // Title
+  if (title) {
+    ctx.font = "bold 22px Arial";
+    ctx.fillStyle = "#000";
+    ctx.textAlign = "center";
+    ctx.fillText(title.length > 40 ? title.slice(0, 40) + "…" : title, W / 2, y + 18);
+    y += 30;
   }
+
+  // Size
+  if (size) {
+    ctx.font = "22px Arial";
+    ctx.fillStyle = "#333";
+    ctx.textAlign = "center";
+    ctx.fillText(`Size: ${size}`, W / 2, y + 18);
+    y += 28;
+  }
+
+  // Barcode — fill remaining space minus price row
+  const priceRowH = price ? 80 : 0;
+  const barcodeH = H - y - priceRowH - PAD - 10;
 
   const barcodeCanvas = document.createElement("canvas");
   JsBarcode(barcodeCanvas, barcode, {
     format: "CODE128",
     width: 3,
-    height: 100,
-    displayValue: false,
+    height: Math.max(barcodeH - 30, 80),
+    displayValue: true,
+    fontSize: 22,
+    margin: 4,
   });
 
-  const barcodeX = (canvas.width - barcodeCanvas.width) / 2;
-  ctx.drawImage(barcodeCanvas, barcodeX, y + 10);
+  const barcodeDrawW = Math.min(barcodeCanvas.width, W - PAD * 2);
+  const barcodeDrawH = barcodeH;
+  ctx.drawImage(barcodeCanvas, (W - barcodeDrawW) / 2, y, barcodeDrawW, barcodeDrawH);
+  y += barcodeDrawH + 6;
 
-  const belowBarcode = y + 10 + barcodeCanvas.height + 28;
-  ctx.font = "22px monospace";
-  ctx.textAlign = "left";
-  const barcodeTextWidth = ctx.measureText(barcode).width;
-  const priceText = price ? `  ₹${price}` : "";
-  ctx.font = "bold 22px Arial";
-  const priceWidth = price ? ctx.measureText(priceText).width : 0;
-  const totalWidth = barcodeTextWidth + priceWidth;
-  let textX = (canvas.width - totalWidth) / 2;
-
-  ctx.font = "22px monospace";
-  ctx.fillStyle = "#555";
-  ctx.fillText(barcode, textX, belowBarcode);
-
+  // Price row
   if (price) {
-    textX += barcodeTextWidth;
-    ctx.font = "bold 22px Arial";
-    ctx.fillStyle = "#000";
-    ctx.fillText(priceText, textX, belowBarcode);
-  }
+    const discountPct = mrp && mrp > price ? Math.round((1 - price / mrp) * 100) : null;
 
-  if (mrp && price && mrp > price) {
-    const discountPct = Math.round((1 - price / mrp) * 100);
-    const mrpY = belowBarcode + 34;
-    ctx.font = "18px Arial";
-    ctx.fillStyle = "#888";
+    ctx.font = "bold 42px Arial";
+    ctx.fillStyle = "#000";
     ctx.textAlign = "center";
-    ctx.fillText(`MRP ₹${mrp}`, canvas.width / 2 - 60, mrpY);
-    // strikethrough
-    const mrpW = ctx.measureText(`MRP ₹${mrp}`).width;
-    ctx.beginPath();
-    ctx.strokeStyle = "#888";
-    ctx.lineWidth = 1.5;
-    ctx.moveTo(canvas.width / 2 - 60 - mrpW / 2, mrpY - 6);
-    ctx.lineTo(canvas.width / 2 - 60 + mrpW / 2, mrpY - 6);
-    ctx.stroke();
-    // discount badge
-    ctx.font = "bold 18px Arial";
-    ctx.fillStyle = "#fff";
-    const badgeText = `${discountPct}% OFF`;
-    const badgeW = ctx.measureText(badgeText).width + 16;
-    const badgeX = canvas.width / 2 + 20;
-    ctx.fillStyle = "#e53935";
-    ctx.beginPath();
-    ctx.roundRect(badgeX - badgeW / 2, mrpY - 22, badgeW, 28, 6);
-    ctx.fill();
-    ctx.fillStyle = "#fff";
-    ctx.fillText(badgeText, badgeX, mrpY - 4);
+
+    if (mrp && mrp > price) {
+      // price left, mrp + badge right
+      ctx.textAlign = "left";
+      ctx.fillText(`₹${price}`, PAD + 10, y + 44);
+
+      ctx.font = "22px Arial";
+      ctx.fillStyle = "#888";
+      ctx.textAlign = "right";
+      ctx.fillText(`MRP ₹${mrp}`, W - PAD - 10, y + 26);
+      const mrpW = ctx.measureText(`MRP ₹${mrp}`).width;
+      ctx.beginPath();
+      ctx.strokeStyle = "#888";
+      ctx.lineWidth = 1.5;
+      ctx.moveTo(W - PAD - 10 - mrpW, y + 18);
+      ctx.lineTo(W - PAD - 10, y + 18);
+      ctx.stroke();
+
+      if (discountPct) {
+        const badgeText = `${discountPct}% OFF`;
+        ctx.font = "bold 18px Arial";
+        const bw = ctx.measureText(badgeText).width + 14;
+        const bx = W - PAD - 10 - bw / 2;
+        ctx.fillStyle = "#e53935";
+        ctx.beginPath();
+        ctx.roundRect(bx - bw / 2, y + 34, bw, 26, 5);
+        ctx.fill();
+        ctx.fillStyle = "#fff";
+        ctx.textAlign = "center";
+        ctx.fillText(badgeText, bx, y + 52);
+      }
+    } else {
+      ctx.textAlign = "center";
+      ctx.fillText(`₹${price}`, W / 2, y + 50);
+    }
   }
 
   const link = document.createElement("a");
@@ -150,7 +166,7 @@ export const downloadStickerPNG = ({ barcode, size, price, mrp, title }) => {
 
 export const printSticker = (params) => {
   const html = buildStickerHTML(params);
-  const printWindow = window.open("", "", "width=420,height=340");
+  const printWindow = window.open("", "", "width=265,height=239");
   printWindow.document.write(html);
   printWindow.document.close();
   printWindow.onload = () => {

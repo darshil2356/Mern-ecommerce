@@ -98,6 +98,10 @@ const LiveBilling = () => {
   // Customer shipping state for GST determination
   const [customerState, setCustomerState]       = useState("Gujarat");
 
+  // Coin config for preview
+  const [coinConfig, setCoinConfig] = useState(null);
+  const [referralConfig, setReferralConfig] = useState(null);
+
   // Coins state
   const [customerCoins, setCustomerCoins] = useState(0);
   const [useCoins, setUseCoins] = useState(false);
@@ -132,7 +136,7 @@ const LiveBilling = () => {
 
   // Sale processing state
   const [isProcessingSale, setIsProcessingSale] = useState(false);
-  const isProcessingSaleRef = useRef(false); // Synchronous ref for immediate checks
+  const isProcessingSaleRef = useRef(false);
 
   // Scanner input ref
   const scannerRef = useRef(null);
@@ -602,6 +606,19 @@ const LiveBilling = () => {
       }
     };
     fetchGstin();
+  }, []);
+
+  // Fetch coin & referral config on mount
+  useEffect(() => {
+    Promise.all([
+      axios.get(`${base_url}rewards/coins/config`, config),
+      axios.get(`${base_url}rewards/referral/config`, config),
+    ])
+      .then(([coinRes, refRes]) => {
+        setCoinConfig(coinRes.data);
+        setReferralConfig(refRes.data);
+      })
+      .catch(() => {});
   }, []);
 
   // Fetch settings on mount
@@ -2348,6 +2365,87 @@ tbody td{padding:6px 4px;vertical-align:top}
                   </div>
                 </div>
               )}
+
+              {/* Coin Earn Preview — shown when customer selected & cart has items */}
+              {customer.contact && coinConfig?.isEnabled && payableAmount > 0 && (() => {
+                // Buyer coins
+                let buyerCoins = 0;
+                if (coinConfig.purchaseRewardEnabled && coinConfig.buyerPurchaseRewardEnabled) {
+                  if (payableAmount >= (coinConfig.purchaseMinOrderAmount || 0)) {
+                    buyerCoins = coinConfig.purchaseRewardType === "FIXED"
+                      ? coinConfig.purchaseFixedCoins
+                      : Math.floor(payableAmount * (coinConfig.purchasePercentage || 0) / 100);
+                    if (coinConfig.purchaseMaxCoinsPerOrder > 0)
+                      buyerCoins = Math.min(buyerCoins, coinConfig.purchaseMaxCoinsPerOrder);
+                  }
+                }
+
+                // Referrer coins
+                let referrerCoins = 0;
+                if (
+                  referralConfig?.isEnabled &&
+                  coinConfig.referrerPurchaseRewardEnabled &&
+                  referrerName
+                ) {
+                  if (payableAmount >= (referralConfig.minPurchaseAmount || 0)) {
+                    referrerCoins = referralConfig.rewardType === "FIXED_COINS"
+                      ? referralConfig.fixedCoins
+                      : Math.floor(payableAmount * (referralConfig.percentage || 0) / 100);
+                  }
+                }
+
+                if (buyerCoins === 0 && referrerCoins === 0) return null;
+
+                return (
+                  <div className="p-3 bg-gradient-to-br from-amber-50 to-yellow-50 rounded-xl border border-amber-200">
+                    <div className="flex items-center gap-2 mb-3">
+                      <FaCoins className="text-amber-500" />
+                      <span className="text-sm font-semibold text-amber-700">Coins to be Earned</span>
+                      <span className="ml-auto text-xs text-amber-500 bg-amber-100 px-2 py-0.5 rounded-full">on ₹{payableAmount.toFixed(0)}</span>
+                    </div>
+
+                    <div className="space-y-2">
+                      {buyerCoins > 0 && (
+                        <div className="flex items-center justify-between bg-white rounded-lg px-3 py-2 border border-amber-100">
+                          <div className="flex items-center gap-2">
+                            <div className="w-6 h-6 rounded-full bg-green-100 flex items-center justify-center">
+                              <FaUser className="text-green-600" style={{fontSize: 10}} />
+                            </div>
+                            <div>
+                              <p className="text-xs font-semibold text-gray-700">Buyer</p>
+                              <p className="text-xs text-gray-400 truncate max-w-[100px]">{customer.name}</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <FaCoins className="text-amber-400" style={{fontSize: 11}} />
+                            <span className="font-bold text-amber-600">+{buyerCoins}</span>
+                          </div>
+                        </div>
+                      )}
+
+                      {referrerCoins > 0 && (
+                        <div className="flex items-center justify-between bg-white rounded-lg px-3 py-2 border border-indigo-100">
+                          <div className="flex items-center gap-2">
+                            <div className="w-6 h-6 rounded-full bg-indigo-100 flex items-center justify-center">
+                              <FaUserPlus className="text-indigo-600" style={{fontSize: 10}} />
+                            </div>
+                            <div>
+                              <p className="text-xs font-semibold text-gray-700">Referrer</p>
+                              <p className="text-xs text-gray-400 truncate max-w-[100px]">{referrerName}</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <FaCoins className="text-indigo-400" style={{fontSize: 11}} />
+                            <span className="font-bold text-indigo-600">+{referrerCoins}</span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    <p className="text-xs text-amber-500 mt-2 text-center">Coins credited after sale completes</p>
+                  </div>
+                );
+              })()}
             </div>
           </div>
         </div>

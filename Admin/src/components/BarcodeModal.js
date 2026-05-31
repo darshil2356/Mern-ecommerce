@@ -61,15 +61,15 @@ const BarcodeModal = ({ open, onClose, barcode, title, productData }) => {
 
         <div
           style={{
-            marginBottom: "16px",
-            padding: "16px",
+            marginBottom: "8px",
+            padding: "6px 8px",
             backgroundColor: "#f9f9f9",
             borderRadius: "8px",
             border: "1px solid #e8e8e8",
           }}
         >
-          <svg ref={svgRef} style={{ maxWidth: "100%", height: "auto" }}></svg>
-          <div style={{ marginTop: "6px", fontSize: "11px", color: "#888", fontFamily: "monospace" }}>
+          <svg ref={svgRef} style={{ maxWidth: "100%", height: "auto", display: "block" }}></svg>
+          <div style={{ marginTop: "2px", fontSize: "11px", color: "#888", fontFamily: "monospace" }}>
             {barcode}
           </div>
         </div>

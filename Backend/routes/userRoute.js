@@ -7,6 +7,7 @@ const {
   updateGstin,
   getSettings,
   updateSettings,
+  verifyPosLock,
   getCustomerOffer,
   updateCustomerOffer,
   getCustomerDetails,
@@ -38,6 +39,7 @@ router.put("/gstin", authMiddleware, updateGstin);
 // Settings routes - protected by auth middleware
 router.get("/settings", authMiddleware, getSettings);
 router.put("/settings", authMiddleware, updateSettings);
+router.post("/verify-pos-lock", authMiddleware, verifyPosLock);
 
 // Customer offer routes - protected by auth middleware
 router.get("/customer-offer", authMiddleware, isAdmin, getCustomerOffer);

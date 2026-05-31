@@ -37,8 +37,8 @@ export const buildStickerHTML = ({ barcode, size, price, mrp, title }) => {
           .bottom-blank { height: 25%; }
           .title {margin-top: 15px; font-size: 10px; font-weight: bold; color: #000; text-align: center; line-height: 1.2; max-width: 100%; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
           .barcode-img { max-width: 100%; height: auto; display: block; }
-          .price-row {margin-top: 15px;display: flex; align-items: center; gap: 5px; flex-wrap: wrap; justify-content: center; }
-          .price { font-size: 18px; font-weight: bold; color: #000; }
+          .price-row {margin-top: 15px;display: flex; align-items: center; gap: 15px; flex-wrap: wrap; justify-content: center; }
+          .price { font-size: 14px; font-weight: bold; color: #000; }
           .mrp { font-size: 14px; color: #555; }
           .discount-badge { font-size: 10px; font-weight: bold; color: #000 }
           .size-row { margin-top: 15px;font-size: 13px; color: #333; }
@@ -56,9 +56,9 @@ export const buildStickerHTML = ({ barcode, size, price, mrp, title }) => {
             <img class="barcode-img" src="${barcodeDataUrl}" />
             ${price ? `
             <div class="price-row">
-              <span class="price">₹${price}</span>
               ${mrp && mrp > price ? `<span class="mrp">MRP: ₹${mrp}</span>` : ""}
               ${discountPct ? `<span class="discount-badge">${discountPct}% OFF</span>` : ""}
+              <span class="price">Price: ₹${price}</span>
             </div>` : ""}
           </div>
           <div class="bottom-blank"></div>

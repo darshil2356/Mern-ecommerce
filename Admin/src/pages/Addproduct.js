@@ -804,7 +804,7 @@ const Addproduct = () => {
                   filterOption={(input, option) =>
                     (option?.label ?? "").toLowerCase().includes(input.toLowerCase())
                   }
-                  options={vendorState.map((v) => ({ label: v.title, value: v.title }))}
+                  options={vendorState.map((v) => ({ label: v.name, value: v.name }))}
                 />
               </div>
 
@@ -1529,7 +1529,7 @@ const Addproduct = () => {
         onClose={() => setQuickAddModal(null)}
         onCreated={(newItem) => {
           if (quickAddModal === "brand") formik.setFieldValue("brand", newItem.title);
-          if (quickAddModal === "vendor") formik.setFieldValue("vendorName", newItem.title);
+          if (quickAddModal === "vendor") formik.setFieldValue("vendorName", newItem.name);
           if (quickAddModal === "category") {
             formik.setFieldValue("category", newItem.title);
             formik.setFieldValue("categoryId", newItem._id || null);

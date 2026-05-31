@@ -25,7 +25,7 @@ export const config = {
 
 const api = axios.create({
   baseURL: base_url,
-  headers: { Accept: "application/json" },
+  headers: { Accept: "application/json", "Content-Type": "application/json" },
 });
 
 let isRefreshing = false;

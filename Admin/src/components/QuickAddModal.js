@@ -39,7 +39,7 @@ const QuickAddModal = ({ type, open, onClose, onCreated }) => {
         result = await dispatch(createSize({ title: name.trim() })).unwrap();
         await dispatch(getSizes());
       } else if (type === "vendor") {
-        result = await dispatch(createVendor({ title: name.trim() })).unwrap();
+        result = await dispatch(createVendor({ name: name.trim() })).unwrap();
         await dispatch(getVendors());
       } else {
         result = await dispatch(createCategory({ title: name.trim() })).unwrap();

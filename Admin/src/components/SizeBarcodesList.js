@@ -36,26 +36,13 @@ const SizeBarcodesList = ({ barcodes, productData }) => {
 
   return (
     <div className="p-2">
-      {productData?.price && (
-        <div className="mb-3 text-center" style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
-          <span style={{ fontSize: "20px", fontWeight: "bold", color: "#000" }}>₹{productData.price}</span>
-          {productData?.mrp && productData.mrp > productData.price && (
-            <span style={{ fontSize: "13px", color: "#aaa", textDecoration: "line-through" }}>MRP ₹{productData.mrp}</span>
-          )}
-          {productData?.mrp && productData.mrp > productData.price && (
-            <span style={{ fontSize: "11px", fontWeight: 700, background: "#e53935", color: "#fff", padding: "2px 7px", borderRadius: 4 }}>
-              {Math.round((1 - productData.price / productData.mrp) * 100)}% OFF
-            </span>
-          )}
-        </div>
-      )}
 
       <div className="row g-2">
         {barcodes.map((item, index) => (
           <div key={index} className="col-6">
             <div className="card border" style={{ borderColor: "#d9d9d9" }}>
-              <div className="card-body text-center p-2">
-                <Tag color="blue" style={{ fontSize: "11px", marginBottom: "4px" }}>
+              <div className="card-body text-center p-2" style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                <Tag color="blue" style={{ fontSize: "12px", marginBottom: 2, padding: "2px 8px" }}>
                   Size: {item.size}
                 </Tag>
                 <p className="text-muted mb-1" style={{ fontSize: "10px" }}>
@@ -67,9 +54,22 @@ const SizeBarcodesList = ({ barcodes, productData }) => {
                     style={{ maxWidth: "100%" }}
                   ></svg>
                 </div>
-                <p className="font-monospace text-success mb-2" style={{ fontSize: "9px" }}>
+                <p className="font-monospace text-success mb-1" style={{ fontSize: "9px" }}>
                   {item.barcode}
                 </p>
+                {productData?.price && (
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 4, flexWrap: "wrap" }}>
+                    <span style={{ fontSize: "14px", fontWeight: "bold", color: "#000" }}>₹{productData.price}</span>
+                    {productData?.mrp && productData.mrp > productData.price && (
+                      <span style={{ fontSize: "10px", color: "#555" }}>MRP: ₹{productData.mrp}</span>
+                    )}
+                    {productData?.mrp && productData.mrp > productData.price && (
+                      <span style={{ fontSize: "9px", fontWeight: 700, background: "#e53935", color: "#fff", padding: "1px 5px", borderRadius: 3 }}>
+                        {Math.round((1 - productData.price / productData.mrp) * 100)}% OFF
+                      </span>
+                    )}
+                  </div>
+                )}
                 <Space direction="vertical" size={4} style={{ width: "100%" }}>
                   <Button
                     type="primary"

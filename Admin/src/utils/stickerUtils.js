@@ -23,18 +23,25 @@ export const buildStickerHTML = ({ barcode, size, price, mrp, title }) => {
           .sticker {
             width: 70mm; height: 63mm;
             border: 1.5px solid #000;
-            padding: 2mm 3mm;
+            overflow: hidden;
             display: flex; flex-direction: column;
-            align-items: center; justify-content: space-evenly;
+          }
+          .content {
+            height: 75%;
+            padding: 1mm 3mm;
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: flex-start;
+            gap: 1mm;
             overflow: hidden;
           }
-          .title { font-size: 9px; font-weight: bold; color: #000; text-align: center; line-height: 1.2; max-width: 100%; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-          .meta { font-size: 9px; color: #333; }
-          .barcode-img { width: 100%; height: 38mm; object-fit: fill; display: block; }
-          .price-row { display: flex; align-items: center; gap: 4px; }
-          .price { font-size: 16px; font-weight: bold; color: #000; }
-          .mrp { font-size: 9px; color: #888; text-decoration: line-through; }
-          .discount-badge { font-size: 8px; font-weight: bold; color: #fff; background: #e53935; padding: 1px 4px; border-radius: 3px; }
+          .bottom-blank { height: 25%; }
+          .title {margin-top: 15px; font-size: 10px; font-weight: bold; color: #000; text-align: center; line-height: 1.2; max-width: 100%; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+          .barcode-img { max-width: 100%; height: auto; display: block; }
+          .price-row {margin-top: 15px;display: flex; align-items: center; gap: 5px; flex-wrap: wrap; justify-content: center; }
+          .price { font-size: 18px; font-weight: bold; color: #000; }
+          .mrp { font-size: 14px; color: #555; }
+          .discount-badge { font-size: 10px; font-weight: bold; color: #000 }
+          .size-row { margin-top: 15px;font-size: 13px; color: #333; }
           @media print {
             @page { margin: 0; size: 70mm 63mm; }
             body { margin: 0; }
@@ -43,15 +50,18 @@ export const buildStickerHTML = ({ barcode, size, price, mrp, title }) => {
       </head>
       <body>
         <div class="sticker">
-          ${title ? `<div class="title">${title}</div>` : ""}
-          ${size ? `<div class="meta">Size: <strong>${size}</strong></div>` : ""}
-          <img class="barcode-img" src="${barcodeDataUrl}" />
-          ${price ? `
-          <div class="price-row">
-            <span class="price">₹${price}</span>
-            ${mrp && mrp > price ? `<span class="mrp">MRP ₹${mrp}</span>` : ""}
-            ${discountPct ? `<span class="discount-badge">${discountPct}% OFF</span>` : ""}
-          </div>` : ""}
+          <div class="content">
+            ${title ? `<div class="title">${title}</div>` : ""}
+            ${size ? `<div class="size-row">Size: <strong>${size}</strong></div>` : ""}
+            <img class="barcode-img" src="${barcodeDataUrl}" />
+            ${price ? `
+            <div class="price-row">
+              <span class="price">₹${price}</span>
+              ${mrp && mrp > price ? `<span class="mrp">MRP: ₹${mrp}</span>` : ""}
+              ${discountPct ? `<span class="discount-badge">${discountPct}% OFF</span>` : ""}
+            </div>` : ""}
+          </div>
+          <div class="bottom-blank"></div>
         </div>
       </body>
     </html>
@@ -75,7 +85,9 @@ export const downloadStickerPNG = ({ barcode, size, price, mrp, title }) => {
   ctx.lineWidth = 3;
   ctx.strokeRect(PAD / 2, PAD / 2, W - PAD, H - PAD);
 
+  // content fills top 75%, bottom 25% blank
   let y = PAD + 8;
+  const contentMaxY = Math.round(H * 0.75);
 
   // Title
   if (title) {
@@ -86,18 +98,18 @@ export const downloadStickerPNG = ({ barcode, size, price, mrp, title }) => {
     y += 30;
   }
 
-  // Size
+  // Size at top
   if (size) {
-    ctx.font = "22px Arial";
+    ctx.font = "bold 26px Arial";
     ctx.fillStyle = "#333";
     ctx.textAlign = "center";
-    ctx.fillText(`Size: ${size}`, W / 2, y + 18);
-    y += 28;
+    ctx.fillText(`Size: ${size}`, W / 2, y + 24);
+    y += 34;
   }
 
-  // Barcode — fill remaining space minus price row
-  const priceRowH = price ? 80 : 0;
-  const barcodeH = H - y - priceRowH - PAD - 10;
+  // Barcode — fill space, leave room for price row
+  const priceRowH = price ? 70 : 0;
+  const barcodeH = contentMaxY - y - priceRowH - 10;
 
   const barcodeCanvas = document.createElement("canvas");
   JsBarcode(barcodeCanvas, barcode, {
@@ -110,52 +122,47 @@ export const downloadStickerPNG = ({ barcode, size, price, mrp, title }) => {
   });
 
   const barcodeDrawW = Math.min(barcodeCanvas.width, W - PAD * 2);
-  const barcodeDrawH = barcodeH;
-  ctx.drawImage(barcodeCanvas, (W - barcodeDrawW) / 2, y, barcodeDrawW, barcodeDrawH);
-  y += barcodeDrawH + 6;
+  ctx.drawImage(barcodeCanvas, (W - barcodeDrawW) / 2, y, barcodeDrawW, barcodeH);
+  y += barcodeH + 6;
 
   // Price row
   if (price) {
     const discountPct = mrp && mrp > price ? Math.round((1 - price / mrp) * 100) : null;
 
-    ctx.font = "bold 42px Arial";
-    ctx.fillStyle = "#000";
-    ctx.textAlign = "center";
-
     if (mrp && mrp > price) {
-      // price left, mrp + badge right
+      // ₹price on left
+      ctx.font = "bold 42px Arial";
+      ctx.fillStyle = "#000";
       ctx.textAlign = "left";
       ctx.fillText(`₹${price}`, PAD + 10, y + 44);
 
+      // MRP: ₹X on right top
       ctx.font = "22px Arial";
-      ctx.fillStyle = "#888";
+      ctx.fillStyle = "#555";
       ctx.textAlign = "right";
-      ctx.fillText(`MRP ₹${mrp}`, W - PAD - 10, y + 26);
-      const mrpW = ctx.measureText(`MRP ₹${mrp}`).width;
-      ctx.beginPath();
-      ctx.strokeStyle = "#888";
-      ctx.lineWidth = 1.5;
-      ctx.moveTo(W - PAD - 10 - mrpW, y + 18);
-      ctx.lineTo(W - PAD - 10, y + 18);
-      ctx.stroke();
+      ctx.fillText(`MRP: ₹${mrp}`, W - PAD - 10, y + 26);
 
+      // % OFF badge below MRP
       if (discountPct) {
         const badgeText = `${discountPct}% OFF`;
         ctx.font = "bold 18px Arial";
         const bw = ctx.measureText(badgeText).width + 14;
-        const bx = W - PAD - 10 - bw / 2;
+        const bx = W - PAD - 10 - bw;  // left edge of badge
         ctx.fillStyle = "#e53935";
         ctx.beginPath();
-        ctx.roundRect(bx - bw / 2, y + 34, bw, 26, 5);
+        ctx.roundRect(bx, y + 32, bw, 26, 5);
         ctx.fill();
         ctx.fillStyle = "#fff";
         ctx.textAlign = "center";
-        ctx.fillText(badgeText, bx, y + 52);
+        ctx.fillText(badgeText, bx + bw / 2, y + 50);
       }
     } else {
+      ctx.font = "bold 42px Arial";
+      ctx.fillStyle = "#000";
       ctx.textAlign = "center";
       ctx.fillText(`₹${price}`, W / 2, y + 50);
     }
+    y += priceRowH;
   }
 
   const link = document.createElement("a");

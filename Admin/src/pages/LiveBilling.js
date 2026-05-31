@@ -992,54 +992,62 @@ const LiveBilling = () => {
   /* =========================
      GENERATE WHATSAPP MESSAGE
      ========================= */
-  const generateWhatsAppMessage = (activeCart, activeCustomer, activeOffer, activeAppliedAmount, activeWonOffer) => {
-    // Generate WhatsApp message
-    let whatsAppMessage = `🧾 *Bill Receipt - ${storeName}*\n\n`;
-    whatsAppMessage += `Customer: ${activeCustomer.name || "Walk-in Customer"}\n`;
-    if (activeCustomer.contact) whatsAppMessage += `Mobile: ${activeCustomer.contact}\n`;
-    whatsAppMessage += `Date: ${new Date().toLocaleDateString('en-GB')}\n`;
-    whatsAppMessage += `Time: ${new Date().toLocaleTimeString()}\n\n`;
-    whatsAppMessage += `*Items:*\n`;
-    
-    Object.values(activeCart).forEach((item) => {
-      whatsAppMessage += `• ${item.name} x${item.qty} = ₹${(item.qty * item.price).toFixed(2)}\n`;
-    });
-    
-    whatsAppMessage += `\n─────────────\n`;
-    whatsAppMessage += `Subtotal: ₹${grandTotal.toFixed(2)}\n`;
-    if (gstType === "IGST" && igstPercent > 0) {
-      whatsAppMessage += `IGST (${igstPercent}%): ₹${igstAmount.toFixed(2)}\n`;
-    } else {
-      if (cgstPercent > 0) whatsAppMessage += `CGST (${cgstPercent}%): ₹${cgstAmount.toFixed(2)}\n`;
-      if (sgstPercent > 0) whatsAppMessage += `SGST (${sgstPercent}%): ₹${sgstAmount.toFixed(2)}\n`;
-    }
-    if (discountPercent > 0 || flatDiscount > 0) whatsAppMessage += `Additional Discount: -₹${(discountType === "flat" ? flatDiscount : (grandTotal * discountPercent) / 100).toFixed(2)}\n`;
-    if (activeAppliedAmount > 0) whatsAppMessage += `Customer Offer: -₹${activeAppliedAmount.toFixed(2)}\n`;
-    whatsAppMessage += `*Total: ₹${payableAmount.toFixed(2)}*\n`;
-    whatsAppMessage += `─────────────\n\n`;
-    
-    // Add offer message for NEXT purchase (if won)
-    if (activeWonOffer && activeWonOffer.type !== "none") {
-      const offerText = activeWonOffer.type === "percentage" 
-        ? `${activeWonOffer.value}% OFF` 
-        : `₹${activeWonOffer.value} FLAT OFF`;
-      whatsAppMessage += `🎁 *SPECIAL OFFER FOR NEXT PURCHASE!*\n`;
-      whatsAppMessage += `You won: *${offerText}*\n`;
-      whatsAppMessage += `Use this offer on your next visit!\n\n`;
-    } else if (activeOffer && activeOffer.hasOffer && activeAppliedAmount > 0) {
-      // Show existing offer if customer has one and it's applied
-      const offerText = activeOffer.offerType === "percentage" 
-        ? `${activeOffer.offerDiscount}% OFF` 
-        : `₹${activeOffer.offerDiscount} FLAT OFF`;
-      whatsAppMessage += `🎁 *YOUR OFFER*\n`;
-      whatsAppMessage += `Current offer: *${offerText}*\n`;
-      whatsAppMessage += `Offer applied: -₹${activeAppliedAmount.toFixed(2)}\n\n`;
-    }
-    
-    whatsAppMessage += `Thank you for shopping with us! 🙏\n`;
-    whatsAppMessage += `${storeTagline}`;
+  const generateWhatsAppMessage = (activeCart, activeCustomer, activeOffer, activeAppliedAmount, activeWonOffer, coinsEarned = 0, newCoinBalance = 0) => {
+    const now = new Date();
+    let msg = `🧾 *Bill Receipt - ${storeName}*\n\n`;
+    msg += `👤 *${activeCustomer.name || "Walk-in Customer"}*\n`;
+    if (activeCustomer.contact) msg += `📞 ${activeCustomer.contact}\n`;
+    msg += `📅 ${now.toLocaleDateString('en-GB')} | 🕐 ${now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}\n\n`;
 
-    return whatsAppMessage;
+    msg += `🛍️ *Items Purchased:*\n`;
+    Object.values(activeCart).forEach((item) => {
+      msg += `  • ${item.name}`;
+      if (item.size) msg += ` (${item.size})`;
+      if (item.color) msg += ` [${item.color}]`;
+      msg += ` × ${item.qty} = ₹${(item.qty * item.price).toFixed(2)}\n`;
+    });
+
+    msg += `\n━━━━━━━━━━━━━━━\n`;
+    msg += `Subtotal: ₹${grandTotal.toFixed(2)}\n`;
+
+    if (gstType === "IGST" && igstPercent > 0) {
+      msg += `IGST (${igstPercent}%): ₹${igstAmount.toFixed(2)}\n`;
+    } else {
+      if (cgstPercent > 0) msg += `CGST (${cgstPercent}%): ₹${cgstAmount.toFixed(2)}\n`;
+      if (sgstPercent > 0) msg += `SGST (${sgstPercent}%): ₹${sgstAmount.toFixed(2)}\n`;
+    }
+    if (activeAppliedAmount > 0) msg += `🎁 Offer Discount: -₹${activeAppliedAmount.toFixed(2)}\n`;
+    if (discountAmount > activeAppliedAmount) msg += `💰 Discount: -₹${(discountAmount - activeAppliedAmount).toFixed(2)}\n`;
+    if (coinDiscountAmount > 0) msg += `🪙 Coins Used: -₹${coinDiscountAmount.toFixed(2)} (${coinAmount} coins)\n`;
+    msg += `\n*💵 Total Paid: ₹${payableAmount.toFixed(2)}*\n`;
+    msg += `━━━━━━━━━━━━━━━\n\n`;
+
+    // Coins earned on this purchase
+    if (coinsEarned > 0) {
+      msg += `🪙 *Coins Earned This Purchase: +${coinsEarned} coins*\n`;
+      msg += `💼 *Your Coin Balance: ${newCoinBalance} coins*\n`;
+      msg += `✨ You can use these coins as discount on your next purchase!\n`;
+      msg += `   (1 coin = ₹1 discount)\n\n`;
+    } else if (activeCustomer.contact && customerCoins > 0) {
+      msg += `🪙 *Your Coin Balance: ${customerCoins} coins*\n`;
+      msg += `✨ Use these coins as discount on your next purchase!\n`;
+      msg += `   (1 coin = ₹1 discount)\n\n`;
+    }
+
+    // Spin wheel offer won
+    if (activeWonOffer && activeWonOffer.type !== "none") {
+      const offerText = activeWonOffer.type === "percentage"
+        ? `${activeWonOffer.value}% OFF`
+        : `₹${activeWonOffer.value} FLAT OFF`;
+      msg += `🎉 *SPECIAL OFFER FOR NEXT PURCHASE!*\n`;
+      msg += `You won: *${offerText}*\n`;
+      msg += `Use this offer on your next visit! 🛍️\n\n`;
+    }
+
+    msg += `🙏 Thank you for shopping at *${storeName}*!\n`;
+    msg += `${storeTagline}`;
+
+    return msg;
   };
 
   /* =========================
@@ -1154,14 +1162,26 @@ const LiveBilling = () => {
       const billBalanceDue = balanceDue;
       const billChangeToReturn = changeToReturn;
 
+      // Fetch updated coin balance to include in WhatsApp message
+      let coinsEarned = 0;
+      let newCoinBalance = customerCoins;
+      if (customerData.contact) {
+        try {
+          const updatedOffer = await axios.get(`${base_url}user/customer-offer?mobile=${customerData.contact}`, config);
+          const updatedCoins = updatedOffer.data.coins || 0;
+          coinsEarned = Math.max(0, updatedCoins - (useCoins ? customerCoins - coinAmount : customerCoins));
+          newCoinBalance = updatedCoins;
+        } catch (_) {}
+      }
+
       // Send WhatsApp message if customer has contact
       if (customerData.contact) {
-        const message = generateWhatsAppMessage(cartData, customerData, offerData, appliedAmount, null);
+        const message = generateWhatsAppMessage(cartData, customerData, offerData, appliedAmount, null, coinsEarned, newCoinBalance);
         openWhatsApp(message, customerData);
         Swal.fire({
           icon: 'success',
-          title: 'Sale Completed',
-          text: 'SALE COMPLETED SUCCESSFULLY! Bill sent to WhatsApp!',
+          title: 'Sale Completed! 🎉',
+          text: 'Bill sent to WhatsApp!',
           confirmButtonColor: '#d4af37'
         });
       } else {

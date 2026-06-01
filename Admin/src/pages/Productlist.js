@@ -85,9 +85,9 @@ const Productlist = () => {
 
   const showSizeBarcodes = (record) => {
     const sizeItems = record.sizeStock?.length > 0
-      ? record.sizeStock
-      : (record.variants || []).flatMap((v) => v.sizeStock || []);
-    setProductSizeBarcodes(sizeItems.filter((i) => i.barcode).map((i) => ({ size: i.size, barcode: i.barcode, quantity: i.quantity })));
+      ? record.sizeStock.map((i) => ({ size: i.size, barcode: i.barcode, quantity: i.quantity, color: record.color }))
+      : (record.variants || []).flatMap((v) => (v.sizeStock || []).map((i) => ({ size: i.size, barcode: i.barcode, quantity: i.quantity, color: v.color || record.color })));
+    setProductSizeBarcodes(sizeItems.filter((i) => i.barcode));
     setSelectedTitle(record.title);
     setSelectedRecord(record);
     setSizeBarcodesModalOpen(true);

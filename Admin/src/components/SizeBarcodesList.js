@@ -1,10 +1,12 @@
-import React, { useEffect, useRef } from "react";
-import { Button, Tag, Space } from "antd";
+import React, { useEffect, useRef, useState } from "react";
+import { Button, Tag, Space, Switch } from "antd";
 import { AiOutlineDownload, AiOutlinePrinter } from "react-icons/ai";
 import JsBarcode from "jsbarcode";
 import { downloadStickerPNG, printSticker } from "../utils/stickerUtils";
+import { getColorSwatch, getReadableColorName } from "../utils/colorDisplay";
 
 const SizeBarcodesList = ({ barcodes, productData }) => {
+  const [showColor, setShowColor] = useState(false);
   const barcodeRefs = useRef([]);
 
   useEffect(() => {
@@ -36,6 +38,10 @@ const SizeBarcodesList = ({ barcodes, productData }) => {
 
   return (
     <div className="p-2">
+      <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 8, marginBottom: 8 }}>
+        <span style={{ fontSize: 12, color: "#374151", fontWeight: 600 }}>Show color</span>
+        <Switch size="small" checked={showColor} onChange={(checked) => setShowColor(checked)} />
+      </div>
 
       <div className="row g-2">
         {barcodes.map((item, index) => (
@@ -57,6 +63,12 @@ const SizeBarcodesList = ({ barcodes, productData }) => {
                 <p className="font-monospace text-success mb-1" style={{ fontSize: "9px" }}>
                   {item.barcode}
                 </p>
+                {showColor && (item.color || productData?.color) && (
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, marginBottom: 4 }}>
+                    <span style={{ width: 10, height: 10, borderRadius: "50%", backgroundColor: getColorSwatch(item.color || productData.color), border: "1px solid #d1d5db", display: "inline-block" }} />
+                    <span style={{ fontSize: 11, color: "#374151", fontWeight: 600 }}>{getReadableColorName(item.color || productData.color)}</span>
+                  </div>
+                )}
                 {productData?.price && (
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 4, flexWrap: "wrap" }}>
                     <span style={{ fontSize: "14px", fontWeight: "bold", color: "#000" }}>₹{productData.price}</span>
@@ -75,7 +87,7 @@ const SizeBarcodesList = ({ barcodes, productData }) => {
                     type="primary"
                     size="small"
                     icon={<AiOutlineDownload />}
-                    onClick={() => downloadStickerPNG({ barcode: item.barcode, size: item.size, price: productData?.price, mrp: productData?.mrp })}
+                    onClick={() => downloadStickerPNG({ barcode: item.barcode, size: item.size, price: productData?.price, mrp: productData?.mrp, title: productData?.title, color: showColor ? (item.color || productData?.color) : undefined })}
                     style={{
                       backgroundColor: "#52c41a",
                       borderColor: "#52c41a",
@@ -90,7 +102,7 @@ const SizeBarcodesList = ({ barcodes, productData }) => {
                     type="primary"
                     size="small"
                     icon={<AiOutlinePrinter />}
-                    onClick={() => printSticker({ barcode: item.barcode, size: item.size, price: productData?.price, mrp: productData?.mrp })}
+                    onClick={() => printSticker({ barcode: item.barcode, size: item.size, price: productData?.price, mrp: productData?.mrp, title: productData?.title, color: showColor ? (item.color || productData?.color) : undefined })}
                     style={{
                       backgroundColor: "#722ed1",
                       borderColor: "#722ed1",

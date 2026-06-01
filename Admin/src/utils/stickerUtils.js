@@ -1,6 +1,7 @@
 import JsBarcode from "jsbarcode";
+import { getReadableColorName } from "./colorDisplay";
 
-export const buildStickerHTML = ({ barcode, size, price, mrp, title }) => {
+export const buildStickerHTML = ({ barcode, size, price, mrp, title, color }) => {
   const barcodeCanvas = document.createElement("canvas");
   JsBarcode(barcodeCanvas, barcode, {
     format: "CODE128",
@@ -12,6 +13,7 @@ export const buildStickerHTML = ({ barcode, size, price, mrp, title }) => {
   });
   const barcodeDataUrl = barcodeCanvas.toDataURL("image/png");
   const discountPct = mrp && price && mrp > price ? Math.round((1 - price / mrp) * 100) : null;
+  const colorName = color ? getReadableColorName(color) : "";
 
   return `
     <html>
@@ -41,7 +43,7 @@ export const buildStickerHTML = ({ barcode, size, price, mrp, title }) => {
           .price { font-size: 14px; font-weight: bold; color: #000; }
           .mrp { font-size: 14px; color: #555; }
           .discount-badge { font-size: 10px; font-weight: bold; color: #000 }
-          .size-row { margin-top: 15px;font-size: 13px; color: #333; }
+          .size-row { margin-top: 15px; font-size: 13px; color: #333; display: flex; justify-content: space-between; align-items: center; width: 100%; }
           @media print {
             @page { margin: 0; size: 70mm 63mm; }
             body { margin: 0; }
@@ -51,8 +53,7 @@ export const buildStickerHTML = ({ barcode, size, price, mrp, title }) => {
       <body>
         <div class="sticker">
           <div class="content">
-            ${title ? `<div class="title">${title}</div>` : ""}
-            ${size ? `<div class="size-row">Size: <strong>${size}</strong></div>` : ""}
+            ${(size || color) ? `<div class="size-row">${size ? `<div>Size: <strong>${size}</strong></div>` : ""}${color ? `<div>Color: <strong>${colorName}</strong></div>` : ""}</div>` : ""}
             <img class="barcode-img" src="${barcodeDataUrl}" />
             ${price ? `
             <div class="price-row">
@@ -73,7 +74,7 @@ const W = 826;
 const H = 744;
 const PAD = 20;
 
-export const downloadStickerPNG = ({ barcode, size, price, mrp, title }) => {
+export const downloadStickerPNG = ({ barcode, size, price, mrp, title, color }) => {
   const canvas = document.createElement("canvas");
   const ctx = canvas.getContext("2d");
   canvas.width = W;
@@ -98,12 +99,18 @@ export const downloadStickerPNG = ({ barcode, size, price, mrp, title }) => {
     y += 30;
   }
 
-  // Size at top
-  if (size) {
+  // Size and Color row (left/right) when present
+  if (size || color) {
     ctx.font = "bold 26px Arial";
     ctx.fillStyle = "#333";
-    ctx.textAlign = "center";
-    ctx.fillText(`Size: ${size}`, W / 2, y + 24);
+    if (size) {
+      ctx.textAlign = "left";
+      ctx.fillText(`Size: ${size}`, PAD + 10, y + 24);
+    }
+    if (color) {
+      ctx.textAlign = "right";
+      ctx.fillText(`Color: ${getReadableColorName(color)}`, W - PAD - 10, y + 24);
+    }
     y += 34;
   }
 

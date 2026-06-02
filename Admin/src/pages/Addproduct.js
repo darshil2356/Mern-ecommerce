@@ -197,6 +197,9 @@ const Addproduct = () => {
 
   const coloropt = [];
   colorState.forEach((i) => {
+    const colorName = i.name || i.title || i.hex || "Color";
+    const colorHex = i.hex || i.title || "#000000";
+
     coloropt.push({
       label: (
         <div className="d-flex align-items-center gap-2">
@@ -204,13 +207,13 @@ const Addproduct = () => {
             style={{
               width: "20px",
               height: "20px",
-              backgroundColor: i.title,
+              backgroundColor: colorHex,
               borderRadius: "50%",
               border: "2px solid #fff",
               boxShadow: "0 2px 4px rgba(0,0,0,0.2)",
             }}
           />
-          <span>{i.title}</span>
+          <span>{colorName}</span>
         </div>
       ),
       value: i._id,

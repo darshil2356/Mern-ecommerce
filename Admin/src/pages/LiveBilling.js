@@ -356,7 +356,23 @@ const LiveBilling = () => {
       
       const stockInfo = await checkStock(barcode, requestedQty);
       
-      if (stockInfo && !stockInfo.isAvailable) {
+      if (!stockInfo) {
+        Swal.fire({
+          icon: 'warning',
+          title: 'Stock Check Failed',
+          text: 'Unable to verify stock. Please try again.',
+          confirmButtonColor: '#d4af37',
+          position: 'top-end',
+          timer: 3000,
+          showConfirmButton: false,
+          width: '280px',
+          padding: '8px'
+        });
+        setBuffer("");
+        return;
+      }
+
+      if (!stockInfo.isAvailable) {
         // Show smaller and sleeker SweetAlert at top-right
         Swal.fire({
           icon: 'warning',
@@ -419,7 +435,22 @@ const LiveBilling = () => {
     
     const stockInfo = await checkStock(barcode, requestedQty);
     
-    if (stockInfo && !stockInfo.isAvailable) {
+    if (!stockInfo) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Stock Check Failed',
+        text: 'Unable to verify stock. Please try again.',
+        confirmButtonColor: '#d4af37',
+        position: 'top-end',
+        timer: 3000,
+        showConfirmButton: false,
+        width: '280px',
+        padding: '8px'
+      });
+      return;
+    }
+
+    if (!stockInfo.isAvailable) {
       // Show smaller and sleeker SweetAlert at top-right
       Swal.fire({
         icon: 'warning',
@@ -505,19 +536,34 @@ const LiveBilling = () => {
           
           const stockInfo = await checkStock(barcode, requestedQty);
           
-          if (stockInfo && !stockInfo.isAvailable) {
+          if (!stockInfo) {
+            Swal.fire({
+              icon: 'warning',
+              title: 'Stock Check Failed',
+              text: 'Unable to verify stock. Please try again.',
+              confirmButtonColor: '#d4af37',
+              position: 'top-end',
+              timer: 3000,
+              showConfirmButton: false,
+              width: '200px',
+              padding: '6px 10px'
+            });
+            return;
+          }
+
+          if (!stockInfo.isAvailable) {
             // Show smaller and sleeker SweetAlert at top-right
-           Swal.fire({
-  icon: 'warning',
-  title: '',
-  html: `<span class="text-sm font-medium">Only ${stockInfo.availableStock} in stock</span>`,
-  confirmButtonColor: '#d4af37',
-  position: 'top-end',
-  timer: 3000,
-  showConfirmButton: false,
-  width: '200px',
-  padding: '6px 10px'
-});
+            Swal.fire({
+              icon: 'warning',
+              title: '',
+              html: `<span class="text-sm font-medium">Only ${stockInfo.availableStock} in stock</span>`,
+              confirmButtonColor: '#d4af37',
+              position: 'top-end',
+              timer: 3000,
+              showConfirmButton: false,
+              width: '200px',
+              padding: '6px 10px'
+            });
             return;
           }
 
@@ -746,6 +792,42 @@ const LiveBilling = () => {
     setShowReferralDropdown(false);
   };
 
+  const selectCustomerWithReferral = async (user) => {
+    try {
+      const res = await axios.get(`${base_url}user/${user._id}`, config);
+      const fullCustomer = res.data.getaUser;
+      const fullName = `${fullCustomer.firstname || user.firstname || ''} ${fullCustomer.lastname || user.lastname || ''}`.trim();
+      setCustomer({
+        name: fullName,
+        address: fullCustomer.address || user.address || '',
+        contact: fullCustomer.mobile || user.mobile || '',
+        referralContact: '',
+        referralCode: '',
+      });
+      clearReferrer();
+
+      if (fullCustomer.referredBy) {
+        const referrer = fullCustomer.referredBy;
+        const referrerName = `${referrer.firstname || ''} ${referrer.lastname || ''}`.trim();
+        setReferrerName(referrerName || 'Referrer');
+        setReferrerCode(referrer.referralCode || 'N/A');
+        setReferralSearch(referrer.mobile || '');
+        setCustomer(prev => ({ ...prev, referralContact: referrer.mobile || '', referralCode: referrer.referralCode || '' }));
+      }
+    } catch (err) {
+      console.error('Failed to load customer details', err);
+      const fullName = `${user.firstname || ''} ${user.lastname || ''}`.trim();
+      setCustomer({
+        name: fullName,
+        address: user.address || '',
+        contact: user.mobile || '',
+        referralContact: '',
+        referralCode: '',
+      });
+      clearReferrer();
+    }
+  };
+
   const clearReferrer = () => {
     setReferrerName("");
     setReferrerCode("");
@@ -899,13 +981,12 @@ const LiveBilling = () => {
     try {
       const res = await axios.post(`${base_url}user/create-customer`, values, config);
       const newUser = res.data;
-      const fullName = `${newUser.firstname} ${newUser.lastname}`.trim();
-      setCustomer({
-        name: fullName,
-        address: newUser.address || "",
-        contact: newUser.mobile || "",
-        referralContact: customer.referralContact || "",
-        referralCode: customer.referralCode || "",
+      await selectCustomerWithReferral({
+        _id: newUser._id,
+        firstname: newUser.firstname,
+        lastname: newUser.lastname,
+        address: newUser.address || '',
+        mobile: newUser.mobile || '',
       });
       setContactSearch("");
       setSearchTerm("");
@@ -1530,21 +1611,8 @@ tbody td{padding:6px 4px;vertical-align:top}
                           key={cust._id}
                           className="p-3 hover:bg-indigo-50 cursor-pointer border-b border-gray-100 last:border-0 transition-colors"
                           onMouseDown={(e) => e.preventDefault()}
-                          onClick={() => {
-                            const fullName = `${cust.firstname} ${cust.lastname}`.trim();
-                            setCustomer({
-                              name: fullName,
-                              address: cust.address || '',
-                              contact: cust.mobile || '',
-                              referralContact: '',
-                              referralCode: '',
-                            });
-                            setSearchTerm('');
-                            setContactSearch('');
-                            setNameResults([]);
-                            setContactResults([]);
-                            setContactSearchDone(false);
-                            setNameSearchDone(false);
+                          onClick={async () => {
+                            await selectCustomerWithReferral(cust);
                             setShowDropdown(false);
                             setShowContactDropdown(false);
                           }}
@@ -1600,15 +1668,8 @@ tbody td{padding:6px 4px;vertical-align:top}
                           key={cust._id}
                           className="p-3 hover:bg-indigo-50 cursor-pointer border-b border-gray-100 last:border-0 transition-colors"
                           onMouseDown={(e) => e.preventDefault()}
-                          onClick={() => {
-                            const fullName = `${cust.firstname} ${cust.lastname}`.trim();
-                            setCustomer({
-                              name: fullName,
-                              address: cust.address || '',
-                              contact: cust.mobile || '',
-                              referralContact: '',
-                              referralCode: '',
-                            });
+                          onClick={async () => {
+                            await selectCustomerWithReferral(cust);
                             setSearchTerm('');
                             setContactSearch('');
                             setNameResults([]);

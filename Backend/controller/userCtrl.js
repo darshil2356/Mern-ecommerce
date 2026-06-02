@@ -40,12 +40,25 @@ const appendCoinTransaction = (userDoc, transaction) => {
 
 const findProductByBarcode = async (barcode) => {
   if (!barcode) return null;
-  const normalized = barcode.toUpperCase();
-  const product = await Product.findOne({ barcode: normalized }).populate("color").populate("variants.color");
+  const normalized = normalizeBarcode(barcode);
+  const exactRegex = new RegExp(`^${escapeRegExp(normalized)}$`, "i");
+
+  const product = await Product.findOne({ barcode: exactRegex }).populate("color").populate("variants.color");
   if (product) return product;
-  const product2 = await Product.findOne({ "sizeStock.barcode": normalized }).populate("color").populate("variants.color");
+
+  const product2 = await Product.findOne({ "sizeStock.barcode": exactRegex }).populate("color").populate("variants.color");
   if (product2) return product2;
-  return await Product.findOne({ "variants.sizeStock.barcode": normalized }).populate("color").populate("variants.color");
+
+  return await Product.findOne({ "variants.sizeStock.barcode": exactRegex }).populate("color").populate("variants.color");
+};
+
+const normalizeBarcode = (barcode) => {
+  if (typeof barcode !== 'string') return barcode;
+  return barcode.trim().toUpperCase();
+};
+
+const escapeRegExp = (value) => {
+  return String(value).replace(/[.*+?^${}()|[\\]\\]/g, "\\$&");
 };
 
 const normalizeProductQuantity = (product) => {
@@ -115,9 +128,10 @@ const deductStockFromProduct = async (product, item) => {
 
   // If provided precise barcode, use it
   if (item.barcode) {
+    const lookupBarcode = normalizeBarcode(item.barcode);
     // Try to deduct from exact barcode path
     if (product.sizeStock && product.sizeStock.length > 0) {
-      const sizeEntry = product.sizeStock.find((s) => s.barcode === item.barcode);
+      const sizeEntry = product.sizeStock.find((s) => normalizeBarcode(s.barcode) === lookupBarcode);
       if (sizeEntry && sizeEntry.quantity >= item.quantity) {
         sizeEntry.quantity -= item.quantity;
         barcode = sizeEntry.barcode;
@@ -126,7 +140,7 @@ const deductStockFromProduct = async (product, item) => {
     }
     if (!deducted && product.variants && product.variants.length > 0) {
       for (const variant of product.variants) {
-        const sizeEntry = (variant.sizeStock || []).find((s) => s.barcode === item.barcode);
+        const sizeEntry = (variant.sizeStock || []).find((s) => normalizeBarcode(s.barcode) === lookupBarcode);
         if (sizeEntry && sizeEntry.quantity >= item.quantity) {
           sizeEntry.quantity -= item.quantity;
           barcode = sizeEntry.barcode;
@@ -949,14 +963,15 @@ const _restoreStock = async (product, item) => {
 
   // 1. Barcode match — most precise, always use when available
   if (item.barcode) {
+    const lookupBarcode = normalizeBarcode(item.barcode);
     if (product.variants && product.variants.length > 0) {
       for (const variant of product.variants) {
-        const se = (variant.sizeStock || []).find(s => s.barcode === item.barcode);
+        const se = (variant.sizeStock || []).find(s => normalizeBarcode(s.barcode) === lookupBarcode);
         if (se) { se.quantity += qty; return; }
       }
     }
     if (product.sizeStock && product.sizeStock.length > 0) {
-      const se = product.sizeStock.find(s => s.barcode === item.barcode);
+      const se = product.sizeStock.find(s => normalizeBarcode(s.barcode) === lookupBarcode);
       if (se) { se.quantity += qty; return; }
     }
   }
@@ -1320,7 +1335,10 @@ const getaUser = asyncHandler(async (req, res) => {
   validateMongoDbId(id);
 
   try {
-    const getaUser = await User.findById(id);
+    const getaUser = await User.findById(id).populate({
+      path: 'referredBy',
+      select: 'firstname lastname mobile referralCode',
+    });
     res.json({
       getaUser,
     });
@@ -2576,9 +2594,10 @@ const getProductByBarcode = asyncHandler(async (req, res) => {
   // Check if barcode is from variants.sizeStock
   let sizeInfo = null;
   let colorInfo = null;
+  const lookupBarcode = normalizeBarcode(barcode);
   if (product.variants && product.variants.length > 0) {
     for (const variant of product.variants) {
-      const sizeEntry = variant.sizeStock.find(s => s.barcode === barcode);
+      const sizeEntry = variant.sizeStock.find(s => normalizeBarcode(s.barcode) === lookupBarcode);
       if (sizeEntry) {
         sizeInfo = {
           size: sizeEntry.size,
@@ -2589,9 +2608,11 @@ const getProductByBarcode = asyncHandler(async (req, res) => {
         break;
       }
     }
-  } else if (product.sizeStock && product.sizeStock.length > 0) {
-    // Legacy support
-    const sizeEntry = product.sizeStock.find(s => s.barcode === barcode);
+  }
+
+  if (!sizeInfo && product.sizeStock && product.sizeStock.length > 0) {
+    // Legacy support and fallback stock path
+    const sizeEntry = product.sizeStock.find(s => normalizeBarcode(s.barcode) === lookupBarcode);
     if (sizeEntry) {
       sizeInfo = {
         size: sizeEntry.size,
@@ -2601,12 +2622,7 @@ const getProductByBarcode = asyncHandler(async (req, res) => {
     }
   }
 
-  let colorLabel = null;
-  if (colorInfo) {
-    colorLabel = typeof colorInfo === "string" ? colorInfo : colorInfo?.title || colorInfo?.name || null;
-  } else if (product.color) {
-    colorLabel = typeof product.color === "string" ? product.color : product.color?.title || product.color?.name || null;
-  }
+  const colorLabel = resolveColorLabel(colorInfo || product.color, product);
 
   res.json({
     _id: product._id,
@@ -2643,9 +2659,10 @@ const checkStock = asyncHandler(async (req, res) => {
   let sizeInfo = null;
   let colorInfo = null;
 
+  const lookupBarcode = normalizeBarcode(barcode);
   if (product.variants && product.variants.length > 0) {
     for (const variant of product.variants) {
-      const sizeEntry = variant.sizeStock.find(s => s.barcode === barcode);
+      const sizeEntry = variant.sizeStock.find(s => normalizeBarcode(s.barcode) === lookupBarcode);
       if (sizeEntry) {
         availableStock = sizeEntry.quantity;
         sizeInfo = {
@@ -2656,9 +2673,11 @@ const checkStock = asyncHandler(async (req, res) => {
         break;
       }
     }
-  } else if (product.sizeStock && product.sizeStock.length > 0) {
-    // Legacy support
-    const sizeEntry = product.sizeStock.find(s => s.barcode === barcode);
+  }
+
+  if (!sizeInfo && product.sizeStock && product.sizeStock.length > 0) {
+    // Legacy support and fallback stock path
+    const sizeEntry = product.sizeStock.find(s => normalizeBarcode(s.barcode) === lookupBarcode);
     if (sizeEntry) {
       availableStock = sizeEntry.quantity;
       sizeInfo = {
@@ -2668,19 +2687,18 @@ const checkStock = asyncHandler(async (req, res) => {
     }
   }
 
-  // If not found in sizeStock or variants, use main quantity
-  if (!sizeInfo && (availableStock === 0 || !product.sizeStock?.length && !product.variants?.length)) {
-    availableStock = product.quantity;
+  // If not found in sizeStock or variants, use main quantity only when the scanned barcode belongs to the parent product,
+  // or when the product has no variant/sizeStock data at all.
+  if (!sizeInfo) {
+    const productBarcodeMatch = product.barcode && normalizeBarcode(product.barcode) === lookupBarcode;
+    if (productBarcodeMatch || (!product.variants?.length && !product.sizeStock?.length)) {
+      availableStock = product.quantity;
+    }
   }
 
   const requestedQty = parseInt(quantity) || 1;
 
-  let colorLabel = null;
-  if (colorInfo) {
-    colorLabel = typeof colorInfo === "string" ? colorInfo : colorInfo?.title || colorInfo?.name || null;
-  } else if (product.color) {
-    colorLabel = typeof product.color === "string" ? product.color : product.color?.title || product.color?.name || null;
-  }
+  const colorLabel = resolveColorLabel(colorInfo || product.color, product);
 
   res.json({
     barcode: barcode,

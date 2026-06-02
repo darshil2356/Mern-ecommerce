@@ -72,11 +72,11 @@ const io = new Server(server, {
   },
 });
 
+const startServer = async () => {
+  await dbConnect();
+  initFirebase();
+};
 
-     
-
-dbConnect();
-initFirebase();
 app.use(compression());
 app.use(morgan("dev"));
 app.use(cors(corsOptions));
@@ -280,9 +280,17 @@ app.get("/api/health", (req, res) => {
 
 app.use(notFound);
 app.use(errorHandler);
-server.listen(PORT, () => {
-  console.log(`Server is running at PORT ${PORT}`);
-  startTrackingCron();
-  startDailyBlogCron();
-  startFeedCron();
-});
+
+startServer()
+  .then(() => {
+    server.listen(PORT, () => {
+      console.log(`Server is running at PORT ${PORT}`);
+      startTrackingCron();
+      startDailyBlogCron();
+      startFeedCron();
+    });
+  })
+  .catch((err) => {
+    console.error("Failed to start server:", err.message);
+    process.exit(1);
+  });

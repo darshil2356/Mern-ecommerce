@@ -410,6 +410,7 @@ const Productlist = () => {
         onClose={() => setBarcodeModalOpen(false)}
         barcode={selectedBarcode}
         title={selectedTitle}
+        productData={{ size: selectedRecord?.size, price: selectedRecord?.price, mrp: selectedRecord?.mrp }}
       />
       <Modal
         title={<span style={{ color: "#7c3aed", fontWeight: 700 }}>🏷️ Barcodes — {selectedTitle}</span>}

@@ -7,6 +7,7 @@ import { getColorSwatch, getReadableColorName } from "../utils/colorDisplay";
 
 const SizeBarcodesList = ({ barcodes, productData }) => {
   const [showColor, setShowColor] = useState(false);
+  const [showName, setShowName] = useState(false);
   const barcodeRefs = useRef([]);
 
   useEffect(() => {
@@ -38,9 +39,15 @@ const SizeBarcodesList = ({ barcodes, productData }) => {
 
   return (
     <div className="p-2">
-      <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 8, marginBottom: 8 }}>
-        <span style={{ fontSize: 12, color: "#374151", fontWeight: 600 }}>Show color</span>
-        <Switch size="small" checked={showColor} onChange={(checked) => setShowColor(checked)} />
+      <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 12, marginBottom: 8, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <span style={{ fontSize: 12, color: "#374151", fontWeight: 600 }}>Show color</span>
+          <Switch size="small" checked={showColor} onChange={(checked) => setShowColor(checked)} />
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <span style={{ fontSize: 12, color: "#374151", fontWeight: 600 }}>Show name</span>
+          <Switch size="small" checked={showName} onChange={(checked) => setShowName(checked)} />
+        </div>
       </div>
 
       <div className="row g-2">
@@ -87,7 +94,7 @@ const SizeBarcodesList = ({ barcodes, productData }) => {
                     type="primary"
                     size="small"
                     icon={<AiOutlineDownload />}
-                    onClick={() => downloadStickerPNG({ barcode: item.barcode, size: item.size, price: productData?.price, mrp: productData?.mrp, title: productData?.title, color: showColor ? (item.color || productData?.color) : undefined })}
+                    onClick={() => downloadStickerPNG({ barcode: item.barcode, size: item.size, price: productData?.price, mrp: productData?.mrp, title: showName ? productData?.title : undefined, color: showColor ? (item.color || productData?.color) : undefined })}
                     style={{
                       backgroundColor: "#52c41a",
                       borderColor: "#52c41a",
@@ -102,7 +109,7 @@ const SizeBarcodesList = ({ barcodes, productData }) => {
                     type="primary"
                     size="small"
                     icon={<AiOutlinePrinter />}
-                    onClick={() => printSticker({ barcode: item.barcode, size: item.size, price: productData?.price, mrp: productData?.mrp, title: productData?.title, color: showColor ? (item.color || productData?.color) : undefined })}
+                    onClick={() => printSticker({ barcode: item.barcode, size: item.size, price: productData?.price, mrp: productData?.mrp, title: showName ? productData?.title : undefined, color: showColor ? (item.color || productData?.color) : undefined })}
                     style={{
                       backgroundColor: "#722ed1",
                       borderColor: "#722ed1",

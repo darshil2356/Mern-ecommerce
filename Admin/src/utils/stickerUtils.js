@@ -37,13 +37,13 @@ export const buildStickerHTML = ({ barcode, size, price, mrp, title, color }) =>
             overflow: hidden;
           }
           .bottom-blank { height: 25%; }
-          .title {margin-top: 15px; font-size: 10px; font-weight: bold; color: #000; text-align: center; line-height: 1.2; max-width: 100%; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+          .title {margin-top: 2mm; font-size: 12px; font-weight: bold; color: #000; text-align: center; line-height: 1.2; max-width: 100%; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
           .barcode-img { max-width: 100%; height: auto; display: block; }
           .price-row {margin-top: 15px;display: flex; align-items: center; gap: 15px; flex-wrap: wrap; justify-content: center; }
           .price { font-size: 14px; font-weight: bold; color: #000; }
           .mrp { font-size: 14px; color: #555; }
           .discount-badge { font-size: 10px; font-weight: bold; color: #000 }
-          .size-row { margin-top: 15px; font-size: 13px; color: #333; display: flex; justify-content: space-between; align-items: center; width: 100%; }
+          .size-row { margin-top: 2px; font-size: 13px; color: #333; display: flex; justify-content: space-between; align-items: center; width: 100%; }
           @media print {
             @page { margin: 0; size: 70mm 63mm; }
             body { margin: 0; }
@@ -53,6 +53,7 @@ export const buildStickerHTML = ({ barcode, size, price, mrp, title, color }) =>
       <body>
         <div class="sticker">
           <div class="content">
+            ${title ? `<div class="title">${title}</div>` : ""}
             ${(size || color) ? `<div class="size-row">${size ? `<div>Size: <strong>${size}</strong></div>` : ""}${color ? `<div>Color: <strong>${colorName}</strong></div>` : ""}</div>` : ""}
             <img class="barcode-img" src="${barcodeDataUrl}" />
             ${price ? `
@@ -92,11 +93,12 @@ export const downloadStickerPNG = ({ barcode, size, price, mrp, title, color }) 
 
   // Title
   if (title) {
-    ctx.font = "bold 22px Arial";
+    ctx.font = "bold 28px Arial";
     ctx.fillStyle = "#000";
     ctx.textAlign = "center";
-    ctx.fillText(title.length > 40 ? title.slice(0, 40) + "…" : title, W / 2, y + 18);
-    y += 30;
+    const displayTitle = title.length > 32 ? title.slice(0, 32) + "…" : title;
+    ctx.fillText(displayTitle, W / 2, y + 22);
+    y += 36;
   }
 
   // Size and Color row (left/right) when present

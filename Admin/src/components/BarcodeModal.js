@@ -1,10 +1,11 @@
-import React, { useEffect, useRef } from "react";
-import { Modal, Button, Space } from "antd";
+import React, { useEffect, useRef, useState } from "react";
+import { Modal, Button, Space, Switch } from "antd";
 import { FaDownload, FaPrint } from "react-icons/fa";
 import JsBarcode from "jsbarcode";
 import { buildStickerHTML, downloadStickerPNG, printSticker } from "../utils/stickerUtils";
 
 const BarcodeModal = ({ open, onClose, barcode, title, productData }) => {
+  const [showName, setShowName] = useState(false);
   const svgRef = useRef(null);
 
   useEffect(() => {
@@ -22,7 +23,13 @@ const BarcodeModal = ({ open, onClose, barcode, title, productData }) => {
     }
   }, [open, barcode]);
 
-  const stickerParams = { barcode, size: productData?.size, price: productData?.price, mrp: productData?.mrp, title };
+  const stickerParams = {
+    barcode,
+    size: productData?.size,
+    price: productData?.price,
+    mrp: productData?.mrp,
+    title: showName ? title : undefined,
+  };
   const handlePrint = () => printSticker(stickerParams);
   const handleDownload = () => downloadStickerPNG(stickerParams);
 
@@ -58,6 +65,13 @@ const BarcodeModal = ({ open, onClose, barcode, title, productData }) => {
             </Space>
           </div>
         )}
+
+        <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 10, marginBottom: 12, flexWrap: "wrap" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={{ fontSize: 12, color: "#374151", fontWeight: 600 }}>Show name</span>
+            <Switch size="small" checked={showName} onChange={(checked) => setShowName(checked)} />
+          </div>
+        </div>
 
         <div
           style={{

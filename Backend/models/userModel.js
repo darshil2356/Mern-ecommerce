@@ -10,12 +10,15 @@ var userSchema = new mongoose.Schema(
     },
     lastname: {
       type: String,
-      required: true,
+      required: false,
+      default: "",
     },
     email: {
       type: String,
       unique: true,
       sparse: true,
+      trim: true,
+      default: null,
     },
     mobile: {
       type: String,

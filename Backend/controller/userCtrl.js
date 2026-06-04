@@ -301,7 +301,6 @@ const createOfflineOrder = asyncHandler(async (req, res) => {
 
   let orderItems = [];
   let totalPrice = 0;
-
   // Stage 1 + 2: validate stock and persist atomically with retry on conflict
   const MAX_RETRIES = 3;
   for (const item of items) {
@@ -309,10 +308,47 @@ const createOfflineOrder = asyncHandler(async (req, res) => {
     let product = null;
     let deductedBarcode = null;
 
+    // Treat any pkey starting with MANUAL as a manual entry (includes MANUAL and MANUAL_CHARGE)
+    const isManualItem = (item.pkey && String(item.pkey).startsWith("MANUAL")) || (item.barcode && String(item.barcode).startsWith("MANUAL-"));
+
+    if (isManualItem) {
+      const colorId = await resolveColorId(item.color, null);
+      totalPrice += (item.price || 0) * item.quantity;
+      orderItems.push({
+        product: null,
+        quantity: item.quantity,
+        price: item.price || 0,
+        name: item.name || "Manual Product",
+        hsnCode: item.hsnCode || null,
+        color: colorId,
+        size: item.size || null,
+        barcode: item.barcode || null,
+      });
+      continue;
+    }
+
     for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
       // Re-fetch fresh product on every attempt to get latest __v and stock
       product = await findProductByBarcode(item.barcode);
       if (!product) {
+        // If product lookup fails but the request carried manual details, treat as manual
+        if (item.name && item.price) {
+          const colorId = await resolveColorId(item.color, null);
+          totalPrice += (item.price || 0) * item.quantity;
+          orderItems.push({
+            product: null,
+            quantity: item.quantity,
+            price: item.price || 0,
+            name: item.name || "Manual Product",
+            hsnCode: item.hsnCode || null,
+            color: colorId,
+            size: item.size || null,
+            barcode: item.barcode || null,
+          });
+          product = null;
+          break;
+        }
+
         res.status(404);
         throw new Error(`Product not found for barcode ${item.barcode}`);
       }
@@ -338,23 +374,25 @@ const createOfflineOrder = asyncHandler(async (req, res) => {
       // else: another session beat us — loop and retry with fresh data
     }
 
-    if (!saved) {
+    if (product && !saved) {
       res.status(409);
       throw new Error(`Stock conflict for ${product.title} — please retry the sale`);
     }
 
-    item.barcode = deductedBarcode || item.barcode;
-    totalPrice += product.price * item.quantity;
-
-    orderItems.push({
-      product: product._id,
-      quantity: item.quantity,
-      price: product.price,
-      hsnCode: product.hsnCode || null,
-      color: await resolveColorId(item.color || product.color || (product.variants?.[0]?.color ?? null), product),
-      size: item.size || null,
-      barcode: item.barcode,
-    });
+    if (product) {
+      item.barcode = deductedBarcode || item.barcode;
+      totalPrice += product.price * item.quantity;
+      orderItems.push({
+        product: product._id,
+        quantity: item.quantity,
+        price: product.price,
+        name: item.name || product.title,
+        hsnCode: product.hsnCode || null,
+        color: await resolveColorId(item.color || product.color || (product.variants?.[0]?.color ?? null), product),
+        size: item.size || null,
+        barcode: item.barcode,
+      });
+    }
   }
 
   const discountAmount = discount || 0;
@@ -612,6 +650,14 @@ const registerUser = asyncHandler(async (req, res) => {
       ...req.body,
       referralCode: newReferralCode, // Always generate a referral code for new users
     };
+    // Sanitize email to avoid empty-string values (which break sparse unique index)
+    if (newUserData.email && typeof newUserData.email === 'string' && newUserData.email.trim()) {
+      newUserData.email = newUserData.email.trim();
+    } else {
+      delete newUserData.email;
+    }
+    // Ensure lastname is not undefined (schema allows empty string)
+    newUserData.lastname = newUserData.lastname || "";
     
     // Add referredBy if valid referral code provided
     if (referredByUser) {
@@ -696,9 +742,10 @@ const registerUser = asyncHandler(async (req, res) => {
 // });
 const createUser = asyncHandler(async (req, res) => {
   const { email, firstname, lastname, mobile, referralCode: customReferralCode, referredByMobile } = req.body;
+  const safeEmail = email && typeof email === 'string' && email.trim() ? email.trim() : undefined;
 
-  if (email) {
-    const existingUser = await User.findOne({ email });
+  if (safeEmail) {
+    const existingUser = await User.findOne({ email: safeEmail });
     if (existingUser) throw new Error("User already exists");
   }
 
@@ -736,7 +783,10 @@ const createUser = asyncHandler(async (req, res) => {
   }
 
   const newUser = await User.create({
-    firstname, lastname, email, mobile,
+    firstname,
+    lastname: lastname || "",
+    email: safeEmail,
+    mobile,
     password: null,
     role: "user",
     referralCode,

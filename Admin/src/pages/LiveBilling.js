@@ -963,6 +963,10 @@ const LiveBilling = () => {
   const [addCustomerLoading, setAddCustomerLoading] = useState(false);
   const [addCustomerForm] = Form.useForm();
 
+  // Manual product entry modal state
+  const [manualProductOpen, setManualProductOpen] = useState(false);
+  const [manualProductForm] = Form.useForm();
+
   const openAddCustomer = () => {
     const nameParts = searchTerm.trim().split(' ').filter(Boolean);
     addCustomerForm.setFieldsValue({
@@ -974,6 +978,11 @@ const LiveBilling = () => {
       referredByMobile: customer.referralContact || "",
     });
     setAddCustomerOpen(true);
+  };
+
+  const openManualProductModal = () => {
+    manualProductForm.resetFields();
+    setManualProductOpen(true);
   };
 
   const handleAddCustomerSubmit = async (values) => {
@@ -1002,6 +1011,54 @@ const LiveBilling = () => {
     } finally {
       setAddCustomerLoading(false);
     }
+  };
+
+  const handleManualProductSubmit = (values) => {
+    const barcode = values.barcode?.trim() || `MANUAL-${Date.now()}`;
+    const price = Number(values.price) || 0;
+    const qty = Number(values.qty || 1);
+    const type = values.type || "product"; // "product" or "charge"
+
+    if (!values.name?.trim() || price <= 0 || qty <= 0) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Invalid product',
+        text: 'Please enter a valid product name, price and quantity.',
+        confirmButtonColor: '#d4af37',
+      });
+      return;
+    }
+
+    const pkey = type === "charge" ? "MANUAL_CHARGE" : "MANUAL";
+
+    setCart((prev) => {
+      if (prev[barcode]) {
+        return {
+          ...prev,
+          [barcode]: {
+            ...prev[barcode],
+            qty: prev[barcode].qty + qty,
+          },
+        };
+      }
+
+      return {
+        ...prev,
+        [barcode]: {
+          name: values.name.trim(),
+          price,
+          qty,
+          size: null,
+          color: null,
+          isSizeSpecific: false,
+          pkey,
+        },
+      };
+    });
+
+    setManualProductOpen(false);
+    manualProductForm.resetFields();
+    setBuffer("");
   };
 
   // Show + Add button: typed 10 digits, search done, no results, no confirmed customer
@@ -1109,11 +1166,20 @@ const LiveBilling = () => {
       msg += `💼 *Your Coin Balance: ${newCoinBalance} coins*\n`;
       msg += `✨ You can use these coins as discount on your next purchase!\n`;
       msg += `   (1 coin = ₹1 discount)\n\n`;
+      msg += `🔁 *Referral Total Coins: ${newCoinBalance} coins*\n`;
+      msg += `💥 આ બિલ પર તમે કમાયા: ${coinsEarned} કોઇન્સ\n\n`;
     } else if (activeCustomer.contact && customerCoins > 0) {
       msg += `🪙 *Your Coin Balance: ${customerCoins} coins*\n`;
       msg += `✨ Use these coins as discount on your next purchase!\n`;
       msg += `   (1 coin = ₹1 discount)\n\n`;
+      msg += `🔁 *Referral Total Coins: ${customerCoins} coins*\n\n`;
     }
+
+    msg += `📣 *Referral અને ખરીદી બંને પર coin મેળવો!*\n`;
+    msg += `જો તમે કોઈને રેફર કરો તો રેફરલ coin અને તમારા ખરીદી પર પણ coin મળશે.\n`;
+    msg += `તમારી આવનારી ખરીદી માટે coin ની બચત કરો અને ડિસ્કાઉન્ટ મેળવો.\n\n`;
+    // msg += `🌐 *Join our community:* https://chat.whatsapp.com/HtTeQVKXlxFGAP6ssexOhm?mode=gi_t\n`;
+    msg += `હવે જોડાઓ અને વધુ ઓફર્સ અને રિવર્ડ્સ મેળવો!\n\n`;
 
     // Spin wheel offer won
     if (activeWonOffer && activeWonOffer.type !== "none") {
@@ -1156,6 +1222,12 @@ const LiveBilling = () => {
     const items = Object.entries(cart).map(([barcode, data]) => ({
       barcode,
       quantity: data.qty,
+      price: data.price,
+      name: data.name,
+      size: data.size || null,
+      color: data.color || null,
+      pkey: data.pkey || null,
+      manual: String(data.pkey || "").startsWith("MANUAL"),
     }));
 
     if (!items.length) return;
@@ -1841,6 +1913,13 @@ tbody td{padding:6px 4px;vertical-align:top}
               <div className="text-center">
                 <p className="text-white/80 text-sm">Press Enter to add item</p>
                 <p className="text-white/60 text-xs mt-1">Leave empty & press Enter to complete sale</p>
+                <button
+                  type="button"
+                  onClick={openManualProductModal}
+                  className="mt-3 inline-flex items-center justify-center gap-2 rounded-full border border-white/40 bg-white/10 px-4 py-2 text-sm font-semibold text-white hover:bg-white/20 transition"
+                >
+                  <FaPlus className="text-sm" /> Add product manually
+                </button>
               </div>
             </div>
           </div>
@@ -1875,7 +1954,12 @@ tbody td{padding:6px 4px;vertical-align:top}
                     <tr key={barcode} className="hover:bg-indigo-50/50 transition-colors">
                       <td className="px-6 py-4 text-gray-500">{i + 1}</td>
                       <td className="px-6 py-4">
-                        <div className="font-semibold text-gray-800">{item.name}</div>
+                        <div className="font-semibold text-gray-800">
+                          {item.name}
+                          {item.pkey === "MANUAL_CHARGE" ? (
+                            <span className="ml-2 inline-block text-xs bg-amber-100 text-amber-800 px-2 py-0.5 rounded">Extra</span>
+                          ) : null}
+                        </div>
                         {item.color && (
                           <div className="text-xs text-blue-600 font-medium mt-1">
                             Color: {item.color}
@@ -2532,6 +2616,80 @@ tbody td{padding:6px 4px;vertical-align:top}
         </div>
       </div>
 
+      {/* Manual Add Product Modal */}
+      <Modal
+        title={
+          <div className="flex items-center gap-3 pb-3 border-b border-gray-100">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center text-white">
+              <FaPlus size={14} />
+            </div>
+            <span className="text-base font-semibold text-gray-800">Add Product Manually</span>
+          </div>
+        }
+        open={manualProductOpen}
+        onCancel={() => { setManualProductOpen(false); manualProductForm.resetFields(); }}
+        footer={null}
+        width={540}
+        centered
+        styles={{ body: { maxHeight: '75vh', overflowY: 'auto', paddingRight: 4 } }}
+      >
+        <Form form={manualProductForm} layout="vertical" onFinish={handleManualProductSubmit} className="pt-4">
+          <Form.Item
+            name="name"
+            label={<span className="text-gray-600 text-sm font-medium">Product Name</span>}
+            rules={[{ required: true, message: "Required" }, { min: 2, message: "Enter at least 2 characters" }]}
+          >
+            <Input placeholder="e.g. Shirt, Shoes, Mug" size="large" className="rounded-xl" />
+          </Form.Item>
+          <Form.Item
+            name="price"
+            label={<span className="text-gray-600 text-sm font-medium">Price (₹)</span>}
+            rules={[{ required: true, message: "Required" }, { validator: (_, value) => value > 0 ? Promise.resolve() : Promise.reject('Price must be greater than 0') }]}
+          >
+            <Input type="number" min={0.01} step={0.01} placeholder="e.g. 499.00" size="large" className="rounded-xl" />
+          </Form.Item>
+          <Form.Item
+            name="qty"
+            label={<span className="text-gray-600 text-sm font-medium">Quantity</span>}
+            initialValue={1}
+            rules={[{ required: true, message: "Required" }, { validator: (_, value) => value > 0 ? Promise.resolve() : Promise.reject('Quantity must be at least 1') }]}
+          >
+            <Input type="number" min={1} step={1} placeholder="1" size="large" className="rounded-xl" />
+          </Form.Item>
+          <Form.Item
+            name="type"
+            label={<span className="text-gray-600 text-sm font-medium">Type</span>}
+            initialValue="product"
+          >
+            <select className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl text-sm outline-none">
+              <option value="product">Product / Item</option>
+              <option value="charge">Extra charge / Service</option>
+            </select>
+          </Form.Item>
+          <Form.Item
+            name="barcode"
+            label={<span className="text-gray-600 text-sm font-medium">Barcode / SKU <span className="text-gray-400 font-normal">(optional)</span></span>}
+          >
+            <Input placeholder="Optional barcode or identifier" size="large" className="rounded-xl" />
+          </Form.Item>
+          <div className="flex gap-3 pt-2">
+            <button
+              type="button"
+              onClick={() => { setManualProductOpen(false); manualProductForm.resetFields(); }}
+              className="flex-1 h-11 border border-gray-200 text-gray-600 rounded-xl hover:bg-gray-50 font-medium text-sm transition-colors cursor-pointer bg-white"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="flex-1 h-11 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white rounded-xl font-medium text-sm transition-all shadow-md shadow-amber-200"
+            >
+              Add Product
+            </button>
+          </div>
+        </Form>
+      </Modal>
+
       {/* Quick Add Customer Modal */}
       <Modal
         title={
@@ -2560,8 +2718,8 @@ tbody td{padding:6px 4px;vertical-align:top}
             </Form.Item>
             <Form.Item
               name="lastname"
-              label={<span className="text-gray-600 text-sm font-medium">Last Name</span>}
-              rules={[{ required: true, message: "Required" }, { min: 2, message: "Min 2 chars" }]}
+              label={<span className="text-gray-600 text-sm font-medium">Last Name <span className="text-gray-400 font-normal">(optional)</span></span>}
+              rules={[{ min: 2, message: "Min 2 chars" }]}
             >
               <Input prefix={<FaUser className="text-gray-300" size={12} />} placeholder="Last name" size="large" className="rounded-xl" />
             </Form.Item>

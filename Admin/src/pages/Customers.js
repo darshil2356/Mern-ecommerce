@@ -301,11 +301,11 @@ const Customers = () => {
             <Form.Item name="firstname" label={<span className="text-gray-600 text-sm font-medium">First Name</span>} rules={[{ required: true, message: "Required" }, { min: 2, message: "Min 2 chars" }]}>
               <Input prefix={<FaUser className="text-gray-300" size={12} />} placeholder="First name" size="large" className="rounded-xl" />
             </Form.Item>
-            <Form.Item name="lastname" label={<span className="text-gray-600 text-sm font-medium">Last Name</span>} rules={[{ required: true, message: "Required" }, { min: 2, message: "Min 2 chars" }]}>
+            <Form.Item name="lastname" label={<span className="text-gray-600 text-sm font-medium">Last Name <span className="text-gray-400 font-normal">(optional)</span></span>} rules={[{ min: 2, message: "Min 2 chars" }]}>
               <Input prefix={<FaUser className="text-gray-300" size={12} />} placeholder="Last name" size="large" className="rounded-xl" />
             </Form.Item>
           </div>
-          <Form.Item name="email" label={<span className="text-gray-600 text-sm font-medium">Email Address</span>} rules={[{ required: true, message: "Required" }, { type: "email", message: "Invalid email" }]}>
+          <Form.Item name="email" label={<span className="text-gray-600 text-sm font-medium">Email Address <span className="text-gray-400 font-normal">(optional)</span></span>} rules={[{ type: "email", message: "Invalid email" }]}>
             <Input prefix={<FaEnvelope className="text-gray-300" size={12} />} placeholder="email@example.com" size="large" className="rounded-xl" />
           </Form.Item>
           <Form.Item name="mobile" label={<span className="text-gray-600 text-sm font-medium">Mobile Number</span>} rules={[{ required: true, message: "Required" }, { pattern: /^[0-9]{10}$/, message: "Must be 10 digits" }]}>

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import { Input, Button, Tag, Tooltip, Avatar, Modal, Badge } from "antd";
 import AdminDataTable from "../components/AdminDataTable";
 import { BiEdit } from "react-icons/bi";
@@ -22,6 +22,15 @@ const Productlist = () => {
   const [selectedBarcode, setSelectedBarcode] = useState("");
   const [selectedTitle, setSelectedTitle] = useState("");
   const [searchText, setSearchText] = useState("");
+  const [barcodeQuery, setBarcodeQuery] = useState("");
+  const [filterCategory, setFilterCategory] = useState("");
+  const [filterBrand, setFilterBrand] = useState("");
+  const [filterVendor, setFilterVendor] = useState("");
+  const [filterStock, setFilterStock] = useState("");
+  const [minPrice, setMinPrice] = useState("");
+  const [maxPrice, setMaxPrice] = useState("");
+  const [hsnFilter, setHsnFilter] = useState("");
+  const [inventoryStatus, setInventoryStatus] = useState("");
   const [sizeBarcodesModalOpen, setSizeBarcodesModalOpen] = useState(false);
   const [productSizeBarcodes, setProductSizeBarcodes] = useState([]);
   const [selectedRecord, setSelectedRecord] = useState(null);
@@ -52,8 +61,51 @@ const Productlist = () => {
     return { color: "#52c41a", bg: "#f6ffed", border: "#b7eb8f", text: "In Stock", dot: "success" };
   };
 
+  const categories = useMemo(
+    () => Array.from(new Set((productState || []).map((p) => p.category).filter(Boolean))).sort(),
+    [productState]
+  );
+  const brands = useMemo(
+    () => Array.from(new Set((productState || []).map((p) => p.brand).filter(Boolean))).sort(),
+    [productState]
+  );
+  const vendors = useMemo(
+    () => Array.from(new Set((productState || []).map((p) => p.vendorName).filter(Boolean))).sort(),
+    [productState]
+  );
+
   const filteredProducts = productState?.filter((p) => {
+    const stock = getEffectiveStock(p);
     const q = searchText.toLowerCase();
+    const barcodeQ = barcodeQuery.trim().toLowerCase();
+    const min = Number(minPrice);
+    const max = Number(maxPrice);
+
+    if (barcodeQ) {
+      const allBarcodes = [p.barcode, p.sku]
+        .concat(p.sizeStock?.map((s) => s.barcode) || [])
+        .concat((p.variants || []).flatMap((v) => (v.sizeStock || []).map((s) => s.barcode)))
+        .filter(Boolean)
+        .map((code) => code.toLowerCase());
+      if (!allBarcodes.includes(barcodeQ)) return false;
+    }
+
+    if (filterCategory && p.category !== filterCategory) return false;
+    if (filterBrand && p.brand !== filterBrand) return false;
+    if (filterVendor && p.vendorName !== filterVendor) return false;
+    if (hsnFilter && !p.hsnCode?.toLowerCase().includes(hsnFilter.toLowerCase())) return false;
+    if (inventoryStatus === "online" && !p.inventory?.online) return false;
+    if (inventoryStatus === "offline" && p.inventory?.online) return false;
+    if (filterStock === "in") {
+      if (stock === 0) return false;
+    } else if (filterStock === "low") {
+      if (!(stock > 0 && stock < 10)) return false;
+    } else if (filterStock === "out") {
+      if (stock !== 0) return false;
+    }
+    if (minPrice !== "" && !isNaN(min) && Number(p.price) < min) return false;
+    if (maxPrice !== "" && !isNaN(max) && Number(p.price) > max) return false;
+
     if (!q) return true;
     return (
       p.title?.toLowerCase().includes(q) ||
@@ -63,7 +115,8 @@ const Productlist = () => {
       p.sku?.toLowerCase().includes(q) ||
       p.hsnCode?.toLowerCase().includes(q) ||
       p.vendorName?.toLowerCase().includes(q) ||
-      p.tags?.toLowerCase().includes(q)
+      p.tags?.toLowerCase().includes(q) ||
+      (p.color?.title || "").toLowerCase().includes(q)
     );
   });
 
@@ -81,6 +134,19 @@ const Productlist = () => {
     link.href = canvas.toDataURL("image/png");
     link.download = `${barcode}.png`;
     link.click();
+  };
+
+  const resetFilters = () => {
+    setSearchText("");
+    setBarcodeQuery("");
+    setFilterCategory("");
+    setFilterBrand("");
+    setFilterVendor("");
+    setFilterStock("");
+    setInventoryStatus("");
+    setMinPrice("");
+    setMaxPrice("");
+    setHsnFilter("");
   };
 
   const showSizeBarcodes = (record) => {
@@ -360,6 +426,69 @@ const Productlist = () => {
         </div>
       </div>
 
+      {/* Advanced Search & Filters */}
+      <div style={{ background: "#fff", borderRadius: 16, padding: 20, boxShadow: "0 1px 4px rgba(0,0,0,0.06)", border: "1px solid #f1f5f9", marginBottom: 24 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 16 }}>
+          <Input
+            placeholder="Scan barcode or enter exact barcode/SKU"
+            value={barcodeQuery}
+            onChange={(e) => setBarcodeQuery(e.target.value)}
+            allowClear
+            onPressEnter={() => {}}
+          />
+          <Input
+            placeholder="Search by name, brand, SKU, HSN..."
+            value={searchText}
+            onChange={(e) => setSearchText(e.target.value)}
+            allowClear
+          />
+          <select value={filterCategory} onChange={(e) => setFilterCategory(e.target.value)} style={{ width: "100%", minHeight: 40, borderRadius: 10, border: "1px solid #d1d5db", padding: "0 12px" }}>
+            <option value="">All Categories</option>
+            {categories.map((c) => (<option key={c} value={c}>{c}</option>))}
+          </select>
+          <select value={filterBrand} onChange={(e) => setFilterBrand(e.target.value)} style={{ width: "100%", minHeight: 40, borderRadius: 10, border: "1px solid #d1d5db", padding: "0 12px" }}>
+            <option value="">All Brands</option>
+            {brands.map((b) => (<option key={b} value={b}>{b}</option>))}
+          </select>
+          <select value={filterVendor} onChange={(e) => setFilterVendor(e.target.value)} style={{ width: "100%", minHeight: 40, borderRadius: 10, border: "1px solid #d1d5db", padding: "0 12px" }}>
+            <option value="">All Vendors</option>
+            {vendors.map((v) => (<option key={v} value={v}>{v}</option>))}
+          </select>
+          <select value={filterStock} onChange={(e) => setFilterStock(e.target.value)} style={{ width: "100%", minHeight: 40, borderRadius: 10, border: "1px solid #d1d5db", padding: "0 12px" }}>
+            <option value="">Stock Status</option>
+            <option value="in">In Stock</option>
+            <option value="low">Low Stock</option>
+            <option value="out">Out of Stock</option>
+          </select>
+          <select value={inventoryStatus} onChange={(e) => setInventoryStatus(e.target.value)} style={{ width: "100%", minHeight: 40, borderRadius: 10, border: "1px solid #d1d5db", padding: "0 12px" }}>
+            <option value="">Inventory Type</option>
+            <option value="online">Online Only</option>
+            <option value="offline">Offline Only</option>
+          </select>
+          <Input
+            placeholder="HSN code"
+            value={hsnFilter}
+            onChange={(e) => setHsnFilter(e.target.value)}
+            allowClear
+          />
+          <Input
+            placeholder="Min price"
+            value={minPrice}
+            onChange={(e) => setMinPrice(e.target.value.replace(/[^0-9.]/g, ""))}
+            allowClear
+          />
+          <Input
+            placeholder="Max price"
+            value={maxPrice}
+            onChange={(e) => setMaxPrice(e.target.value.replace(/[^0-9.]/g, ""))}
+            allowClear
+          />
+          <Button type="default" onClick={resetFilters} style={{ minHeight: 40, borderRadius: 10, width: "100%" }}>
+            Reset Filters
+          </Button>
+        </div>
+      </div>
+
       {/* Stat Cards */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 16, marginBottom: 24 }}>
         {stats.map((s) => (
@@ -386,9 +515,14 @@ const Productlist = () => {
               {filteredProducts?.length || 0}
             </span>
           </div>
-          {searchText && (
+          {(searchText || barcodeQuery) && (
             <span style={{ fontSize: 12, color: "#6b7280" }}>
-              Showing results for "<strong>{searchText}</strong>"
+              {barcodeQuery && (
+                <span>Showing barcode match for "<strong>{barcodeQuery}</strong>"{searchText ? " and " : ""}</span>
+              )}
+              {searchText && (
+                <span>Showing results for "<strong>{searchText}</strong>"</span>
+              )}
             </span>
           )}
         </div>

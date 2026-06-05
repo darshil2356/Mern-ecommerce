@@ -923,7 +923,7 @@ const Home = () => {
       {blogState && blogState.length > 0 && (
         <div className="home-section" style={{ background: "#faf9f7", padding: "56px 0" }}>
           <Container class1="">
-            <SectionHeader title="Style Journal" subtitle="Fashion & Tips" linkTo="/blog" linkText="Read All" />
+            <SectionHeader title="Style Journal" subtitle="Fashion & Tips" linkTo="/blogs" linkText="Read All" />
             <div className="row g-3">
               {blogState.slice(0, 4).map((item, i) => (
                 <motion.div key={i} className="col-12 col-md-6 col-lg-3" initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.45, delay: i * 0.08 }}>

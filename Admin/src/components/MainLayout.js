@@ -303,11 +303,8 @@ const MainLayout = () => {
     <>
       <div className="logo-container">
         <div className="logo-content">
-          <span className="sm-logo"><FaChartLine className="fs-4 text-white" /></span>
-          <span className="lg-logo">
-            <span className="logo-icon"><FaChartLine /></span>
-            <span className="logo-text">Yashoda Fashion</span>
-          </span>
+          <span className="sm-logo"><img src="/yashoda-logo.png" alt="YF" className="logo-img-sm" /></span>
+          <span className="lg-logo"><img src="/yashoda-logo.png" alt="Yashoda Fashion" className="logo-img-lg" /></span>
         </div>
       </div>
       <Menu
@@ -417,17 +414,13 @@ const MainLayout = () => {
         .main-sider .ant-layout-sider-children { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
         .site-layout { margin-left: 260px; transition: margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
         .site-layout-collapsed { margin-left: 80px; }
-        .logo-container { padding: 10px 14px; flex-shrink: 0; }
-        .logo-content {
-          display: flex; align-items: center; justify-content: center;
-          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-          border-radius: 10px; padding: 9px 12px;
-        }
-        .logo-icon { font-size: 18px; margin-right: 8px; }
-        .logo-text { font-size: 15px; font-weight: 700; color: white; letter-spacing: 0.5px; }
+        .logo-container { padding: 12px 14px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
+        .logo-content { display: flex; align-items: center; justify-content: center; width: 100%; }
+        .logo-img-lg { height: 64px; width: 64px; object-fit: contain; display: block; border-radius: 50%; background: #fff; padding: 2px; }
+        .logo-img-sm { height: 44px; width: 44px; object-fit: contain; display: block; border-radius: 50%; background: #fff; padding: 2px; }
         .sm-logo { display: none; }
-        .lg-logo { display: flex; align-items: center; }
-        .ant-layout-sider-collapsed .sm-logo { display: block; }
+        .lg-logo { display: flex; align-items: center; justify-content: center; width: 100%; }
+        .ant-layout-sider-collapsed .sm-logo { display: flex; }
         .ant-layout-sider-collapsed .lg-logo { display: none; }
         .main-menu {
           background: transparent !important; border-right: none !important;

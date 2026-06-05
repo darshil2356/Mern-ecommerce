@@ -164,7 +164,7 @@ const Header = () => {
 
         /* MAIN ROW */
         .h-row {
-          display:flex; align-items:center; padding:0 20px; height:60px;
+          display:flex; align-items:center; padding:0 20px; height:150px;
           max-width:1320px; margin:0 auto; width:100%; overflow:hidden;
         }
 
@@ -176,10 +176,9 @@ const Header = () => {
 
         /* LOGO */
         .h-logo {
-          font-family:'Playfair Display',serif; font-size:22px; font-weight:700;
-          color:#1a1a1a; text-decoration:none; white-space:nowrap; flex-shrink:0; line-height:1;
+          text-decoration:none; flex-shrink:0; display:flex; align-items:center; line-height:1;
         }
-        .h-logo em { color:#d4af37; font-style:normal; }
+        .h-logo-img { height:125px; width:125px; object-fit:contain; display:block; }
 
         /* SEARCH */
         .h-search { flex:1; display:flex; align-items:center; margin:0 16px; min-width:0; }
@@ -495,7 +494,8 @@ const Header = () => {
           .h-coins  { display:none; }
           .h-icon-lbl { display:none; }
           .h-icon   { padding:6px 10px; font-size:22px; }
-          .h-logo   { font-size:19px; flex:1; text-align:center; }
+          .h-logo   { flex:1; justify-content:center; }
+          .h-logo-img { height:56px; width:56px; }
           .h-mob-coins.logged { display:flex; }
           .h-mob-search.open  { display:flex; }
           /* Show search toggle on mobile */
@@ -508,7 +508,7 @@ const Header = () => {
         }
         @media (max-width:400px) {
           .h-icon  { padding:6px 7px; font-size:20px; }
-          .h-logo  { font-size:17px; }
+          .h-logo-img { height:48px; width:48px; }
           .h-row   { padding:0 10px; }
         }
         /* Hide search toggle on desktop */
@@ -528,7 +528,7 @@ const Header = () => {
         <div className="h-row">
           <button className="h-burger" onClick={() => setMobileOpen(true)} aria-label="Menu"><BsList /></button>
 
-          <Link to="/" className="h-logo">Yashoda<em>Fashion</em></Link>
+          <Link to="/" className="h-logo"><img src="/yashoda-logo.png" alt="Yashoda Fashion" className="h-logo-img" /></Link>
 
           <div className="h-search">
             <Typeahead

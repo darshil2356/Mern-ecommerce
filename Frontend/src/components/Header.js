@@ -164,7 +164,7 @@ const Header = () => {
 
         /* MAIN ROW */
         .h-row {
-          display:flex; align-items:center; padding:0 20px; height:150px;
+          display:flex; align-items:center; padding:0 20px; height:125px;
           max-width:1320px; margin:0 auto; width:100%; overflow:hidden;
         }
 

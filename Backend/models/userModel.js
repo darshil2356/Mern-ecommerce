@@ -15,10 +15,8 @@ var userSchema = new mongoose.Schema(
     },
     email: {
       type: String,
-      unique: true,
-      sparse: true,
       trim: true,
-      default: null,
+      default: undefined,
     },
     mobile: {
       type: String,
@@ -294,6 +292,13 @@ userSchema.index({ lastname: 1 });
 userSchema.index({ mobile: 1 }); // mobile already unique but explicit compound helps prefix
 userSchema.index({ role: 1, firstname: 1 });
 userSchema.index({ role: 1, mobile: 1 });
+
+// Ensure uniqueness only for non-null/non-missing emails.
+// This prevents duplicate-key errors when many documents have `email: null`.
+userSchema.index(
+  { email: 1 },
+  { unique: true, partialFilterExpression: { email: { $exists: true, $ne: null } } }
+);
 
 userSchema.methods.isPasswordMatched = async function (enteredPassword) {
   return await bcrypt.compare(enteredPassword, this.password);

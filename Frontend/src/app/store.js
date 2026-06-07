@@ -11,7 +11,7 @@ import productInquiryReducer from "../features/productInquiry/productInquirySlic
 const persistConfig = {
   key: "root",
   storage,
-  whitelist: ["product", "blog"], // only cache products and blogs
+  whitelist: ["blog"], // product state not persisted so reviews always load fresh
   version: 1,
 };
 

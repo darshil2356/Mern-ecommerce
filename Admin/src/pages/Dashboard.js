@@ -109,6 +109,7 @@ const Dashboard = () => {
   const [dateRange, setDateRange] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [showAll, setShowAll] = useState(false);
+  const [showProfit, setShowProfit] = useState(false);
   const titleClickRef = useRef(0);
   const titleTimerRef = useRef(null);
 
@@ -119,6 +120,7 @@ const Dashboard = () => {
     if (titleClickRef.current >= 3) {
       titleClickRef.current = 0;
       setShowAll(prev => !prev);
+      setShowProfit(prev => !prev);
     }
   };
 
@@ -196,6 +198,32 @@ const Dashboard = () => {
       return sum + (o.discountAmount || ((o.totalPrice || 0) - (o.totalPriceAfterDiscount || 0)));
     }, 0);
     return { totalIncome, totalSales, totalDiscount, averageOrderValue: totalSales > 0 ? totalIncome / totalSales : 0 };
+  }, [filteredOrders]);
+
+  const profitStats = useMemo(() => {
+    const res = { totalProfit: 0, totalRevenue: 0, totalOrders: 0, totalItems: 0, itemsWithPurchase: 0 };
+    if (!filteredOrders || !filteredOrders.length) return { ...res, avgProfitPerOrder: 0, profitMarginPct: "0.0" };
+    filteredOrders.forEach(order => {
+      res.totalOrders += 1;
+      (order.orderItems || []).forEach(item => {
+        const qty = Number(item.quantity || 1);
+        const selling = Number(item.price || item.sellingPrice || item.product?.price || 0) || 0;
+        let purchase = item.purchasePrice !== undefined && item.purchasePrice !== null ? Number(item.purchasePrice) : (item.product?.purchasePrice !== undefined && item.product?.purchasePrice !== null ? Number(item.product.purchasePrice) : null);
+        let profitPerUnit = 0;
+        if (purchase !== null && !Number.isNaN(purchase)) {
+          profitPerUnit = selling - purchase;
+          res.itemsWithPurchase += 1;
+        } else {
+          profitPerUnit = selling * 0.30; // assume 30% profit when purchase cost not available
+        }
+        res.totalProfit += profitPerUnit * qty;
+        res.totalRevenue += selling * qty;
+        res.totalItems += qty;
+      });
+    });
+    const avgProfitPerOrder = res.totalOrders > 0 ? res.totalProfit / res.totalOrders : 0;
+    const profitMarginPct = res.totalRevenue > 0 ? ((res.totalProfit / res.totalRevenue) * 100).toFixed(1) : "0.0";
+    return { ...res, avgProfitPerOrder, profitMarginPct };
   }, [filteredOrders]);
 
   const displayStats = dashboardStats?.stats || {
@@ -520,6 +548,36 @@ const Dashboard = () => {
       </Row>
 
       {/* ── Mini Status Strip ──────────────────────────────── */}
+      {showProfit && (
+        <Row gutter={[20,20]} style={{ marginBottom:20 }}>
+          <Col xs={24} sm={12} lg={6}>
+            <StatCard
+              title="Gross Profit"
+              value={`₹${Math.round(profitStats.totalProfit || 0).toLocaleString()}`}
+              subtitle={`Avg ₹${Math.round(profitStats.avgProfitPerOrder || 0).toLocaleString()} / order`}
+              icon={<BsCurrencyDollar />}
+              gradient="linear-gradient(135deg,#ef4444 0%,#f97316 100%)"
+              shadowColor="rgba(239,68,68,0.18)"
+              trend={<><BsArrowUpRight /> {profitStats.profitMarginPct}%</>}
+              trendLabel="profit margin"
+              delay="0.25s"
+            />
+          </Col>
+          <Col xs={24} sm={12} lg={6}>
+            <StatCard
+              title="Profit Margin"
+              value={`${profitStats.profitMarginPct}%`}
+              subtitle={`${profitStats.itemsWithPurchase || 0} items used cost`}
+              icon={<BsPercent />}
+              gradient="linear-gradient(135deg,#14b8a6 0%,#059669 100%)"
+              shadowColor="rgba(20,184,166,0.18)"
+              trend={<><BsGraphUp /> Avg</>}
+              trendLabel="per order"
+              delay="0.3s"
+            />
+          </Col>
+        </Row>
+      )}
       <div style={{ display:"flex", gap:12, flexWrap:"wrap", marginBottom:20 }}>
         <MiniStatChip label="Processing" value={processingCount} color="#f59e0b" icon={<BsClock />} />
         <MiniStatChip label="Shipped" value={shippedCount} color="#3b82f6" icon={<BsTruck />} />

@@ -39,6 +39,15 @@ const reviewAngles = [
   "overall brand trust and repeat purchase",
 ];
 
+const bottomAngles = [
+  "fit and waist comfort of bottom-wear",
+  "stitching quality and durability of bottoms",
+  "fabric weight and comfort for everyday wear",
+  "tailoring and finish — how well the bottoms hold shape",
+  "size accuracy and ease of movement in bottom-wear",
+  "value for money for manufactured bottom-wear",
+];
+
 const generateGoogleReview = async (req, res) => {
   try {
     // Pull real data from DB
@@ -55,28 +64,31 @@ const generateGoogleReview = async (req, res) => {
     const occasions = [...new Set(products.map((p) => p.attributes?.occasion).filter(Boolean))];
     const materials = [...new Set(products.map((p) => p.attributes?.material).filter(Boolean))];
 
-    const angle = reviewAngles[Math.floor(Math.random() * reviewAngles.length)];
+    // allow product-specific or specialty hints from query params
+    const prodId = req.query.prodId;
+    const specialty = (req.query.specialty || "").toLowerCase();
 
-    const prompt = `You are writing a genuine Google review for "Yashoda Fashion" — a real women's clothing store.
+    let angle = reviewAngles[Math.floor(Math.random() * reviewAngles.length)];
+    if (specialty.includes("bottom") || specialty.includes("bottomwear") || specialty.includes("bottom-wear")) {
+      angle = bottomAngles[Math.floor(Math.random() * bottomAngles.length)];
+    }
 
-REAL STORE DATA:
-- Categories they sell: ${categories.slice(0, 8).join(", ") || "sarees, kurtis, suits, ethnic wear"}
-- Brands available: ${brands.slice(0, 6).join(", ") || "various brands"}
-- Popular products: ${topSold.slice(0, 4).join(", ") || "sarees, kurtis"}
-- Occasions covered: ${occasions.slice(0, 5).join(", ") || "casual, festive, wedding"}
-- Materials: ${materials.slice(0, 5).join(", ") || "cotton, silk, georgette"}
+    // If a specific product is requested, fetch it and bias the prompt
+    let productHint = "";
+    if (prodId) {
+      try {
+        const prod = await Product.findById(prodId).select("title category brand attributes").lean();
+        if (prod) {
+          productHint = `\nPRODUCT CONTEXT: The review should mention the product: ${prod.title}${prod.category ? ` (category: ${prod.category})` : ""}${prod.brand ? `, brand: ${prod.brand}` : ""}${prod.attributes?.material ? `, material: ${prod.attributes.material}` : ""}`;
+          // bias angle to mention product specifics
+          angle = `${angle} (talk about the product ${prod.title} specifically)`;
+        }
+      } catch (e) {
+        // ignore product fetch failures and continue
+      }
+    }
 
-Write a Google review focused on: ${angle}
-
-Rules:
-- 3-5 sentences, natural Indian customer tone (Hindi-English mix is fine e.g. "bahut accha", "ekdum sahi")
-- Mention 1-2 real category/product names from the store data above
-- Sound personal and genuine — not like marketing copy
-- Must include "Yashoda Fashion" at least once
-- No emojis, no hashtags, no star ratings text
-- End with a recommendation to friends/family
-
-Return ONLY the review text. Nothing else.`;
+    const prompt = `You are writing a genuine Google review for "Yashoda Fashion" — a real women's clothing store.\n\nREAL STORE DATA:\n- Categories they sell: ${categories.slice(0, 8).join(", ") || "sarees, kurtis, suits, ethnic wear"}\n- Brands available: ${brands.slice(0, 6).join(", ") || "various brands"}\n- Popular products: ${topSold.slice(0, 4).join(", ") || "sarees, kurtis"}\n- Occasions covered: ${occasions.slice(0, 5).join(", ") || "casual, festive, wedding"}\n- Materials: ${materials.slice(0, 5).join(", ") || "cotton, silk, georgette"}${productHint}\n\nWrite a Google review focused on: ${angle}\n\nAdditional context:\n${specialty.includes("bottom") ? "The store manufactures bottom-wear and you can mention fit, stitching, and durability in relation to their manufacturing expertise." : ""}\n\nRules:\n- 3-5 sentences, natural Indian customer tone (Hindi-English mix is fine e.g. \\\"bahut accha\\\", \\\"ekdum sahi\\\")\n- Mention 1-2 real category/product names from the store data above\n- Sound personal and genuine — not like marketing copy\n- Must include \\\"Yashoda Fashion\\\" at least once\n- No emojis, no hashtags, no star ratings text\n- End with a recommendation to friends/family\n\nReturn ONLY the review text. Nothing else.`;
 
     const reviewText = await callGemini(prompt);
 

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { useDispatch, useSelector } from "react-redux";
+import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import {
   fetchAllUdhar,
@@ -29,6 +30,7 @@ const STATUS_COLOR = {
 export default function Udhar() {
   const dispatch = useDispatch();
   const { records, totalPending, loading } = useSelector((s) => s.udhar);
+  const navigate = useNavigate();
 
   const [filters, setFilters] = useState({ type: "", status: "", search: "" });
   const [showForm, setShowForm] = useState(false);
@@ -289,6 +291,11 @@ export default function Udhar() {
                         onClick={() => { setPayModal({ id: record._id, personName: record.personName, remaining }); setPayAmount(""); setPayNote(""); }}
                       >
                         💰 Record Payment
+                      </button>
+                    )}
+                    {record.orderId && (
+                      <button className="ud-btn-outline" onClick={() => navigate(`/admin/order/${record.orderId}`)}>
+                        🔎 View Order
                       </button>
                     )}
                     <button className="ud-btn-del" onClick={() => handleDelete(record._id)}>🗑 Delete</button>

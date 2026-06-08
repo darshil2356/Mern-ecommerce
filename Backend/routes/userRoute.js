@@ -16,6 +16,7 @@ const {
   deleteCustomerById,
   validatePincodeCtrl,
   manualDeductCoins,
+  manualAddCoins,
 } = require("../controller/userCtrl");
 const { authMiddleware, isAdmin } = require("../middlewares/authMiddleware");
 const { checkout, paymentVerification } = require("../controller/paymentCtrl");
@@ -56,6 +57,8 @@ router.delete("/delete-customer/:id", authMiddleware, isAdmin, deleteCustomerByI
 
 // Manual coin deduction (admin)
 router.post("/deduct-coins/:id", authMiddleware, isAdmin, manualDeductCoins);
+// Manual coin addition (admin)
+router.post("/add-coins/:id", authMiddleware, isAdmin, manualAddCoins);
 
 // Get all referrals (for admin)
 router.get("/all-referrals", authMiddleware, isAdmin, getAllReferrals);

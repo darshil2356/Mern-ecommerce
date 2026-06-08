@@ -123,6 +123,23 @@ export const deductCoins = createAsyncThunk(
   }
 );
 
+// Manual coin addition (admin)
+export const addCoins = createAsyncThunk(
+  "customer/addCoins",
+  async ({ id, coins, reason }, { rejectWithValue }) => {
+    try {
+      const response = await axios.post(
+        `${base_url}user/add-coins/${id}`,
+        { coins, reason },
+        config
+      );
+      return { id, ...response.data };
+    } catch (err) {
+      return rejectWithValue(err.response?.data?.message || err.message);
+    }
+  }
+);
+
 // GET all referrals (for admin)
 export const getAllReferrals = createAsyncThunk(
   "customer/getAllReferrals",
@@ -190,6 +207,11 @@ const customerSlice = createSlice({
         state.loading = false;
       })
       .addCase(deductCoins.fulfilled, (state, action) => {
+        if (state.customerDetails?.customer?._id === action.payload.id) {
+          state.customerDetails.customer.coins = action.payload.coins;
+        }
+      })
+      .addCase(addCoins.fulfilled, (state, action) => {
         if (state.customerDetails?.customer?._id === action.payload.id) {
           state.customerDetails.customer.coins = action.payload.coins;
         }

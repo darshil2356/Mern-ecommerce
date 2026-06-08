@@ -11,7 +11,7 @@ import {
   FaIdCard, FaShoppingBag, FaCoins, FaGift, FaChartLine,
   FaArrowUp, FaArrowDown, FaTag, FaUsers, FaMinusCircle,
 } from "react-icons/fa";
-import { getCustomerDetails, deductCoins } from "../features/customers/customerSlice";
+import { getCustomerDetails, deductCoins, addCoins } from "../features/customers/customerSlice";
 
 const statusConfig = {
   Ordered: { color: "default", bg: "#f5f5f5", text: "#595959" },
@@ -66,6 +66,9 @@ const CustomerDetail = () => {
   const [deductModal, setDeductModal] = useState(false);
   const [deductLoading, setDeductLoading] = useState(false);
   const [deductForm] = Form.useForm();
+  const [addModal, setAddModal] = useState(false);
+  const [addLoading, setAddLoading] = useState(false);
+  const [addForm] = Form.useForm();
 
   useEffect(() => {
     if (customerId) dispatch(getCustomerDetails(customerId));
@@ -82,6 +85,20 @@ const CustomerDetail = () => {
       dispatch(getCustomerDetails(customerId));
     } else {
       message.error(action.payload || "Failed to deduct coins");
+    }
+  };
+
+  const handleAddCoins = async (values) => {
+    setAddLoading(true);
+    const action = await dispatch(addCoins({ id: customerId, coins: values.coins, reason: values.reason }));
+    setAddLoading(false);
+    if (action.type.endsWith("/fulfilled")) {
+      message.success(`${values.coins} coins added successfully`);
+      setAddModal(false);
+      addForm.resetFields();
+      dispatch(getCustomerDetails(customerId));
+    } else {
+      message.error(action.payload || "Failed to add coins");
     }
   };
 
@@ -371,6 +388,12 @@ const CustomerDetail = () => {
                   <FaCoins size={9} /> {customer.coins || 0} coins
                 </span>
                 <button
+                  onClick={() => setAddModal(true)}
+                  className="inline-flex items-center gap-1 text-xs bg-green-50 text-green-600 hover:bg-green-600 hover:text-white font-semibold px-2.5 py-1 rounded-full transition-all cursor-pointer border-0"
+                >
+                  <FaArrowUp size={9} /> Add Coins
+                </button>
+                <button
                   onClick={() => setDeductModal(true)}
                   className="inline-flex items-center gap-1 text-xs bg-red-50 text-red-500 hover:bg-red-500 hover:text-white font-semibold px-2.5 py-1 rounded-full transition-all cursor-pointer border-0"
                 >
@@ -483,6 +506,73 @@ const CustomerDetail = () => {
               className="flex-1 h-10 bg-red-500 hover:bg-red-600 text-white rounded-xl font-medium text-sm cursor-pointer border-0 disabled:opacity-60"
             >
               {deductLoading ? "Deducting..." : "Deduct Coins"}
+            </button>
+          </div>
+        </Form>
+      </Modal>
+
+      <Modal
+        title={
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-green-100 flex items-center justify-center text-green-500">
+              <FaArrowUp size={14} />
+            </div>
+            <span className="font-semibold text-gray-800">Add Coins Manually</span>
+          </div>
+        }
+        open={addModal}
+        onCancel={() => { setAddModal(false); addForm.resetFields(); }}
+        footer={null}
+        centered
+        width={420}
+      >
+        <div className="mb-3 mt-2 bg-amber-50 rounded-xl px-4 py-2 flex items-center gap-2">
+          <FaCoins className="text-amber-500" size={14} />
+          <span className="text-sm text-amber-700 font-medium">Current Balance: <strong>{customer.coins || 0} coins</strong></span>
+        </div>
+        <Form form={addForm} layout="vertical" onFinish={handleAddCoins}>
+          <Form.Item
+            name="coins"
+            label={<span className="text-gray-600 text-sm font-medium">Coins to Add</span>}
+            rules={[
+              { required: true, message: "Enter coins amount" },
+              { type: "number", min: 1, message: "Must be at least 1" },
+            ]}
+          >
+            <InputNumber
+              min={1}
+              placeholder="e.g. 100"
+              size="large"
+              className="w-full rounded-xl"
+            />
+          </Form.Item>
+          <Form.Item
+            name="reason"
+            label={<span className="text-gray-600 text-sm font-medium">Short Reason</span>}
+            rules={[{ required: true, message: "Reason is required" }, { min: 3, message: "Min 3 characters" }]}
+          >
+            <Input.TextArea
+              rows={2}
+              placeholder="e.g. Promotion, Loyalty bonus, Manual credit..."
+              className="rounded-xl"
+              maxLength={200}
+              showCount
+            />
+          </Form.Item>
+          <div className="flex gap-3 pt-1">
+            <button
+              type="button"
+              onClick={() => { setAddModal(false); addForm.resetFields(); }}
+              className="flex-1 h-10 border border-gray-200 text-gray-600 rounded-xl hover:bg-gray-50 font-medium text-sm cursor-pointer bg-white"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={addLoading}
+              className="flex-1 h-10 bg-green-500 hover:bg-green-600 text-white rounded-xl font-medium text-sm cursor-pointer border-0 disabled:opacity-60"
+            >
+              {addLoading ? "Adding..." : "Add Coins"}
             </button>
           </div>
         </Form>

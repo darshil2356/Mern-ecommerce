@@ -3679,6 +3679,38 @@ const manualDeductCoins = asyncHandler(async (req, res) => {
   res.json({ success: true, coins: customer.coins, deducted: coins });
 });
 
+// Manual coin addition (admin)
+const manualAddCoins = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  validateMongoDbId(id);
+  const { coins, reason } = req.body;
+
+  if (!coins || coins <= 0) {
+    res.status(400);
+    throw new Error("Coins must be a positive number");
+  }
+  if (!reason || !reason.trim()) {
+    res.status(400);
+    throw new Error("Reason is required");
+  }
+
+  const customer = await User.findById(id);
+  if (!customer) { res.status(404); throw new Error("Customer not found"); }
+
+  customer.coins = (customer.coins || 0) + Number(coins);
+  appendCoinTransaction(customer, {
+    type: "credit",
+    coins: Number(coins),
+    reason: reason.trim(),
+    source: "admin_adjustment",
+    description: `Admin added ${coins} coins: ${reason.trim()}`,
+    metadata: { adminId: req.user._id },
+  });
+  await customer.save();
+
+  res.json({ success: true, coins: customer.coins, added: Number(coins) });
+});
+
 // Delete customer (admin)
 const deleteCustomerById = asyncHandler(async (req, res) => {
   const { id } = req.params;
@@ -3767,4 +3799,5 @@ module.exports = {
   cancelOrder,
   adminCancelOrder,
   manualDeductCoins,
+  manualAddCoins,
 };

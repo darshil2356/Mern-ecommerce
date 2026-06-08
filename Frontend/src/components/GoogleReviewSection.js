@@ -9,7 +9,7 @@ import { base_url } from "../utils/axiosConfig";
 // Find it at: https://developers.google.com/maps/documentation/javascript/examples/places-placeid-finder
 const GOOGLE_REVIEW_URL = "https://search.google.com/local/writereview?placeid=ChIJP-z0FraHXjkRP-xoeP6FaF0";
 
-const GoogleReviewSection = () => {
+const GoogleReviewSection = ({ prodId, specialty } = {}) => {
   const [review, setReview] = useState("");
   const [copied, setCopied] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -18,7 +18,12 @@ const GoogleReviewSection = () => {
     setLoading(true);
     setCopied(false);
     try {
-      const { data } = await axios.get(`${base_url}google-review/generate`);
+      // build query string when product or specialty provided
+      const params = [];
+      if (prodId) params.push(`prodId=${encodeURIComponent(prodId)}`);
+      if (specialty) params.push(`specialty=${encodeURIComponent(specialty)}`);
+      const url = `${base_url}google-review/generate${params.length ? "?" + params.join("&") : ""}`;
+      const { data } = await axios.get(url);
       setReview(data.review);
     } catch {
       setReview(
@@ -27,7 +32,7 @@ const GoogleReviewSection = () => {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [prodId, specialty]);
 
   useEffect(() => {
     fetchReview();

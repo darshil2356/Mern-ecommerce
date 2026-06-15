@@ -136,7 +136,24 @@ export default function Rojmel() {
       toast.success("Entry added");
       setShowForm(false);
       setForm({ date: today(), particulars: "", voucherNo: "", type: "INCOME", amount: "", paymentMethod: "Online", category: "General" });
-      load();
+      // Refresh the currently-viewed date/range instead of always fetching `today`
+      if (view === "today") {
+        // If entry date is not today (user viewing past date), re-fetch that date
+        if (form.date && form.date !== today()) {
+          setSelectedDate(form.date);
+          setCurrentPage(0);
+          dispatch(fetchByDate({ startDate: form.date, endDate: form.date, page: 1 }));
+        } else {
+          dispatch(fetchTodayEntries());
+        }
+      } else if (view === "range") {
+        // For range view, re-run current filters
+        setCurrentPage(0);
+        dispatch(fetchByDate({ ...filters }));
+      } else {
+        // monthly or others
+        load();
+      }
     } else toast.error(res.payload || "Failed to add entry");
   };
 

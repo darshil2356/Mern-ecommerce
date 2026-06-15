@@ -200,30 +200,73 @@ const Dashboard = () => {
     return { totalIncome, totalSales, totalDiscount, averageOrderValue: totalSales > 0 ? totalIncome / totalSales : 0 };
   }, [filteredOrders]);
 
+  // DEBUG: show why avg/order might be zero
+  try {
+    // eslint-disable-next-line no-console
+    console.log('Dashboard debug - filteredOrders length:', filteredOrders?.length, 'stats:', stats);
+  } catch (e) {}
+
   const profitStats = useMemo(() => {
-    const res = { totalProfit: 0, totalRevenue: 0, totalOrders: 0, totalItems: 0, itemsWithPurchase: 0 };
-    if (!filteredOrders || !filteredOrders.length) return { ...res, avgProfitPerOrder: 0, profitMarginPct: "0.0" };
+    const res = {
+      totalProfit: 0,
+      totalRevenue: 0,
+      totalOrders: 0,
+      totalItems: 0,
+      itemsWithPurchase: 0,
+      totalProfitKnown: 0,
+      totalRevenueKnown: 0,
+    };
+    if (!filteredOrders || !filteredOrders.length)
+      return { ...res, avgProfitPerOrder: 0, profitMarginPct: "0.0", knownDataCoveragePct: "0.0" };
+
     filteredOrders.forEach(order => {
       res.totalOrders += 1;
       (order.orderItems || []).forEach(item => {
         const qty = Number(item.quantity || 1);
         const selling = Number(item.price || item.sellingPrice || item.product?.price || 0) || 0;
-        let purchase = item.purchasePrice !== undefined && item.purchasePrice !== null ? Number(item.purchasePrice) : (item.product?.purchasePrice !== undefined && item.product?.purchasePrice !== null ? Number(item.product.purchasePrice) : null);
-        let profitPerUnit = 0;
+        const purchase =
+          item.purchasePrice !== undefined && item.purchasePrice !== null
+            ? Number(item.purchasePrice)
+            : item.product?.purchasePrice !== undefined && item.product?.purchasePrice !== null
+            ? Number(item.product.purchasePrice)
+            : null;
+
         if (purchase !== null && !Number.isNaN(purchase)) {
-          profitPerUnit = selling - purchase;
+          const profitPerUnit = selling - purchase;
           res.itemsWithPurchase += 1;
+          res.totalProfit += profitPerUnit * qty;
+          res.totalRevenue += selling * qty;
+          res.totalProfitKnown += profitPerUnit * qty;
+          res.totalRevenueKnown += selling * qty;
         } else {
-          profitPerUnit = selling * 0.30; // assume 30% profit when purchase cost not available
+          // Skip unknown-purchase items from "known" calculations so the displayed
+          // profit margin reflects only items with reliable cost data.
+          // We still count total items to compute coverage.
+          // If you prefer an estimated overall margin, we can compute that separately.
         }
-        res.totalProfit += profitPerUnit * qty;
-        res.totalRevenue += selling * qty;
+
         res.totalItems += qty;
       });
     });
+
     const avgProfitPerOrder = res.totalOrders > 0 ? res.totalProfit / res.totalOrders : 0;
-    const profitMarginPct = res.totalRevenue > 0 ? ((res.totalProfit / res.totalRevenue) * 100).toFixed(1) : "0.0";
-    return { ...res, avgProfitPerOrder, profitMarginPct };
+    const profitMarginPct = res.totalRevenueKnown > 0 ? ((res.totalProfitKnown / res.totalRevenueKnown) * 100).toFixed(1) : "0.0";
+    const knownDataCoveragePct = res.totalItems > 0 ? ((res.itemsWithPurchase / res.totalItems) * 100).toFixed(1) : "0.0";
+    // DEBUG: log profit calculation details to browser console
+    try {
+      // eslint-disable-next-line no-console
+      console.log('Dashboard debug - profitStats intermediate:', {
+        totalOrders: res.totalOrders,
+        totalItems: res.totalItems,
+        itemsWithPurchase: res.itemsWithPurchase,
+        totalRevenueKnown: res.totalRevenueKnown,
+        totalProfitKnown: res.totalProfitKnown,
+        avgProfitPerOrder,
+        profitMarginPct,
+        knownDataCoveragePct,
+      });
+    } catch (e) {}
+    return { ...res, avgProfitPerOrder, profitMarginPct, knownDataCoveragePct };
   }, [filteredOrders]);
 
   const displayStats = dashboardStats?.stats || {

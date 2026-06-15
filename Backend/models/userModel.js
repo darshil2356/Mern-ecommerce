@@ -247,6 +247,7 @@ var userSchema = new mongoose.Schema(
     lockReviews:   { type: Boolean, default: false },
     lockEnquiries: { type: Boolean, default: false },
     lockSettings:  { type: Boolean, default: false },
+    jwtExpiresIn:  { type: String, default: "1d" },
   },
   {
     timestamps: true,

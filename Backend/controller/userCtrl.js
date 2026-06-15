@@ -907,7 +907,7 @@ const loginAdmin = asyncHandler(async (req, res) => {
       lastname: findAdmin?.lastname,
       email: findAdmin?.email,
       mobile: findAdmin?.mobile,
-      token: generateToken(findAdmin?._id),
+      token: generateToken(findAdmin?._id, findAdmin?.jwtExpiresIn || "1d"),
     });
   } else {
     res.status(401);
@@ -928,7 +928,7 @@ const handleRefreshToken = asyncHandler(async (req, res) => {
       res.status(401);
       throw new Error("There is something wrong with refresh token");
     }
-    const accessToken = generateToken(user?._id);
+    const accessToken = generateToken(user?._id, user?.jwtExpiresIn || "1d");
     res.json({ accessToken });
   });
 });
@@ -2136,7 +2136,7 @@ const getMyOrders = asyncHandler(async (req, res) => {
       .skip(skip)
       .limit(limit)
       .populate("user")
-      .populate({ path: "orderItems.product", select: "title brand price images barcode hsnCode" })
+      .populate({ path: "orderItems.product", select: "title brand price images barcode hsnCode purchasePrice" })
       .populate("orderItems.color");
     res.json({
       orders,
@@ -2172,6 +2172,7 @@ const getAllOrders = asyncHandler(async (req, res) => {
     // paymentFilter === 'all' → no filter
     const orders = await Order.find(query)
       .populate("user")
+      .populate({ path: "orderItems.product", select: "title brand price images barcode hsnCode purchasePrice" })
       .select("+discountAmount")
       .sort({ createdAt: -1 });
     res.json({ orders });
@@ -2187,7 +2188,7 @@ const getsingleOrder = asyncHandler(async (req, res) => {
       .select("+discountAmount") // Include discountAmount field
       .populate({
         path: "orderItems.product",
-        select: "title brand price images barcode hsnCode"
+        select: "title brand price images barcode hsnCode purchasePrice"
       })
       .populate("orderItems.color")
       .populate("user", "firstname lastname email mobile");
@@ -2880,7 +2881,7 @@ const getSettings = asyncHandler(async (req, res) => {
 
   try {
     const user = await User.findById(_id).select(
-      "gstin email storeName storeTagline storeAddress storePhone storeEmail cgst sgst igst storeState taxIncluded onlinePaymentDestination shippingCharge upiIdA upiIdB requireOtpForSignup posLockEnabled posLockPassword lockCustomers lockOrders lockCatalog lockAnalytics lockRewards lockMarketing lockPurchase lockRojmel lockUdhar lockReviews lockEnquiries lockSettings"
+      "gstin email storeName storeTagline storeAddress storePhone storeEmail cgst sgst igst storeState taxIncluded onlinePaymentDestination shippingCharge upiIdA upiIdB requireOtpForSignup posLockEnabled posLockPassword lockCustomers lockOrders lockCatalog lockAnalytics lockRewards lockMarketing lockPurchase lockRojmel lockUdhar lockReviews lockEnquiries lockSettings jwtExpiresIn"
     );
     res.json({
       gstin: user.gstin || "",
@@ -2913,6 +2914,7 @@ const getSettings = asyncHandler(async (req, res) => {
       lockReviews:   user.lockReviews   === true,
       lockEnquiries: user.lockEnquiries === true,
       lockSettings:  user.lockSettings  === true,
+      jwtExpiresIn:  user.jwtExpiresIn  || "1d",
     });
   } catch (error) {
     throw new Error(error);
@@ -2930,7 +2932,7 @@ const updateSettings = asyncHandler(async (req, res) => {
     requireOtpForSignup, posLockPassword,
     lockCustomers, lockOrders, lockCatalog, lockAnalytics, lockRewards,
     lockMarketing, lockPurchase, lockRojmel, lockUdhar, lockReviews,
-    lockEnquiries, lockSettings,
+    lockEnquiries, lockSettings, jwtExpiresIn,
   } = req.body;
 
   const updatedUser = await User.findByIdAndUpdate(
@@ -2964,6 +2966,7 @@ const updateSettings = asyncHandler(async (req, res) => {
       ...(lockReviews   !== undefined && { lockReviews:   Boolean(lockReviews) }),
       ...(lockEnquiries !== undefined && { lockEnquiries: Boolean(lockEnquiries) }),
       ...(lockSettings  !== undefined && { lockSettings:  Boolean(lockSettings) }),
+      ...(jwtExpiresIn  !== undefined && { jwtExpiresIn: jwtExpiresIn || "1d" }),
     },
     { new: true }
   );

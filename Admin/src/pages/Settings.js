@@ -7,6 +7,7 @@ import {
   FaShieldAlt,
 } from "react-icons/fa";
 import axios from "axios";
+import api from "../utils/axiosconfig";
 import { base_url } from "../utils/baseUrl";
 import { config } from "../utils/axiosconfig";
 
@@ -42,7 +43,7 @@ const PasswordGate = ({ onUnlock }) => {
     setLoading(true);
     setError("");
     try {
-      await axios.post(`${base_url}user/verify-pos-lock`, { password: input }, config);
+      await axios.post(`${base_url}user/verify-pos-lock`, { password: input }, { headers: { Authorization: `Bearer ${JSON.parse(localStorage.getItem("user") || "{}").token || ""}` } });
       onUnlock();
     } catch {
       setError("Wrong password. Try again.");
@@ -102,6 +103,7 @@ const Settings = () => {
   const [storeState, setStoreState]                             = useState("Gujarat");
   const [onlinePaymentDestination, setOnlinePaymentDestination] = useState("CURRENT_ACCOUNT");
   const [requireOtpForSignup, setRequireOtpForSignup]           = useState(false);
+  const [jwtExpiresIn, setJwtExpiresIn]                         = useState("1d");
 
   // Lock state
   const [locks, setLocks]           = useState(LOCK_DEFAULTS);
@@ -115,7 +117,7 @@ const Settings = () => {
   useEffect(() => {
     const init = async () => {
       try {
-        const res = await axios.get(`${base_url}user/settings`, config);
+        const res = await api.get(`${base_url}user/settings`);
         const data = res.data;
         if (data.lockSettings && data.posLockPasswordSet) {
           // Gate needed — cache data for after unlock
@@ -166,13 +168,14 @@ const Settings = () => {
     setRequireOtpForSignup(data.requireOtpForSignup === true);
     setLocks(Object.fromEntries(LOCK_SECTIONS.map(s => [s.key, !!data[s.key]])));
     setPasswordSet(!!data.posLockPasswordSet);
+    setJwtExpiresIn(data.jwtExpiresIn || "1d");
     setPageLoading(false);
   };
 
   const refetchSettings = async () => {
     try {
       setPageLoading(true);
-      const res = await axios.get(`${base_url}user/settings`, config);
+      const res = await api.get(`${base_url}user/settings`);
       applySettings(res.data);
     } catch {
       message.error("Failed to load settings");
@@ -197,14 +200,15 @@ const Settings = () => {
         storeState,
         onlinePaymentDestination,
         requireOtpForSignup,
+        jwtExpiresIn,
         upiIdA: values.upiIdA || "",
         upiIdB: values.upiIdB || "",
         ...locks,
         ...(newPassword && { posLockPassword: newPassword }),
       };
-      await axios.put(`${base_url}user/settings`, payload, config);
+      await api.put(`${base_url}user/settings`, payload);
       if (values.gstin !== undefined) {
-        await axios.put(`${base_url}user/gstin`, { gstin: values.gstin }, config);
+        await api.put(`${base_url}user/gstin`, { gstin: values.gstin });
       }
       if (newPassword) setPasswordSet(true);
       setNewPassword("");
@@ -478,6 +482,42 @@ const Settings = () => {
             <p className="text-xs text-amber-800 leading-relaxed">
               <strong>How it works:</strong> Toggle ON the areas you want to protect. Set a password and save.
               Staff will see a password screen when they try to open locked areas.
+            </p>
+          </div>
+
+          {/* JWT Token Expiry */}
+          <div className="mt-4 p-4 bg-blue-50 rounded-xl border border-blue-200">
+            <p className="font-medium text-gray-800 mb-1 flex items-center gap-2">
+              <FaShieldAlt className="text-blue-500" />
+              Session Expiry (Token Duration)
+            </p>
+            <p className="text-xs text-gray-500 mb-3">
+              How long admin login sessions stay valid. After this time, users are automatically logged out and redirected to login.
+            </p>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+              {[
+                { value: "6h",  label: "6 Hours" },
+                { value: "12h", label: "12 Hours" },
+                { value: "1d",  label: "1 Day" },
+                { value: "3d",  label: "3 Days" },
+                { value: "7d",  label: "7 Days" },
+                { value: "30d", label: "30 Days" },
+              ].map(opt => (
+                <div
+                  key={opt.value}
+                  onClick={() => setJwtExpiresIn(opt.value)}
+                  className={`cursor-pointer p-3 rounded-xl border-2 text-center transition-all ${
+                    jwtExpiresIn === opt.value
+                      ? "border-blue-500 bg-blue-100 text-blue-700 font-bold"
+                      : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"
+                  }`}
+                >
+                  {opt.label}
+                </div>
+              ))}
+            </div>
+            <p className="text-xs text-blue-700 mt-2">
+              Current: <strong>{jwtExpiresIn}</strong>. Takes effect on next login.
             </p>
           </div>
         </Card>

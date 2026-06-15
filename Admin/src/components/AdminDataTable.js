@@ -170,6 +170,9 @@ const AdminDataTable = ({
     showTotal: (total, range) => `${range[0]}-${range[1]} of ${total}`,
   };
 
+  // Use data length as a key so Table remounts when dataset size changes
+  const tableKey = (dataSource || []).length;
+
   if (isMobile) {
     return (
       <MobileCardList
@@ -184,11 +187,12 @@ const AdminDataTable = ({
   return (
     <div style={{ width: "100%", overflowX: "auto" }}>
       <Table
+        key={tableKey}
         columns={columns}
         dataSource={dataSource}
         loading={loading}
         rowKey={rowKey}
-        pagination={{ ...defaultPagination, ...paginationOptions }}
+        pagination={{ ...defaultPagination, ...paginationOptions, defaultCurrent: 1 }}
         className="admin-data-table"
         rowClassName="hover:bg-gray-50 transition-colors"
         scroll={{ x: "max-content" }}

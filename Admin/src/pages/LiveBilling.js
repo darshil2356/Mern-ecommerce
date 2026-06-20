@@ -106,6 +106,8 @@ const LiveBilling = () => {
   const [customerCoins, setCustomerCoins] = useState(0);
   const [useCoins, setUseCoins] = useState(false);
   const [coinAmount, setCoinAmount] = useState(0);
+  const [sendReferrerCoins, setSendReferrerCoins] = useState(true);
+  const [sendBuyerCoins, setSendBuyerCoins] = useState(true);
   const [showCoinCelebration, setShowCoinCelebration] = useState(false);
   const [celebratedCoins, setCelebratedCoins] = useState(0);
   const coinCelebrationTimerRef = useRef(null);
@@ -1260,6 +1262,8 @@ const LiveBilling = () => {
           referralContact: customer.referralContact || null,
           coinsUsed: useCoins ? coinAmount : 0,
           coinAmount: useCoins ? coinDiscountAmount : 0,
+          sendReferrerCoins,
+          sendBuyerCoins,
           amountPaid: parsedAmountPaid,
           paymentNote: paymentNote || "",
           gstBreakdown: {
@@ -2184,6 +2188,48 @@ tbody td{padding:6px 4px;vertical-align:top}
                       </span>
                     </div>
                   )}
+                </div>
+              )}
+
+              {/* Coin Award Controls */}
+              {customer.contact && (
+                <div className="bg-white/5 rounded-xl p-4 space-y-3">
+                  <div className="flex items-center gap-2 mb-1">
+                    <FaCoins className="text-amber-400" />
+                    <span className="text-indigo-200 text-sm font-medium">Coin Awards</span>
+                  </div>
+
+                  {/* Referrer coins */}
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <span className="text-indigo-200 text-sm">Send coins to Referrer</span>
+                      <p className="text-xs text-indigo-400">
+                        {sendReferrerCoins ? "Referrer will earn coins." : "Referrer will NOT earn coins."}
+                      </p>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={sendReferrerCoins}
+                      onChange={(e) => setSendReferrerCoins(e.target.checked)}
+                      className="w-4 h-4 accent-amber-500"
+                    />
+                  </div>
+
+                  {/* Buyer coins */}
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <span className="text-indigo-200 text-sm">Send coins to Buyer</span>
+                      <p className="text-xs text-indigo-400">
+                        {sendBuyerCoins ? "Buyer will earn coins." : "Buyer will NOT earn coins."}
+                      </p>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={sendBuyerCoins}
+                      onChange={(e) => setSendBuyerCoins(e.target.checked)}
+                      className="w-4 h-4 accent-amber-500"
+                    />
+                  </div>
                 </div>
               )}
 

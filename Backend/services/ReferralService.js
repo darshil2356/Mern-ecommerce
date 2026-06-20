@@ -57,7 +57,7 @@ const awardCoins = async (userId, coins, tx, monthlyCapSource = null, monthlyCap
  * @param {number}   orderAmount  - totalPriceAfterDiscount
  * @param {boolean}  isFirstPurchase
  */
-const processReferralReward = async (buyerUserId, orderAmount, isFirstPurchase = false, orderId = null) => {
+const processReferralReward = async (buyerUserId, orderAmount, isFirstPurchase = false, orderId = null, sendReferrerCoins = true, sendBuyerCoins = true) => {
   const [refConfig, coinConfig] = await Promise.all([getReferralConfig(), getCoinConfig()]);
 
   if (!refConfig.isEnabled || !coinConfig.isEnabled) return;
@@ -68,7 +68,7 @@ const processReferralReward = async (buyerUserId, orderAmount, isFirstPurchase =
   const trigger = refConfig.rewardTrigger;
 
   // ── REFERRER reward ────────────────────────────────────────────────────────
-  if (coinConfig.referrerPurchaseRewardEnabled && buyer.referredBy) {
+  if (sendReferrerCoins && coinConfig.referrerPurchaseRewardEnabled && buyer.referredBy) {
     if (trigger === "ON_SIGNUP") {
       // handled at signup only
     } else if (
@@ -103,7 +103,7 @@ const processReferralReward = async (buyerUserId, orderAmount, isFirstPurchase =
   }
 
   // ── BUYER reward ───────────────────────────────────────────────────────────
-  if (coinConfig.purchaseRewardEnabled && coinConfig.buyerPurchaseRewardEnabled) {
+  if (sendBuyerCoins && coinConfig.purchaseRewardEnabled && coinConfig.buyerPurchaseRewardEnabled) {
     await processPurchaseReward(buyerUserId, orderAmount, coinConfig, orderId);
   }
 };

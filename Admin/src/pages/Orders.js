@@ -5,12 +5,13 @@ import {
   SearchOutlined, ShoppingOutlined, CarOutlined, CheckCircleOutlined,
   ClockCircleOutlined, CloseCircleOutlined, SyncOutlined, ThunderboltOutlined,
   UserOutlined, ReloadOutlined, TrophyOutlined, FireOutlined, StopOutlined,
-  DownOutlined, EditOutlined
+  DownOutlined, EditOutlined, AccountBookOutlined
 } from "@ant-design/icons";
 import { useDispatch, useSelector } from "react-redux";
 import { Link } from "react-router-dom";
 import dayjs from "dayjs";
 import { getOrders, updateAOrder, adminCancelAOrder } from "../features/auth/authSlice";
+import { addUdhar } from "../features/udhar/udharSlice";
 import { base_url } from "../utils/baseUrl";
 import { config } from "../utils/axiosconfig";
 import axios from "axios";
@@ -43,7 +44,7 @@ const STATUS_CONFIG = {
 const LOCKED_STATUSES = ["Shipped", "Out for Delivery", "Delivered"];
 
 /* ─── Mobile Order Card ────────────────────────────────────── */
-const OrderMobileCard = ({ r, updateOrderStatus, printOrderBill, STATUS_CONFIG }) => {
+const OrderMobileCard = ({ r, updateOrderStatus, printOrderBill, openUdharModal, STATUS_CONFIG }) => {
   const cfg = STATUS_CONFIG[r.status] || STATUS_CONFIG.All;
   return (
     <div style={{
@@ -86,6 +87,7 @@ const OrderMobileCard = ({ r, updateOrderStatus, printOrderBill, STATUS_CONFIG }
             <Button block size="small" icon={<EyeOutlined />} style={{ borderRadius: 8, border: "2px solid #6366f1", color: "#6366f1", fontWeight: 600 }}>View</Button>
           </Link>
           <Button block size="small" icon={<PrinterOutlined />} onClick={() => printOrderBill(r.orderId)} style={{ flex: 1, borderRadius: 8, border: "2px solid #10b981", color: "#10b981", fontWeight: 600 }}>Print</Button>
+          <Button block size="small" icon={<AccountBookOutlined />} onClick={() => openUdharModal(r)} style={{ flex: 1, borderRadius: 8, border: "2px solid #f59e0b", color: "#f59e0b", fontWeight: 600 }}>Udhar</Button>
         </div>
       </div>
     </div>
@@ -93,7 +95,7 @@ const OrderMobileCard = ({ r, updateOrderStatus, printOrderBill, STATUS_CONFIG }
 };
 
 /* ─── Table or Cards switcher ──────────────────────────────── */
-const OrderTableOrCards = ({ filteredData, columns, selectedRowKeys, setSelectedRowKeys, updateOrderStatus, printOrderBill, STATUS_CONFIG }) => {
+const OrderTableOrCards = ({ filteredData, columns, selectedRowKeys, setSelectedRowKeys, updateOrderStatus, printOrderBill, openUdharModal, STATUS_CONFIG }) => {
   const isMobile = useIsMobile();
   const [page, setPage] = useState(1);
   const pageSize = 20;
@@ -124,7 +126,7 @@ const OrderTableOrCards = ({ filteredData, columns, selectedRowKeys, setSelected
   return (
     <div>
       {pageData.map((r) => (
-        <OrderMobileCard key={r.key} r={r} updateOrderStatus={updateOrderStatus} printOrderBill={printOrderBill} STATUS_CONFIG={STATUS_CONFIG} />
+        <OrderMobileCard key={r.key} r={r} updateOrderStatus={updateOrderStatus} printOrderBill={printOrderBill} openUdharModal={openUdharModal} STATUS_CONFIG={STATUS_CONFIG} />
       ))}
       {total > pageSize && (
         <div style={{ display: "flex", justifyContent: "center", marginTop: 12 }}>
@@ -149,6 +151,8 @@ const Orders = () => {
   const [dateRange, setDateRange] = useState(null);
   const [paymentFilter, setPaymentFilter] = useState("All");
   const [cancelModal, setCancelModal] = useState({ open: false, orderId: null, reason: "" });
+  const [udharModal, setUdharModal] = useState({ open: false, order: null, personName: "", personPhone: "", dueDate: null, note: "" });
+  const [udharLoading, setUdharLoading] = useState(false);
   const [modeFilter, setModeFilter] = useState("all"); // 'all' | 'online' | 'offline'
   // default: only Online-Current (GST) orders. Triple-click title to toggle all orders
   const [showAll, setShowAll] = useState(false);
@@ -184,6 +188,43 @@ const Orders = () => {
       message.success("Order cancelled successfully");
     } catch { message.error("Failed to cancel order"); }
     setCancelModal({ open: false, orderId: null, reason: "" });
+  };
+
+  const openUdharModal = (r) => {
+    setUdharModal({
+      open: true,
+      order: r,
+      personName: r.name !== "N/A" ? r.name : "",
+      personPhone: r.mobile !== "N/A" ? r.mobile : "",
+      dueDate: null,
+      note: "",
+    });
+  };
+
+  const handleMoveToUdhar = async () => {
+    const { order, personName, personPhone, dueDate, note } = udharModal;
+    if (!personName.trim()) { message.warning("Customer name is required"); return; }
+    setUdharLoading(true);
+    try {
+      const productDetails = order.rawOrder?.orderItems
+        ?.map(i => `${i.product?.title || "Product"} x${i.quantity}`)
+        .join(", ") || "";
+      await dispatch(addUdhar({
+        type: "PRODUCT_SALE",
+        orderId: order.orderId,
+        personName: personName.trim(),
+        personPhone: personPhone.trim(),
+        totalAmount: order.finalAmount,
+        productDetails,
+        dueDate: dueDate ? dueDate.toISOString() : undefined,
+        note: note.trim(),
+      })).unwrap();
+      message.success("Order moved to Udhar Khata successfully");
+      setUdharModal({ open: false, order: null, personName: "", personPhone: "", dueDate: null, note: "" });
+    } catch (err) {
+      message.error(err || "Failed to move to Udhar Khata");
+    }
+    setUdharLoading(false);
   };
 
   const handleBulkShipment = async () => {
@@ -540,7 +581,7 @@ tbody td{padding:14px 14px;font-size:13px;color:#333}
     {
       title: "Actions",
       key: "actions",
-      width: 110,
+      width: 140,
       align: "center",
       render: (_, r) => (
         <Space size={6}>
@@ -551,6 +592,9 @@ tbody td{padding:14px 14px;font-size:13px;color:#333}
           </Tooltip>
           <Tooltip title="Print Bill">
             <Button size="small" icon={<PrinterOutlined />} onClick={() => printOrderBill(r.orderId)} style={{ borderRadius: 8, border: "2px solid #10b981", color: "#10b981", fontWeight: 600 }} />
+          </Tooltip>
+          <Tooltip title="Move to Udhar Khata">
+            <Button size="small" icon={<AccountBookOutlined />} onClick={() => openUdharModal(r)} style={{ borderRadius: 8, border: "2px solid #f59e0b", color: "#f59e0b", fontWeight: 600 }} />
           </Tooltip>
         </Space>
       ),
@@ -716,6 +760,63 @@ tbody td{padding:14px 14px;font-size:13px;color:#333}
         )}
       </Modal>
 
+      {/* ── Udhar Khata Modal ── */}
+      <Modal
+        title={<span style={{ display: "flex", alignItems: "center", gap: 8 }}><AccountBookOutlined style={{ color: "#f59e0b" }} /> Move to Udhar Khata</span>}
+        open={udharModal.open}
+        onCancel={() => setUdharModal({ open: false, order: null, personName: "", personPhone: "", dueDate: null, note: "" })}
+        onOk={handleMoveToUdhar}
+        okText="Move to Udhar"
+        okButtonProps={{ style: { background: "#f59e0b", border: "none", fontWeight: 700 }, loading: udharLoading }}
+        cancelText="Cancel"
+      >
+        {udharModal.order && (
+          <div>
+            <div style={{ background: "#fffbeb", border: "1px solid #fbbf24", borderRadius: 8, padding: "10px 14px", marginBottom: 16 }}>
+              <div style={{ fontWeight: 700, color: "#92400e", fontSize: 13 }}>Order #{udharModal.order.orderId.slice(-8).toUpperCase()}</div>
+              <div style={{ color: "#b45309", fontSize: 12, marginTop: 4 }}>Amount Due: <strong>₹{udharModal.order.finalAmount?.toFixed(2)}</strong></div>
+            </div>
+            <div style={{ marginBottom: 12 }}>
+              <label style={{ fontSize: 12, fontWeight: 600, color: "#374151", display: "block", marginBottom: 4 }}>Customer Name *</label>
+              <Input
+                value={udharModal.personName}
+                onChange={e => setUdharModal(p => ({ ...p, personName: e.target.value }))}
+                placeholder="Enter customer name"
+                style={{ borderRadius: 8 }}
+              />
+            </div>
+            <div style={{ marginBottom: 12 }}>
+              <label style={{ fontSize: 12, fontWeight: 600, color: "#374151", display: "block", marginBottom: 4 }}>Phone Number</label>
+              <Input
+                value={udharModal.personPhone}
+                onChange={e => setUdharModal(p => ({ ...p, personPhone: e.target.value }))}
+                placeholder="Enter phone number"
+                style={{ borderRadius: 8 }}
+              />
+            </div>
+            <div style={{ marginBottom: 12 }}>
+              <label style={{ fontSize: 12, fontWeight: 600, color: "#374151", display: "block", marginBottom: 4 }}>Due Date (optional)</label>
+              <DatePicker
+                value={udharModal.dueDate}
+                onChange={d => setUdharModal(p => ({ ...p, dueDate: d }))}
+                style={{ width: "100%", borderRadius: 8 }}
+                placeholder="Select due date"
+              />
+            </div>
+            <div style={{ marginBottom: 4 }}>
+              <label style={{ fontSize: 12, fontWeight: 600, color: "#374151", display: "block", marginBottom: 4 }}>Note (optional)</label>
+              <Input.TextArea
+                rows={2}
+                value={udharModal.note}
+                onChange={e => setUdharModal(p => ({ ...p, note: e.target.value }))}
+                placeholder="Any additional note"
+                style={{ borderRadius: 8 }}
+              />
+            </div>
+          </div>
+        )}
+      </Modal>
+
       {/* ── Table (desktop) / Cards (mobile) ── */}
       <OrderTableOrCards
         filteredData={filteredData}
@@ -725,6 +826,7 @@ tbody td{padding:14px 14px;font-size:13px;color:#333}
         setSelectedRowKeys={setSelectedRowKeys}
         updateOrderStatus={updateOrderStatus}
         printOrderBill={printOrderBill}
+        openUdharModal={openUdharModal}
         STATUS_CONFIG={STATUS_CONFIG}
       />
 

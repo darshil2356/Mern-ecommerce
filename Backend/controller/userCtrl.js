@@ -246,7 +246,7 @@ const deductStockFromProduct = async (product, item) => {
 
 const createOfflineOrder = asyncHandler(async (req, res) => {
 
-  const { items, paymentMethod, paymentDestination: reqPaymentDestination, customer, discount, offerDiscount: offerDiscountAmt, coinsUsed, coinAmount, gstBreakdown, amountPaid, paymentNote } = req.body;
+  const { items, paymentMethod, paymentDestination: reqPaymentDestination, customer, discount, offerDiscount: offerDiscountAmt, coinsUsed, coinAmount, gstBreakdown, amountPaid, paymentNote, sendReferrerCoins, sendBuyerCoins } = req.body;
 
   if (!items || items.length === 0) {
     res.status(400);
@@ -561,9 +561,9 @@ if (referrer) {
   }
 
   // Award lifetime referral coins on every order once customer is linked.
-  if (totalPriceAfterDiscount > 0) {
+  if (totalPriceAfterDiscount > 0 && (sendReferrerCoins !== false || sendBuyerCoins !== false)) {
     const purchasingUserId = purchaseCustomer?._id || order.user;
-    await awardCoinsOnOrder(purchasingUserId, totalPriceAfterDiscount, 10, order._id);
+    await awardCoinsOnOrder(purchasingUserId, totalPriceAfterDiscount, 10, order._id, sendReferrerCoins !== false, sendBuyerCoins !== false);
   }
 
   // Write POS sale to Rojmel ledger
@@ -3482,12 +3482,12 @@ const applyReferral = asyncHandler(async (req, res) => {
 
 // Award coins on order - delegates to ReferralService for config-driven logic
 // orderAmount = totalPriceAfterDiscount (after ALL discounts including coin discount)
-const awardCoinsOnOrder = async (referredUserId, orderAmount, _coinPercent = 10, orderId = null) => {
+const awardCoinsOnOrder = async (referredUserId, orderAmount, _coinPercent = 10, orderId = null, sendReferrerCoins = true, sendBuyerCoins = true) => {
   try {
     const ReferralService = require("../services/ReferralService");
     const orderCount = await Order.countDocuments({ user: referredUserId });
     const isFirstPurchase = orderCount <= 1;
-    await ReferralService.processReferralReward(referredUserId, orderAmount, isFirstPurchase, orderId);
+    await ReferralService.processReferralReward(referredUserId, orderAmount, isFirstPurchase, orderId, sendReferrerCoins, sendBuyerCoins);
   } catch (err) {
     console.error("awardCoinsOnOrder error:", err.message);
   }

@@ -48,6 +48,7 @@ import Udhar from "./pages/Udhar";
 import Vendors from "./pages/Vendors";
 import AddPurchase from "./pages/AddPurchase";
 import PurchaseList from "./pages/PurchaseList";
+import WholesaleRojmal from "./pages/WholesaleRojmal";
 
 function App() {
   return (
@@ -117,6 +118,7 @@ function App() {
           <Route path="vendors" element={<Vendors />} />
           <Route path="add-purchase" element={<AddPurchase />} />
           <Route path="purchase-list" element={<PurchaseList />} />
+          <Route path="wholesale-rojmal" element={<WholesaleRojmal />} />
         </Route>
       </Routes>
     </Router>

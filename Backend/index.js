@@ -43,6 +43,7 @@ const productInquiryRouter = require("./routes/productInquiryRoute");
 const udharRouter = require("./routes/udharRoute");
 const vendorRouter = require("./routes/vendorRoute");
 const purchaseRouter = require("./routes/purchaseRoute");
+const wholesaleRouter = require("./routes/wholesaleRoute");
 
 // Socket.io setup
 const http = require("http");
@@ -113,6 +114,7 @@ app.use("/api/product-inquiry", productInquiryRouter);
 app.use("/api/udhar", udharRouter);
 app.use("/api/vendor", vendorRouter);
 app.use("/api/purchase", purchaseRouter);
+app.use("/api/wholesale", wholesaleRouter);
 app.use("/", feedRouter); // /feed.xml  /feed.json  /feed/refresh
 
 app.get("/ppt", (req, res) => {

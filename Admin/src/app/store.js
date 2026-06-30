@@ -21,6 +21,7 @@ import productInquiryReducer from "../features/productInquiry/productInquirySlic
 import udharReducer from "../features/udhar/udharSlice";
 import vendorReducer from "../features/vendor/vendorSlice";
 import purchaseReducer from "../features/purchase/purchaseSlice";
+import wholesaleReducer from "../features/wholesale/wholesaleSlice";
 export const store = configureStore({
   reducer: {
     auth: authReducer,
@@ -43,5 +44,6 @@ export const store = configureStore({
     udhar: udharReducer,
     vendor: vendorReducer,
     purchase: purchaseReducer,
+    wholesale: wholesaleReducer,
   },
 });

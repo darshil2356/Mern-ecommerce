@@ -49,6 +49,7 @@ import Vendors from "./pages/Vendors";
 import AddPurchase from "./pages/AddPurchase";
 import PurchaseList from "./pages/PurchaseList";
 import WholesaleRojmal from "./pages/WholesaleRojmal";
+import RojmelDashboard from "./pages/RojmelDashboard";
 
 function App() {
   return (
@@ -119,6 +120,7 @@ function App() {
           <Route path="add-purchase" element={<AddPurchase />} />
           <Route path="purchase-list" element={<PurchaseList />} />
           <Route path="wholesale-rojmal" element={<WholesaleRojmal />} />
+          <Route path="rojmel-dashboard" element={<RojmelDashboard />} />
         </Route>
       </Routes>
     </Router>

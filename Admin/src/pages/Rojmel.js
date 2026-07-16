@@ -304,9 +304,10 @@ export default function Rojmel() {
             </div>
             <div style={{padding:20}}>
               <div className="rj-summary-grid" style={{marginBottom:20}}>
+                <SummaryCard label="Opening Balance" value={fmt(monthlySummary.summary?.openingBalance)} color="#1d4ed8" icon="🏦" />
                 <SummaryCard label="Total Income"  value={fmt(monthlySummary.summary?.totalIncome)}  color="#166534" icon="📈" />
                 <SummaryCard label="Total Expense" value={fmt(monthlySummary.summary?.totalExpense)} color="#991b1b" icon="📉" />
-                <SummaryCard label="Net Balance"   value={fmt(monthlySummary.summary?.netBalance)}   color="#1d4ed8" icon="💰" bold />
+                <SummaryCard label="Closing Balance" value={fmt(monthlySummary.summary?.closingBalance)} color={monthlySummary.summary?.closingBalance >= 0 ? "#1d4ed8" : "#991b1b"} icon="💰" bold />
               </div>
               <table className="rj-monthly-table">
                 <thead>

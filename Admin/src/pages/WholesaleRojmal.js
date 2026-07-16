@@ -8,7 +8,7 @@ import {
 import {
   fetchCustomers, createCustomer, updateCustomer, deleteCustomer,
   fetchCustomerLedger, fetchBills, createBill, updateBill, deleteBill,
-  addPayment, deletePayment, fetchDashboard, fetchAlerts, clearError, clearLedger,
+  addPayment, deletePayment, fetchDashboard, fetchAlerts, fetchMonthlyReport, clearError, clearLedger,
 } from "../features/wholesale/wholesaleSlice";
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
@@ -389,7 +389,7 @@ function AlertBillCard({ bill, urgency, onPayment, onLedger }) {
 
 export default function WholesaleRojmal() {
   const dispatch = useDispatch();
-  const { customers, bills, billSummary, pagination, ledger, dashboard, alerts, loading, actionLoading, error } = useSelector((s) => s.wholesale);
+  const { customers, bills, billSummary, pagination, ledger, monthlyReport, dashboard, alerts, loading, actionLoading, error } = useSelector((s) => s.wholesale);
 
   const [tab, setTab] = useState("dashboard");
 
@@ -411,6 +411,13 @@ export default function WholesaleRojmal() {
   // Ledger state
   const [ledgerCustId, setLedgerCustId] = useState("");
 
+  // Monthly Report state
+  const [monthlyFilters, setMonthlyFilters] = useState({ 
+    year: new Date().getFullYear(), 
+    month: new Date().getMonth() + 1,
+    customerId: ""
+  });
+
   // ─── Data loading ─────────────────────────────────────────────────────────
 
   const loadCustomers = useCallback(() => {
@@ -430,11 +437,15 @@ export default function WholesaleRojmal() {
 
   const loadDashboard = useCallback(() => { dispatch(fetchDashboard()); }, [dispatch]);
   const loadAlerts = useCallback(() => { dispatch(fetchAlerts()); }, [dispatch]);
+  const loadMonthlyReport = useCallback(() => { 
+    dispatch(fetchMonthlyReport({ year: monthlyFilters.year, month: monthlyFilters.month, ...(monthlyFilters.customerId ? { customerId: monthlyFilters.customerId } : {}) })); 
+  }, [dispatch, monthlyFilters]);
 
   useEffect(() => { loadCustomers(); loadAlerts(); }, [loadCustomers]); // eslint-disable-line
   useEffect(() => { if (tab === "bills") loadBills(); }, [tab]); // eslint-disable-line
   useEffect(() => { if (tab === "dashboard") loadDashboard(); }, [tab]); // eslint-disable-line
   useEffect(() => { if (tab === "alerts") loadAlerts(); }, [tab]); // eslint-disable-line
+  useEffect(() => { if (tab === "monthly") loadMonthlyReport(); }, [tab, loadMonthlyReport]); // eslint-disable-line
 
   useEffect(() => {
     if (error) { toast.error(error); dispatch(clearError()); }
@@ -535,6 +546,7 @@ export default function WholesaleRojmal() {
 
   const TABS = [
     { id: "dashboard", label: "Dashboard",       icon: "📊" },
+    { id: "monthly",   label: "Monthly Report",  icon: "📈" },
     { id: "alerts",    label: "Due Alerts",       icon: "🔔", badge: alertCount },
     { id: "customers", label: "Customers",        icon: "👥" },
     { id: "new-bill",  label: "New Bill",         icon: "➕" },
@@ -869,6 +881,185 @@ export default function WholesaleRojmal() {
                         onLedger={() => { setLedgerCustId(b.customer?._id); setTab("ledger"); dispatch(fetchCustomerLedger(b.customer?._id)); }}
                       />
                     ))}
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      )}
+
+      {/* ════════════════════════════════════════════════════
+          MONTHLY REPORT TAB
+      ════════════════════════════════════════════════════ */}
+      {tab === "monthly" && (
+        <div>
+          <div style={{ marginBottom: 20 }}>
+            <h2 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: "#1e293b", marginBottom: 12 }}>📈 Monthly Financial Report</h2>
+            <p style={{ margin: 0, color: "#64748b", fontSize: 13 }}>Track sales, collections, and vendor payments month-by-month</p>
+          </div>
+
+          {/* Filters */}
+          <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 12, padding: 16, marginBottom: 20 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12, alignItems: "flex-end" }}>
+              <div>
+                <label style={labelStyle}>Month</label>
+                <select style={inputStyle} value={monthlyFilters.month}
+                  onChange={(e) => setMonthlyFilters({ ...monthlyFilters, month: Number(e.target.value) })}>
+                  {MONTH_NAMES.map((m, i) => <option key={i} value={i + 1}>{m}</option>)}
+                </select>
+              </div>
+              <div>
+                <label style={labelStyle}>Year</label>
+                <select style={inputStyle} value={monthlyFilters.year}
+                  onChange={(e) => setMonthlyFilters({ ...monthlyFilters, year: Number(e.target.value) })}>
+                  {[2024, 2025, 2026].map((y) => <option key={y} value={y}>{y}</option>)}
+                </select>
+              </div>
+              <div>
+                <label style={labelStyle}>Customer (Optional)</label>
+                <select style={inputStyle} value={monthlyFilters.customerId}
+                  onChange={(e) => setMonthlyFilters({ ...monthlyFilters, customerId: e.target.value })}>
+                  <option value="">All Customers</option>
+                  {customers.map((c) => <option key={c._id} value={c._id}>{c.name} {c.firmName ? `(${c.firmName})` : ""}</option>)}
+                </select>
+              </div>
+              <button style={btn()} onClick={loadMonthlyReport} disabled={loading}>
+                {loading ? "Loading…" : "🔍 Generate Report"}
+              </button>
+            </div>
+          </div>
+
+          {loading && (
+            <p style={{ textAlign: "center", color: "#64748b", padding: 40 }}>Loading report…</p>
+          )}
+
+          {!loading && monthlyReport && (
+            <>
+              {/* Summary Cards */}
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 14, marginBottom: 24 }}>
+                <StatCard label="💰 Total Sales This Month" value={fmt(monthlyReport.sales.totalSalesThisMonth)} color="#1d4ed8" bg="#eff6ff" icon="📊" />
+                <StatCard label="✅ Collected From This Month" value={fmt(monthlyReport.payments.fromCurrentMonthBills)} color="#16a34a" bg="#f0fdf4" icon="💵" />
+                <StatCard label="🔄 From Previous Months" value={fmt(monthlyReport.payments.fromPreviousMonthBills)} color="#8b5cf6" bg="#faf5ff" icon="⏮" />
+                <StatCard label="⚠️ Money Not Yet Collected" value={fmt(monthlyReport.reconciliation.shortfall)} color="#dc2626" bg="#fef2f2" icon="📌" />
+              </div>
+
+              {/* Key Metrics */}
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 14, marginBottom: 24 }}>
+                <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 12, padding: 16 }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: "#64748b", marginBottom: 8 }}>COLLECTION RATE</div>
+                  <div style={{ fontSize: 28, fontWeight: 800, color: "#16a34a" }}>{monthlyReport.reconciliation.collectionRate}</div>
+                  <div style={{ fontSize: 12, color: "#94a3b8", marginTop: 6 }}>of this month's sales</div>
+                </div>
+                <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 12, padding: 16 }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: "#64748b", marginBottom: 8 }}>BILLS COUNT</div>
+                  <div style={{ fontSize: 28, fontWeight: 800, color: "#1d4ed8" }}>{monthlyReport.sales.billCount}</div>
+                  <div style={{ fontSize: 12, color: "#94a3b8", marginTop: 6 }}>created this month</div>
+                </div>
+                <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 12, padding: 16 }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: "#64748b", marginBottom: 8 }}>PENDING BILLS</div>
+                  <div style={{ fontSize: 28, fontWeight: 800, color: "#dc2626" }}>{monthlyReport.pending.count}</div>
+                  <div style={{ fontSize: 12, color: "#94a3b8", marginTop: 6 }}>awaiting payment</div>
+                </div>
+                <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 12, padding: 16 }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: "#64748b", marginBottom: 8 }}>TOTAL PENDING AMOUNT</div>
+                  <div style={{ fontSize: 28, fontWeight: 800, color: "#f59e0b" }}>{fmt(monthlyReport.pending.totalPending)}</div>
+                  <div style={{ fontSize: 12, color: "#94a3b8", marginTop: 6 }}>to be collected</div>
+                </div>
+              </div>
+
+              {/* Analysis Box */}
+              <div style={{ background: "#eff6ff", border: "2px solid #bfdbfe", borderRadius: 12, padding: 18, marginBottom: 24 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: "#1d4ed8", marginBottom: 8 }}>💡 Analysis</div>
+                <div style={{ fontSize: 14, color: "#1e293b", lineHeight: 1.6 }}>
+                  {monthlyReport.analysis.message}
+                </div>
+              </div>
+
+              {/* Payments Received - Breakdown */}
+              {monthlyReport.payments.detailedTransactions.length > 0 && (
+                <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 12, padding: 20, marginBottom: 24 }}>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: "#1e293b", marginBottom: 14 }}>📥 Payments Received This Month</div>
+                  <div style={{ overflowX: "auto" }}>
+                    <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+                      <thead>
+                        <tr style={{ background: "#f8fafc" }}>
+                          <th style={{ padding: "10px", textAlign: "left", fontWeight: 600, borderBottom: "1px solid #e2e8f0", color: "#475569" }}>Bill No</th>
+                          <th style={{ padding: "10px", textAlign: "left", fontWeight: 600, borderBottom: "1px solid #e2e8f0", color: "#475569" }}>Customer</th>
+                          <th style={{ padding: "10px", textAlign: "left", fontWeight: 600, borderBottom: "1px solid #e2e8f0", color: "#475569" }}>Bill Date</th>
+                          <th style={{ padding: "10px", textAlign: "left", fontWeight: 600, borderBottom: "1px solid #e2e8f0", color: "#475569" }}>Payment Date</th>
+                          <th style={{ padding: "10px", textAlign: "right", fontWeight: 600, borderBottom: "1px solid #e2e8f0", color: "#475569" }}>Cash</th>
+                          <th style={{ padding: "10px", textAlign: "right", fontWeight: 600, borderBottom: "1px solid #e2e8f0", color: "#475569" }}>Online</th>
+                          <th style={{ padding: "10px", textAlign: "right", fontWeight: 600, borderBottom: "1px solid #e2e8f0", color: "#475569" }}>Total</th>
+                          <th style={{ padding: "10px", textAlign: "center", fontWeight: 600, borderBottom: "1px solid #e2e8f0", color: "#475569" }}>Period</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {monthlyReport.payments.detailedTransactions.map((p, i) => (
+                          <tr key={i} style={{ borderBottom: "1px solid #f1f5f9", background: i % 2 === 0 ? "#fff" : "#f8fafc" }}>
+                            <td style={{ padding: "10px", fontWeight: 600, color: "#1d4ed8" }}>{p.bill}</td>
+                            <td style={{ padding: "10px", color: "#1e293b" }}>{p.customer}</td>
+                            <td style={{ padding: "10px", color: "#64748b", whiteSpace: "nowrap" }}>{fmtDate(p.billDate)}</td>
+                            <td style={{ padding: "10px", color: "#64748b", whiteSpace: "nowrap" }}>{fmtDate(p.date)}</td>
+                            <td style={{ padding: "10px", textAlign: "right", color: "#16a34a", fontWeight: 600 }}>{fmt(p.cashAmount)}</td>
+                            <td style={{ padding: "10px", textAlign: "right", color: "#0ea5e9", fontWeight: 600 }}>{fmt(p.onlineAmount)}</td>
+                            <td style={{ padding: "10px", textAlign: "right", color: "#1d4ed8", fontWeight: 700 }}>{fmt(p.totalAmount)}</td>
+                            <td style={{ padding: "10px", textAlign: "center" }}>
+                              <span style={{ background: p.isCurrentMonth ? "#f0fdf4" : "#fff3cd", color: p.isCurrentMonth ? "#16a34a" : "#997404", padding: "2px 8px", borderRadius: 4, fontSize: 11, fontWeight: 600 }}>
+                                {p.isCurrentMonth ? "This Month" : "Previous"}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {/* Bills This Month */}
+              {monthlyReport.sales.bills.length > 0 && (
+                <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 12, padding: 20 }}>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: "#1e293b", marginBottom: 14 }}>📋 Bills Created This Month</div>
+                  <div style={{ overflowX: "auto" }}>
+                    <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+                      <thead>
+                        <tr style={{ background: "#f8fafc" }}>
+                          <th style={{ padding: "10px", textAlign: "left", fontWeight: 600, borderBottom: "1px solid #e2e8f0", color: "#475569" }}>Bill No</th>
+                          <th style={{ padding: "10px", textAlign: "left", fontWeight: 600, borderBottom: "1px solid #e2e8f0", color: "#475569" }}>Date</th>
+                          <th style={{ padding: "10px", textAlign: "left", fontWeight: 600, borderBottom: "1px solid #e2e8f0", color: "#475569" }}>Customer</th>
+                          <th style={{ padding: "10px", textAlign: "right", fontWeight: 600, borderBottom: "1px solid #e2e8f0", color: "#475569" }}>Amount</th>
+                          <th style={{ padding: "10px", textAlign: "right", fontWeight: 600, borderBottom: "1px solid #e2e8f0", color: "#475569" }}>Paid</th>
+                          <th style={{ padding: "10px", textAlign: "right", fontWeight: 600, borderBottom: "1px solid #e2e8f0", color: "#475569" }}>Due</th>
+                          <th style={{ padding: "10px", textAlign: "center", fontWeight: 600, borderBottom: "1px solid #e2e8f0", color: "#475569" }}>Status</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {monthlyReport.sales.bills.map((b, i) => (
+                          <tr key={i} style={{ borderBottom: "1px solid #f1f5f9", background: i % 2 === 0 ? "#fff" : "#f8fafc" }}>
+                            <td style={{ padding: "10px", fontWeight: 600, color: "#1d4ed8" }}>{b.billNo}</td>
+                            <td style={{ padding: "10px", color: "#64748b" }}>{fmtDate(b.billDate)}</td>
+                            <td style={{ padding: "10px", color: "#1e293b" }}>{b.customer}</td>
+                            <td style={{ padding: "10px", textAlign: "right", color: "#1d4ed8", fontWeight: 600 }}>{fmt(b.totalAmount)}</td>
+                            <td style={{ padding: "10px", textAlign: "right", color: "#16a34a", fontWeight: 600 }}>{fmt(b.paidAmount)}</td>
+                            <td style={{ padding: "10px", textAlign: "right", color: "#dc2626", fontWeight: 600 }}>{fmt(b.balanceDue)}</td>
+                            <td style={{ padding: "10px", textAlign: "center" }}>
+                              <span style={{
+                                background: STATUS_COLOR[b.status].bg,
+                                color: STATUS_COLOR[b.status].text,
+                                border: `1px solid ${STATUS_COLOR[b.status].border}`,
+                                padding: "3px 10px",
+                                borderRadius: 4,
+                                fontSize: 11,
+                                fontWeight: 600
+                              }}>
+                                {STATUS_LABEL[b.status]}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
                 </div>
               )}

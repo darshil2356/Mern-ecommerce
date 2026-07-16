@@ -3,7 +3,7 @@ const router = express.Router();
 const {
   getAllCustomers, createCustomer, updateCustomer, deleteCustomer,
   getAllBills, getBill, createBill, updateBill, deleteBill,
-  addPayment, deletePayment, getCustomerLedger, getDashboard, getDueAlerts,
+  addPayment, deletePayment, getCustomerLedger, getDashboard, getDueAlerts, getMonthlyReport,
 } = require("../controller/wholesaleCtrl");
 const { authMiddleware, isAdmin } = require("../middlewares/authMiddleware");
 
@@ -17,6 +17,7 @@ router.get("/customers/:id/ledger", authMiddleware, isAdmin, getCustomerLedger);
 // Dashboard & Alerts
 router.get("/dashboard", authMiddleware, isAdmin, getDashboard);
 router.get("/alerts", authMiddleware, isAdmin, getDueAlerts);
+router.get("/monthly-report", authMiddleware, isAdmin, getMonthlyReport);
 
 // Bills
 router.get("/bills", authMiddleware, isAdmin, getAllBills);

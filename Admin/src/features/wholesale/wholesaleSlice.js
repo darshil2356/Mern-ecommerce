@@ -103,7 +103,14 @@ export const deletePayment = createAsyncThunk("wholesale/deletePayment", async (
     return rejectWithValue(err.response?.data?.message || err.message);
   }
 });
-
+export const fetchMonthlyReport = createAsyncThunk("wholesale/fetchMonthlyReport", async (params, { rejectWithValue }) => {
+  try {
+    const { data } = await api.get("/wholesale/monthly-report", { params });
+    return data;
+  } catch (err) {
+    return rejectWithValue(err.response?.data?.message || err.message);
+  }
+});
 // ─── DASHBOARD & ALERTS ───────────────────────────────────────────────────────
 
 export const fetchDashboard = createAsyncThunk("wholesale/fetchDashboard", async (_, { rejectWithValue }) => {
@@ -134,6 +141,7 @@ const wholesaleSlice = createSlice({
     billSummary: { totalAmount: 0, totalPaid: 0, totalDue: 0 },
     pagination: { total: 0, page: 1, limit: 20, pages: 1 },
     ledger: null,
+    monthlyReport: null,
     dashboard: null,
     alerts: null,
     loading: false,
@@ -247,7 +255,15 @@ const wholesaleSlice = createSlice({
         state.loading = false;
         state.alerts = payload;
       })
-      .addCase(fetchAlerts.rejected, rejected);
+      .addCase(fetchAlerts.rejected, rejected)
+
+      // Monthly Report
+      .addCase(fetchMonthlyReport.pending, pending)
+      .addCase(fetchMonthlyReport.fulfilled, (state, { payload }) => {
+        state.loading = false;
+        state.monthlyReport = payload;
+      })
+      .addCase(fetchMonthlyReport.rejected, rejected);
   },
 });
 

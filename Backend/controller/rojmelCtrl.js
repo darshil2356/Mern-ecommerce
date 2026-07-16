@@ -160,11 +160,18 @@ const getSummary = asyncHandler(async (req, res) => {
   const totalIncome = entries.filter(e => e.type === "INCOME").reduce((s, e) => s + e.amount, 0);
   const totalExpense = entries.filter(e => e.type === "EXPENSE").reduce((s, e) => s + e.amount, 0);
 
+  // Opening balance = balance just before the month start
+  const prev = await Rojmel.findOne({ date: { $lt: start } }).sort({ date: -1, createdAt: -1 });
+  const openingBalance = prev ? prev.balance : 0;
+
+  // Closing balance = last entry's balance in the month, otherwise same as opening
+  const closingBalance = entries.length > 0 ? entries[entries.length - 1].balance : openingBalance;
+
   res.json({
     success: true,
     month,
     year,
-    summary: { totalIncome, totalExpense, netBalance: totalIncome - totalExpense },
+    summary: { totalIncome, totalExpense, netBalance: totalIncome - totalExpense, openingBalance, closingBalance },
     daily: dailyMap,
   });
 });

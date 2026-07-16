@@ -417,8 +417,130 @@ const getDashboard = asyncHandler(async (req, res) => {
   });
 });
 
+// GET /api/wholesale/monthly-report?year=2024&month=6&customerId=xyz
+// Returns: Sales this month, Payments received this month, Payments received from previous months
+const getMonthlyReport = asyncHandler(async (req, res) => {
+  const { year, month, customerId } = req.query;
+
+  if (!year || !month) {
+    res.status(400);
+    throw new Error("year and month are required");
+  }
+
+  // Build filter - all customers or specific customer
+  const billFilter = { billDate: {} };
+  const firstDayOfMonth = new Date(Number(year), Number(month) - 1, 1);
+  const lastDayOfMonth = new Date(Number(year), Number(month), 0, 23, 59, 59, 999);
+
+  billFilter.billDate.$gte = firstDayOfMonth;
+  billFilter.billDate.$lte = lastDayOfMonth;
+
+  if (customerId) billFilter.customer = customerId;
+
+  // Get all bills for this month
+  const billsThisMonth = await WholesaleBill.find(billFilter)
+    .populate("customer", "name firmName phone")
+    .sort({ billDate: 1 });
+
+  // Calculate sales for THIS month
+  const totalSalesThisMonth = billsThisMonth.reduce((sum, b) => sum + b.totalAmount, 0);
+
+  // Get all bills that had payments received THIS month (including older bills)
+  const paymentsReceivedThisMonth = [];
+  const allBills = await WholesaleBill.find(customerId ? { customer: customerId } : {})
+    .populate("customer", "name firmName phone");
+
+  allBills.forEach((bill) => {
+    bill.payments.forEach((payment) => {
+      const paymentDate = new Date(payment.date);
+      if (paymentDate >= firstDayOfMonth && paymentDate <= lastDayOfMonth) {
+        paymentsReceivedThisMonth.push({
+          date: payment.date,
+          bill: bill.billNo,
+          customer: bill.customer.name,
+          billDate: bill.billDate,
+          totalBillAmount: bill.totalAmount,
+          cashAmount: payment.cashAmount,
+          onlineAmount: payment.onlineAmount,
+          totalAmount: payment.totalAmount,
+          onlineMode: payment.onlineMode,
+          onlineRef: payment.onlineRef,
+          note: payment.note,
+          isCurrentMonth: new Date(bill.billDate) >= firstDayOfMonth && new Date(bill.billDate) <= lastDayOfMonth,
+        });
+      }
+    });
+  });
+
+  // Split payments into: from current month bills vs from older bills
+  const paymentsFromCurrentMonthBills = paymentsReceivedThisMonth.filter((p) => p.isCurrentMonth);
+  const paymentsFromPreviousMonthBills = paymentsReceivedThisMonth.filter((p) => !p.isCurrentMonth);
+
+  const totalPaymentsReceived = paymentsReceivedThisMonth.reduce((sum, p) => sum + p.totalAmount, 0);
+  const totalFromCurrentMonth = paymentsFromCurrentMonthBills.reduce((sum, p) => sum + p.totalAmount, 0);
+  const totalFromPreviousMonth = paymentsFromPreviousMonthBills.reduce((sum, p) => sum + p.totalAmount, 0);
+
+  // Calculate pending bills for this month
+  const pendingBills = billsThisMonth.filter((b) => b.balanceDue > 0);
+  const totalPendingThisMonth = pendingBills.reduce((sum, b) => sum + b.balanceDue, 0);
+
+  // Calculate vendor payout logic (what we owe vendors)
+  // Example: If we sold 1,00,000 but only collected 50,000, we might owe vendor the difference
+  const vendorDueThisMonth = totalSalesThisMonth - totalFromCurrentMonth;
+
+  // Month summary
+  const monthName = new Date(Number(year), Number(month) - 1).toLocaleString("default", {
+    month: "long",
+    year: "numeric",
+  });
+
+  res.json({
+    success: true,
+    period: { year: Number(year), month: Number(month), monthName },
+    sales: {
+      totalSalesThisMonth,
+      billCount: billsThisMonth.length,
+      bills: billsThisMonth.map((b) => ({
+        _id: b._id,
+        billNo: b.billNo,
+        billDate: b.billDate,
+        customer: b.customer.name,
+        totalAmount: b.totalAmount,
+        paidAmount: b.paidAmount,
+        balanceDue: b.balanceDue,
+        status: b.status,
+      })),
+    },
+    payments: {
+      totalReceived: totalPaymentsReceived,
+      fromCurrentMonthBills: totalFromCurrentMonth,
+      fromPreviousMonthBills: totalFromPreviousMonth,
+      detailedTransactions: paymentsReceivedThisMonth,
+    },
+    pending: {
+      totalPending: totalPendingThisMonth,
+      count: pendingBills.length,
+      bills: pendingBills.map((b) => ({
+        billNo: b.billNo,
+        amount: b.totalAmount,
+        paid: b.paidAmount,
+        due: b.balanceDue,
+      })),
+    },
+    reconciliation: {
+      totalSold: totalSalesThisMonth,
+      totalCollected: totalFromCurrentMonth,
+      shortfall: vendorDueThisMonth, // Money we haven't collected yet but sold
+      collectionRate: totalSalesThisMonth > 0 ? ((totalFromCurrentMonth / totalSalesThisMonth) * 100).toFixed(2) + "%" : "0%",
+    },
+    analysis: {
+      message: `Sold ₹${totalSalesThisMonth.toLocaleString()} in ${monthName}. Collected ₹${totalFromCurrentMonth.toLocaleString()} from current month sales. Also received ₹${totalFromPreviousMonth.toLocaleString()} from previous month sales. Shortfall: ₹${vendorDueThisMonth.toLocaleString()}`,
+    },
+  });
+});
+
 module.exports = {
   getAllCustomers, createCustomer, updateCustomer, deleteCustomer,
   getAllBills, getBill, createBill, updateBill, deleteBill,
-  addPayment, deletePayment, getCustomerLedger, getDashboard, getDueAlerts,
+  addPayment, deletePayment, getCustomerLedger, getDashboard, getDueAlerts, getMonthlyReport,
 };

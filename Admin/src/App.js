@@ -51,6 +51,7 @@ import AddPurchase from "./pages/AddPurchase";
 import PurchaseList from "./pages/PurchaseList";
 import WholesaleRojmal from "./pages/WholesaleRojmal";
 import RojmelDashboard from "./pages/RojmelDashboard";
+import StaffManagement from "./pages/StaffManagement";
 
 function App() {
   return (
@@ -123,6 +124,7 @@ function App() {
           <Route path="purchase-list" element={<PurchaseList />} />
           <Route path="wholesale-rojmal" element={<WholesaleRojmal />} />
           <Route path="rojmel-dashboard" element={<RojmelDashboard />} />
+          <Route path="staff" element={<StaffManagement />} />
         </Route>
       </Routes>
     </Router>

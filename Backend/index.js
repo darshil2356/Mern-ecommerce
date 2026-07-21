@@ -44,6 +44,7 @@ const udharRouter = require("./routes/udharRoute");
 const vendorRouter = require("./routes/vendorRoute");
 const purchaseRouter = require("./routes/purchaseRoute");
 const wholesaleRouter = require("./routes/wholesaleRoute");
+const staffRouter = require("./routes/staffRoute");
 
 // Socket.io setup
 const http = require("http");
@@ -115,6 +116,7 @@ app.use("/api/udhar", udharRouter);
 app.use("/api/vendor", vendorRouter);
 app.use("/api/purchase", purchaseRouter);
 app.use("/api/wholesale", wholesaleRouter);
+app.use("/api/staff", staffRouter);
 app.use("/", feedRouter); // /feed.xml  /feed.json  /feed/refresh
 
 app.get("/ppt", (req, res) => {

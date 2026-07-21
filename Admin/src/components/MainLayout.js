@@ -296,7 +296,7 @@ const MainLayout = () => {
       ],
     },
     { key: "rojmel",           icon: <FaBook />,          label: "Rojmel" },
-    { key: "rojmel-dashboard", icon: <FaChartBar />,      label: "Rojmel Dashboard" },
+    { key: "rojmel-dashboard", icon: <FaChartBar />,      label: "Financial Master Dashboard" },
     { key: "wholesale-rojmal", icon: <FaStore />,         label: "Wholesale Rojmal" },
     { key: "udhar",            icon: <FaHandshake />,     label: "Udhar Khata" },
     { key: "reviews",          icon: <AiFillStar />,      label: "Reviews" },

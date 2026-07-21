@@ -154,8 +154,6 @@ export default function RojmelDashboard() {
 
   // Overall Lifetime Vendor Payables (Matches Vendor Dashboard & Vendor Bills)
   const lifetimeVendorPayable = vendorStats?.summary?.totalDue ?? monthlyPurchaseDue;
-  const lifetimeTotalPurchases = vendorStats?.summary?.totalPurchases || 0;
-  const lifetimeTotalPaid = vendorStats?.summary?.totalPaid || 0;
   const topVendorsByDue = vendorStats?.topVendorsByDue || purchaseSummary?.byVendor || [];
 
   /* ── 3. WHOLESALE METRICS ── */

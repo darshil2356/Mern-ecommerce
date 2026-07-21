@@ -29,8 +29,9 @@ const adminCancelOrder = async ({ id, cancelReason }) => {
   return response.data;
 };
 
-const getMonthlyOrders = async () => {
-  const response = await api.get("user/getMonthWiseOrderIncome");
+const getMonthlyOrders = async (paymentFilter) => {
+  const pf = typeof paymentFilter === 'string' ? paymentFilter : 'online_current';
+  const response = await api.get(`user/getMonthWiseOrderIncome?paymentFilter=${pf}`);
   return response.data;
 };
 
@@ -52,8 +53,9 @@ const getDashboardStats = async (data) => {
   return response.data;
 };
 
-const getYearlyStats = async () => {
-  const response = await api.get("user/getyearlyorders");
+const getYearlyStats = async (paymentFilter) => {
+  const pf = typeof paymentFilter === 'string' ? paymentFilter : 'online_current';
+  const response = await api.get(`user/getyearlyorders?paymentFilter=${pf}`);
   return response.data;
 };
 

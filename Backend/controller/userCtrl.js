@@ -2298,7 +2298,7 @@ const updateOrder = asyncHandler(async (req, res) => {
 
 // Get monthly order income (fixed aggregation)
 const getMonthWiseOrderIncome = asyncHandler(async (req, res) => {
-  const { mode } = req.query;
+  const { mode, paymentFilter } = req.query;
   let monthNames = [
     "January", "February", "March", "April", "May", "June",
     "July", "August", "September", "October", "November", "December"
@@ -2317,6 +2317,24 @@ const getMonthWiseOrderIncome = asyncHandler(async (req, res) => {
     orderStatus: { $ne: "Cancelled" },
   };
   if (mode === "ONLINE" || mode === "OFFLINE") matchStage.mode = mode;
+
+  const pf = paymentFilter || "online_current";
+  if (pf === 'online_current') {
+    matchStage.$or = [
+      { paymentDestination: 'CURRENT_ACCOUNT' },
+      { mode: 'ONLINE', paymentDestination: { $exists: false } },
+      { mode: 'ONLINE', paymentDestination: null },
+    ];
+  } else if (pf === 'cash') {
+    matchStage.$or = [
+      { paymentDestination: 'CASH' },
+      { mode: 'OFFLINE', paymentDestination: { $exists: false } },
+      { mode: 'OFFLINE', paymentDestination: null },
+    ];
+  } else if (pf === 'online_other') {
+    matchStage.paymentDestination = 'OTHER_ACCOUNT';
+  }
+  // pf === 'all' -> no extra condition
   
   const data = await Order.aggregate([
     { $match: matchStage },
@@ -2342,9 +2360,11 @@ const getMonthWiseOrderIncome = asyncHandler(async (req, res) => {
 
 // Get daily sales for a date range
 const getDailySales = asyncHandler(async (req, res) => {
-  const { startDate, endDate, mode, filter } = req.query;
+  const { startDate, endDate, mode, filter, paymentFilter } = req.query;
   
-  let matchCondition = {};
+  let matchCondition = {
+    orderStatus: { $ne: "Cancelled" }
+  };
   
   let start, end;
   
@@ -2389,6 +2409,24 @@ const getDailySales = asyncHandler(async (req, res) => {
   if (mode && (mode === 'ONLINE' || mode === 'OFFLINE')) {
     matchCondition.mode = mode;
   }
+
+  const pf = paymentFilter || "online_current";
+  if (pf === 'online_current') {
+    matchCondition.$or = [
+      { paymentDestination: 'CURRENT_ACCOUNT' },
+      { mode: 'ONLINE', paymentDestination: { $exists: false } },
+      { mode: 'ONLINE', paymentDestination: null },
+    ];
+  } else if (pf === 'cash') {
+    matchCondition.$or = [
+      { paymentDestination: 'CASH' },
+      { mode: 'OFFLINE', paymentDestination: { $exists: false } },
+      { mode: 'OFFLINE', paymentDestination: null },
+    ];
+  } else if (pf === 'online_other') {
+    matchCondition.paymentDestination = 'OTHER_ACCOUNT';
+  }
+  // pf === 'all' -> no extra condition
   
   const data = await Order.aggregate([
     {
@@ -2606,7 +2644,7 @@ const getDashboardStats = asyncHandler(async (req, res) => {
 });
 
 const getYearlyTotalOrder = asyncHandler(async (req, res) => {
-  const { mode } = req.query;
+  const { mode, paymentFilter } = req.query;
   let monthNames = [
     "January","February","March","April","May","June",
     "July","August","September","October","November","December",
@@ -2623,6 +2661,25 @@ const getYearlyTotalOrder = asyncHandler(async (req, res) => {
     orderStatus: { $ne: "Cancelled" },
   };
   if (mode === "ONLINE" || mode === "OFFLINE") matchStage.mode = mode;
+
+  const pf = paymentFilter || "online_current";
+  if (pf === 'online_current') {
+    matchStage.$or = [
+      { paymentDestination: 'CURRENT_ACCOUNT' },
+      { mode: 'ONLINE', paymentDestination: { $exists: false } },
+      { mode: 'ONLINE', paymentDestination: null },
+    ];
+  } else if (pf === 'cash') {
+    matchStage.$or = [
+      { paymentDestination: 'CASH' },
+      { mode: 'OFFLINE', paymentDestination: { $exists: false } },
+      { mode: 'OFFLINE', paymentDestination: null },
+    ];
+  } else if (pf === 'online_other') {
+    matchStage.paymentDestination = 'OTHER_ACCOUNT';
+  }
+  // pf === 'all' -> no extra condition
+
   const data = await Order.aggregate([
     { $match: matchStage },
     { $group: { _id: null, count: { $sum: 1 }, amount: { $sum: "$totalPriceAfterDiscount" } } },
@@ -2679,6 +2736,7 @@ const getProductByBarcode = asyncHandler(async (req, res) => {
     _id: product._id,
     title: product.title,
     price: product.price,
+    mrp: product.mrp || product.price,
     // If size-specific, return size quantity; otherwise return main quantity
     quantity: sizeInfo ? sizeInfo.quantity : product.quantity,
     barcode: barcode,

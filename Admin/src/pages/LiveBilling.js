@@ -177,6 +177,17 @@ const LiveBilling = () => {
     return Object.values(cart).reduce((sum, item) => sum + item.qty * item.price, 0);
   }, [cart]);
 
+  const totalMrp = useMemo(() => {
+    return Object.values(cart).reduce((sum, item) => {
+      const itemMrp = item.mrp && item.mrp > item.price ? item.mrp : item.price;
+      return sum + item.qty * itemMrp;
+    }, 0);
+  }, [cart]);
+
+  const productSavings = useMemo(() => {
+    return Math.max(0, totalMrp - grandTotal);
+  }, [totalMrp, grandTotal]);
+
   // Tax-included mode: tax is already inside the price, we extract it
   // Tax-excluded mode: tax is added on top of the price
   const cgstAmount = useMemo(() => {
@@ -273,6 +284,10 @@ const LiveBilling = () => {
     const maxCoins = Math.min(customerCoins, Math.floor(Math.max(0, amountBeforeCoins)));
     return Math.min(Math.max(0, coinAmount), maxCoins);
   }, [useCoins, coinAmount, customerCoins, grandTotal, totalTaxAmount, discountAmount, taxIncluded]);
+
+  const totalSavings = useMemo(() => {
+    return productSavings + discountAmount + coinDiscountAmount;
+  }, [productSavings, discountAmount, coinDiscountAmount]);
 
   const payableAmount = useMemo(() => {
     const base = taxIncluded
@@ -407,6 +422,7 @@ const LiveBilling = () => {
           [barcode]: {
             name: product.title,
             price: product.price,
+            mrp: Number(product.mrp) || product.price,
             qty: 1,
             size: product.size || null, // Store size info
             color: product.color || null, // Store color info
@@ -584,6 +600,7 @@ const LiveBilling = () => {
               [barcode]: {
                 name: product.title,
                 price: product.price,
+                mrp: Number(product.mrp) || product.price,
                 qty: 1,
                 size: product.size || null,
                 color: product.color || null,
@@ -1044,11 +1061,14 @@ const LiveBilling = () => {
         };
       }
 
+      const itemMrp = Number(values.mrp) || price;
+
       return {
         ...prev,
         [barcode]: {
           name: values.name.trim(),
           price,
+          mrp: itemMrp > price ? itemMrp : price,
           qty,
           size: null,
           color: null,
@@ -1141,14 +1161,34 @@ const LiveBilling = () => {
 
     msg += `🛍️ *Items Purchased:*\n`;
     Object.values(activeCart).forEach((item) => {
-      msg += `  • ${item.name}`;
+      const itemMrp = item.mrp && item.mrp > item.price ? item.mrp : item.price;
+      msg += `  • *${item.name}*`;
       if (item.size) msg += ` (${item.size})`;
       if (item.color) msg += ` [${item.color}]`;
-      msg += ` × ${item.qty} = ₹${(item.qty * item.price).toFixed(2)}\n`;
+      msg += `\n`;
+      if (itemMrp > item.price) {
+        msg += `    MRP: ~₹${itemMrp.toFixed(2)}~ | Price: ₹${item.price.toFixed(2)} × ${item.qty} = ₹${(item.qty * item.price).toFixed(2)}\n`;
+      } else {
+        msg += `    Price: ₹${item.price.toFixed(2)} × ${item.qty} = ₹${(item.qty * item.price).toFixed(2)}\n`;
+      }
     });
 
+    const activeTotalMrp = Object.values(activeCart).reduce((sum, item) => {
+      const itemMrp = item.mrp && item.mrp > item.price ? item.mrp : item.price;
+      return sum + (itemMrp * item.qty);
+    }, 0);
+
+    const prodDiscount = Math.max(0, activeTotalMrp - grandTotal);
+    const totalSavingsAmt = prodDiscount + discountAmount + coinDiscountAmount;
+
     msg += `\n━━━━━━━━━━━━━━━\n`;
-    msg += `Subtotal: ₹${grandTotal.toFixed(2)}\n`;
+    if (activeTotalMrp > grandTotal) {
+      msg += `Total MRP: ~₹${activeTotalMrp.toFixed(2)}~\n`;
+      if (prodDiscount > 0) msg += `Product Discount: -₹${prodDiscount.toFixed(2)}\n`;
+      msg += `Subtotal: ₹${grandTotal.toFixed(2)}\n`;
+    } else {
+      msg += `Subtotal: ₹${grandTotal.toFixed(2)}\n`;
+    }
 
     if (gstType === "IGST" && igstPercent > 0) {
       msg += `IGST (${igstPercent}%): ₹${igstAmount.toFixed(2)}\n`;
@@ -1157,9 +1197,15 @@ const LiveBilling = () => {
       if (sgstPercent > 0) msg += `SGST (${sgstPercent}%): ₹${sgstAmount.toFixed(2)}\n`;
     }
     if (activeAppliedAmount > 0) msg += `🎁 Offer Discount: -₹${activeAppliedAmount.toFixed(2)}\n`;
-    if (discountAmount > activeAppliedAmount) msg += `💰 Discount: -₹${(discountAmount - activeAppliedAmount).toFixed(2)}\n`;
+    if (discountAmount > activeAppliedAmount) msg += `💰 Extra Discount: -₹${(discountAmount - activeAppliedAmount).toFixed(2)}\n`;
     if (coinDiscountAmount > 0) msg += `🪙 Coins Used: -₹${coinDiscountAmount.toFixed(2)} (${coinAmount} coins)\n`;
     msg += `\n*💵 Total Paid: ₹${payableAmount.toFixed(2)}*\n`;
+
+    if (totalSavingsAmt > 0) {
+      const savingsPercent = activeTotalMrp > 0 ? Math.round((totalSavingsAmt / activeTotalMrp) * 100) : 0;
+      msg += `\n🎉 *YOUR TOTAL SAVINGS: ₹${totalSavingsAmt.toFixed(2)}*${savingsPercent > 0 ? ` (${savingsPercent}% OFF)` : ''}\n`;
+      msg += `💥 *આ બિલ પર તમારી કુલ બચત: ₹${totalSavingsAmt.toFixed(2)}*\n`;
+    }
     msg += `━━━━━━━━━━━━━━━\n\n`;
 
     // Coins earned on this purchase
@@ -1180,7 +1226,6 @@ const LiveBilling = () => {
     msg += `📣 *Referral અને ખરીદી બંને પર coin મેળવો!*\n`;
     msg += `જો તમે કોઈને રેફર કરો તો રેફરલ coin અને તમારા ખરીદી પર પણ coin મળશે.\n`;
     msg += `તમારી આવનારી ખરીદી માટે coin ની બચત કરો અને ડિસ્કાઉન્ટ મેળવો.\n\n`;
-    // msg += `🌐 *Join our community:* https://chat.whatsapp.com/HtTeQVKXlxFGAP6ssexOhm?mode=gi_t\n`;
     msg += `હવે જોડાઓ અને વધુ ઓફર્સ અને રિવર્ડ્સ મેળવો!\n\n`;
 
     // Spin wheel offer won
@@ -1495,15 +1540,24 @@ const LiveBilling = () => {
 
     const gstTotal = activeCgst + activeSgst + activeIgst;
 
-    const itemRows = Object.values(activeCart).map((item, i) =>
-      `<tr>
+    const activeTotalMrp = Object.values(activeCart).reduce((sum, item) => {
+      const itemMrp = item.mrp && item.mrp > item.price ? item.mrp : item.price;
+      return sum + (itemMrp * item.qty);
+    }, 0);
+    const printProdSavings = Math.max(0, activeTotalMrp - activeSubtotal);
+    const printTotalSavings = printProdSavings + activeDiscount + activeCoinDiscount;
+
+    const itemRows = Object.values(activeCart).map((item, i) => {
+      const itemMrp = item.mrp && item.mrp > item.price ? item.mrp : item.price;
+      const mrpHtml = itemMrp > item.price ? `<br><span class="item-meta">MRP: <span style="text-decoration:line-through">Rs.${itemMrp.toFixed(2)}</span></span>` : '';
+      return `<tr>
         <td>${i+1}</td>
-        <td class="item-name">${item.name}${item.size ? `<br><span class="item-meta">Size: ${item.size}</span>` : ''}${item.color ? `<span class="item-meta"> | Color: ${item.color}</span>` : ''}</td>
+        <td class="item-name">${item.name}${item.size ? `<br><span class="item-meta">Size: ${item.size}</span>` : ''}${item.color ? `<span class="item-meta"> | Color: ${item.color}</span>` : ''}${mrpHtml}</td>
         <td style="text-align:center">${item.qty}</td>
         <td style="text-align:right">${item.price.toFixed(2)}</td>
         <td style="text-align:right;font-weight:700">${(item.qty * item.price).toFixed(2)}</td>
-      </tr>`
-    ).join("");
+      </tr>`;
+    }).join("");
 
     const gstRows = gstTotal > 0
       ? (activeGstType === "IGST"
@@ -1515,6 +1569,14 @@ const LiveBilling = () => {
       activeDiscount > 0 ? `<tr class="s-row disc"><td>Discount</td><td style="text-align:right">-${activeDiscount.toFixed(2)}</td></tr>` : "",
       activeCoinDiscount > 0 ? `<tr class="s-row coin"><td>Coins (${activeCoinsUsed})</td><td style="text-align:right">-${activeCoinDiscount.toFixed(2)}</td></tr>` : "",
     ].join("");
+
+    const totalMrpRow = activeTotalMrp > activeSubtotal
+      ? `<tr class="s-row"><td>Total MRP</td><td style="text-align:right;text-decoration:line-through">Rs.${activeTotalMrp.toFixed(2)}</td></tr>`
+      : "";
+
+    const savingsRow = printTotalSavings > 0
+      ? `<tr class="s-row" style="background:#f0fff4"><td style="color:#059669;font-weight:700">YOUR TOTAL SAVINGS</td><td style="text-align:right;color:#059669;font-weight:700">Rs.${printTotalSavings.toFixed(2)}</td></tr>`
+      : "";
 
     win.document.write(`<!DOCTYPE html><html><head><title>Bill #${invoiceNo}</title>
 <style>
@@ -1582,10 +1644,12 @@ tbody td{padding:6px 4px;vertical-align:top}
   <hr class="divider">
 
   <table class="s-table">
+    ${totalMrpRow}
     <tr><td>Subtotal</td><td style="text-align:right">${activeSubtotal.toFixed(2)}</td></tr>
     ${discountRows}
     ${gstRows}
     <tr class="total-row"><td>TOTAL</td><td style="text-align:right">Rs.${activePayable.toFixed(2)}</td></tr>
+    ${savingsRow}
     ${paymentSummaryRows}
   </table>
 
@@ -1980,8 +2044,15 @@ tbody td{padding:6px 4px;vertical-align:top}
                           {barcode}
                         </span>
                       </td>
-                      <td className="px-6 py-4 text-right font-medium text-gray-700">
-                        ₹{item.price.toFixed(2)}
+                      <td className="px-6 py-4 text-right">
+                        {item.mrp && item.mrp > item.price && (
+                          <div className="text-xs text-gray-400 line-through">
+                            ₹{item.mrp.toFixed(2)}
+                          </div>
+                        )}
+                        <div className="font-medium text-gray-700">
+                          ₹{item.price.toFixed(2)}
+                        </div>
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex items-center justify-center gap-2">
@@ -2284,6 +2355,15 @@ tbody td{padding:6px 4px;vertical-align:top}
                 <p className="text-amber-100 text-sm mb-1">Payable Amount</p>
                 <p className="text-4xl font-bold text-white">₹{payableAmount.toFixed(2)}</p>
               </div>
+
+              {/* Total Savings Badge */}
+              {totalSavings > 0 && (
+                <div className="bg-emerald-500/20 border border-emerald-400/30 rounded-xl p-3 text-center">
+                  <p className="text-emerald-300 text-xs font-semibold">🎉 YOUR TOTAL SAVINGS</p>
+                  <p className="text-xl font-bold text-emerald-400">₹{totalSavings.toFixed(2)}</p>
+                  <p className="text-xs text-emerald-200/80 mt-0.5">💥 (તમારી કુલ બચત: ₹{totalSavings.toFixed(2)})</p>
+                </div>
+              )}
 
               {/* UPI QR Code — shown when ONLINE payment is selected */}
               {paymentMethod === "ONLINE" && qrDataUrl && (
@@ -2689,10 +2769,16 @@ tbody td{padding:6px 4px;vertical-align:top}
           </Form.Item>
           <Form.Item
             name="price"
-            label={<span className="text-gray-600 text-sm font-medium">Price (₹)</span>}
+            label={<span className="text-gray-600 text-sm font-medium">Selling Price (₹)</span>}
             rules={[{ required: true, message: "Required" }, { validator: (_, value) => value > 0 ? Promise.resolve() : Promise.reject('Price must be greater than 0') }]}
           >
             <Input type="number" min={0.01} step={0.01} placeholder="e.g. 499.00" size="large" className="rounded-xl" />
+          </Form.Item>
+          <Form.Item
+            name="mrp"
+            label={<span className="text-gray-600 text-sm font-medium">MRP (₹) <span className="text-gray-400 font-normal">(optional)</span></span>}
+          >
+            <Input type="number" min={0.01} step={0.01} placeholder="e.g. 799.00 (leave blank if same as price)" size="large" className="rounded-xl" />
           </Form.Item>
           <Form.Item
             name="qty"

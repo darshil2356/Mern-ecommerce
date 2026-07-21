@@ -74,14 +74,25 @@ const PrintBillButton = ({
     const totalDiscount = discountAmount + coinDiscountAmount;
     const displayCoinsUsed = coinsUsed || coinDiscountAmount;
 
-    const itemRows = Object.values(cart).map((item, i) => `
+    const activeTotalMrp = cart ? Object.values(cart).reduce((sum, item) => {
+      const itemMrp = item.mrp && item.mrp > item.price ? item.mrp : item.price;
+      return sum + (itemMrp * item.qty);
+    }, 0) : 0;
+    const printProdSavings = Math.max(0, activeTotalMrp - subtotal);
+    const printTotalSavings = printProdSavings + discountAmount + coinDiscountAmount;
+
+    const itemRows = Object.values(cart).map((item, i) => {
+      const itemMrp = item.mrp && item.mrp > item.price ? item.mrp : item.price;
+      const mrpHtml = itemMrp > item.price ? `<br><span class="item-meta">MRP: <span style="text-decoration:line-through">Rs.${itemMrp.toFixed(2)}</span></span>` : '';
+      return `
       <tr>
         <td>${i + 1}</td>
-        <td class="item-name">${item.name}${item.size ? `<br><span class="item-meta">Size: ${item.size}</span>` : ""}${item.color ? `<span class="item-meta"> | Color: ${item.color}</span>` : ""}</td>
+        <td class="item-name">${item.name}${item.size ? `<br><span class="item-meta">Size: ${item.size}</span>` : ""}${item.color ? `<span class="item-meta"> | Color: ${item.color}</span>` : ""}${mrpHtml}</td>
         <td style="text-align:center">${item.qty}</td>
         <td style="text-align:right">${item.price.toFixed(2)}</td>
         <td style="text-align:right;font-weight:700">${(item.qty * item.price).toFixed(2)}</td>
-      </tr>`).join("");
+      </tr>`;
+    }).join("");
 
     const gstRows = gstTotal > 0
       ? (gstType === "IGST"
@@ -93,6 +104,14 @@ const PrintBillButton = ({
       discountAmount > 0 ? `<tr class="s-row disc"><td>Discount</td><td style="text-align:right">-${discountAmount.toFixed(2)}</td></tr>` : "",
       coinDiscountAmount > 0 ? `<tr class="s-row coin"><td>Coins (${displayCoinsUsed})</td><td style="text-align:right">-${coinDiscountAmount.toFixed(2)}</td></tr>` : "",
     ].join("");
+
+    const totalMrpRow = activeTotalMrp > subtotal
+      ? `<tr class="s-row"><td>Total MRP</td><td style="text-align:right;text-decoration:line-through">Rs.${activeTotalMrp.toFixed(2)}</td></tr>`
+      : "";
+
+    const savingsRow = printTotalSavings > 0
+      ? `<tr class="s-row" style="background:#f0fff4"><td style="color:#059669;font-weight:700">YOUR TOTAL SAVINGS</td><td style="text-align:right;color:#059669;font-weight:700">Rs.${printTotalSavings.toFixed(2)}</td></tr>`
+      : "";
 
     win.document.write(`<!DOCTYPE html><html><head><title>Bill #${invoiceNum}</title>
 <style>
@@ -161,10 +180,12 @@ tbody td{padding:6px 4px;vertical-align:top}
   <hr class="divider">
 
   <table class="s-table">
+    ${totalMrpRow}
     <tr><td>Subtotal</td><td style="text-align:right">${subtotal.toFixed(2)}</td></tr>
     ${discountRows}
     ${gstRows}
     <tr class="total-row"><td>TOTAL</td><td style="text-align:right">Rs.${payableAmount.toFixed(2)}</td></tr>
+    ${savingsRow}
   </table>
 
   <hr class="divider">

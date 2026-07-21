@@ -63,6 +63,7 @@ const ROUTE_GROUP = {
   "purchase-list":      "purchase",
   "add-purchase":       "purchase",
   "vendors":            "purchase",
+  "vendor-dashboard":   "purchase",
   "rojmel":             "rojmel",
   "rojmel-dashboard":   "rojmel",
   "wholesale-rojmal":   "rojmel",
@@ -288,6 +289,7 @@ const MainLayout = () => {
     {
       key: "purchase-module", icon: <FaShoppingBasket />, label: "Purchase",
       children: [
+        { key: "vendor-dashboard", icon: <FaChartBar />,     label: "Vendor Dashboard" },
         { key: "purchase-list", icon: <FaFileAlt />,       label: "Purchase Bills" },
         { key: "add-purchase",  icon: <FaShoppingBasket />,label: "Add Bill" },
         ...(vendorsVisible ? [{ key: "vendors", icon: <FaStore />, label: "Vendors (Vepari)" }] : []),

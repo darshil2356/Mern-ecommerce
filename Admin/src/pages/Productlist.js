@@ -4,7 +4,7 @@ import AdminDataTable from "../components/AdminDataTable";
 import { BiEdit } from "react-icons/bi";
 import { AiFillDelete, AiOutlineSearch } from "react-icons/ai";
 import { useDispatch, useSelector } from "react-redux";
-import { deleteAProduct, getProducts } from "../features/product/productSlice";
+import { deleteAProduct, getProducts, updateAProduct } from "../features/product/productSlice";
 import { Link } from "react-router-dom";
 import { delImg } from "../features/upload/uploadSlice";
 import CustomModal from "../components/CustomModal";
@@ -13,7 +13,7 @@ import SizeBarcodesList from "../components/SizeBarcodesList";
 import { getReadableColorName, getColorSwatch } from "../utils/colorDisplay";
 import JsBarcode from "jsbarcode";
 import { MdInventory, MdOutlineInventory2, MdTrendingUp, MdShoppingBag } from "react-icons/md";
-import { FiPackage, FiAlertTriangle, FiTag, FiLayers } from "react-icons/fi";
+import { FiPackage, FiAlertTriangle, FiTag, FiLayers, FiDownload, FiClock, FiGlobe, FiEyeOff } from "react-icons/fi";
 
 const Productlist = () => {
   const [open, setOpen] = useState(false);
@@ -61,20 +61,29 @@ const Productlist = () => {
     return { color: "#52c41a", bg: "#f6ffed", border: "#b7eb8f", text: "In Stock", dot: "success" };
   };
 
+  const sortedProducts = useMemo(() => {
+    if (!productState || !Array.isArray(productState)) return [];
+    return [...productState].sort((a, b) => {
+      const timeA = new Date(a.updatedAt || a.createdAt || 0).getTime();
+      const timeB = new Date(b.updatedAt || b.createdAt || 0).getTime();
+      return timeB - timeA;
+    });
+  }, [productState]);
+
   const categories = useMemo(
-    () => Array.from(new Set((productState || []).map((p) => p.category).filter(Boolean))).sort(),
-    [productState]
+    () => Array.from(new Set((sortedProducts || []).map((p) => p.category).filter(Boolean))).sort(),
+    [sortedProducts]
   );
   const brands = useMemo(
-    () => Array.from(new Set((productState || []).map((p) => p.brand).filter(Boolean))).sort(),
-    [productState]
+    () => Array.from(new Set((sortedProducts || []).map((p) => p.brand).filter(Boolean))).sort(),
+    [sortedProducts]
   );
   const vendors = useMemo(
-    () => Array.from(new Set((productState || []).map((p) => p.vendorName).filter(Boolean))).sort(),
-    [productState]
+    () => Array.from(new Set((sortedProducts || []).map((p) => p.vendorName).filter(Boolean))).sort(),
+    [sortedProducts]
   );
 
-  const filteredProducts = productState?.filter((p) => {
+  const filteredProducts = sortedProducts?.filter((p) => {
     const stock = getEffectiveStock(p);
     const q = searchText.toLowerCase();
     const barcodeQ = barcodeQuery.trim().toLowerCase();
@@ -121,11 +130,50 @@ const Productlist = () => {
   });
 
   const totalProducts = productState?.length || 0;
-  const outOfStock = productState?.filter((p) => getEffectiveStock(p) === 0).length || 0;
-  const lowStock = productState?.filter((p) => { const s = getEffectiveStock(p); return s > 0 && s < 10; }).length || 0;
-  const purchaseValue = productState?.reduce((s, p) => s + (Number(p.purchasePrice) || 0) * getEffectiveStock(p), 0) || 0;
-  const sellingValue = productState?.reduce((s, p) => s + (Number(p.price) || 0) * getEffectiveStock(p), 0) || 0;
+  const filteredCount = filteredProducts?.length || 0;
+  const outOfStock = filteredProducts?.filter((p) => getEffectiveStock(p) === 0).length || 0;
+  const lowStock = filteredProducts?.filter((p) => { const s = getEffectiveStock(p); return s > 0 && s < 10; }).length || 0;
+  const purchaseValue = filteredProducts?.reduce((s, p) => s + (Number(p.purchasePrice) || 0) * getEffectiveStock(p), 0) || 0;
+  const sellingValue = filteredProducts?.reduce((s, p) => s + (Number(p.price) || 0) * getEffectiveStock(p), 0) || 0;
   const potentialProfit = sellingValue - purchaseValue;
+  const missingCostCount = filteredProducts?.filter((p) => !p.purchasePrice || Number(p.purchasePrice) <= 0).length || 0;
+
+  const toggleOnlineStatus = (record) => {
+    const newStatus = !record.inventory?.online;
+    dispatch(updateAProduct({ id: record._id, productData: { inventory: { ...record.inventory, online: newStatus } } }));
+    setTimeout(() => dispatch(getProducts()), 300);
+  };
+
+  const exportCSV = () => {
+    if (!filteredProducts || filteredProducts.length === 0) return;
+    const headers = [
+      "Title", "Brand", "Category", "Vendor", "SKU", "Barcode", "HSN Code", 
+      "Total Stock", "Cost Price (INR)", "Selling Price (INR)", "MRP (INR)", "Online Visible", "Last Updated"
+    ];
+    const rows = filteredProducts.map((p) => [
+      `"${(p.title || "").replace(/"/g, '""')}"`,
+      `"${(p.brand || "").replace(/"/g, '""')}"`,
+      `"${(p.category || "").replace(/"/g, '""')}"`,
+      `"${(p.vendorName || "").replace(/"/g, '""')}"`,
+      `"${(p.sku || "").replace(/"/g, '""')}"`,
+      `"${(p.barcode || "").replace(/"/g, '""')}"`,
+      `"${(p.hsnCode || "").replace(/"/g, '""')}"`,
+      getEffectiveStock(p),
+      p.purchasePrice || 0,
+      p.price || 0,
+      p.mrp || "",
+      p.inventory?.online ? "Yes" : "No",
+      p.updatedAt ? new Date(p.updatedAt).toLocaleString("en-IN") : ""
+    ]);
+    const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map(e => e.join(","))].join("\n");
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `products_inventory_${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
 
   const downloadBarcode = (barcode) => {
     const canvas = document.createElement("canvas");
@@ -273,21 +321,58 @@ const Productlist = () => {
     {
       title: "Pricing",
       key: "pricing",
-      width: 150,
+      width: 160,
       sorter: (a, b) => Number(a.price) - Number(b.price),
       render: (_, record) => {
         const sell = Number(record.price) || 0;
         const purchase = Number(record.purchasePrice) || 0;
+        const mrp = Number(record.mrp) || 0;
         const margin = purchase > 0 ? (((sell - purchase) / sell) * 100).toFixed(0) : null;
+        const discount = mrp > sell ? Math.round(((mrp - sell) / mrp) * 100) : 0;
+
         return (
           <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
-            <span style={{ fontWeight: 700, color: "#111827", fontSize: 15 }}>₹{sell.toLocaleString()}</span>
-            {purchase > 0 && (
+            <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+              <span style={{ fontWeight: 700, color: "#111827", fontSize: 15 }}>₹{sell.toLocaleString()}</span>
+              {mrp > sell && (
+                <span style={{ fontSize: 11, color: "#9ca3af", textDecoration: "line-through" }}>₹{mrp.toLocaleString()}</span>
+              )}
+            </div>
+            {discount > 0 && (
+              <span style={{ fontSize: 10, color: "#059669", background: "#ecfdf5", border: "1px solid #a7f3d0", padding: "1px 6px", borderRadius: 4, width: "fit-content", fontWeight: 700 }}>
+                {discount}% OFF
+              </span>
+            )}
+            {purchase > 0 ? (
               <span style={{ fontSize: 11, color: "#6b7280" }}>Cost: ₹{purchase.toLocaleString()}</span>
+            ) : (
+              <span style={{ fontSize: 11, color: "#d97706", fontStyle: "italic" }}>Cost: Unset</span>
             )}
             {margin !== null && (
               <span style={{ fontSize: 11, color: "#10b981", fontWeight: 600 }}>↑ {margin}% margin</span>
             )}
+          </div>
+        );
+      },
+    },
+    {
+      title: "Updated At",
+      key: "updatedAt",
+      width: 130,
+      sorter: (a, b) => new Date(a.updatedAt || a.createdAt || 0) - new Date(b.updatedAt || b.createdAt || 0),
+      render: (_, record) => {
+        const dateStr = record.updatedAt || record.createdAt;
+        if (!dateStr) return <span style={{ color: "#9ca3af", fontSize: 12 }}>—</span>;
+        const d = new Date(dateStr);
+        const dateFormatted = d.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+        const timeFormatted = d.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true });
+        return (
+          <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+              <FiClock size={12} style={{ color: "#6b7280" }} />
+              <span style={{ fontSize: 12, fontWeight: 600, color: "#374151" }}>{dateFormatted}</span>
+            </div>
+            <span style={{ fontSize: 11, color: "#9ca3af", paddingLeft: 16 }}>{timeFormatted}</span>
           </div>
         );
       },
@@ -319,9 +404,20 @@ const Productlist = () => {
     {
       title: "Actions",
       key: "action",
-      width: 90,
+      width: 120,
       render: (_, record) => (
-        <div style={{ display: "flex", gap: 8 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <Tooltip title={record.inventory?.online ? "Online (Click to hide)" : "Offline (Click to show online)"}>
+            <button onClick={() => toggleOnlineStatus(record)}
+              style={{
+                width: 34, height: 34, borderRadius: 8, border: "none", cursor: "pointer",
+                background: record.inventory?.online ? "#ecfdf5" : "#f3f4f6",
+                color: record.inventory?.online ? "#10b981" : "#9ca3af",
+                display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.2s"
+              }}>
+              {record.inventory?.online ? <FiGlobe size={16} /> : <FiEyeOff size={16} />}
+            </button>
+          </Tooltip>
           <Tooltip title="Edit">
             <Link to={`/admin/product/${record._id}`}
               style={{ width: 34, height: 34, borderRadius: 8, background: "#eff6ff", color: "#3b82f6", display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.2s" }}>
@@ -357,6 +453,8 @@ const Productlist = () => {
     purchasePrice: p.purchasePrice || 0,
     vendorName: p.vendorName || "",
     inventory: p.inventory,
+    updatedAt: p.updatedAt,
+    createdAt: p.createdAt,
   }));
 
   const stats = [
@@ -366,14 +464,15 @@ const Productlist = () => {
       icon: <FiPackage size={22} />,
       iconBg: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
       valueSuffix: "",
-      sub: `${filteredProducts?.length || 0} shown`,
+      sub: `${filteredCount} shown (Latest first)`,
     },
     {
       label: "Purchase Value",
       value: `₹${purchaseValue.toLocaleString()}`,
       icon: <MdShoppingBag size={22} />,
       iconBg: "linear-gradient(135deg, #f093fb 0%, #f5576c 100%)",
-      sub: `Cost × total stock`,
+      sub: missingCostCount > 0 ? `⚠️ ${missingCostCount} products missing cost` : "Cost × stock (filtered)",
+      subColor: missingCostCount > 0 ? "#d97706" : "#9ca3af",
     },
     {
       label: "Selling Value",
@@ -405,7 +504,7 @@ const Productlist = () => {
             </div>
             <div>
               <h2 style={{ color: "#fff", fontWeight: 700, fontSize: 22, margin: 0 }}>Product Inventory</h2>
-              <p style={{ color: "rgba(255,255,255,0.7)", fontSize: 13, margin: 0 }}>Manage your products, pricing & stock</p>
+              <p style={{ color: "rgba(255,255,255,0.7)", fontSize: 13, margin: 0 }}>Manage products, stock, prices & last updated</p>
             </div>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
@@ -415,8 +514,11 @@ const Productlist = () => {
               value={searchText}
               onChange={(e) => setSearchText(e.target.value)}
               allowClear
-              style={{ width: 280, background: "rgba(255,255,255,0.15)", border: "1px solid rgba(255,255,255,0.3)", borderRadius: 10, color: "#fff" }}
+              style={{ width: 260, background: "rgba(255,255,255,0.15)", border: "1px solid rgba(255,255,255,0.3)", borderRadius: 10, color: "#fff" }}
             />
+            <button onClick={exportCSV} style={{ background: "rgba(255,255,255,0.2)", color: "#fff", border: "1px solid rgba(255,255,255,0.4)", borderRadius: 10, padding: "9px 16px", fontWeight: 600, fontSize: 13, cursor: "pointer", display: "flex", alignItems: "center", gap: 6, whiteSpace: "nowrap" }}>
+              <FiDownload size={15} /> Export CSV
+            </button>
             <Link to="/admin/product">
               <button style={{ background: "#fff", color: "#667eea", border: "none", borderRadius: 10, padding: "9px 20px", fontWeight: 700, fontSize: 14, cursor: "pointer", boxShadow: "0 2px 8px rgba(0,0,0,0.1)", whiteSpace: "nowrap" }}>
                 + Add Product

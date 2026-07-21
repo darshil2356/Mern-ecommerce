@@ -8,7 +8,7 @@ import {
 } from "react-icons/bs";
 import { FaCrown, FaMedal } from "react-icons/fa";
 import { Column, Pie, Bar } from "@ant-design/plots";
-import { Table, Card, Tag, DatePicker, Select, Row, Col, Avatar, Spin, Button, Empty, Tooltip, Badge, Progress, Statistic } from "antd";
+import { Table, Card, Tag, DatePicker, Select, Row, Col, Avatar, Spin, Button, Empty, Tooltip, Badge, Progress, Statistic, message } from "antd";
 import AdminDataTable from "../components/AdminDataTable";
 import { useDispatch, useSelector } from "react-redux";
 import { getMonthlyData, getOrders, getYearlyData, getDailySalesData, getDashboardStatsData } from "../features/auth/authSlice";
@@ -119,7 +119,15 @@ const Dashboard = () => {
     titleTimerRef.current = setTimeout(() => { titleClickRef.current = 0; }, 600);
     if (titleClickRef.current >= 3) {
       titleClickRef.current = 0;
-      setShowAll(prev => !prev);
+      setShowAll(prev => {
+        const next = !prev;
+        if (next) {
+          message.success("🔓 Triple Click: Non-GST & Cash Data Unlocked");
+        } else {
+          message.info("🔒 GST / Online Mode Active");
+        }
+        return next;
+      });
       setShowProfit(prev => !prev);
     }
   };
@@ -150,9 +158,10 @@ const Dashboard = () => {
   };
 
   useEffect(() => {
-    dispatch(getMonthlyData(config3));
-    dispatch(getYearlyData(config3));
-  }, []);
+    const pf = showAll ? "all" : "online_current";
+    dispatch(getMonthlyData(pf));
+    dispatch(getYearlyData(pf));
+  }, [showAll]);
 
   useEffect(() => {
     setIsLoading(true);

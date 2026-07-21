@@ -180,12 +180,21 @@ export default function Vendors() {
             All vendors — GST & Non-GST bills tracked per bill
           </p>
         </div>
-        <button onClick={openAdd} style={{
-          background: "#6366f1", color: "#fff", border: "none", borderRadius: 8,
-          padding: "10px 20px", fontWeight: 600, cursor: "pointer", fontSize: 14,
-        }}>
-          + Add Vepari
-        </button>
+        <div style={{ display: "flex", gap: 10 }}>
+          <button onClick={() => navigate("/admin/vendor-dashboard")} style={{
+            background: "#1e293b", color: "#fff", border: "none", borderRadius: 8,
+            padding: "10px 18px", fontWeight: 600, cursor: "pointer", fontSize: 14,
+            display: "flex", alignItems: "center", gap: 6,
+          }}>
+            📊 Vendor Dashboard
+          </button>
+          <button onClick={openAdd} style={{
+            background: "#6366f1", color: "#fff", border: "none", borderRadius: 8,
+            padding: "10px 20px", fontWeight: 600, cursor: "pointer", fontSize: 14,
+          }}>
+            + Add Vepari
+          </button>
+        </div>
       </div>
 
       {/* Summary Cards */}

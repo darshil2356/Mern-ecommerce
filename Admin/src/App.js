@@ -46,6 +46,7 @@ import Offerlist from "./pages/Offerlist";
 import ProductInquiries from "./pages/ProductInquiries";
 import Udhar from "./pages/Udhar";
 import Vendors from "./pages/Vendors";
+import VendorDashboard from "./pages/VendorDashboard";
 import AddPurchase from "./pages/AddPurchase";
 import PurchaseList from "./pages/PurchaseList";
 import WholesaleRojmal from "./pages/WholesaleRojmal";
@@ -117,6 +118,7 @@ function App() {
           <Route path="product-inquiries" element={<ProductInquiries />} />
           <Route path="udhar" element={<Udhar />} />
           <Route path="vendors" element={<Vendors />} />
+          <Route path="vendor-dashboard" element={<VendorDashboard />} />
           <Route path="add-purchase" element={<AddPurchase />} />
           <Route path="purchase-list" element={<PurchaseList />} />
           <Route path="wholesale-rojmal" element={<WholesaleRojmal />} />
@@ -126,5 +128,6 @@ function App() {
     </Router>
   );
 }
+
 
 export default App;

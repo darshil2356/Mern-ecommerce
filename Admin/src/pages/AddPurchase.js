@@ -66,6 +66,13 @@ export default function AddPurchase() {
   const [items, setItems] = useState([{ ...EMPTY_ITEM }]);
   const [note, setNote] = useState("");
 
+  // Entry Mode: ITEMIZED or DIRECT
+  const [entryMode, setEntryMode] = useState("ITEMIZED");
+  const [directAmount, setDirectAmount] = useState("");
+  const [directDescription, setDirectDescription] = useState("Direct Purchase Bill");
+  const [directGstPercent, setDirectGstPercent] = useState("0");
+  const [directHsnCode, setDirectHsnCode] = useState("");
+
   // Payment section
   const [payMode, setPayMode] = useState("CREDIT"); // CREDIT = pay later
   const [initialPaidAmount, setInitialPaidAmount] = useState("");
@@ -111,10 +118,39 @@ export default function AddPurchase() {
       sgstPercent: it.sgstPercent ?? 0,
       igstPercent: it.igstPercent ?? 0,
     })) : [{ ...EMPTY_ITEM }]);
+
+    if (currentPurchase.items?.length === 1) {
+      const firstItem = currentPurchase.items[0];
+      if (firstItem.description?.toLowerCase().includes("direct") || firstItem.description?.toLowerCase().includes("bulk")) {
+        setEntryMode("DIRECT");
+        setDirectAmount(firstItem.rate ?? "");
+        setDirectDescription(firstItem.description || "Direct Purchase Bill");
+        setDirectHsnCode(firstItem.hsnCode || "");
+        const totalGst = (firstItem.cgstPercent || 0) + (firstItem.sgstPercent || 0) + (firstItem.igstPercent || 0);
+        setDirectGstPercent(String(totalGst));
+      }
+    }
   }, [editId, currentPurchase]);
 
   // Computed values
-  const calcItems = items.map(it => calcItem(it, gstType, taxIncluded));
+  const directGst = parseFloat(directGstPercent) || 0;
+  const directRate = parseFloat(directAmount) || 0;
+  const effectiveItems = entryMode === "DIRECT"
+    ? [{
+        description: directDescription.trim() || "Direct Purchase Bill",
+        hsnCode: directHsnCode.trim().toUpperCase(),
+        qty: 1,
+        unit: "Pcs",
+        rate: directRate,
+        discountPercent: 0,
+        discountAmount: 0,
+        cgstPercent: gstType === "CGST_SGST" ? directGst / 2 : 0,
+        sgstPercent: gstType === "CGST_SGST" ? directGst / 2 : 0,
+        igstPercent: gstType === "IGST" ? directGst : 0,
+      }]
+    : items;
+
+  const calcItems = effectiveItems.map(it => calcItem(it, gstType, taxIncluded));
   const subtotal = calcItems.reduce((a, i) => a + (parseFloat(i.qty) || 0) * (parseFloat(i.rate) || 0), 0);
   const totalDiscount = calcItems.reduce((a, i) => a + i.discountAmount, 0);
   const taxableAmount = calcItems.reduce((a, i) => a + i.taxableAmount, 0);
@@ -165,8 +201,12 @@ export default function AddPurchase() {
 
   const handleSave = async (andPrint = false) => {
     if (!vendor) return toast.error("Please select a vendor");
-    if (items.some(i => !i.description.trim())) return toast.error("All items must have a description");
-    if (items.some(i => !i.rate || parseFloat(i.rate) <= 0)) return toast.error("All items must have a rate");
+    if (entryMode === "ITEMIZED") {
+      if (items.some(i => !i.description.trim())) return toast.error("All items must have a description");
+      if (items.some(i => !i.rate || parseFloat(i.rate) <= 0)) return toast.error("All items must have a rate");
+    } else {
+      if (!directAmount || parseFloat(directAmount) <= 0) return toast.error("Please enter a valid bill amount");
+    }
     if (totalAmount <= 0) return toast.error("Total amount must be greater than 0");
 
     setSaving(true);
@@ -347,152 +387,263 @@ export default function AddPurchase() {
 
           {/* Section 3: Items */}
           <div style={{ background: "#fff", borderRadius: 12, padding: 20, boxShadow: "0 1px 4px rgba(0,0,0,0.08)" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-              <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: "#111" }}>📦 Items</h3>
-              <button onClick={addItem} style={{
-                background: "#6366f1", color: "#fff", border: "none", borderRadius: 8,
-                padding: "6px 16px", fontWeight: 600, cursor: "pointer", fontSize: 13,
-              }}>
-                + Add Item
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, flexWrap: "wrap", gap: 10 }}>
+              <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: "#111" }}>📦 Items Entry</h3>
+              {entryMode === "ITEMIZED" && (
+                <button onClick={addItem} style={{
+                  background: "#6366f1", color: "#fff", border: "none", borderRadius: 8,
+                  padding: "6px 16px", fontWeight: 600, cursor: "pointer", fontSize: 13,
+                }}>
+                  + Add Item
+                </button>
+              )}
+            </div>
+
+            {/* Entry Mode Switcher */}
+            <div style={{ display: "flex", gap: 8, marginBottom: 20, background: "#f3f4f6", padding: 4, borderRadius: 10 }}>
+              <button
+                type="button"
+                onClick={() => setEntryMode("ITEMIZED")}
+                style={{
+                  flex: 1, padding: "10px 14px", borderRadius: 8, border: "none", cursor: "pointer",
+                  fontWeight: 700, fontSize: 13, display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+                  background: entryMode === "ITEMIZED" ? "#fff" : "transparent",
+                  color: entryMode === "ITEMIZED" ? "#6366f1" : "#6b7280",
+                  boxShadow: entryMode === "ITEMIZED" ? "0 1px 3px rgba(0,0,0,0.1)" : "none",
+                  transition: "all 0.15s",
+                }}
+              >
+                <span>📝</span> Itemized Breakdown (Enter All Items)
+              </button>
+              <button
+                type="button"
+                onClick={() => setEntryMode("DIRECT")}
+                style={{
+                  flex: 1, padding: "10px 14px", borderRadius: 8, border: "none", cursor: "pointer",
+                  fontWeight: 700, fontSize: 13, display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+                  background: entryMode === "DIRECT" ? "#fff" : "transparent",
+                  color: entryMode === "DIRECT" ? "#6366f1" : "#6b7280",
+                  boxShadow: entryMode === "DIRECT" ? "0 1px 3px rgba(0,0,0,0.1)" : "none",
+                  transition: "all 0.15s",
+                }}
+              >
+                <span>⚡</span> Direct Bill Amount (Single Total Entry)
               </button>
             </div>
 
-            {/* Items Table */}
-            <div style={{ overflowX: "auto" }}>
-              <table style={{ width: "100%", borderCollapse: "collapse", minWidth: gstType !== "NONE" ? 800 : 600 }}>
-                <thead>
-                  <tr style={{ background: "#f9fafb" }}>
-                    <th style={{ padding: "8px 10px", textAlign: "left", fontSize: 12, color: "#6b7280", fontWeight: 600, whiteSpace: "nowrap" }}>Description</th>
-                    {gstType !== "NONE" && <th style={{ padding: "8px 8px", textAlign: "center", fontSize: 12, color: "#6b7280", fontWeight: 600 }}>HSN</th>}
-                    <th style={{ padding: "8px 8px", textAlign: "center", fontSize: 12, color: "#6b7280", fontWeight: 600, width: 70 }}>Qty</th>
-                    <th style={{ padding: "8px 8px", textAlign: "center", fontSize: 12, color: "#6b7280", fontWeight: 600, width: 80 }}>Unit</th>
-                    <th style={{ padding: "8px 8px", textAlign: "center", fontSize: 12, color: "#6b7280", fontWeight: 600, width: 90 }}>Rate (₹)</th>
-                    <th style={{ padding: "8px 8px", textAlign: "center", fontSize: 12, color: "#6b7280", fontWeight: 600, width: 70 }}>Disc%</th>
-                    {gstType === "CGST_SGST" && <>
-                      <th style={{ padding: "8px 8px", textAlign: "center", fontSize: 12, color: "#6b7280", fontWeight: 600, width: 70 }}>CGST%</th>
-                      <th style={{ padding: "8px 8px", textAlign: "center", fontSize: 12, color: "#6b7280", fontWeight: 600, width: 70 }}>SGST%</th>
-                    </>}
-                    {gstType === "IGST" && <th style={{ padding: "8px 8px", textAlign: "center", fontSize: 12, color: "#6b7280", fontWeight: 600, width: 70 }}>IGST%</th>}
-                    <th style={{ padding: "8px 8px", textAlign: "right", fontSize: 12, color: "#6b7280", fontWeight: 600, width: 90 }}>Amount</th>
-                    <th style={{ width: 36 }}></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {items.map((item, idx) => {
-                    const calc = calcItem(item, gstType, taxIncluded);
-                    return (
-                      <tr key={idx} style={{ borderBottom: "1px solid #f3f4f6" }}>
-                        <td style={{ padding: "8px 10px" }}>
-                          <input
-                            value={item.description}
-                            onChange={e => updateItem(idx, "description", e.target.value)}
-                            placeholder="Item description..."
-                            style={{ width: "100%", padding: "6px 8px", borderRadius: 6, border: "1px solid #e5e7eb", fontSize: 13, minWidth: 150, boxSizing: "border-box" }}
-                          />
-                        </td>
-                        {gstType !== "NONE" && (
-                          <td style={{ padding: "8px 8px" }}>
-                            <input
-                              value={item.hsnCode}
-                              onChange={e => updateItem(idx, "hsnCode", e.target.value.toUpperCase())}
-                              placeholder="HSN"
-                              style={{ width: 70, padding: "6px 8px", borderRadius: 6, border: "1px solid #e5e7eb", fontSize: 12, textAlign: "center", boxSizing: "border-box" }}
-                            />
-                          </td>
-                        )}
-                        <td style={{ padding: "8px 8px" }}>
-                          <input
-                            type="number"
-                            value={item.qty}
-                            min="0"
-                            onChange={e => updateItem(idx, "qty", e.target.value)}
-                            style={{ width: "100%", padding: "6px 8px", borderRadius: 6, border: "1px solid #e5e7eb", fontSize: 13, textAlign: "center", boxSizing: "border-box" }}
-                          />
-                        </td>
-                        <td style={{ padding: "8px 8px" }}>
-                          <select
-                            value={item.unit}
-                            onChange={e => updateItem(idx, "unit", e.target.value)}
-                            style={{ width: "100%", padding: "6px 4px", borderRadius: 6, border: "1px solid #e5e7eb", fontSize: 12, boxSizing: "border-box" }}
-                          >
-                            {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
-                          </select>
-                        </td>
-                        <td style={{ padding: "8px 8px" }}>
-                          <input
-                            type="number"
-                            value={item.rate}
-                            min="0"
-                            onChange={e => updateItem(idx, "rate", e.target.value)}
-                            placeholder="0.00"
-                            style={{ width: "100%", padding: "6px 8px", borderRadius: 6, border: "1px solid #e5e7eb", fontSize: 13, textAlign: "right", boxSizing: "border-box" }}
-                          />
-                        </td>
-                        <td style={{ padding: "8px 8px" }}>
-                          <input
-                            type="number"
-                            value={item.discountPercent}
-                            min="0"
-                            max="100"
-                            onChange={e => updateItem(idx, "discountPercent", e.target.value)}
-                            style={{ width: "100%", padding: "6px 8px", borderRadius: 6, border: "1px solid #e5e7eb", fontSize: 13, textAlign: "center", boxSizing: "border-box" }}
-                          />
-                        </td>
-                        {gstType === "CGST_SGST" && <>
-                          <td style={{ padding: "8px 8px" }}>
-                            <input
-                              type="number"
-                              value={item.cgstPercent}
-                              min="0"
-                              onChange={e => updateItem(idx, "cgstPercent", e.target.value)}
-                              style={{ width: "100%", padding: "6px 8px", borderRadius: 6, border: "1px solid #e5e7eb", fontSize: 13, textAlign: "center", boxSizing: "border-box" }}
-                            />
-                          </td>
-                          <td style={{ padding: "8px 8px" }}>
-                            <input
-                              type="number"
-                              value={item.sgstPercent}
-                              min="0"
-                              onChange={e => updateItem(idx, "sgstPercent", e.target.value)}
-                              style={{ width: "100%", padding: "6px 8px", borderRadius: 6, border: "1px solid #e5e7eb", fontSize: 13, textAlign: "center", boxSizing: "border-box" }}
-                            />
-                          </td>
-                        </>}
-                        {gstType === "IGST" && (
-                          <td style={{ padding: "8px 8px" }}>
-                            <input
-                              type="number"
-                              value={item.igstPercent}
-                              min="0"
-                              onChange={e => updateItem(idx, "igstPercent", e.target.value)}
-                              style={{ width: "100%", padding: "6px 8px", borderRadius: 6, border: "1px solid #e5e7eb", fontSize: 13, textAlign: "center", boxSizing: "border-box" }}
-                            />
-                          </td>
-                        )}
-                        <td style={{ padding: "8px 8px", textAlign: "right", fontWeight: 600, fontSize: 13, color: "#111", whiteSpace: "nowrap" }}>
-                          ₹{calc.total.toFixed(2)}
-                        </td>
-                        <td style={{ padding: "8px 4px" }}>
-                          <button onClick={() => removeItem(idx)} style={{
-                            background: "#fef2f2", color: "#dc2626", border: "1px solid #fecaca",
-                            borderRadius: 6, width: 28, height: 28, cursor: "pointer", fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center",
-                          }}>
-                            ✕
-                          </button>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+            {entryMode === "DIRECT" ? (
+              /* Direct Bill Amount Mode UI */
+              <div style={{ background: "#f8f9ff", borderRadius: 12, padding: 20, border: "1px solid #e0e7ff" }}>
+                <div style={{ display: "grid", gridTemplateColumns: gstType !== "NONE" ? "1.5fr 1.5fr 1fr 1fr" : "2fr 2fr", gap: 14, alignItems: "end" }}>
+                  <div>
+                    <label style={{ display: "block", fontSize: 13, fontWeight: 600, marginBottom: 6, color: "#374151" }}>
+                      Direct Bill Amount (₹) *
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={directAmount}
+                      onChange={e => setDirectAmount(e.target.value)}
+                      placeholder="e.g. 50000"
+                      style={{ width: "100%", padding: "10px 14px", borderRadius: 8, border: "2px solid #6366f1", fontSize: 16, fontWeight: 700, color: "#111", boxSizing: "border-box", background: "#fff" }}
+                    />
+                  </div>
 
-            <button onClick={addItem} style={{
-              marginTop: 12, padding: "8px 16px", background: "#f3f4f6", border: "1px dashed #d1d5db",
-              borderRadius: 8, cursor: "pointer", fontSize: 13, color: "#6b7280", width: "100%",
-            }}>
-              + Add Another Item
-            </button>
+                  <div>
+                    <label style={{ display: "block", fontSize: 13, fontWeight: 600, marginBottom: 6, color: "#374151" }}>
+                      Bill Description / Note
+                    </label>
+                    <input
+                      type="text"
+                      value={directDescription}
+                      onChange={e => setDirectDescription(e.target.value)}
+                      placeholder="e.g. 100 Misc Purchase Items"
+                      style={{ width: "100%", padding: "10px 14px", borderRadius: 8, border: "1px solid #d1d5db", fontSize: 14, boxSizing: "border-box", background: "#fff" }}
+                    />
+                  </div>
+
+                  {gstType !== "NONE" && (
+                    <>
+                      <div>
+                        <label style={{ display: "block", fontSize: 13, fontWeight: 600, marginBottom: 6, color: "#374151" }}>
+                          HSN Code
+                        </label>
+                        <input
+                          type="text"
+                          value={directHsnCode}
+                          onChange={e => setDirectHsnCode(e.target.value.toUpperCase())}
+                          placeholder="e.g. 5208"
+                          style={{ width: "100%", padding: "10px 14px", borderRadius: 8, border: "1px solid #d1d5db", fontSize: 14, textAlign: "center", boxSizing: "border-box", background: "#fff" }}
+                        />
+                      </div>
+
+                      <div>
+                        <label style={{ display: "block", fontSize: 13, fontWeight: 600, marginBottom: 6, color: "#374151" }}>
+                          GST Rate (%)
+                        </label>
+                        <select
+                          value={directGstPercent}
+                          onChange={e => setDirectGstPercent(e.target.value)}
+                          style={{ width: "100%", padding: "10px 14px", borderRadius: 8, border: "1px solid #d1d5db", fontSize: 14, boxSizing: "border-box", background: "#fff" }}
+                        >
+                          <option value="0">0% (Nil / Exempt)</option>
+                          <option value="5">5% GST</option>
+                          <option value="12">12% GST</option>
+                          <option value="18">18% GST</option>
+                          <option value="28">28% GST</option>
+                        </select>
+                      </div>
+                    </>
+                  )}
+                </div>
+
+                <div style={{ marginTop: 14, background: "#eef2ff", borderRadius: 8, padding: "10px 14px", fontSize: 12, color: "#4338ca", display: "flex", alignItems: "center", gap: 8 }}>
+                  <span>⚡</span>
+                  <span>
+                    <strong>Fast Entry Active:</strong> Saves total bill amount directly without needing to list individual items.
+                  </span>
+                </div>
+              </div>
+            ) : (
+              /* Itemized Breakdown Table */
+              <>
+                <div style={{ overflowX: "auto" }}>
+                  <table style={{ width: "100%", borderCollapse: "collapse", minWidth: gstType !== "NONE" ? 800 : 600 }}>
+                    <thead>
+                      <tr style={{ background: "#f9fafb" }}>
+                        <th style={{ padding: "8px 10px", textAlign: "left", fontSize: 12, color: "#6b7280", fontWeight: 600, whiteSpace: "nowrap" }}>Description</th>
+                        {gstType !== "NONE" && <th style={{ padding: "8px 8px", textAlign: "center", fontSize: 12, color: "#6b7280", fontWeight: 600 }}>HSN</th>}
+                        <th style={{ padding: "8px 8px", textAlign: "center", fontSize: 12, color: "#6b7280", fontWeight: 600, width: 70 }}>Qty</th>
+                        <th style={{ padding: "8px 8px", textAlign: "center", fontSize: 12, color: "#6b7280", fontWeight: 600, width: 80 }}>Unit</th>
+                        <th style={{ padding: "8px 8px", textAlign: "center", fontSize: 12, color: "#6b7280", fontWeight: 600, width: 90 }}>Rate (₹)</th>
+                        <th style={{ padding: "8px 8px", textAlign: "center", fontSize: 12, color: "#6b7280", fontWeight: 600, width: 70 }}>Disc%</th>
+                        {gstType === "CGST_SGST" && <>
+                          <th style={{ padding: "8px 8px", textAlign: "center", fontSize: 12, color: "#6b7280", fontWeight: 600, width: 70 }}>CGST%</th>
+                          <th style={{ padding: "8px 8px", textAlign: "center", fontSize: 12, color: "#6b7280", fontWeight: 600, width: 70 }}>SGST%</th>
+                        </>}
+                        {gstType === "IGST" && <th style={{ padding: "8px 8px", textAlign: "center", fontSize: 12, color: "#6b7280", fontWeight: 600, width: 70 }}>IGST%</th>}
+                        <th style={{ padding: "8px 8px", textAlign: "right", fontSize: 12, color: "#6b7280", fontWeight: 600, width: 90 }}>Amount</th>
+                        <th style={{ width: 36 }}></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {items.map((item, idx) => {
+                        const calc = calcItem(item, gstType, taxIncluded);
+                        return (
+                          <tr key={idx} style={{ borderBottom: "1px solid #f3f4f6" }}>
+                            <td style={{ padding: "8px 10px" }}>
+                              <input
+                                value={item.description}
+                                onChange={e => updateItem(idx, "description", e.target.value)}
+                                placeholder="Item description..."
+                                style={{ width: "100%", padding: "6px 8px", borderRadius: 6, border: "1px solid #e5e7eb", fontSize: 13, minWidth: 150, boxSizing: "border-box" }}
+                              />
+                            </td>
+                            {gstType !== "NONE" && (
+                              <td style={{ padding: "8px 8px" }}>
+                                <input
+                                  value={item.hsnCode}
+                                  onChange={e => updateItem(idx, "hsnCode", e.target.value.toUpperCase())}
+                                  placeholder="HSN"
+                                  style={{ width: 70, padding: "6px 8px", borderRadius: 6, border: "1px solid #e5e7eb", fontSize: 12, textAlign: "center", boxSizing: "border-box" }}
+                                />
+                              </td>
+                            )}
+                            <td style={{ padding: "8px 8px" }}>
+                              <input
+                                type="number"
+                                value={item.qty}
+                                min="0"
+                                onChange={e => updateItem(idx, "qty", e.target.value)}
+                                style={{ width: "100%", padding: "6px 8px", borderRadius: 6, border: "1px solid #e5e7eb", fontSize: 13, textAlign: "center", boxSizing: "border-box" }}
+                              />
+                            </td>
+                            <td style={{ padding: "8px 8px" }}>
+                              <select
+                                value={item.unit}
+                                onChange={e => updateItem(idx, "unit", e.target.value)}
+                                style={{ width: "100%", padding: "6px 4px", borderRadius: 6, border: "1px solid #e5e7eb", fontSize: 12, boxSizing: "border-box" }}
+                              >
+                                {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
+                              </select>
+                            </td>
+                            <td style={{ padding: "8px 8px" }}>
+                              <input
+                                type="number"
+                                value={item.rate}
+                                min="0"
+                                onChange={e => updateItem(idx, "rate", e.target.value)}
+                                placeholder="0.00"
+                                style={{ width: "100%", padding: "6px 8px", borderRadius: 6, border: "1px solid #e5e7eb", fontSize: 13, textAlign: "right", boxSizing: "border-box" }}
+                              />
+                            </td>
+                            <td style={{ padding: "8px 8px" }}>
+                              <input
+                                type="number"
+                                value={item.discountPercent}
+                                min="0"
+                                max="100"
+                                onChange={e => updateItem(idx, "discountPercent", e.target.value)}
+                                style={{ width: "100%", padding: "6px 8px", borderRadius: 6, border: "1px solid #e5e7eb", fontSize: 13, textAlign: "center", boxSizing: "border-box" }}
+                              />
+                            </td>
+                            {gstType === "CGST_SGST" && <>
+                              <td style={{ padding: "8px 8px" }}>
+                                <input
+                                  type="number"
+                                  value={item.cgstPercent}
+                                  min="0"
+                                  onChange={e => updateItem(idx, "cgstPercent", e.target.value)}
+                                  style={{ width: "100%", padding: "6px 8px", borderRadius: 6, border: "1px solid #e5e7eb", fontSize: 13, textAlign: "center", boxSizing: "border-box" }}
+                                />
+                              </td>
+                              <td style={{ padding: "8px 8px" }}>
+                                <input
+                                  type="number"
+                                  value={item.sgstPercent}
+                                  min="0"
+                                  onChange={e => updateItem(idx, "sgstPercent", e.target.value)}
+                                  style={{ width: "100%", padding: "6px 8px", borderRadius: 6, border: "1px solid #e5e7eb", fontSize: 13, textAlign: "center", boxSizing: "border-box" }}
+                                />
+                              </td>
+                            </>}
+                            {gstType === "IGST" && (
+                              <td style={{ padding: "8px 8px" }}>
+                                <input
+                                  type="number"
+                                  value={item.igstPercent}
+                                  min="0"
+                                  onChange={e => updateItem(idx, "igstPercent", e.target.value)}
+                                  style={{ width: "100%", padding: "6px 8px", borderRadius: 6, border: "1px solid #e5e7eb", fontSize: 13, textAlign: "center", boxSizing: "border-box" }}
+                                />
+                              </td>
+                            )}
+                            <td style={{ padding: "8px 8px", textAlign: "right", fontWeight: 600, fontSize: 13, color: "#111", whiteSpace: "nowrap" }}>
+                              ₹{calc.total.toFixed(2)}
+                            </td>
+                            <td style={{ padding: "8px 4px" }}>
+                              <button onClick={() => removeItem(idx)} style={{
+                                background: "#fef2f2", color: "#dc2626", border: "1px solid #fecaca",
+                                borderRadius: 6, width: 28, height: 28, cursor: "pointer", fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center",
+                              }}>
+                                ✕
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+
+                <button onClick={addItem} style={{
+                  marginTop: 12, padding: "8px 16px", background: "#f3f4f6", border: "1px dashed #d1d5db",
+                  borderRadius: 8, cursor: "pointer", fontSize: 13, color: "#6b7280", width: "100%",
+                }}>
+                  + Add Another Item
+                </button>
+              </>
+            )}
           </div>
 
           {/* Note */}

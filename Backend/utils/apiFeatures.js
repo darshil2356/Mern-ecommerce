@@ -12,7 +12,7 @@ const applySorting = (query, sortValue) => {
   if (sortValue) {
     return query.sort(sortValue.split(",").join(" "));
   }
-  return query.sort("-createdAt");
+  return query.sort("-updatedAt -createdAt");
 };
 
 const applyPagination = (query, page = 1, limit = 20) => {

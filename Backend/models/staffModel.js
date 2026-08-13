@@ -42,6 +42,7 @@ const staffSchema = new mongoose.Schema(
 
     designation: { type: String, required: true, trim: true }, // Sales Staff, Manager, Accountant, Tailor, Billing, etc.
     joiningDate: { type: Date, default: Date.now },
+    terminationDate: { type: Date },
     status: {
       type: String,
       enum: ["ACTIVE", "ON_LEAVE", "RESIGNED", "TERMINATED"],

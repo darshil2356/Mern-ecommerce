@@ -2632,6 +2632,33 @@ const getDashboardStats = asyncHandler(async (req, res) => {
     ]);
   }
   
+  // Get customer repeat ratio
+  const repeatCustomerStats = await Order.aggregate([
+    { $match: { ...matchCondition, orderStatus: { $ne: "Cancelled" }, user: { $ne: null } } },
+    {
+      $group: {
+        _id: "$user",
+        orderCount: { $sum: 1 }
+      }
+    },
+    {
+      $group: {
+        _id: null,
+        totalCustomers: { $sum: 1 },
+        repeatCustomers: {
+          $sum: {
+            $cond: [ { $gt: ["$orderCount", 1] }, 1, 0 ]
+          }
+        }
+      }
+    }
+  ]);
+
+  const repeatRatioStats = repeatCustomerStats[0] || { totalCustomers: 0, repeatCustomers: 0 };
+  const customerRepeatRatio = repeatRatioStats.totalCustomers > 0 
+    ? ((repeatRatioStats.repeatCustomers / repeatRatioStats.totalCustomers) * 100).toFixed(1)
+    : "0.0";
+
   res.json({
     stats: stats[0] || { totalRevenue: 0, totalOrders: 0, totalDiscount: 0, totalSubtotal: 0 },
     ordersByStatus,
@@ -2639,6 +2666,9 @@ const getDashboardStats = asyncHandler(async (req, res) => {
     topProducts,
     topCustomers,
     hourlyData,
+    customerRepeatRatio: Number(customerRepeatRatio),
+    repeatCustomers: repeatRatioStats.repeatCustomers,
+    totalCustomers: repeatRatioStats.totalCustomers,
     dateRange: { start, end }
   });
 });

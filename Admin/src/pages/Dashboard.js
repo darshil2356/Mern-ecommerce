@@ -285,6 +285,10 @@ const Dashboard = () => {
     totalSubtotal: stats.totalSales > 0 ? stats.totalIncome + stats.totalDiscount : 0,
   };
 
+  const customerRepeatRatio = dashboardStats?.customerRepeatRatio || 0;
+  const repeatCustomers = dashboardStats?.repeatCustomers || 0;
+  const totalCustomers = dashboardStats?.totalCustomers || 0;
+
   const [dataMonthly, setDataMonthly] = useState([]);
   const [dataMonthlySales, setDataMonthlySales] = useState([]);
   const [dailyChartData, setDailyChartData] = useState([]);
@@ -544,60 +548,71 @@ const Dashboard = () => {
       </div>
 
       {/* ── Stat Cards ─────────────────────────────────────── */}
-      <Row gutter={[20,20]} style={{ marginBottom:20 }}>
-        <Col xs={24} sm={12} lg={6}>
-          <StatCard
-            title="Total Revenue"
-            value={`₹${(displayStats.totalRevenue || 0).toLocaleString()}`}
-            subtitle={`From ${displayStats.totalOrders || 0} orders`}
-            icon={<BsCurrencyRupee />}
-            gradient="linear-gradient(135deg,#6366f1 0%,#4f46e5 100%)"
-            shadowColor="rgba(99,102,241,0.35)"
-            trend={<><BsArrowUpRight /> {selectedFilter}</>}
-            trendLabel="period"
-            delay="0.05s"
-          />
-        </Col>
-        <Col xs={24} sm={12} lg={6}>
-          <StatCard
-            title="Total Orders"
-            value={displayStats.totalOrders || 0}
-            subtitle={`Avg ₹${Math.round(avgOrderValue).toLocaleString()} / order`}
-            icon={<BsCart4 />}
-            gradient="linear-gradient(135deg,#10b981 0%,#059669 100%)"
-            shadowColor="rgba(16,185,129,0.35)"
-            trend={<><BsActivity /> {deliveryRate}%</>}
-            trendLabel="delivery rate"
-            delay="0.1s"
-          />
-        </Col>
-        <Col xs={24} sm={12} lg={6}>
-          <StatCard
-            title="Total Discount"
-            value={`₹${(displayStats.totalDiscount || 0).toLocaleString()}`}
-            subtitle="Savings offered to customers"
-            icon={<BsPercent />}
-            gradient="linear-gradient(135deg,#f59e0b 0%,#d97706 100%)"
-            shadowColor="rgba(245,158,11,0.35)"
-            trend={<>{discountPct}%</>}
-            trendLabel="of gross sales"
-            delay="0.15s"
-          />
-        </Col>
-        <Col xs={24} sm={12} lg={6}>
-          <StatCard
-            title="Delivered Orders"
-            value={deliveredCount}
-            subtitle={`${deliveryRate}% delivery rate`}
-            icon={<BsTruck />}
-            gradient="linear-gradient(135deg,#8b5cf6 0%,#7c3aed 100%)"
-            shadowColor="rgba(139,92,246,0.35)"
-            trend={<><BsCheckCircle /> Success</>}
-            trendLabel="fulfilment"
-            delay="0.2s"
-          />
-        </Col>
-      </Row>
+      <div
+        className="dash-cards-grid"
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+          gap: "20px",
+          marginBottom: "20px"
+        }}
+      >
+        <StatCard
+          title="Total Revenue"
+          value={`₹${(displayStats.totalRevenue || 0).toLocaleString()}`}
+          subtitle={`From ${displayStats.totalOrders || 0} orders`}
+          icon={<BsCurrencyRupee />}
+          gradient="linear-gradient(135deg,#6366f1 0%,#4f46e5 100%)"
+          shadowColor="rgba(99,102,241,0.35)"
+          trend={<><BsArrowUpRight /> {selectedFilter}</>}
+          trendLabel="period"
+          delay="0.05s"
+        />
+        <StatCard
+          title="Total Orders"
+          value={displayStats.totalOrders || 0}
+          subtitle={`Avg ₹${Math.round(avgOrderValue).toLocaleString()} / order`}
+          icon={<BsCart4 />}
+          gradient="linear-gradient(135deg,#10b981 0%,#059669 100%)"
+          shadowColor="rgba(16,185,129,0.35)"
+          trend={<><BsActivity /> {deliveryRate}%</>}
+          trendLabel="delivery rate"
+          delay="0.1s"
+        />
+        <StatCard
+          title="Total Discount"
+          value={`₹${(displayStats.totalDiscount || 0).toLocaleString()}`}
+          subtitle="Savings offered to customers"
+          icon={<BsPercent />}
+          gradient="linear-gradient(135deg,#f59e0b 0%,#d97706 100%)"
+          shadowColor="rgba(245,158,11,0.35)"
+          trend={<>{discountPct}%</>}
+          trendLabel="of gross sales"
+          delay="0.15s"
+        />
+        <StatCard
+          title="Delivered Orders"
+          value={deliveredCount}
+          subtitle={`${deliveryRate}% delivery rate`}
+          icon={<BsTruck />}
+          gradient="linear-gradient(135deg,#8b5cf6 0%,#7c3aed 100%)"
+          shadowColor="rgba(139,92,246,0.35)"
+          trend={<><BsCheckCircle /> Success</>}
+          trendLabel="fulfilment"
+          delay="0.2s"
+        />
+        <StatCard
+          title="Customer Repeat Ratio"
+          value={`${customerRepeatRatio}%`}
+          subtitle={`${repeatCustomers} repeat / ${totalCustomers} total`}
+          icon={<BsPeople />}
+          gradient="linear-gradient(135deg,#06b6d4 0%,#0891b2 100%)"
+          shadowColor="rgba(6,182,212,0.35)"
+          trend={<><BsArrowUpRight /> Loyal</>}
+          trendLabel="customers"
+          delay="0.25s"
+        />
+      </div>
 
       {/* ── Mini Status Strip ──────────────────────────────── */}
       {showProfit && (

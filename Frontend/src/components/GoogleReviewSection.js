@@ -9,6 +9,103 @@ import { base_url } from "../utils/axiosConfig";
 // Find it at: https://developers.google.com/maps/documentation/javascript/examples/places-placeid-finder
 const GOOGLE_REVIEW_URL = "https://search.google.com/local/writereview?placeid=ChIJP-z0FraHXjkRP-xoeP6FaF0";
 
+const generateRandomReview = (specialty = "") => {
+  const openings = [
+    "Yashoda Fashion has an amazing collection of ethnic wear.",
+    "I had a wonderful shopping experience at Yashoda Fashion.",
+    "Yashoda Fashion is definitely the best place for women's clothing.",
+    "If you are looking for premium quality ethnic wear, Yashoda Fashion is the place.",
+    "Bahut hi sundar collection hai Yashoda Fashion par.",
+    "I am absolutely in love with the clothes from Yashoda Fashion.",
+    "Yashoda Fashion never disappoints with their designs.",
+    "Best shopping store for ladies wear, highly satisfied with Yashoda Fashion.",
+    "Yashoda Fashion has become my go-to store for all family functions.",
+    "My experience at Yashoda Fashion has been extremely good."
+  ];
+
+  const specialtyOpenings = [
+    "Yashoda Fashion has an excellent collection of bottoms and pants.",
+    "I bought bottom-wear from Yashoda Fashion and it is outstanding.",
+    "For good quality ladies bottoms and trousers, Yashoda Fashion is perfect.",
+    "Yashoda Fashion's self-manufactured bottoms are really impressive.",
+    "Bahut acchi fitting wale bottoms milte hain Yashoda Fashion par."
+  ];
+
+  const middleProduct = [
+    "I recently bought a beautiful suit set and got so many compliments.",
+    "Their kurtis, sarees, and suits have the latest patterns.",
+    "The range of traditional and casual outfits they offer is huge.",
+    "I purchased a designer saree and a heavy dupatta set from them.",
+    "Bought 2 sets of ethnic wear and both look elegant and stylish.",
+    "Their collections of kurtas and designer wear are outstanding.",
+    "Every piece in their collection looks unique and well-designed.",
+    "Bought a kurti set for a family gathering and it looked beautiful.",
+    "From daily wear to heavy festive wear, they have everything.",
+    "I picked up a festive outfit and it fits me like a dream."
+  ];
+
+  const specialtyProduct = [
+    "Their bottom-wear designs are very neat and comfortable.",
+    "I purchased a pair of pants and they look very smart.",
+    "The stitching and fit of their pants and salwars is perfect.",
+    "Their collection of manufactured trousers and leggings is amazing.",
+    "I bought cotton bottoms and they are extremely comfortable for daily use."
+  ];
+
+  const middleQuality = [
+    "The fabric quality is super soft and premium.",
+    "Stitching is very neat, and the finish is highly professional.",
+    "The material feels durable and retains its shine after washing.",
+    "Quality wise the clothing is extremely high-grade.",
+    "Kapde ka kapda bahut hi soft aur comfortable hai.",
+    "The dress material is of very fine quality and comfortable to wear.",
+    "Stitching aur finish ekdum perfect aur neat hai.",
+    "Even after multiple washes, the quality remains exactly the same.",
+    "You can feel the premium quality of the material just by touching it.",
+    "Very comfortable fabric that is perfect for all day wear."
+  ];
+
+  const middlePriceService = [
+    "Prices are very reasonable and totally worth it.",
+    "Staff members are very polite, cooperative, and help you select the best.",
+    "The pricing is highly competitive for this level of quality.",
+    "Excellent customer support and friendly staff behavior.",
+    "Saste aur acche damon par premium collection milta hai yahan.",
+    "They offer great value for money and discount options.",
+    "The staff went out of their way to find my size.",
+    "Pricing is fair and they have options for all budgets.",
+    "Customer service is quick and they explain the details very well.",
+    "It is a budget-friendly store without compromising on look or feel."
+  ];
+
+  const closings = [
+    "Highly recommend Yashoda Fashion to all ladies!",
+    "Will definitely come back for more shopping soon.",
+    "Highly recommend this store to friends and family.",
+    "Ek baar zaroor visit karein shopping ke liye, you will love it.",
+    "I will give them a 5-star rating for their wonderful items.",
+    "A must-visit boutique for women's fashion in the city.",
+    "Highly recommended to everyone looking for quality outfits.",
+    "I am a very happy customer and will shop again soon.",
+    "Do visit them for festive wear shopping, highly recommended.",
+    "Overall, a fantastic shopping destination for women."
+  ];
+
+  const spec = (specialty || "").toLowerCase();
+  const isSpecialty = spec.includes("bottom") || spec.includes("bottomwear") || spec.includes("bottom-wear");
+
+  const selectedOpenings = isSpecialty ? specialtyOpenings : openings;
+  const selectedProducts = isSpecialty ? specialtyProduct : middleProduct;
+
+  const o = selectedOpenings[Math.floor(Math.random() * selectedOpenings.length)];
+  const p = selectedProducts[Math.floor(Math.random() * selectedProducts.length)];
+  const q = middleQuality[Math.floor(Math.random() * middleQuality.length)];
+  const s = middlePriceService[Math.floor(Math.random() * middlePriceService.length)];
+  const c = closings[Math.floor(Math.random() * closings.length)];
+
+  return `${o} ${p} ${q} ${s} ${c}`;
+};
+
 const GoogleReviewSection = ({ prodId, specialty } = {}) => {
   const [review, setReview] = useState("");
   const [copied, setCopied] = useState(false);
@@ -26,9 +123,7 @@ const GoogleReviewSection = ({ prodId, specialty } = {}) => {
       const { data } = await axios.get(url);
       setReview(data.review);
     } catch {
-      setReview(
-        "Yashoda Fashion has an amazing collection of ethnic wear — I bought a beautiful suit for my cousin's wedding and got so many compliments. The fabric quality is really good and the fitting was perfect. Bahut accha experience raha, will definitely come back for more shopping. Highly recommend to all ladies!"
-      );
+      setReview(generateRandomReview(specialty));
     } finally {
       setLoading(false);
     }

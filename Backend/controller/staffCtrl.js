@@ -1,4 +1,5 @@
 const Staff = require("../models/staffModel");
+const Attendance = require("../models/attendanceModel");
 const asyncHandler = require("express-async-handler");
 
 // @desc    Create new staff member
@@ -14,6 +15,7 @@ const createStaff = asyncHandler(async (req, res) => {
     aadharNumber,
     designation,
     joiningDate,
+    terminationDate,
     status,
     salaryType,
     baseSalary,
@@ -35,6 +37,7 @@ const createStaff = asyncHandler(async (req, res) => {
     aadharNumber: aadharNumber || "",
     designation,
     joiningDate: joiningDate ? new Date(joiningDate) : new Date(),
+    terminationDate: terminationDate ? new Date(terminationDate) : null,
     status: status || "ACTIVE",
     salaryType: salaryType || "MONTHLY",
     baseSalary: Number(baseSalary) || 0,
@@ -287,6 +290,325 @@ const deleteAdvanceTransaction = asyncHandler(async (req, res) => {
   res.status(200).json({ success: true, message: "Advance transaction deleted", data: staff });
 });
 
+// @desc    Get daily attendance record for all active/on-leave staff members
+// @route   GET /api/staff/attendance/day
+// @access  Private/Admin
+const getDailyAttendance = asyncHandler(async (req, res) => {
+  let { dateStr } = req.query;
+  if (!dateStr) {
+    const today = new Date();
+    const offset = today.getTimezoneOffset();
+    const localToday = new Date(today.getTime() - (offset * 60 * 1000));
+    dateStr = localToday.toISOString().split("T")[0];
+  }
+
+  // Find all active/on-leave staff, or resigned/terminated staff who were still active on the selected date
+  const queryDateStart = new Date(`${dateStr}T00:00:00.000Z`);
+  const queryDateEnd = new Date(`${dateStr}T23:59:59.999Z`);
+  const staffList = await Staff.find({
+    joiningDate: { $lte: queryDateEnd },
+    $or: [
+      { status: { $in: ["ACTIVE", "ON_LEAVE"] } },
+      {
+        status: { $in: ["RESIGNED", "TERMINATED"] },
+        terminationDate: { $gte: queryDateStart },
+      },
+    ],
+  }).sort({ name: 1 });
+  
+  // Find all attendance records for this date
+  const attendanceRecords = await Attendance.find({ dateStr });
+
+  // Map for quick lookups
+  const attendanceMap = {};
+  attendanceRecords.forEach((rec) => {
+    attendanceMap[rec.staff.toString()] = rec;
+  });
+
+  const data = staffList.map((staff) => {
+    const rec = attendanceMap[staff._id.toString()];
+    return {
+      staff: {
+        _id: staff._id,
+        name: staff.name,
+        phone: staff.phone,
+        designation: staff.designation,
+        status: staff.status,
+        joiningDate: staff.joiningDate,
+        terminationDate: staff.terminationDate,
+      },
+      attendance: rec ? {
+        _id: rec._id,
+        status: rec.status,
+        checkIn: rec.checkIn,
+        checkOut: rec.checkOut,
+        remarks: rec.remarks,
+      } : null,
+    };
+  });
+
+  res.status(200).json({ success: true, dateStr, data });
+});
+
+// @desc    Save/update daily attendance records for staff (supports bulk saving)
+// @route   POST /api/staff/attendance/save
+// @access  Private/Admin
+const saveDailyAttendance = asyncHandler(async (req, res) => {
+  const { dateStr, records } = req.body;
+  if (!dateStr || !Array.isArray(records)) {
+    res.status(400);
+    throw new Error("dateStr and records array are required");
+  }
+
+  const parsedDate = new Date(dateStr);
+
+  const promises = records.map(async (rec) => {
+    const { staffId, status, checkIn, checkOut, remarks } = rec;
+    if (!staffId || !status) return;
+
+    // Verify staff exists
+    const staffExists = await Staff.findById(staffId);
+    if (!staffExists) return;
+
+    return Attendance.findOneAndUpdate(
+      { staff: staffId, dateStr },
+      {
+        staff: staffId,
+        date: parsedDate,
+        dateStr,
+        status,
+        checkIn: checkIn || "",
+        checkOut: checkOut || "",
+        remarks: remarks || "",
+      },
+      { upsert: true, new: true }
+    );
+  });
+
+  await Promise.all(promises);
+
+  res.status(200).json({ success: true, message: "Attendance saved successfully" });
+});
+
+// @desc    Get monthly attendance summary matrix for all staff
+// @route   GET /api/staff/attendance/monthly-summary
+// @access  Private/Admin
+const getMonthlyAttendanceSummary = asyncHandler(async (req, res) => {
+  let { month } = req.query;
+  if (!month) {
+    const today = new Date();
+    const yr = today.getFullYear();
+    const mo = String(today.getMonth() + 1).padStart(2, "0");
+    month = `${yr}-${mo}`;
+  }
+
+  const [yr, mo] = month.split("-").map(Number);
+  const firstDayOfMonth = new Date(yr, mo - 1, 1);
+  const lastDayOfMonth = new Date(yr, mo, 0);
+
+  // Find all active/on-leave staff, or resigned/terminated staff who were active during this month
+  const staffList = await Staff.find({
+    joiningDate: { $lte: lastDayOfMonth },
+    $or: [
+      { status: { $in: ["ACTIVE", "ON_LEAVE"] } },
+      {
+        status: { $in: ["RESIGNED", "TERMINATED"] },
+        terminationDate: { $gte: firstDayOfMonth },
+      },
+    ],
+  }).sort({ name: 1 });
+  
+  // Find all attendance records matching the month prefix
+  const attendanceRecords = await Attendance.find({
+    dateStr: { $regex: `^${month}` },
+  });
+
+  // Map by staff ID and dateStr
+  const staffAttendanceMap = {};
+  attendanceRecords.forEach((rec) => {
+    const sId = rec.staff.toString();
+    if (!staffAttendanceMap[sId]) {
+      staffAttendanceMap[sId] = {};
+    }
+    staffAttendanceMap[sId][rec.dateStr] = {
+      _id: rec._id,
+      status: rec.status,
+      checkIn: rec.checkIn,
+      checkOut: rec.checkOut,
+      remarks: rec.remarks,
+    };
+  });
+
+  const today = new Date();
+  const offset = today.getTimezoneOffset();
+  const localToday = new Date(today.getTime() - (offset * 60 * 1000));
+  const currentTodayStr = localToday.toISOString().split("T")[0];
+
+  const totalDays = lastDayOfMonth.getDate();
+
+  const data = staffList.map((staff) => {
+    const sId = staff._id.toString();
+    const records = staffAttendanceMap[sId] || {};
+    const joiningDateStr = staff.joiningDate ? new Date(staff.joiningDate).toISOString().split("T")[0] : "";
+    const terminationDateStr = staff.terminationDate ? new Date(staff.terminationDate).toISOString().split("T")[0] : "";
+    
+    let present = 0;
+    let absent = 0;
+    let halfDay = 0;
+    let onLeave = 0;
+
+    for (let d = 1; d <= totalDays; d++) {
+      const dateStr = `${month}-${String(d).padStart(2, "0")}`;
+      
+      // Skip future dates relative to today
+      if (dateStr > currentTodayStr) {
+        continue;
+      }
+      // Skip dates before the staff member's joining date
+      if (joiningDateStr && dateStr < joiningDateStr) {
+        continue;
+      }
+      // Skip dates after the staff member's termination date
+      if (terminationDateStr && dateStr > terminationDateStr) {
+        continue;
+      }
+
+      const r = records[dateStr];
+      if (r) {
+        if (r.status === "PRESENT") present++;
+        else if (r.status === "ABSENT") absent++;
+        else if (r.status === "HALF_DAY") halfDay++;
+        else if (r.status === "ON_LEAVE") onLeave++;
+      } else {
+        // Default to PRESENT for unmarked past days
+        present++;
+      }
+    }
+
+    return {
+      staff: {
+        _id: staff._id,
+        name: staff.name,
+        phone: staff.phone,
+        designation: staff.designation,
+        status: staff.status,
+        joiningDate: staff.joiningDate,
+        terminationDate: staff.terminationDate,
+      },
+      records,
+      summary: {
+        present,
+        absent,
+        halfDay,
+        onLeave,
+        totalWorked: present + (0.5 * halfDay),
+      },
+    };
+  });
+
+  res.status(200).json({ success: true, month, data });
+});
+
+// @desc    Get individual staff member's attendance history
+// @route   GET /api/staff/:id/attendance
+// @access  Private/Admin
+const getStaffAttendanceHistory = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  let { month } = req.query;
+
+  const staff = await Staff.findById(id);
+  if (!staff) {
+    res.status(404);
+    throw new Error("Staff member not found");
+  }
+
+  if (!month) {
+    const today = new Date();
+    const yr = today.getFullYear();
+    const mo = String(today.getMonth() + 1).padStart(2, "0");
+    month = `${yr}-${mo}`;
+  }
+
+  const query = { staff: id, dateStr: { $regex: `^${month}` } };
+  const history = await Attendance.find(query);
+
+  const historyMap = {};
+  history.forEach((rec) => {
+    historyMap[rec.dateStr] = rec;
+  });
+
+  const today = new Date();
+  const offset = today.getTimezoneOffset();
+  const localToday = new Date(today.getTime() - (offset * 60 * 1000));
+  const currentTodayStr = localToday.toISOString().split("T")[0];
+
+  const [yr, mo] = month.split("-").map(Number);
+  const totalDays = new Date(yr, mo, 0).getDate();
+
+  const joiningDateStr = staff.joiningDate ? new Date(staff.joiningDate).toISOString().split("T")[0] : "";
+  const terminationDateStr = staff.terminationDate ? new Date(staff.terminationDate).toISOString().split("T")[0] : "";
+
+  const finalHistory = [];
+  let present = 0;
+  let absent = 0;
+  let halfDay = 0;
+  let onLeave = 0;
+
+  for (let d = totalDays; d >= 1; d--) {
+    const dateStr = `${month}-${String(d).padStart(2, "0")}`;
+    
+    // Skip future days
+    if (dateStr > currentTodayStr) {
+      continue;
+    }
+    // Skip days before joining
+    if (joiningDateStr && dateStr < joiningDateStr) {
+      continue;
+    }
+    // Skip days after termination
+    if (terminationDateStr && dateStr > terminationDateStr) {
+      continue;
+    }
+
+    const rec = historyMap[dateStr];
+    if (rec) {
+      finalHistory.push(rec);
+      if (rec.status === "PRESENT") present++;
+      else if (rec.status === "ABSENT") absent++;
+      else if (rec.status === "HALF_DAY") halfDay++;
+      else if (rec.status === "ON_LEAVE") onLeave++;
+    } else {
+      // Default virtual Present record
+      const virtualDate = new Date(`${dateStr}T12:00:00.000Z`);
+      const virtualRec = {
+        _id: `virtual-${dateStr}`,
+        staff: id,
+        date: virtualDate,
+        dateStr,
+        status: "PRESENT",
+        checkIn: "09:00 AM",
+        checkOut: "06:00 PM",
+        remarks: "Default (Present)",
+        isVirtual: true,
+      };
+      finalHistory.push(virtualRec);
+      present++;
+    }
+  }
+
+  res.status(200).json({
+    success: true,
+    data: finalHistory,
+    summary: {
+      present,
+      absent,
+      halfDay,
+      onLeave,
+      totalWorked: present + (0.5 * halfDay),
+    },
+  });
+});
+
 module.exports = {
   createStaff,
   getAllStaff,
@@ -297,4 +619,9 @@ module.exports = {
   addAdvanceTransaction,
   deleteSalaryPayment,
   deleteAdvanceTransaction,
+  getDailyAttendance,
+  saveDailyAttendance,
+  getMonthlyAttendanceSummary,
+  getStaffAttendanceHistory,
 };
+

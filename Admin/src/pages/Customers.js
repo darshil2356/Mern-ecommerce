@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Modal, Form, Input, Tooltip, message } from "antd";
 import { useDispatch, useSelector } from "react-redux";
 import { getCustomers, createCustomer, updateCustomer, deleteCustomer } from "../features/customers/customerSlice";
-import { FaSearch, FaEdit, FaTrash, FaUser, FaEnvelope, FaPhone, FaMapMarkerAlt, FaUserPlus, FaEye, FaUsers, FaTag } from "react-icons/fa";
+import { FaSearch, FaEdit, FaTrash, FaUser, FaEnvelope, FaPhone, FaMapMarkerAlt, FaUserPlus, FaEye, FaUsers, FaTag, FaDownload } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
 import CustomModal from "../components/CustomModal";
 import AdminPageHeader from "../components/AdminPageHeader";
@@ -21,6 +21,44 @@ const Customers = () => {
   useEffect(() => { dispatch(getCustomers()); }, [dispatch]);
 
   const customerState = useSelector((state) => state.customer.customers);
+
+  const exportToCSV = () => {
+    if (!filteredCustomers || filteredCustomers.length === 0) {
+      message.warning("No customer data to export");
+      return;
+    }
+    const headers = ["First Name", "Last Name", "Full Name", "Mobile", "Email", "Address", "Referral Code", "Joined Date"];
+    const rows = filteredCustomers.map((c) => {
+      const firstName = c.firstname || "";
+      const lastName = c.lastname || "";
+      const fullName = `${firstName} ${lastName}`.trim();
+      const email = c.email || "";
+      const mobile = c.mobile || "";
+      const address = (c.address || "").replace(/"/g, '""');
+      const referralCode = c.referralCode || "";
+      const joinedDate = c.createdAt ? new Date(c.createdAt).toLocaleDateString("en-IN") : "";
+      return [
+        `"${firstName.replace(/"/g, '""')}"`,
+        `"${lastName.replace(/"/g, '""')}"`,
+        `"${fullName.replace(/"/g, '""')}"`,
+        `"${mobile.replace(/"/g, '""')}"`,
+        `"${email.replace(/"/g, '""')}"`,
+        `"${address}"`,
+        `"${referralCode.replace(/"/g, '""')}"`,
+        `"${joinedDate}"`
+      ];
+    });
+    const csvContent = [headers.join(","), ...rows.map(e => e.join(","))].join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `customers_marketing_${new Date().toISOString().split("T")[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    message.success(`Successfully exported ${filteredCustomers.length} customers!`);
+  };
 
   const filteredCustomers = customerState?.filter((c) =>
     c.firstname?.toLowerCase().includes(searchText.toLowerCase()) ||
@@ -218,13 +256,22 @@ const Customers = () => {
         title="Customers"
         description="Manage and track your customer base"
         actionButton={
-          <button
-            onClick={() => setOpen(true)}
-            className="inline-flex items-center gap-2 h-10 px-5 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-xl font-medium text-sm transition-all duration-200 shadow-md shadow-blue-200 hover:shadow-lg hover:shadow-blue-300 border-0 cursor-pointer"
-          >
-            <FaUserPlus size={14} />
-            Add Customer
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={exportToCSV}
+              className="inline-flex items-center gap-2 h-10 px-5 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 rounded-xl font-medium text-sm transition-all duration-200 shadow-sm cursor-pointer"
+            >
+              <FaDownload className="text-gray-500" size={14} />
+              Export CSV
+            </button>
+            <button
+              onClick={() => setOpen(true)}
+              className="inline-flex items-center gap-2 h-10 px-5 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-xl font-medium text-sm transition-all duration-200 shadow-md shadow-blue-200 hover:shadow-lg hover:shadow-blue-300 border-0 cursor-pointer"
+            >
+              <FaUserPlus size={14} />
+              Add Customer
+            </button>
+          </div>
         }
       />
 

@@ -17,6 +17,10 @@ import {
   FaTimes,
   FaCheckCircle,
   FaExclamationCircle,
+  FaClock,
+  FaClipboardList,
+  FaCalendarCheck,
+  FaCalendarDay,
 } from "react-icons/fa";
 
 const fmt = (n) =>
@@ -112,6 +116,226 @@ export default function StaffManagement() {
     remarks: "",
   });
 
+  // Top level views state: DIRECTORY | DAILY | SHEET
+  const [mainTab, setMainTab] = useState("DIRECTORY");
+
+  // Daily attendance state
+  const [attendanceDate, setAttendanceDate] = useState(todayStr());
+  const [dailyAttendance, setDailyAttendance] = useState([]);
+  const [dailyLoading, setDailyLoading] = useState(false);
+
+  // Monthly sheet state
+  const [attendanceMonth, setAttendanceMonth] = useState(currentMonthStr());
+  const [monthlyAttendance, setMonthlyAttendance] = useState([]);
+  const [sheetLoading, setSheetLoading] = useState(false);
+
+  // Individual staff attendance drawer history state
+  const [staffAttendanceHistory, setStaffAttendanceHistory] = useState([]);
+  const [staffAttendanceSummary, setStaffAttendanceSummary] = useState(null);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyMonth, setHistoryMonth] = useState(currentMonthStr());
+
+  // Daily Attendance Fetch
+  const fetchDailyAttendance = useCallback(async () => {
+    setDailyLoading(true);
+    try {
+      const res = await api.get(`/staff/attendance/day?dateStr=${attendanceDate}`);
+      if (res.data.success) {
+        // Pre-fill unmarked records as PRESENT by default (user requirement)
+        const defaultPresentList = res.data.data.map((item) => {
+          if (!item.attendance) {
+            return {
+              ...item,
+              attendance: {
+                status: "PRESENT",
+                checkIn: "09:00 AM",
+                checkOut: "06:00 PM",
+                remarks: "",
+              },
+            };
+          }
+          return item;
+        });
+        setDailyAttendance(defaultPresentList);
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Failed to load daily attendance");
+    } finally {
+      setDailyLoading(false);
+    }
+  }, [attendanceDate]);
+
+  // Monthly Attendance Fetch
+  const fetchMonthlyAttendance = useCallback(async () => {
+    setSheetLoading(true);
+    try {
+      const res = await api.get(`/staff/attendance/monthly-summary?month=${attendanceMonth}`);
+      if (res.data.success) {
+        setMonthlyAttendance(res.data.data);
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Failed to load monthly attendance summary");
+    } finally {
+      setSheetLoading(false);
+    }
+  }, [attendanceMonth]);
+
+  // Fetch individual staff history
+  const fetchStaffAttendanceHistory = useCallback(async (staffId) => {
+    if (!staffId) return;
+    setHistoryLoading(true);
+    try {
+      const res = await api.get(`/staff/${staffId}/attendance?month=${historyMonth}`);
+      if (res.data.success) {
+        setStaffAttendanceHistory(res.data.data);
+        setStaffAttendanceSummary(res.data.summary);
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Failed to load staff attendance logs");
+    } finally {
+      setHistoryLoading(false);
+    }
+  }, [historyMonth]);
+
+  // Effects to trigger fetches based on active main tab and selected date/month
+  useEffect(() => {
+    if (mainTab === "DAILY") {
+      fetchDailyAttendance();
+    }
+  }, [mainTab, fetchDailyAttendance]);
+
+  useEffect(() => {
+    if (mainTab === "SHEET") {
+      fetchMonthlyAttendance();
+    }
+  }, [mainTab, fetchMonthlyAttendance]);
+
+  useEffect(() => {
+    if (selectedStaff && activeTab === "ATTENDANCE") {
+      fetchStaffAttendanceHistory(selectedStaff._id);
+    }
+  }, [selectedStaff, activeTab, fetchStaffAttendanceHistory]);
+
+  // Daily attendance handlers
+  const handleMarkStatus = (staffId, status) => {
+    setDailyAttendance((prev) =>
+      prev.map((item) => {
+        if (item.staff._id === staffId) {
+          const currentRec = item.attendance || { checkIn: "", checkOut: "", remarks: "" };
+          let checkIn = currentRec.checkIn;
+          let checkOut = currentRec.checkOut;
+          
+          if (status === "PRESENT" && !checkIn) {
+            checkIn = "09:00 AM";
+            checkOut = "06:00 PM";
+          } else if (status === "HALF_DAY" && !checkIn) {
+            checkIn = "09:00 AM";
+            checkOut = "01:30 PM";
+          } else if (status === "ABSENT" || status === "ON_LEAVE") {
+            checkIn = "";
+            checkOut = "";
+          }
+
+          return {
+            ...item,
+            attendance: {
+              ...currentRec,
+              status,
+              checkIn,
+              checkOut,
+            },
+          };
+        }
+        return item;
+      })
+    );
+  };
+
+  const handleTimeChange = (staffId, field, value) => {
+    setDailyAttendance((prev) =>
+      prev.map((item) => {
+        if (item.staff._id === staffId) {
+          const currentRec = item.attendance || { status: "PRESENT", checkIn: "", checkOut: "", remarks: "" };
+          return {
+            ...item,
+            attendance: {
+              ...currentRec,
+              [field]: value,
+            },
+          };
+        }
+        return item;
+      })
+    );
+  };
+
+  const handleRemarksChange = (staffId, remarks) => {
+    setDailyAttendance((prev) =>
+      prev.map((item) => {
+        if (item.staff._id === staffId) {
+          const currentRec = item.attendance || { status: "PRESENT", checkIn: "", checkOut: "", remarks: "" };
+          return {
+            ...item,
+            attendance: {
+              ...currentRec,
+              remarks,
+            },
+          };
+        }
+        return item;
+      })
+    );
+  };
+
+  const handleMarkAllPresent = () => {
+    setDailyAttendance((prev) =>
+      prev.map((item) => {
+        const currentRec = item.attendance || { checkIn: "09:00 AM", checkOut: "06:00 PM", remarks: "" };
+        return {
+          ...item,
+          attendance: {
+            ...currentRec,
+            status: "PRESENT",
+            checkIn: currentRec.checkIn || "09:00 AM",
+            checkOut: currentRec.checkOut || "06:00 PM",
+          },
+        };
+      })
+    );
+    toast.success("Marked all staff as Present locally. Don't forget to save changes!");
+  };
+
+  const handleSaveDailyAttendance = async () => {
+    try {
+      const records = dailyAttendance
+        .filter((item) => item.attendance && item.attendance.status)
+        .map((item) => ({
+          staffId: item.staff._id,
+          status: item.attendance.status,
+          checkIn: item.attendance.checkIn || "",
+          checkOut: item.attendance.checkOut || "",
+          remarks: item.attendance.remarks || "",
+        }));
+
+      if (records.length === 0) {
+        toast.info("No attendance records to save");
+        return;
+      }
+
+      const res = await api.post("/staff/attendance/save", {
+        dateStr: attendanceDate,
+        records,
+      });
+
+      if (res.data.success) {
+        toast.success("Attendance saved successfully!");
+        fetchDailyAttendance();
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Failed to save daily attendance");
+    }
+  };
+
   // Fetch Staff List
   const fetchStaffData = useCallback(async () => {
     setLoading(true);
@@ -147,6 +371,7 @@ export default function StaffManagement() {
       address: "",
       designation: "Sales Staff",
       joiningDate: todayStr(),
+      terminationDate: "",
       status: "ACTIVE",
       salaryType: "MONTHLY",
       baseSalary: "",
@@ -173,6 +398,7 @@ export default function StaffManagement() {
       address: st.address || "",
       designation: st.designation || "Sales Staff",
       joiningDate: st.joiningDate ? st.joiningDate.split("T")[0] : todayStr(),
+      terminationDate: st.terminationDate ? st.terminationDate.split("T")[0] : "",
       status: st.status || "ACTIVE",
       salaryType: st.salaryType || "MONTHLY",
       baseSalary: st.baseSalary || "",
@@ -205,6 +431,9 @@ export default function StaffManagement() {
       address: staffForm.address,
       designation: staffForm.designation,
       joiningDate: staffForm.joiningDate,
+      terminationDate: (staffForm.status === "RESIGNED" || staffForm.status === "TERMINATED") 
+        ? (staffForm.terminationDate || todayStr()) 
+        : null,
       status: staffForm.status,
       salaryType: staffForm.salaryType,
       baseSalary: Number(staffForm.baseSalary) || 0,
@@ -255,42 +484,148 @@ export default function StaffManagement() {
     }
   };
 
-// Helper for Mid-Month Joining Proration & Auto-suggestion
-const calcMidMonthProration = (joiningDateStr, monthYearStr, baseSalary) => {
-  if (!joiningDateStr || !monthYearStr || !baseSalary) return null;
-  const joinDate = new Date(joiningDateStr);
-  const [yr, mo] = monthYearStr.split("-").map(Number);
-  if (!yr || !mo) return null;
-
-  const joinYr = joinDate.getFullYear();
-  const joinMo = joinDate.getMonth() + 1;
-
-  if (joinYr === yr && joinMo === mo) {
-    const joinDay = joinDate.getDate();
-    const totalDaysInMonth = new Date(yr, mo, 0).getDate();
-    if (joinDay <= 1) return null;
-
-    const workedDays = totalDaysInMonth - joinDay + 1;
-    const fullSalary = Number(baseSalary) || 0;
-    const proratedAmount = Math.round((fullSalary / totalDaysInMonth) * workedDays);
-
+// Helper to safely parse local date components without timezone shifts
+const parseLocalDate = (dateInput) => {
+  if (!dateInput) return null;
+  if (dateInput instanceof Date) {
     return {
-      joinDateStr: joinDate.toLocaleDateString("en-IN", { day: "2-digit", month: "2-digit", year: "numeric" }),
-      joinDay,
-      totalDaysInMonth,
-      workedDays,
-      fullSalary,
-      proratedAmount,
+      yr: dateInput.getFullYear(),
+      mo: dateInput.getMonth() + 1,
+      day: dateInput.getDate(),
+    };
+  }
+  const str = String(dateInput).split("T")[0]; // Get YYYY-MM-DD part
+  const match = str.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (match) {
+    return {
+      yr: parseInt(match[1], 10),
+      mo: parseInt(match[2], 10),
+      day: parseInt(match[3], 10),
+    };
+  }
+  const d = new Date(dateInput);
+  if (!isNaN(d.getTime())) {
+    return {
+      yr: d.getFullYear(),
+      mo: d.getMonth() + 1,
+      day: d.getDate(),
     };
   }
   return null;
+};
+
+// Helper for Mid-Month Joining/Termination Proration & Auto-suggestion
+const calcMidMonthProration = (joiningDateStr, terminationDateStr, monthYearStr, baseSalary) => {
+  if (!joiningDateStr || !monthYearStr || !baseSalary) return null;
+  
+  const parsedJoin = parseLocalDate(joiningDateStr);
+  if (!parsedJoin) return null;
+  const { yr: joinYr, mo: joinMo, day: joinDay } = parsedJoin;
+
+  const [salYr, salMo] = monthYearStr.split("-").map(Number);
+  if (!salYr || !salMo) return null;
+
+  const totalDaysInMonth = new Date(salYr, salMo, 0).getDate();
+
+  // Get date limits
+  const monthStartStr = `${salYr}-${String(salMo).padStart(2, "0")}-01`;
+  const monthEndStr = `${salYr}-${String(salMo).padStart(2, "0")}-${String(totalDaysInMonth).padStart(2, "0")}`;
+
+  const joinDateOnlyStr = `${joinYr}-${String(joinMo).padStart(2, "0")}-${String(joinDay).padStart(2, "0")}`;
+
+  let termDateOnlyStr = "";
+  if (terminationDateStr) {
+    const parsedTerm = parseLocalDate(terminationDateStr);
+    if (parsedTerm) {
+      termDateOnlyStr = `${parsedTerm.yr}-${String(parsedTerm.mo).padStart(2, "0")}-${String(parsedTerm.day).padStart(2, "0")}`;
+    }
+  }
+
+  // Calculate effective start day in the month
+  let effectiveStartDay = 1;
+  if (joinDateOnlyStr > monthEndStr) {
+    // Joined after this month
+    return {
+      joinDateStr: `${String(joinDay).padStart(2, "0")}/${String(joinMo).padStart(2, "0")}/${joinYr}`,
+      joinDay,
+      totalDaysInMonth,
+      workedDays: 0,
+      fullSalary: Number(baseSalary) || 0,
+      proratedAmount: 0,
+      remarks: "Staff member had not joined yet during this month",
+    };
+  } else if (joinDateOnlyStr >= monthStartStr) {
+    effectiveStartDay = joinDay;
+  }
+
+  // Calculate effective end day in the month
+  let effectiveEndDay = totalDaysInMonth;
+  if (termDateOnlyStr) {
+    if (termDateOnlyStr < monthStartStr) {
+      // Terminated before this month started
+      return {
+        joinDateStr: `${String(joinDay).padStart(2, "0")}/${String(joinMo).padStart(2, "0")}/${joinYr}`,
+        joinDay,
+        totalDaysInMonth,
+        workedDays: 0,
+        fullSalary: Number(baseSalary) || 0,
+        proratedAmount: 0,
+        remarks: "Staff member was already terminated before this month",
+      };
+    } else if (termDateOnlyStr <= monthEndStr) {
+      const parsedTerm = parseLocalDate(terminationDateStr);
+      effectiveEndDay = parsedTerm.day;
+    }
+  }
+
+  // If effective start is after effective end
+  if (effectiveStartDay > effectiveEndDay) {
+    return {
+      joinDateStr: `${String(joinDay).padStart(2, "0")}/${String(joinMo).padStart(2, "0")}/${joinYr}`,
+      joinDay,
+      totalDaysInMonth,
+      workedDays: 0,
+      fullSalary: Number(baseSalary) || 0,
+      proratedAmount: 0,
+      remarks: "No active working days in this month",
+    };
+  }
+
+  const workedDays = effectiveEndDay - effectiveStartDay + 1;
+  
+  // If they worked the full month, no proration suggestion needed
+  if (workedDays === totalDaysInMonth) {
+    return null;
+  }
+
+  const fullSalary = Number(baseSalary) || 0;
+  const proratedAmount = Math.round((fullSalary / totalDaysInMonth) * workedDays);
+
+  let remarksStr = `Prorated salary for ${workedDays} days worked`;
+  if (joinDateOnlyStr >= monthStartStr) {
+    remarksStr += ` (Joined ${String(joinDay).padStart(2, "0")}/${String(joinMo).padStart(2, "0")})`;
+  }
+  if (termDateOnlyStr && termDateOnlyStr <= monthEndStr) {
+    const parsedTerm = parseLocalDate(terminationDateStr);
+    remarksStr += ` (Terminated ${String(parsedTerm.day).padStart(2, "0")}/${String(parsedTerm.mo).padStart(2, "0")})`;
+  }
+
+  return {
+    joinDateStr: `${String(joinDay).padStart(2, "0")}/${String(joinMo).padStart(2, "0")}/${joinYr}`,
+    joinDay,
+    totalDaysInMonth,
+    workedDays,
+    fullSalary,
+    proratedAmount,
+    remarks: remarksStr,
+  };
 };
 
 // Open Salary Payout Modal
 const openPaySalaryModal = (st) => {
   setTargetStaffForSalary(st);
   const mStr = currentMonthStr();
-  const proration = calcMidMonthProration(st.joiningDate, mStr, st.baseSalary);
+  const proration = calcMidMonthProration(st.joiningDate, st.terminationDate, mStr, st.baseSalary);
 
   setSalaryForm({
     monthYear: mStr,
@@ -383,6 +718,20 @@ const openPaySalaryModal = (st) => {
     }
     return bal;
   };
+  // Helper to calculate daily attendance counts
+  const getDailyStats = () => {
+    let present = 0, absent = 0, halfDay = 0, leave = 0, unmarked = 0;
+    dailyAttendance.forEach((item) => {
+      if (!item.attendance || !item.attendance.status) unmarked++;
+      else if (item.attendance.status === "PRESENT") present++;
+      else if (item.attendance.status === "ABSENT") absent++;
+      else if (item.attendance.status === "HALF_DAY") halfDay++;
+      else if (item.attendance.status === "ON_LEAVE") leave++;
+    });
+    return { present, absent, halfDay, leave, unmarked };
+  };
+
+  const dailyStats = getDailyStats();
 
   return (
     <div className="p-4 md:p-6 bg-slate-50 min-h-screen">
@@ -404,7 +753,43 @@ const openPaySalaryModal = (st) => {
         </button>
       </div>
 
-      {/* Overview Cards */}
+      {/* Main Page Navigation Tabs */}
+      <div className="flex border-b border-slate-200 mb-6 bg-white p-1.5 rounded-xl shadow-xs gap-2">
+        <button
+          onClick={() => setMainTab("DIRECTORY")}
+          className={`flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-lg transition-all ${
+            mainTab === "DIRECTORY"
+              ? "bg-indigo-600 text-white shadow-xs"
+              : "text-slate-600 hover:bg-slate-100 hover:text-slate-800"
+          }`}
+        >
+          <FaUsers /> Staff Directory
+        </button>
+        <button
+          onClick={() => setMainTab("DAILY")}
+          className={`flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-lg transition-all ${
+            mainTab === "DAILY"
+              ? "bg-indigo-600 text-white shadow-xs"
+              : "text-slate-600 hover:bg-slate-100 hover:text-slate-800"
+          }`}
+        >
+          <FaCalendarCheck /> Daily Attendance
+        </button>
+        <button
+          onClick={() => setMainTab("SHEET")}
+          className={`flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-lg transition-all ${
+            mainTab === "SHEET"
+              ? "bg-indigo-600 text-white shadow-xs"
+              : "text-slate-600 hover:bg-slate-100 hover:text-slate-800"
+          }`}
+        >
+          <FaClipboardList /> Monthly Grid Sheet
+        </button>
+      </div>
+
+      {mainTab === "DIRECTORY" && (
+        <>
+          {/* Overview Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex items-center gap-4">
           <div className="w-12 h-12 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center text-xl font-bold">
@@ -632,6 +1017,376 @@ const openPaySalaryModal = (st) => {
           </table>
         </div>
       </div>
+      </>
+      )}
+
+      {/* DAILY ATTENDANCE VIEW */}
+      {mainTab === "DAILY" && (
+        <div className="space-y-6">
+          {/* Daily Controls & Stats */}
+          <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex flex-col lg:flex-row gap-5 items-start lg:items-center justify-between">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Select Attendance Date</label>
+                <input
+                  type="date"
+                  value={attendanceDate}
+                  onChange={(e) => setAttendanceDate(e.target.value)}
+                  className="px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+              <div className="flex gap-2 sm:mt-5">
+                <button
+                  type="button"
+                  onClick={handleMarkAllPresent}
+                  className="px-4 py-2 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 rounded-xl text-xs font-bold transition-all"
+                >
+                  Mark All Present
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveDailyAttendance}
+                  className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl text-xs shadow-md transition-all flex items-center gap-1.5"
+                >
+                  Save Attendance
+                </button>
+              </div>
+            </div>
+
+            {/* Daily Stats Grid */}
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 w-full lg:w-auto">
+              <div className="bg-emerald-50/50 p-3 rounded-xl border border-emerald-100/60 text-center">
+                <span className="text-[10px] text-emerald-800 font-bold block uppercase">Present</span>
+                <strong className="text-emerald-700 text-base font-bold">{dailyStats.present}</strong>
+              </div>
+              <div className="bg-blue-50/50 p-3 rounded-xl border border-blue-100/60 text-center">
+                <span className="text-[10px] text-blue-800 font-bold block uppercase">Half Day</span>
+                <strong className="text-blue-700 text-base font-bold">{dailyStats.halfDay}</strong>
+              </div>
+              <div className="bg-red-50/50 p-3 rounded-xl border border-red-100/60 text-center">
+                <span className="text-[10px] text-red-800 font-bold block uppercase">Absent</span>
+                <strong className="text-red-700 text-base font-bold">{dailyStats.absent}</strong>
+              </div>
+              <div className="bg-amber-50/50 p-3 rounded-xl border border-amber-100/60 text-center">
+                <span className="text-[10px] text-amber-800 font-bold block uppercase">On Leave</span>
+                <strong className="text-amber-700 text-base font-bold">{dailyStats.leave}</strong>
+              </div>
+              <div className="bg-slate-100 p-3 rounded-xl text-center col-span-2 sm:col-span-1">
+                <span className="text-[10px] text-slate-500 font-bold block uppercase">Unmarked</span>
+                <strong className="text-slate-600 text-base font-bold">{dailyStats.unmarked}</strong>
+              </div>
+            </div>
+          </div>
+
+          {/* Daily Table */}
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-slate-100/70 border-b border-slate-200 text-xs font-bold text-slate-600 uppercase tracking-wider">
+                    <th className="p-4">Staff Member</th>
+                    <th className="p-4">Attendance Status</th>
+                    <th className="p-4">Check-In</th>
+                    <th className="p-4">Check-Out</th>
+                    <th className="p-4">Remarks / Notes</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 text-sm">
+                  {dailyLoading ? (
+                    <tr>
+                      <td colSpan="5" className="p-8 text-center text-slate-500">
+                        <div className="flex flex-col items-center justify-center gap-2">
+                          <div className="animate-spin rounded-full h-7 w-7 border-b-2 border-indigo-600"></div>
+                          <span>Loading daily attendance...</span>
+                        </div>
+                      </td>
+                    </tr>
+                  ) : dailyAttendance.length === 0 ? (
+                    <tr>
+                      <td colSpan="5" className="p-8 text-center text-slate-500">
+                        No active staff members found.
+                      </td>
+                    </tr>
+                  ) : (
+                    dailyAttendance.map((item) => {
+                      const staff = item.staff;
+                      const att = item.attendance || {};
+                      return (
+                        <tr key={staff._id} className="hover:bg-slate-50/50 transition-colors">
+                          <td className="p-4">
+                            <div className="flex items-center gap-3">
+                              <div className="w-9 h-9 rounded-full bg-slate-100 text-slate-700 font-bold flex items-center justify-center text-sm uppercase">
+                                {staff.name.charAt(0)}
+                              </div>
+                              <div>
+                                <p className="font-semibold text-slate-800">{staff.name}</p>
+                                <p className="text-xs text-slate-500">{staff.designation}</p>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="p-4">
+                            <div className="inline-flex rounded-xl bg-slate-100 p-1 gap-1">
+                              <button
+                                type="button"
+                                onClick={() => handleMarkStatus(staff._id, "PRESENT")}
+                                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                                  att.status === "PRESENT"
+                                    ? "bg-emerald-600 text-white shadow-xs"
+                                    : "text-slate-600 hover:bg-slate-200"
+                                }`}
+                              >
+                                Present
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleMarkStatus(staff._id, "HALF_DAY")}
+                                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                                  att.status === "HALF_DAY"
+                                    ? "bg-blue-600 text-white shadow-xs"
+                                    : "text-slate-600 hover:bg-slate-200"
+                                }`}
+                              >
+                                Half Day
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleMarkStatus(staff._id, "ABSENT")}
+                                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                                  att.status === "ABSENT"
+                                    ? "bg-red-600 text-white shadow-xs"
+                                    : "text-slate-600 hover:bg-slate-200"
+                                }`}
+                              >
+                                Absent
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleMarkStatus(staff._id, "ON_LEAVE")}
+                                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                                  att.status === "ON_LEAVE"
+                                    ? "bg-amber-500 text-white shadow-xs"
+                                    : "text-slate-600 hover:bg-slate-200"
+                                }`}
+                              >
+                                Leave
+                              </button>
+                            </div>
+                          </td>
+                          <td className="p-4">
+                            <input
+                              type="text"
+                              placeholder="e.g. 09:00 AM"
+                              value={att.checkIn || ""}
+                              onChange={(e) => handleTimeChange(staff._id, "checkIn", e.target.value)}
+                              disabled={att.status === "ABSENT" || att.status === "ON_LEAVE"}
+                              className="w-28 px-2 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 disabled:opacity-50"
+                            />
+                          </td>
+                          <td className="p-4">
+                            <input
+                              type="text"
+                              placeholder="e.g. 06:00 PM"
+                              value={att.checkOut || ""}
+                              onChange={(e) => handleTimeChange(staff._id, "checkOut", e.target.value)}
+                              disabled={att.status === "ABSENT" || att.status === "ON_LEAVE"}
+                              className="w-28 px-2 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 disabled:opacity-50"
+                            />
+                          </td>
+                          <td className="p-4">
+                            <input
+                              type="text"
+                              placeholder="Add remarks..."
+                              value={att.remarks || ""}
+                              onChange={(e) => handleRemarksChange(staff._id, e.target.value)}
+                              className="w-full min-w-[150px] px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                            />
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+            {dailyAttendance.length > 0 && (
+              <div className="p-4 bg-slate-50 border-t border-slate-100 flex justify-end">
+                <button
+                  type="button"
+                  onClick={handleSaveDailyAttendance}
+                  className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl text-sm shadow-md transition-all"
+                >
+                  Save Daily Attendance
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* MONTHLY GRID SHEET VIEW */}
+      {mainTab === "SHEET" && (
+        <div className="space-y-6">
+          {/* Month Selection */}
+          <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div>
+              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Select Month & Year</label>
+              <input
+                type="month"
+                value={attendanceMonth}
+                onChange={(e) => setAttendanceMonth(e.target.value)}
+                className="px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+            </div>
+            <div className="text-xs text-slate-500 flex flex-wrap gap-x-4 gap-y-2 bg-slate-50 p-3 rounded-xl border border-slate-200">
+              <span className="font-semibold text-slate-700">Legend:</span>
+              <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded bg-emerald-500"></span> Present (P)</span>
+              <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded bg-blue-500"></span> Half Day (H)</span>
+              <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded bg-red-500"></span> Absent (A)</span>
+              <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded bg-amber-500"></span> Leave (L)</span>
+              <span className="flex items-center gap-1"><span className="text-slate-400 font-bold">-</span> Unmarked</span>
+            </div>
+          </div>
+
+          {/* Grid Sheet Table */}
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-slate-100/70 border-b border-slate-200 text-xs font-bold text-slate-600 uppercase tracking-wider">
+                    <th className="p-3 pl-4 sticky left-0 bg-slate-100 z-10 border-r border-slate-200">Staff Member</th>
+                    {(() => {
+                      const getDaysInMonth = (monthStr) => {
+                        if (!monthStr) return [];
+                        const [yr, mo] = monthStr.split("-").map(Number);
+                        const totalDays = new Date(yr, mo, 0).getDate();
+                        const days = [];
+                        for (let i = 1; i <= totalDays; i++) {
+                          days.push(i);
+                        }
+                        return days;
+                      };
+                      const monthDays = getDaysInMonth(attendanceMonth);
+                      return monthDays.map((day) => (
+                        <th key={day} className="p-1.5 text-center text-[10px] min-w-[28px] border-r border-slate-200/60">
+                          {day}
+                        </th>
+                      ));
+                    })()}
+                    <th className="p-3 text-center bg-emerald-50 text-emerald-800 border-l border-slate-200">P</th>
+                    <th className="p-3 text-center bg-blue-50 text-blue-800">H</th>
+                    <th className="p-3 text-center bg-red-50 text-red-800">A</th>
+                    <th className="p-3 text-center bg-amber-50 text-amber-800">L</th>
+                    <th className="p-3 text-center bg-slate-100 font-extrabold text-slate-800">Worked</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 text-xs">
+                  {sheetLoading ? (
+                    <tr>
+                      <td colSpan="40" className="p-8 text-center text-slate-500">
+                        <div className="flex flex-col items-center justify-center gap-2">
+                          <div className="animate-spin rounded-full h-7 w-7 border-b-2 border-indigo-600"></div>
+                          <span>Loading attendance sheet...</span>
+                        </div>
+                      </td>
+                    </tr>
+                  ) : monthlyAttendance.length === 0 ? (
+                    <tr>
+                      <td colSpan="40" className="p-8 text-center text-slate-500">
+                        No active staff records found.
+                      </td>
+                    </tr>
+                  ) : (
+                    monthlyAttendance.map((item) => {
+                      const staff = item.staff;
+                      const records = item.records || {};
+                      const summary = item.summary || {};
+                      const [yr, mo] = attendanceMonth.split("-");
+                      const getDaysInMonth = (monthStr) => {
+                        if (!monthStr) return [];
+                        const [yr, mo] = monthStr.split("-").map(Number);
+                        const totalDays = new Date(yr, mo, 0).getDate();
+                        const days = [];
+                        for (let i = 1; i <= totalDays; i++) {
+                          days.push(i);
+                        }
+                        return days;
+                      };
+                      const monthDays = getDaysInMonth(attendanceMonth);
+
+                      return (
+                        <tr key={staff._id} className="hover:bg-slate-50 transition-colors">
+                          <td className="p-3 pl-4 font-semibold text-slate-800 sticky left-0 bg-white z-10 border-r border-slate-200">
+                            <div>
+                              <p className="font-semibold text-slate-800 truncate max-w-[120px]">{staff.name}</p>
+                              <p className="text-[9px] text-slate-400 font-normal">{staff.designation}</p>
+                            </div>
+                          </td>
+                          {monthDays.map((day) => {
+                            const dateString = `${yr}-${mo}-${String(day).padStart(2, "0")}`;
+                            const dayRec = records[dateString];
+
+                            let statusChar = "-";
+                            let statusColor = "text-slate-300 font-normal";
+                            let tooltip = `${dateString} - Unmarked`;
+
+                            if (dayRec) {
+                              if (dayRec.status === "PRESENT") {
+                                statusChar = "P";
+                                statusColor = "text-emerald-600 bg-emerald-50 font-bold rounded";
+                                tooltip = `${dateString} - Present\nTime: ${dayRec.checkIn || "N/A"} - ${dayRec.checkOut || "N/A"}${dayRec.remarks ? `\nRemarks: ${dayRec.remarks}` : ""}`;
+                              } else if (dayRec.status === "ABSENT") {
+                                statusChar = "A";
+                                statusColor = "text-red-600 bg-red-50 font-bold rounded";
+                                tooltip = `${dateString} - Absent${dayRec.remarks ? `\nRemarks: ${dayRec.remarks}` : ""}`;
+                              } else if (dayRec.status === "HALF_DAY") {
+                                statusChar = "H";
+                                statusColor = "text-blue-600 bg-blue-50 font-bold rounded";
+                                tooltip = `${dateString} - Half Day\nTime: ${dayRec.checkIn || "N/A"} - ${dayRec.checkOut || "N/A"}${dayRec.remarks ? `\nRemarks: ${dayRec.remarks}` : ""}`;
+                              } else if (dayRec.status === "ON_LEAVE") {
+                                statusChar = "L";
+                                statusColor = "text-amber-600 bg-amber-50 font-bold rounded";
+                                tooltip = `${dateString} - On Leave${dayRec.remarks ? `\nRemarks: ${dayRec.remarks}` : ""}`;
+                              }
+                            } else {
+                              const joiningDateStr = staff.joiningDate ? staff.joiningDate.split("T")[0] : "";
+                              const terminationDateStr = staff.terminationDate ? staff.terminationDate.split("T")[0] : "";
+                              const currentTodayStr = todayStr();
+                              if (
+                                dateString <= currentTodayStr && 
+                                (!joiningDateStr || dateString >= joiningDateStr) &&
+                                (!terminationDateStr || dateString <= terminationDateStr)
+                              ) {
+                                statusChar = "P";
+                                statusColor = "text-emerald-600 bg-emerald-50 font-bold rounded";
+                                tooltip = `${dateString} - Present (Default)\nTime: 09:00 AM - 06:00 PM`;
+                              }
+                            }
+
+                            return (
+                              <td
+                                key={day}
+                                title={tooltip}
+                                className={`p-1.5 text-center cursor-help border-r border-slate-100 text-[10px] min-w-[28px] ${statusColor}`}
+                              >
+                                {statusChar}
+                              </td>
+                            );
+                          })}
+                          <td className="p-3 text-center bg-emerald-50/50 text-emerald-700 font-bold border-l border-slate-200">{summary.present}</td>
+                          <td className="p-3 text-center bg-blue-50/50 text-blue-700 font-bold">{summary.halfDay}</td>
+                          <td className="p-3 text-center bg-red-50/50 text-red-700 font-bold">{summary.absent}</td>
+                          <td className="p-3 text-center bg-amber-50/50 text-amber-700 font-bold">{summary.onLeave}</td>
+                          <td className="p-3 text-center bg-slate-100 text-slate-800 font-extrabold">{summary.totalWorked}d</td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Staff Details Drawer */}
       {selectedStaff && (
@@ -689,6 +1444,16 @@ const openPaySalaryModal = (st) => {
                 }`}
               >
                 Advance Ledger ({selectedStaff.advanceHistory?.length || 0})
+              </button>
+              <button
+                onClick={() => setActiveTab("ATTENDANCE")}
+                className={`py-3 px-4 border-b-2 transition-all ${
+                  activeTab === "ATTENDANCE"
+                    ? "border-indigo-600 text-indigo-600 bg-white"
+                    : "border-transparent text-slate-500 hover:text-slate-800"
+                }`}
+              >
+                Attendance Logs
               </button>
             </div>
 
@@ -891,6 +1656,89 @@ const openPaySalaryModal = (st) => {
                   )}
                 </div>
               )}
+
+              {activeTab === "ATTENDANCE" && (
+                <div className="space-y-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-50 p-4 rounded-xl border border-slate-200">
+                    <div>
+                      <h4 className="font-bold text-slate-800 text-sm">Attendance Logs</h4>
+                      <p className="text-xs text-slate-500">
+                        History for selected month
+                      </p>
+                    </div>
+                    <div>
+                      <input
+                        type="month"
+                        value={historyMonth}
+                        onChange={(e) => setHistoryMonth(e.target.value)}
+                        className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Summary badges */}
+                  {staffAttendanceSummary && (
+                    <div className="grid grid-cols-4 gap-2 text-center">
+                      <div className="bg-emerald-50 p-2.5 rounded-xl border border-emerald-100">
+                        <span className="text-[10px] text-emerald-800 font-bold block uppercase tracking-wider">Present</span>
+                        <strong className="text-emerald-700 text-lg font-extrabold">{staffAttendanceSummary.present}</strong>
+                      </div>
+                      <div className="bg-blue-50 p-2.5 rounded-xl border border-blue-100">
+                        <span className="text-[10px] text-blue-800 font-bold block uppercase tracking-wider">Half Day</span>
+                        <strong className="text-blue-700 text-lg font-extrabold">{staffAttendanceSummary.halfDay}</strong>
+                      </div>
+                      <div className="bg-red-50 p-2.5 rounded-xl border border-red-100">
+                        <span className="text-[10px] text-red-800 font-bold block uppercase tracking-wider">Absent</span>
+                        <strong className="text-red-700 text-lg font-extrabold">{staffAttendanceSummary.absent}</strong>
+                      </div>
+                      <div className="bg-amber-50 p-2.5 rounded-xl border border-amber-100">
+                        <span className="text-[10px] text-amber-800 font-bold block uppercase tracking-wider">Leave</span>
+                        <strong className="text-amber-700 text-lg font-extrabold">{staffAttendanceSummary.onLeave}</strong>
+                      </div>
+                    </div>
+                  )}
+
+                  {historyLoading ? (
+                    <div className="p-8 text-center text-slate-500">
+                      <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-indigo-600 mx-auto mb-2"></div>
+                      <span>Loading logs...</span>
+                    </div>
+                  ) : staffAttendanceHistory.length > 0 ? (
+                    <div className="space-y-3">
+                      {staffAttendanceHistory.map((item) => (
+                        <div key={item._id} className="p-3.5 bg-slate-50 rounded-xl border border-slate-200 text-sm flex justify-between items-center">
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="font-bold text-slate-800">{fmtDate(item.date)}</span>
+                              <span className={`px-2 py-0.5 text-[10px] font-bold rounded-full ${
+                                item.status === "PRESENT" ? "bg-emerald-100 text-emerald-800" :
+                                item.status === "HALF_DAY" ? "bg-blue-100 text-blue-800" :
+                                item.status === "ABSENT" ? "bg-red-100 text-red-800" :
+                                "bg-amber-100 text-amber-800"
+                              }`}>
+                                {item.status.replace("_", " ")}
+                              </span>
+                            </div>
+                            {item.remarks && <p className="text-xs text-slate-600 mt-1 italic">"{item.remarks}"</p>}
+                          </div>
+                          {(item.checkIn || item.checkOut) && (
+                            <div className="text-right text-xs text-slate-500 font-medium">
+                              <div className="flex items-center gap-1.5 justify-end">
+                                <FaClock className="text-[10px] text-slate-400" />
+                                <span>{item.checkIn || "-"} to {item.checkOut || "-"}</span>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="p-8 text-center text-slate-400 bg-slate-50 rounded-xl border border-dashed border-slate-200 text-sm">
+                      No attendance logs found for this month.
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -998,6 +1846,19 @@ const openPaySalaryModal = (st) => {
                     <option value="TERMINATED">Terminated</option>
                   </select>
                 </div>
+
+                {(staffForm.status === "RESIGNED" || staffForm.status === "TERMINATED") && (
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">Resignation / Termination Date *</label>
+                    <input
+                      type="date"
+                      required
+                      value={staffForm.terminationDate}
+                      onChange={(e) => setStaffForm({ ...staffForm, terminationDate: e.target.value })}
+                      className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    />
+                  </div>
+                )}
 
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">Aadhar / ID Number</label>
@@ -1122,6 +1983,7 @@ const openPaySalaryModal = (st) => {
               {(() => {
                 const proration = calcMidMonthProration(
                   targetStaffForSalary.joiningDate,
+                  targetStaffForSalary.terminationDate,
                   salaryForm.monthYear,
                   targetStaffForSalary.baseSalary
                 );
@@ -1131,15 +1993,14 @@ const openPaySalaryModal = (st) => {
                     <div className="flex items-center justify-between font-bold text-amber-800">
                       <span className="flex items-center gap-1.5">
                         <FaExclamationCircle className="text-amber-600 text-sm" />
-                        Mid-Month Joining Detected
+                        {proration.remarks.includes("Terminated") ? "Partial Month (Termination) Detected" : "Partial Month Payout Suggested"}
                       </span>
                       <span className="bg-amber-200/70 text-amber-900 px-2 py-0.5 rounded text-[10px]">
                         Joined: {proration.joinDateStr}
                       </span>
                     </div>
                     <p className="text-slate-700">
-                      Staff joined mid-month on day <strong>{proration.joinDay}</strong>. Worked{" "}
-                      <strong>{proration.workedDays}</strong> out of <strong>{proration.totalDaysInMonth}</strong> days in this month.
+                      {proration.remarks}. Worked <strong>{proration.workedDays}</strong> out of <strong>{proration.totalDaysInMonth}</strong> days in this month.
                     </p>
                     <div className="flex items-center justify-between pt-1 border-t border-amber-200/60">
                       <div>
@@ -1154,12 +2015,12 @@ const openPaySalaryModal = (st) => {
                             setSalaryForm((prev) => ({
                               ...prev,
                               baseAmount: proration.proratedAmount,
-                              remarks: `Prorated for ${proration.workedDays} days worked (Joined ${proration.joinDateStr})`,
+                              remarks: proration.remarks,
                             }))
                           }
                           className="px-2.5 py-1 bg-emerald-600 text-white font-bold rounded-lg text-[11px] hover:bg-emerald-700 transition-colors shadow-xs"
                         >
-                          Use Prorated ({fmt(proration.proratedAmount)})
+                          Use Suggested ({fmt(proration.proratedAmount)})
                         </button>
                         <button
                           type="button"
@@ -1191,6 +2052,7 @@ const openPaySalaryModal = (st) => {
                       const newMo = e.target.value;
                       const proration = calcMidMonthProration(
                         targetStaffForSalary.joiningDate,
+                        targetStaffForSalary.terminationDate,
                         newMo,
                         targetStaffForSalary.baseSalary
                       );
@@ -1198,9 +2060,7 @@ const openPaySalaryModal = (st) => {
                         ...prev,
                         monthYear: newMo,
                         baseAmount: proration ? proration.proratedAmount : targetStaffForSalary.baseSalary || 0,
-                        remarks: proration
-                          ? `Prorated salary for ${proration.workedDays} days (Joined on ${proration.joinDateStr})`
-                          : "",
+                        remarks: proration ? proration.remarks : "",
                       }));
                     }}
                     className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"

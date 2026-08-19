@@ -4,10 +4,7 @@ import { BsStarFill, BsClipboard, BsClipboardCheck, BsArrowUpRight, BsArrowRepea
 import { FcGoogle } from "react-icons/fc";
 import axios from "axios";
 import { base_url } from "../utils/axiosConfig";
-
-// ✅ Replace YOUR_PLACE_ID with your Google Business Place ID
-// Find it at: https://developers.google.com/maps/documentation/javascript/examples/places-placeid-finder
-const GOOGLE_REVIEW_URL = "https://search.google.com/local/writereview?placeid=ChIJP-z0FraHXjkRP-xoeP6FaF0";
+import { getPublicSettings } from "../utils/publicSettings";
 
 const generateRandomReview = (specialty = "") => {
   const openings = [
@@ -107,6 +104,11 @@ const generateRandomReview = (specialty = "") => {
 };
 
 const GoogleReviewSection = ({ prodId, specialty } = {}) => {
+  const [storeSettings, setStoreSettings] = useState(null);
+  useEffect(() => {
+    getPublicSettings().then(setStoreSettings);
+  }, []);
+
   const [review, setReview] = useState("");
   const [copied, setCopied] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -165,7 +167,8 @@ const GoogleReviewSection = ({ prodId, specialty } = {}) => {
       setCopied(true);
       setTimeout(() => setCopied(false), 3000);
     }
-    window.open(GOOGLE_REVIEW_URL, "_blank");
+    const reviewUrl = storeSettings?.googleReviewUrl || "https://search.google.com/local/writereview?placeid=ChIJP-z0FraHXjkRP-xoeP6FaF0";
+    window.open(reviewUrl, "_blank");
   };
 
   return (
@@ -189,7 +192,7 @@ const GoogleReviewSection = ({ prodId, specialty } = {}) => {
             Love Yashoda Fashion?
           </h2>
           <p style={{ color: "#888", fontSize: "14px", lineHeight: 1.7, maxWidth: 440, margin: "0 auto" }}>
-            Copy the review below and share it on Google — it takes just 30 seconds!
+            {storeSettings?.googleReviewRequestMessage || "Copy the review below and share it on Google — it takes just 30 seconds!"}
           </p>
           <div style={{ display: "flex", justifyContent: "center", gap: 5, marginTop: 12 }}>
             {[1,2,3,4,5].map(s => <BsStarFill key={s} style={{ fontSize: 20, color: "#faad14" }} />)}

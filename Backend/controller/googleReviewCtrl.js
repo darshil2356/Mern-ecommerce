@@ -200,4 +200,124 @@ const generateGoogleReview = async (req, res) => {
   }
 };
 
-module.exports = { generateGoogleReview };
+const generateGbpPost = async (req, res) => {
+  try {
+    const { template, productId, offerId, aiPolish } = req.query;
+    const Offer = require("../models/offerModel");
+
+    let postTitle = "";
+    let postBody = "";
+    let postLink = "https://yashodafashion.com";
+    let productDetails = null;
+    let offerDetails = null;
+
+    if (productId) {
+      productDetails = await Product.findById(productId).lean();
+    }
+    if (offerId) {
+      offerDetails = await Offer.findById(offerId).lean();
+    }
+
+    // Fallback: If no productId but template needs one, find a representative product
+    if (!productDetails && template !== "Offer") {
+      let filter = { "inventory.online": true };
+      let sort = { createdAt: -1 };
+      if (template === "Saree Collection") {
+        filter.$or = [{ category: /saree/i }, { title: /saree/i }];
+      } else if (template === "Kurti Collection") {
+        filter.$or = [{ category: /kurti|suit/i }, { title: /kurti|suit/i }];
+      } else if (template === "Western Wear") {
+        filter.$or = [{ category: /western|top|t-shirt|shirt/i }, { title: /western|top|t-shirt|shirt/i }];
+      } else if (template === "Pants") {
+        filter.$or = [{ category: /pant|bottom|trouser/i }, { title: /pant|bottom|trouser/i }];
+      } else if (template === "Festive Collection") {
+        filter.$or = [{ category: /festive|wedding|special/i }, { title: /festive|wedding|special/i }, { tags: "special" }];
+      } else if (template === "Best Seller") {
+        sort = { sold: -1 };
+      } else if (template === "Premium Collection") {
+        filter.price = { $gte: 1500 };
+        sort = { price: -1 };
+      }
+      productDetails = await Product.findOne(filter).sort(sort).lean();
+    }
+
+    // Default Offer fallback
+    if (!offerDetails && template === "Offer") {
+      offerDetails = await Offer.findOne({ isActive: true }).sort({ createdAt: -1 }).lean();
+    }
+
+    // Let's create beautiful local template text first
+    if (template === "Offer" && offerDetails) {
+      postTitle = `🎉 Special Offer: ${offerDetails.title}!`;
+      postBody = `${offerDetails.description || "Limited time sale at Yashoda Fashion!"}\n\nDon't miss out on these exclusive savings. Visit Yashoda Fashion in Bapunagar, Ahmedabad to check out the collection or order online.\n\nValidity: Active until ${new Date(offerDetails.endDate).toLocaleDateString()}`;
+      postLink = "https://yashodafashion.com/product";
+    } else if (productDetails) {
+      const prodUrl = `https://yashodafashion.com/product/${productDetails.slug}-${productDetails._id}`;
+      postLink = prodUrl;
+      const priceText = productDetails.price ? `₹${productDetails.price}` : "";
+      const mrpText = productDetails.mrp ? ` (MRP: ₹${productDetails.mrp})` : "";
+      
+      switch (template) {
+        case "New Arrival":
+          postTitle = `✨ New Arrival: ${productDetails.title}!`;
+          postBody = `Introducing our latest design addition to Yashoda Fashion!\n\nFeatured Product: ${productDetails.title}\nPrice: ${priceText}${mrpText}\nCategory: ${productDetails.category || "Women's Wear"}\n\n${productDetails.short_description || productDetails.description || "Check out the newest styles of kurtis, sarees, and suits now in store."}\n\nVisit Yashoda Fashion in Bapunagar, Ahmedabad or shop online at the link below!`;
+          break;
+        case "Best Seller":
+          postTitle = `🔥 Best Seller: ${productDetails.title}!`;
+          postBody = `See why everyone is loving this piece! Our customers can't get enough of this gorgeous outfit.\n\nProduct: ${productDetails.title}\nPrice: ${priceText}${mrpText}\n\n${productDetails.short_description || productDetails.description || "Premium fabric, perfect stitching, and ultimate comfort."}\n\nGet yours today at Yashoda Fashion, Shop No. 1-2, Greendhara Apartment, Bapunagar, Ahmedabad.`;
+          break;
+        case "Festive Collection":
+          postTitle = `🥻 Festive Collection Feature: ${productDetails.title}`;
+          postBody = `Get festival-ready with Yashoda Fashion's beautiful ethnic wear. Make every occasion special with our curated festive sets.\n\nOutfit: ${productDetails.title}\nPrice: ${priceText}${mrpText}\n\n${productDetails.short_description || productDetails.description || "Elegant embroidery and premium fabric for that perfect festive look."}\n\nCheck it out at Yashoda Fashion, Ahmedabad. Shop now!`;
+          break;
+        case "Saree Collection":
+          postTitle = `🥻 Elegant Sarees at Yashoda Fashion`;
+          postBody = `Wrap yourself in elegance with our premium saree collection. Perfect for weddings, festivals, and parties.\n\nFeatured Saree: ${productDetails.title}\nPrice: ${priceText}${mrpText}\n\n${productDetails.short_description || productDetails.description || "Beautiful patterns, soft fabric, and premium borders."}\n\nShop the collection at Yashoda Fashion, Bapunagar, Ahmedabad.`;
+          break;
+        case "Kurti Collection":
+          postTitle = `👚 Trendy Kurtis & Suit Sets`;
+          postBody = `Discover comfortable and stylish kurtis and suits for daily wear or celebrations.\n\nFeatured Design: ${productDetails.title}\nPrice: ${priceText}${mrpText}\n\n${productDetails.short_description || productDetails.description || "Breathable premium fabrics in the latest patterns."}\n\nVisit Yashoda Fashion or click below to explore.`;
+          break;
+        case "Western Wear":
+          postTitle = `👗 Chic Western Wear Collection`;
+          postBody = `Upgrade your wardrobe with stylish tops, t-shirts, and western outfits from Yashoda Fashion.\n\nFeatured Outfit: ${productDetails.title}\nPrice: ${priceText}${mrpText}\n\n${productDetails.short_description || productDetails.description || "Trendy cuts, high comfort, and premium fabrics."}\n\nShop now at Yashoda Fashion, Ahmedabad.`;
+          break;
+        case "Pants":
+          postTitle = `👖 Premium Bottom Wear & Pants`;
+          postBody = `Perfect fit bottom wear manufactured with care. Comfort and style combined!\n\nFeatured Pants: ${productDetails.title}\nPrice: ${priceText}${mrpText}\n\n${productDetails.short_description || productDetails.description || "Soft cotton, stretchable fit, and durable stitching."}\n\nAvailable in multiple colors and sizes at Yashoda Fashion.`;
+          break;
+        case "Premium Collection":
+          postTitle = `💎 Yashoda Premium Collection`;
+          postBody = `Indulge in our premium luxury apparel collection. Exquisite embroidery and finest fabrics for unmatched style.\n\nFeatured Luxury piece: ${productDetails.title}\nPrice: ${priceText}${mrpText}\n\n${productDetails.short_description || productDetails.description || "Exquisite detailing and exclusive design."}\n\nExplore premium fashion at Yashoda Fashion, Bapunagar, Ahmedabad.`;
+          break;
+        default:
+          postTitle = `✨ Feature: ${productDetails.title}`;
+          postBody = `${productDetails.title} is now available at Yashoda Fashion!\nPrice: ${priceText}\n\n${productDetails.short_description || productDetails.description || "Check out our premium women's clothing collection."}`;
+          break;
+      }
+    } else {
+      // General Fallback
+      postTitle = `✨ Yashoda Fashion Ahmedabad`;
+      postBody = `Explore the latest collections of kurtis, sarees, suit sets, bottom wear, and western wear at Yashoda Fashion in Bapunagar, Ahmedabad. Premium quality ladies clothing at affordable prices!`;
+    }
+
+    if (aiPolish === "true" && process.env.GEMINI_API_KEY) {
+      const prompt = `You are a senior social media copywriter and local SEO specialist for "Yashoda Fashion" — a ladies boutique in Bapunagar, Ahmedabad.\n\nWe need to write a Google Business Profile (GBP) update post based on this draft copy:\n\nPOST TITLE: ${postTitle}\nDRAFT POST BODY: ${postBody}\nPRODUCT/OFFER URL: ${postLink}\n\nRules:\n- Write a catchy update post (3-5 sentences maximum)\n- Keep it highly professional, premium, and fashion-focused\n- Sound warm and inviting for ladies shopping in Ahmedabad\n- Include 2-3 relevant hashtags (e.g. #YashodaFashion #AhmedabadBoutique #KurtisInAhmedabad)\n- Keep the call to action clear (e.g. shop online or visit our store at Shop No. 1-2, Greendhara Apartment, Near Bhagawati School, India Colony, Bapunagar, Ahmedabad)\n- Return ONLY the post text (do NOT include title or link in the polished text, as the link will be added separately as a CTA button).\n\nPolished Post:`;
+      const polishedText = await callGemini(prompt);
+      if (polishedText) {
+        postBody = polishedText;
+      }
+    }
+
+    res.json({
+      title: postTitle,
+      body: postBody,
+      link: postLink,
+      image: productDetails?.images?.[0]?.url || ""
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+module.exports = { generateGoogleReview, generateGbpPost };

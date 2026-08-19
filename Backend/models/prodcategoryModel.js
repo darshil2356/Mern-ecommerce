@@ -10,6 +10,7 @@ const prodcategorySchema = new mongoose.Schema(
       url: { type: String },
     },
     order: { type: Number, default: 0 },
+    description: { type: String, default: "" },
   },
   { timestamps: true }
 );

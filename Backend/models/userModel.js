@@ -119,6 +119,98 @@ var userSchema = new mongoose.Schema(
       type: String,
       default: "",
     },
+    storeWhatsapp: {
+      type: String,
+      default: "",
+    },
+    storeOpeningHours: {
+      type: String,
+      default: "10:00 AM - 08:30 PM",
+    },
+    googleMapsUrl: {
+      type: String,
+      default: "",
+    },
+    googleBusinessProfileUrl: {
+      type: String,
+      default: "",
+    },
+    instagramUrl: {
+      type: String,
+      default: "",
+    },
+    facebookUrl: {
+      type: String,
+      default: "",
+    },
+    youtubeUrl: {
+      type: String,
+      default: "",
+    },
+    storeLogo: {
+      type: String,
+      default: "",
+    },
+    storeFavicon: {
+      type: String,
+      default: "",
+    },
+    socialShareImage: {
+      type: String,
+      default: "",
+    },
+    googleReviewUrl: {
+      type: String,
+      default: "https://search.google.com/local/writereview?placeid=ChIJP-z0FraHXjkRP-xoeP6FaF0",
+    },
+    googleReviewRequestMessage: {
+      type: String,
+      default: "Thank you for shopping with Yashoda Fashion ❤️ If you loved your shopping experience, we'd really appreciate your honest Google review. Your feedback helps our business grow!",
+    },
+    homepageMetaTitle: {
+      type: String,
+      default: "Yashoda Fashion | Women's Clothing Store in Bapunagar, Ahmedabad",
+    },
+    homepageMetaDescription: {
+      type: String,
+      default: "Shop women's kurtis, sarees, suit sets, western wear, pants, tops and festive wear at Yashoda Fashion, Bapunagar, Ahmedabad. Stylish collections at affordable prices.",
+    },
+    heroBannerImage: {
+      type: String,
+      default: "",
+    },
+    heroBannerTitle: {
+      type: String,
+      default: "Yashoda Fashion",
+    },
+    heroBannerSubtext: {
+      type: String,
+      default: "Women's Fashion for Every Occasion",
+    },
+    heroBannerCta: {
+      type: String,
+      default: "SHOP NOW",
+    },
+    promoBannerImage: {
+      type: String,
+      default: "",
+    },
+    promoBannerLink: {
+      type: String,
+      default: "",
+    },
+    homepageSectionsOrder: {
+      type: String,
+      default: "hero,categories,newArrivals,bestsellers,trending,festive,premium,ethnic,western,pants,plusSize,offers,whyChooseUs,testimonials,faq,location",
+    },
+    homepageHiddenSections: {
+      type: String,
+      default: "",
+    },
+    storeFaqsJson: {
+      type: String,
+      default: "[]",
+    },
     onlinePaymentDestination: {
       type: String,
       enum: ["CURRENT_ACCOUNT", "OTHER_ACCOUNT"],

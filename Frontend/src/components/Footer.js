@@ -11,6 +11,11 @@ const Footer = () => {
     storeAddress: "",
     storePhone: "",
     storeEmail: "",
+    storeWhatsapp: "",
+    instagramUrl: "",
+    facebookUrl: "",
+    youtubeUrl: "",
+    storeOpeningHours: "10:00 AM - 08:30 PM",
   });
 
   useEffect(() => {
@@ -21,6 +26,11 @@ const Footer = () => {
         storeAddress: data.storeAddress,
         storePhone:   data.storePhone,
         storeEmail:   data.storeEmail,
+        storeWhatsapp: data.storeWhatsapp,
+        instagramUrl: data.instagramUrl,
+        facebookUrl:  data.facebookUrl,
+        youtubeUrl:   data.youtubeUrl,
+        storeOpeningHours: data.storeOpeningHours,
       });
     });
   }, []);
@@ -80,11 +90,10 @@ const Footer = () => {
                 </p>
                 <div className="social-links">
                   {[
-                    { href: "https://instagram.com", icon: <BsInstagram /> },
-                    { href: "https://facebook.com",  icon: <BsFacebook /> },
-                    { href: "https://twitter.com",   icon: <BsTwitter /> },
-                    { href: "https://youtube.com",   icon: <BsYoutube /> },
-                  ].map((s, i) => (
+                    { href: store.instagramUrl, icon: <BsInstagram />, show: !!store.instagramUrl },
+                    { href: store.facebookUrl,  icon: <BsFacebook />,  show: !!store.facebookUrl },
+                    { href: store.youtubeUrl,   icon: <BsYoutube />,   show: !!store.youtubeUrl },
+                  ].filter(s => s.show).map((s, i) => (
                     <a key={i} href={s.href} target="_blank" rel="noopener noreferrer" className="social-icon" style={{ color: "#ffffff" }}>
                       {s.icon}
                     </a>
@@ -135,15 +144,29 @@ const Footer = () => {
                     </a>
                   </div>
                 )}
+                {store.storeWhatsapp && (
+                  <div className="d-flex align-items-center gap-3 mb-3">
+                    <span style={{ fontSize: "14px", color: "#25D366", fontWeight: "bold", display: "inline-flex", alignItems: "center", textTransform: "uppercase", background: "rgba(37,211,102,0.1)", padding: "2px 6px", borderRadius: "4px" }}>WA</span>
+                    <a href={`https://wa.me/${store.storeWhatsapp.replace(/[^0-9]/g, "")}`} target="_blank" rel="noreferrer" style={{ color: "rgba(255,255,255,0.7)" }}>
+                      {store.storeWhatsapp}
+                    </a>
+                  </div>
+                )}
                 {store.storeEmail && (
-                  <div className="d-flex align-items-center gap-3">
+                  <div className="d-flex align-items-center gap-3 mb-3">
                     <BsEnvelope style={{ fontSize: "16px", color: "#d4af37", flexShrink: 0 }} />
                     <a href={`mailto:${store.storeEmail}`} style={{ color: "rgba(255,255,255,0.7)" }}>
                       {store.storeEmail}
                     </a>
                   </div>
                 )}
-                {!store.storeAddress && !store.storePhone && !store.storeEmail && (
+                {store.storeOpeningHours && (
+                  <div className="d-flex align-items-start gap-3">
+                    <span style={{ fontSize: "16px", flexShrink: 0 }}>🕒</span>
+                    <span>{store.storeOpeningHours}</span>
+                  </div>
+                )}
+                {!store.storeAddress && !store.storePhone && !store.storeEmail && !store.storeWhatsapp && (
                   <p style={{ color: "rgba(255,255,255,0.4)", fontSize: "13px" }}>
                     Update contact info in Admin → Settings
                   </p>

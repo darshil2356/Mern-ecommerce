@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import BreadCrumb from "../components/BreadCrumb";
 import Meta from "../components/Meta";
 import { AiOutlineHome, AiOutlineMail } from "react-icons/ai";
@@ -8,6 +8,7 @@ import { useFormik } from "formik";
 import * as yup from "yup";
 import { useDispatch } from "react-redux";
 import { createQuery } from "../features/contact/contactSlice";
+import { getPublicSettings } from "../utils/publicSettings";
 
 let contactSchema = yup.object({
   name: yup.string().required("First Name is Required"),
@@ -21,6 +22,11 @@ let contactSchema = yup.object({
 
 const Contact = () => {
   const dispatch = useDispatch();
+  const [storeSettings, setStoreSettings] = useState(null);
+  useEffect(() => {
+    getPublicSettings().then(setStoreSettings);
+  }, []);
+
   const formik = useFormik({
     initialValues: {
       name: "",
@@ -46,7 +52,8 @@ const Contact = () => {
         <div className="row">
           <div className="col-12">
             <iframe
-              src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3671.478345535799!2d72.63545297476021!3d23.0429182791595!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x395e87b616f4ec3f%3A0x5d6885fe7868ec3f!2sYashoda%20Fashion!5e0!3m2!1sen!2sin!4v1781523063549!5m2!1sen!2sin"
+              title="Google Maps Location"
+              src={storeSettings?.googleMapsUrl || "https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3671.478345535799!2d72.63545297476021!3d23.0429182791595!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x395e87b616f4ec3f%3A0x5d6885fe7868ec3f!2sYashoda%20Fashion!5e0!3m2!1sen!2sin!4v1781523063549!5m2!1sen!2sin"}
               width="600"
               height="450"
               className="border-0 w-100"
@@ -135,22 +142,32 @@ const Contact = () => {
                     <li className="mb-3 d-flex gap-15 align-items-center">
                       <AiOutlineHome className="fs-5" />
                       <address className="mb-0">
-                        Shop no. 1-2 Greendhara apartment, Near bhagawati school, India Colony, Bapunagar, Ahmedabad, Gujarat 382350
+                        {storeSettings?.storeAddress || "Shop no. 1-2 Greendhara apartment, Near bhagawati school, India Colony, Bapunagar, Ahmedabad, Gujarat 382350"}
                       </address>
                     </li>
                     <li className="mb-3 d-flex gap-15 align-items-center">
                       <BiPhoneCall className="fs-5" />
-                      <a href="tel:+91 8264954234">+91 7046252356</a>
+                      <a href={`tel:${storeSettings?.storePhone || "+917046252356"}`}>
+                        {storeSettings?.storePhone || "+91 7046252356"}
+                      </a>
                     </li>
+                    {storeSettings?.storeWhatsapp && (
+                      <li className="mb-3 d-flex gap-15 align-items-center">
+                        <span style={{ fontSize: "14px", color: "#25D366", fontWeight: "bold", background: "rgba(37,211,102,0.1)", padding: "2px 6px", borderRadius: "4px" }}>WA</span>
+                        <a href={`https://wa.me/${storeSettings.storeWhatsapp.replace(/[^0-9]/g, "")}`} target="_blank" rel="noreferrer">
+                          {storeSettings.storeWhatsapp}
+                        </a>
+                      </li>
+                    )}
                     <li className="mb-3 d-flex gap-15 align-items-center">
                       <AiOutlineMail className="fs-5" />
-                      <a href="mailto:info@yashodafashion.com">
-                        info@yashodafashion.com
+                      <a href={`mailto:${storeSettings?.storeEmail || "info@yashodafashion.com"}`}>
+                        {storeSettings?.storeEmail || "info@yashodafashion.com"}
                       </a>
                     </li>
                     <li className="mb-3 d-flex gap-15 align-items-center">
                       <BiInfoCircle className="fs-5" />
-                      <p className="mb-0">Monday – Sunday 9 AM – 9 PM</p>
+                      <p className="mb-0">{storeSettings?.storeOpeningHours || "Monday – Sunday 10 AM – 8:30 PM"}</p>
                     </li>
                   </ul>
                 </div>

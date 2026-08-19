@@ -11,6 +11,7 @@ import { getAProduct, getAllProducts, getCategoryTree } from "../features/produc
 import { getUserCart, getMyReferrals } from "../features/user/userSlice";
 import { resetFirebaseMessaging } from "../utils/firebase";
 import { productUrl, categoryUrl } from "../utils/seoUrl";
+import { getPublicSettings } from "../utils/publicSettings";
 
 const NAV_LINKS = [
   { to: "/", label: "Home" },
@@ -48,6 +49,10 @@ const Header = () => {
   const productState = useSelector((s) => s?.product?.product);
   const categoryTree = useSelector((s) => s?.product?.categoryTree || []);
   const navigate = useNavigate();
+  const [storeSettings, setStoreSettings] = useState(null);
+  useEffect(() => {
+    getPublicSettings().then(setStoreSettings);
+  }, []);
 
   const [total, setTotal] = useState(0);
   const [productOpt, setProductOpt] = useState([]);
@@ -519,8 +524,11 @@ const Header = () => {
 
       {/* TOP STRIP */}
       <div className="h-strip">
-        <p>Welcome to Yashoda Fashion</p>
-        <p>Hotline:<a href="tel:+918264954234">+91 8264954234</a></p>
+        <p>{storeSettings?.storeTagline || "Welcome to Yashoda Fashion"}</p>
+        <p style={{ display: "flex", gap: 15 }}>
+          {storeSettings?.storePhone && <span>Hotline: <a href={`tel:${storeSettings.storePhone}`}>{storeSettings.storePhone}</a></span>}
+          {storeSettings?.storeWhatsapp && <span>WhatsApp: <a href={`https://wa.me/${storeSettings.storeWhatsapp.replace(/[^0-9]/g, "")}`} target="_blank" rel="noreferrer">{storeSettings.storeWhatsapp}</a></span>}
+        </p>
       </div>
 
       {/* HEADER */}
@@ -528,7 +536,7 @@ const Header = () => {
         <div className="h-row">
           <button className="h-burger" onClick={() => setMobileOpen(true)} aria-label="Menu"><BsList /></button>
 
-          <Link to="/" className="h-logo"><img src="/yashoda-logo.png" alt="Yashoda Fashion" className="h-logo-img" /></Link>
+          <Link to="/" className="h-logo"><img src={storeSettings?.storeLogo || "/yashoda-logo.png"} alt={storeSettings?.storeName || "Yashoda Fashion"} className="h-logo-img" /></Link>
 
           <div className="h-search">
             <Typeahead

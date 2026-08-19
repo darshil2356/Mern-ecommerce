@@ -162,7 +162,9 @@ router.put("/unblock-user/:id", authMiddleware, isAdmin, unblockUser);
 router.get("/public-settings", async (req, res) => {
   try {
     const User = require("../models/userModel");
-    const admin = await User.findOne({ role: "admin" }).select("cgst sgst igst storeState taxIncluded shippingCharge requireOtpForSignup storeName storeTagline storeAddress storePhone storeEmail");
+    const admin = await User.findOne({ role: "admin" }).select(
+      "cgst sgst igst storeState taxIncluded shippingCharge requireOtpForSignup storeName storeTagline storeAddress storePhone storeEmail storeWhatsapp storeOpeningHours googleMapsUrl googleBusinessProfileUrl instagramUrl facebookUrl youtubeUrl storeLogo storeFavicon socialShareImage googleReviewUrl googleReviewRequestMessage homepageMetaTitle homepageMetaDescription heroBannerImage heroBannerTitle heroBannerSubtext heroBannerCta promoBannerImage promoBannerLink homepageSectionsOrder homepageHiddenSections storeFaqsJson"
+    );
     res.json({
       cgst: admin?.cgst || 0,
       sgst: admin?.sgst || 0,
@@ -176,9 +178,68 @@ router.get("/public-settings", async (req, res) => {
       storeAddress: admin?.storeAddress || "",
       storePhone: admin?.storePhone || "",
       storeEmail: admin?.storeEmail || "",
+      storeWhatsapp: admin?.storeWhatsapp || "",
+      storeOpeningHours: admin?.storeOpeningHours || "10:00 AM - 08:30 PM",
+      googleMapsUrl: admin?.googleMapsUrl || "",
+      googleBusinessProfileUrl: admin?.googleBusinessProfileUrl || "",
+      instagramUrl: admin?.instagramUrl || "",
+      facebookUrl: admin?.facebookUrl || "",
+      youtubeUrl: admin?.youtubeUrl || "",
+      storeLogo: admin?.storeLogo || "",
+      storeFavicon: admin?.storeFavicon || "",
+      socialShareImage: admin?.socialShareImage || "",
+      googleReviewUrl: admin?.googleReviewUrl || "https://search.google.com/local/writereview?placeid=ChIJP-z0FraHXjkRP-xoeP6FaF0",
+      googleReviewRequestMessage: admin?.googleReviewRequestMessage || "Thank you for shopping with Yashoda Fashion ❤️ If you loved your shopping experience, we'd really appreciate your honest Google review. Your feedback helps our business grow!",
+      homepageMetaTitle: admin?.homepageMetaTitle || "Yashoda Fashion | Women's Clothing Store in Bapunagar, Ahmedabad",
+      homepageMetaDescription: admin?.homepageMetaDescription || "Shop women's kurtis, sarees, suit sets, western wear, pants, tops and festive wear at Yashoda Fashion, Bapunagar, Ahmedabad. Stylish collections at affordable prices.",
+      heroBannerImage: admin?.heroBannerImage || "",
+      heroBannerTitle: admin?.heroBannerTitle || "Yashoda Fashion",
+      heroBannerSubtext: admin?.heroBannerSubtext || "Women's Fashion for Every Occasion",
+      heroBannerCta: admin?.heroBannerCta || "SHOP NOW",
+      promoBannerImage: admin?.promoBannerImage || "",
+      promoBannerLink: admin?.promoBannerLink || "",
+      homepageSectionsOrder: admin?.homepageSectionsOrder || "hero,categories,newArrivals,bestsellers,trending,festive,premium,ethnic,western,pants,plusSize,offers,whyChooseUs,testimonials,faq,location",
+      homepageHiddenSections: admin?.homepageHiddenSections || "",
+      storeFaqsJson: admin?.storeFaqsJson || "[]",
     });
   } catch {
-    res.json({ cgst: 0, sgst: 0, igst: 0, storeState: "Gujarat", taxIncluded: false, shippingCharge: 100, requireOtpForSignup: false, storeName: "Yashoda Fashion", storeTagline: "", storeAddress: "", storePhone: "", storeEmail: "" });
+    res.json({
+      cgst: 0,
+      sgst: 0,
+      igst: 0,
+      storeState: "Gujarat",
+      taxIncluded: false,
+      shippingCharge: 100,
+      requireOtpForSignup: false,
+      storeName: "Yashoda Fashion",
+      storeTagline: "",
+      storeAddress: "",
+      storePhone: "",
+      storeEmail: "",
+      storeWhatsapp: "",
+      storeOpeningHours: "10:00 AM - 08:30 PM",
+      googleMapsUrl: "",
+      googleBusinessProfileUrl: "",
+      instagramUrl: "",
+      facebookUrl: "",
+      youtubeUrl: "",
+      storeLogo: "",
+      storeFavicon: "",
+      socialShareImage: "",
+      googleReviewUrl: "https://search.google.com/local/writereview?placeid=ChIJP-z0FraHXjkRP-xoeP6FaF0",
+      googleReviewRequestMessage: "Thank you for shopping with Yashoda Fashion ❤️ If you loved your shopping experience, we'd really appreciate your honest Google review. Your feedback helps our business grow!",
+      homepageMetaTitle: "Yashoda Fashion | Women's Clothing Store in Bapunagar, Ahmedabad",
+      homepageMetaDescription: "Shop women's kurtis, sarees, suit sets, western wear, pants, tops and festive wear at Yashoda Fashion, Bapunagar, Ahmedabad. Stylish collections at affordable prices.",
+      heroBannerImage: "",
+      heroBannerTitle: "Yashoda Fashion",
+      heroBannerSubtext: "Women's Fashion for Every Occasion",
+      heroBannerCta: "SHOP NOW",
+      promoBannerImage: "",
+      promoBannerLink: "",
+      homepageSectionsOrder: "hero,categories,newArrivals,bestsellers,trending,festive,premium,ethnic,western,pants,plusSize,offers,whyChooseUs,testimonials,faq,location",
+      homepageHiddenSections: "",
+      storeFaqsJson: "[]",
+    });
   }
 });
 

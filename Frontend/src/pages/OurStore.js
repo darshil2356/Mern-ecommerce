@@ -258,6 +258,18 @@ const OurStore = () => {
 
       <div style={{ background: "#f7f7f7", minHeight: "100vh" }}>
         <Container class1="store-wrapper py-4">
+          
+          {/* Category Heading & Description */}
+          {category && (
+            <div style={{ marginBottom: 28, padding: "0 4px" }}>
+              <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: "2.2rem", fontWeight: 700, color: "#1a1a1a", margin: "0 0 10px 0" }}>
+                {category} Collection
+              </h1>
+              <p style={{ color: "#555", fontSize: "14px", lineHeight: "1.7", margin: 0, maxWidth: "800px" }}>
+                {activeParentNode?.description || `Explore our latest collection of ${category.toLowerCase()} at Yashoda Fashion. Beautiful styles, premium fabrics, and elegant designs suitable for every occasion.`}
+              </p>
+            </div>
+          )}
 
           {/* ── Sticky Top Bar ── */}
           <div style={topBar}>

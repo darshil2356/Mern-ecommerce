@@ -32,7 +32,7 @@ const getDescendantIds = async (categoryId) => {
 // ── CRUD ─────────────────────────────────────────────────────────────────────
 
 const createCategory = asyncHandler(async (req, res) => {
-  const { title, parent, image, order } = req.body;
+  const { title, parent, image, order, description } = req.body;
   if (!title?.trim()) return res.status(400).json({ message: "Title is required" });
 
   // Check duplicate title under same parent
@@ -49,6 +49,7 @@ const createCategory = asyncHandler(async (req, res) => {
     parent: parent || null,
     image: image || {},
     order: order || 0,
+    description: description || "",
   });
   res.json(cat);
 });
@@ -56,7 +57,7 @@ const createCategory = asyncHandler(async (req, res) => {
 const updateCategory = asyncHandler(async (req, res) => {
   const { id } = req.params;
   validateMongoDbId(id);
-  const { title, parent, image, order } = req.body;
+  const { title, parent, image, order, description } = req.body;
   const updates = {};
   if (title !== undefined) {
     updates.title = title.trim();
@@ -65,6 +66,7 @@ const updateCategory = asyncHandler(async (req, res) => {
   if (parent !== undefined) updates.parent = parent || null;
   if (image !== undefined) updates.image = image;
   if (order !== undefined) updates.order = order;
+  if (description !== undefined) updates.description = description;
   const updated = await Category.findByIdAndUpdate(id, updates, { new: true }).populate("parent", "title slug");
   res.json(updated);
 });

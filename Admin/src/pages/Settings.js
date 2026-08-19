@@ -1,15 +1,14 @@
 import React, { useEffect, useState, useRef } from "react";
-import { Form, Input, Switch, Button, Card, message, Spin } from "antd";
+import { Form, Input, Switch, Button, Card, message, Spin, Tabs, Select } from "antd";
 import {
   FaBuilding, FaEnvelope, FaStore, FaPhone,
   FaMagic, FaSave, FaQuoteRight, FaPercentage, FaTruck,
   FaRss, FaSyncAlt, FaExternalLinkAlt, FaCopy, FaLock, FaUnlockAlt,
-  FaShieldAlt,
+  FaShieldAlt, FaBullhorn, FaImage, FaGoogle,
 } from "react-icons/fa";
 import axios from "axios";
 import api from "../utils/axiosconfig";
 import { base_url } from "../utils/baseUrl";
-import { config } from "../utils/axiosconfig";
 
 const BACKEND_ROOT  = (process.env.REACT_APP_API_URL || "").replace(/\/api\/?$/, "");
 const FEED_XML_URL  = `${BACKEND_ROOT}/feed.xml`;
@@ -114,6 +113,63 @@ const Settings = () => {
   // Prevent double-fetch: store settings data from gate check
   const cachedSettings = useRef(null);
 
+  const [productList, setProductList] = useState([]);
+  const [loadingProducts, setLoadingProducts] = useState(false);
+  const [offersList, setOffersList] = useState([]);
+  const [loadingOffers, setLoadingOffers] = useState(false);
+
+  const [gbpTemplate, setGbpTemplate] = useState("New Arrival");
+  const [selectedProd, setSelectedProd] = useState("");
+  const [selectedOffer, setSelectedOffer] = useState("");
+  const [aiPolishGbp, setAiPolishGbp] = useState(false);
+  const [generatedPost, setGeneratedPost] = useState({ title: "", body: "", link: "", image: "" });
+  const [generatingPost, setGeneratingPost] = useState(false);
+
+  const fetchGbpData = async () => {
+    try {
+      setLoadingProducts(true);
+      const prodRes = await api.get(`${base_url}product?limit=1000`);
+      setProductList(prodRes.data || []);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoadingProducts(false);
+    }
+
+    try {
+      setLoadingOffers(true);
+      const offerRes = await api.get(`${base_url}offers`);
+      setOffersList(offerRes.data || []);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoadingOffers(false);
+    }
+  };
+
+  const generateGbpPostDraft = async () => {
+    try {
+      setGeneratingPost(true);
+      const params = [
+        `template=${encodeURIComponent(gbpTemplate)}`,
+        `aiPolish=${aiPolishGbp ? "true" : "false"}`
+      ];
+      if (selectedProd) params.push(`productId=${selectedProd}`);
+      if (selectedOffer) params.push(`offerId=${selectedOffer}`);
+      const res = await api.get(`${base_url}google-review/generate-gbp?${params.join("&")}`);
+      setGeneratedPost(res.data);
+      message.success("GBP post draft generated successfully!");
+    } catch {
+      message.error("Failed to generate GBP post draft");
+    } finally {
+      setGeneratingPost(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchGbpData();
+  }, []);
+
   useEffect(() => {
     const init = async () => {
       try {
@@ -161,6 +217,29 @@ const Settings = () => {
       shippingCharge: data.shippingCharge ?? 100,
       upiIdA:         data.upiIdA         || "",
       upiIdB:         data.upiIdB         || "",
+      storeWhatsapp:  data.storeWhatsapp  || "",
+      storeOpeningHours: data.storeOpeningHours || "10:00 AM - 08:30 PM",
+      googleMapsUrl:  data.googleMapsUrl  || "",
+      googleBusinessProfileUrl: data.googleBusinessProfileUrl || "",
+      instagramUrl:   data.instagramUrl   || "",
+      facebookUrl:    data.facebookUrl    || "",
+      youtubeUrl:     data.youtubeUrl     || "",
+      storeLogo:      data.storeLogo      || "",
+      storeFavicon:   data.storeFavicon   || "",
+      socialShareImage: data.socialShareImage || "",
+      googleReviewUrl: data.googleReviewUrl || "https://search.google.com/local/writereview?placeid=ChIJP-z0FraHXjkRP-xoeP6FaF0",
+      googleReviewRequestMessage: data.googleReviewRequestMessage || "Thank you for shopping with Yashoda Fashion ❤️ If you loved your shopping experience, we'd really appreciate your honest Google review. Your feedback helps our business grow!",
+      homepageMetaTitle: data.homepageMetaTitle || "Yashoda Fashion | Women's Clothing Store in Bapunagar, Ahmedabad",
+      homepageMetaDescription: data.homepageMetaDescription || "Shop women's kurtis, sarees, suit sets, western wear, pants, tops and festive wear at Yashoda Fashion, Bapunagar, Ahmedabad. Stylish collections at affordable prices.",
+      heroBannerImage: data.heroBannerImage || "",
+      heroBannerTitle: data.heroBannerTitle || "Yashoda Fashion",
+      heroBannerSubtext: data.heroBannerSubtext || "Women's Fashion for Every Occasion",
+      heroBannerCta:   data.heroBannerCta   || "SHOP NOW",
+      promoBannerImage: data.promoBannerImage || "",
+      promoBannerLink:  data.promoBannerLink  || "",
+      homepageSectionsOrder: data.homepageSectionsOrder || "hero,categories,newArrivals,bestsellers,trending,festive,premium,ethnic,western,pants,plusSize,offers,whyChooseUs,testimonials,faq,location",
+      homepageHiddenSections: data.homepageHiddenSections || "",
+      storeFaqsJson:   data.storeFaqsJson   || "[]",
     });
     setTaxIncluded(data.taxIncluded === true);
     setStoreState(data.storeState || "Gujarat");
@@ -261,6 +340,18 @@ const Settings = () => {
   const pwMatch = newPassword && newPassword === confirmPassword;
   const pwMismatch = newPassword && newPassword !== confirmPassword;
 
+  const templates = [
+    "New Arrival",
+    "Best Seller",
+    "Festive Collection",
+    "Offer",
+    "Saree Collection",
+    "Kurti Collection",
+    "Western Wear",
+    "Pants",
+    "Premium Collection",
+  ];
+
   return (
     <div className="max-w-3xl mx-auto p-2 sm:p-4">
       <div className="mb-6">
@@ -269,258 +360,480 @@ const Settings = () => {
       </div>
 
       <Form form={form} layout="vertical" onFinish={onFinish}>
-
-        {/* ── Business Info ── */}
-        <Card className="mb-6 shadow-sm" title={<span className="flex items-center gap-2"><FaBuilding className="text-indigo-600" /> Business Information</span>}>
-          <Form.Item label="GSTIN Number" name="gstin"
-            rules={[{ pattern: /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/, message: "Invalid GSTIN format" }]}>
-            <Input placeholder="Enter GSTIN" maxLength={15} prefix={<FaBuilding className="text-gray-400" />} />
-          </Form.Item>
-          <Form.Item label="Email Address" name="email" rules={[{ type: "email", message: "Invalid email" }]}>
-            <Input placeholder="Enter email" prefix={<FaEnvelope className="text-gray-400" />} />
-          </Form.Item>
-
-          <div className="flex gap-4">
-            {["cgst", "sgst", "igst"].map(field => (
-              <Form.Item key={field} className="flex-1" label={`${field.toUpperCase()} (%)`} name={field}
-                rules={[{ validator: (_, v) => (v === "" || v == null) ? Promise.reject(`Enter ${field.toUpperCase()}`) : isNaN(Number(v)) || Number(v) < 0 ? Promise.reject("Invalid") : Promise.resolve() }]}>
-                <Input type="number" min={0} step={0.01} placeholder="e.g. 2.5" prefix={<FaPercentage className="text-gray-400" />} />
+        <Tabs defaultActiveKey="1" className="bg-white p-4 rounded-xl shadow-sm mb-6">
+          
+          {/* TAB 1: Basic Configurations */}
+          <Tabs.TabPane tab="Basic Configurations" key="1">
+            {/* ── Business Info ── */}
+            <Card className="mb-6 shadow-sm" title={<span className="flex items-center gap-2"><FaBuilding className="text-indigo-600" /> Business Information</span>}>
+              <Form.Item label="GSTIN Number" name="gstin"
+                rules={[{ pattern: /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/, message: "Invalid GSTIN format" }]}>
+                <Input placeholder="Enter GSTIN" maxLength={15} prefix={<FaBuilding className="text-gray-400" />} />
               </Form.Item>
-            ))}
-          </div>
+              <Form.Item label="Email Address" name="email" rules={[{ type: "email", message: "Invalid email" }]}>
+                <Input placeholder="Enter email" prefix={<FaEnvelope className="text-gray-400" />} />
+              </Form.Item>
 
-          <div className="p-4 bg-green-50 rounded-xl border border-green-200 mb-4">
-            <p className="font-medium text-gray-800 mb-1">Store Location (State)</p>
-            <p className="text-xs text-gray-500 mb-3">
-              Orders from <strong>{storeState}</strong> → CGST + SGST applied. Other states → IGST applied.
-            </p>
-            <select
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-700"
-              value={storeState}
-              onChange={e => setStoreState(e.target.value)}
-            >
-              {["Gujarat","Maharashtra","Delhi","Karnataka","Tamil Nadu","Rajasthan","Uttar Pradesh","West Bengal","Telangana","Punjab","Madhya Pradesh","Bihar","Haryana","Odisha","Kerala"].map(s => (
-                <option key={s} value={s}>{s}</option>
-              ))}
-            </select>
-          </div>
+              <div className="flex gap-4">
+                {["cgst", "sgst", "igst"].map(field => (
+                  <Form.Item key={field} className="flex-1" label={`${field.toUpperCase()} (%)`} name={field}
+                    rules={[{ validator: (_, v) => (v === "" || v == null) ? Promise.reject(`Enter ${field.toUpperCase()}`) : isNaN(Number(v)) || Number(v) < 0 ? Promise.reject("Invalid") : Promise.resolve() }]}>
+                    <Input type="number" min={0} step={0.01} placeholder="e.g. 2.5" prefix={<FaPercentage className="text-gray-400" />} />
+                  </Form.Item>
+                ))}
+              </div>
 
-          <div className="p-4 bg-blue-50 rounded-xl border border-blue-200">
-            <div className="flex items-center justify-between mb-2">
-              <div>
-                <p className="font-medium text-gray-800">Tax Mode</p>
-                <p className="text-xs text-gray-500 mt-0.5">
-                  {taxIncluded ? "Prices INCLUDE tax — tax is extracted from the price" : "Prices EXCLUDE tax — tax is added on top of the price"}
+              <div className="p-4 bg-green-50 rounded-xl border border-green-200 mb-4">
+                <p className="font-medium text-gray-800 mb-1">Store Location (State)</p>
+                <p className="text-xs text-gray-500 mb-3">
+                  Orders from <strong>{storeState}</strong> → CGST + SGST applied. Other states → IGST applied.
                 </p>
-              </div>
-              <Switch checked={taxIncluded} onChange={setTaxIncluded} checkedChildren="Tax Included" unCheckedChildren="Tax Excluded" />
-            </div>
-            <div className="mt-3 grid grid-cols-2 gap-3 text-xs">
-              <div className={`p-3 rounded-lg border-2 ${!taxIncluded ? "border-indigo-500 bg-indigo-50" : "border-gray-200 bg-white"}`}>
-                <p className="font-semibold text-gray-700 mb-1">📦 Tax Excluded (default)</p>
-                <p className="text-gray-500">Product: ₹1000</p>
-                <p className="text-gray-500">+ CGST 9%: ₹90</p>
-                <p className="text-gray-500">+ SGST 9%: ₹90</p>
-                <p className="font-bold text-indigo-600">Total: ₹1180</p>
-              </div>
-              <div className={`p-3 rounded-lg border-2 ${taxIncluded ? "border-indigo-500 bg-indigo-50" : "border-gray-200 bg-white"}`}>
-                <p className="font-semibold text-gray-700 mb-1">🏷️ Tax Included</p>
-                <p className="text-gray-500">Product: ₹1180 (incl. tax)</p>
-                <p className="text-gray-500">CGST 9% extracted: ₹90</p>
-                <p className="text-gray-500">SGST 9% extracted: ₹90</p>
-                <p className="font-bold text-indigo-600">Base: ₹1000 | Total: ₹1180</p>
-              </div>
-            </div>
-          </div>
-        </Card>
-
-        {/* ── Store Details ── */}
-        <Card className="mb-6 shadow-sm" title={<span className="flex items-center gap-2"><FaStore className="text-indigo-600" /> Store Details</span>}>
-          <Form.Item label="Store Name" name="storeName">
-            <Input prefix={<FaStore className="text-gray-400" />} />
-          </Form.Item>
-          <Form.Item label="Phone Number" name="storePhone">
-            <Input prefix={<FaPhone className="text-gray-400" />} />
-          </Form.Item>
-          <Form.Item label="Store Email" name="storeEmail">
-            <Input type="email" prefix={<FaEnvelope className="text-gray-400" />} placeholder="e.g. info@yashodafashion.com" />
-          </Form.Item>
-          <Form.Item label="Store Tagline" name="storeTagline">
-            <Input prefix={<FaQuoteRight className="text-gray-400" />} />
-          </Form.Item>
-          <Form.Item label="Store Address" name="storeAddress">
-            <Input.TextArea rows={2} />
-          </Form.Item>
-          <Form.Item
-            label="Shipping Charge (₹)"
-            name="shippingCharge"
-            rules={[{ validator: (_, v) => (v === "" || v == null) ? Promise.reject("Enter shipping charge") : isNaN(Number(v)) || Number(v) < 0 ? Promise.reject("Must be ≥ 0") : Promise.resolve() }]}
-            extra="Set to 0 for free shipping."
-          >
-            <Input type="number" min={0} step={1} placeholder="e.g. 100" prefix={<FaTruck className="text-gray-400" />} />
-          </Form.Item>
-
-          <div className="p-4 bg-yellow-50 rounded-xl border border-yellow-200">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="font-medium text-gray-800">OTP Verification on Signup</p>
-                <p className="text-xs text-gray-500 mt-0.5">
-                  {requireOtpForSignup ? "Customers must verify mobile via OTP before registering" : "Customers can register without OTP verification"}
-                </p>
-              </div>
-              <Switch checked={requireOtpForSignup} onChange={setRequireOtpForSignup} checkedChildren="OTP ON" unCheckedChildren="OTP OFF" />
-            </div>
-          </div>
-        </Card>
-
-        {/* ── Payment ── */}
-        <Card className="mb-6 shadow-sm" title={<span className="flex items-center gap-2"><FaMagic className="text-indigo-600" /> Payment Preferences</span>}>
-          <div className="mb-6">
-            <label className="block text-sm font-medium text-gray-700 mb-2">Online Payment Account</label>
-            <div className="grid grid-cols-2 gap-3">
-              {[
-                { value: "CURRENT_ACCOUNT", label: "Current Account", desc: "Primary business account" },
-                { value: "OTHER_ACCOUNT",   label: "Saving Account",  desc: "Secondary savings account" },
-              ].map(opt => (
-                <div
-                  key={opt.value}
-                  onClick={() => setOnlinePaymentDestination(opt.value)}
-                  className={`cursor-pointer p-4 rounded-xl border-2 transition-all ${
-                    onlinePaymentDestination === opt.value ? "border-indigo-500 bg-indigo-50" : "border-gray-200 bg-white hover:border-gray-300"
-                  }`}
+                <select
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-700"
+                  value={storeState}
+                  onChange={e => setStoreState(e.target.value)}
                 >
-                  <p className={`font-semibold text-sm ${onlinePaymentDestination === opt.value ? "text-indigo-700" : "text-gray-700"}`}>{opt.label}</p>
-                  <p className="text-xs text-gray-500 mt-0.5">{opt.desc}</p>
+                  {["Gujarat","Maharashtra","Delhi","Karnataka","Tamil Nadu","Rajasthan","Uttar Pradesh","West Bengal","Telangana","Punjab","Madhya Pradesh","Bihar","Haryana","Odisha","Kerala"].map(s => (
+                    <option key={s} value={s}>{s}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="p-4 bg-blue-50 rounded-xl border border-blue-200">
+                <div className="flex items-center justify-between mb-2">
+                  <div>
+                    <p className="font-medium text-gray-800">Tax Mode</p>
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      {taxIncluded ? "Prices INCLUDE tax — tax is extracted from the price" : "Prices EXCLUDE tax — tax is added on top of the price"}
+                    </p>
+                  </div>
+                  <Switch checked={taxIncluded} onChange={setTaxIncluded} checkedChildren="Tax Included" unCheckedChildren="Tax Excluded" />
                 </div>
-              ))}
-            </div>
-          </div>
+                <div className="mt-3 grid grid-cols-2 gap-3 text-xs">
+                  <div className={`p-3 rounded-lg border-2 ${!taxIncluded ? "border-indigo-500 bg-indigo-50" : "border-gray-200 bg-white"}`}>
+                    <p className="font-semibold text-gray-700 mb-1">📦 Tax Excluded (default)</p>
+                    <p className="text-gray-500">Product: ₹1000</p>
+                    <p className="text-gray-500">+ CGST 9%: ₹90</p>
+                    <p className="text-gray-500">+ SGST 9%: ₹90</p>
+                    <p className="font-bold text-indigo-600">Total: ₹1180</p>
+                  </div>
+                  <div className={`p-3 rounded-lg border-2 ${taxIncluded ? "border-indigo-500 bg-indigo-50" : "border-gray-200 bg-white"}`}>
+                    <p className="font-semibold text-gray-700 mb-1">🏷️ Tax Included</p>
+                    <p className="text-gray-500">Product: ₹1180 (incl. tax)</p>
+                    <p className="text-gray-500">CGST 9% extracted: ₹90</p>
+                    <p className="text-gray-500">SGST 9% extracted: ₹90</p>
+                    <p className="font-bold text-indigo-600">Base: ₹1000 | Total: ₹1180</p>
+                  </div>
+                </div>
+              </div>
+            </Card>
 
-          <div className="p-4 bg-green-50 rounded-xl border border-green-200">
-            <p className="font-medium text-gray-800 mb-1">📱 UPI Payment QR Codes</p>
-            <p className="text-xs text-gray-500 mb-4">Used to generate QR codes on POS bills. Amount is auto-filled.</p>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <Form.Item label="Account A UPI ID (Current)" name="upiIdA" className="mb-0">
-                <Input placeholder="e.g. yourname@upi or 9876543210@paytm" />
-              </Form.Item>
-              <Form.Item label="Account B UPI ID (Saving)" name="upiIdB" className="mb-0">
-                <Input placeholder="e.g. yourname@ybl or 9876543210@gpay" />
-              </Form.Item>
-            </div>
-          </div>
-        </Card>
+            {/* ── Payment ── */}
+            <Card className="mb-6 shadow-sm" title={<span className="flex items-center gap-2"><FaMagic className="text-indigo-600" /> Payment Preferences</span>}>
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-gray-700 mb-2">Online Payment Account</label>
+                <div className="grid grid-cols-2 gap-3">
+                  {[
+                    { value: "CURRENT_ACCOUNT", label: "Current Account", desc: "Primary business account" },
+                    { value: "OTHER_ACCOUNT",   label: "Saving Account",  desc: "Secondary savings account" },
+                  ].map(opt => (
+                    <div
+                      key={opt.value}
+                      onClick={() => setOnlinePaymentDestination(opt.value)}
+                      className={`cursor-pointer p-4 rounded-xl border-2 transition-all ${
+                        onlinePaymentDestination === opt.value ? "border-indigo-500 bg-indigo-50" : "border-gray-200 bg-white hover:border-gray-300"
+                      }`}
+                    >
+                      <p className={`font-semibold text-sm ${onlinePaymentDestination === opt.value ? "text-indigo-700" : "text-gray-700"}`}>{opt.label}</p>
+                      <p className="text-xs text-gray-500 mt-0.5">{opt.desc}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
 
-        {/* ── Lock Management ── */}
-        <Card
-          className="mb-6 shadow-sm"
-          title={<span className="flex items-center gap-2"><FaShieldAlt className="text-indigo-600" /> Lock Management</span>}
-        >
-          <p className="text-sm font-medium text-gray-700 mb-3">Choose which areas to protect with a password:</p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
-            {LOCK_SECTIONS.map(sec => (
-              <div
-                key={sec.key}
-                className={`flex items-center justify-between p-3 rounded-xl border-2 transition-all ${
-                  locks[sec.key] ? "border-indigo-400 bg-indigo-50" : "border-gray-200 bg-gray-50"
-                }`}
-              >
-                <div className="flex items-center gap-2">
-                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${locks[sec.key] ? "bg-indigo-600" : "bg-gray-300"}`}>
-                    <FaLock className="text-white text-xs" />
+              <div className="p-4 bg-green-50 rounded-xl border border-green-200">
+                <p className="font-medium text-gray-800 mb-1">📱 UPI Payment QR Codes</p>
+                <p className="text-xs text-gray-500 mb-4">Used to generate QR codes on POS bills. Amount is auto-filled.</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <Form.Item label="Account A UPI ID (Current)" name="upiIdA" className="mb-0">
+                    <Input placeholder="e.g. yourname@upi or 9876543210@paytm" />
+                  </Form.Item>
+                  <Form.Item label="Account B UPI ID (Saving)" name="upiIdB" className="mb-0">
+                    <Input placeholder="e.g. yourname@ybl or 9876543210@gpay" />
+                  </Form.Item>
+                </div>
+              </div>
+            </Card>
+
+            {/* ── Lock Management ── */}
+            <Card
+              className="mb-6 shadow-sm"
+              title={<span className="flex items-center gap-2"><FaShieldAlt className="text-indigo-600" /> Lock Management</span>}
+            >
+              <p className="text-sm font-medium text-gray-700 mb-3">Choose which areas to protect with a password:</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
+                {LOCK_SECTIONS.map(sec => (
+                  <div
+                    key={sec.key}
+                    className={`flex items-center justify-between p-3 rounded-xl border-2 transition-all ${
+                      locks[sec.key] ? "border-indigo-400 bg-indigo-50" : "border-gray-200 bg-gray-50"
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${locks[sec.key] ? "bg-indigo-600" : "bg-gray-300"}`}>
+                        <FaLock className="text-white text-xs" />
+                      </div>
+                      <div>
+                        <p className="font-semibold text-gray-800 text-sm leading-tight">{sec.label}</p>
+                        <p className="text-xs text-gray-500 leading-tight">{sec.desc}</p>
+                      </div>
+                    </div>
+                    <Switch
+                      checked={locks[sec.key]}
+                      onChange={v => setLocks(prev => ({ ...prev, [sec.key]: v }))}
+                      checkedChildren="Locked"
+                      unCheckedChildren="Open"
+                    />
+                  </div>
+                ))}
+              </div>
+
+              {/* Password setup */}
+              <div className="p-4 bg-gray-50 rounded-xl border border-gray-200">
+                <p className="font-medium text-gray-800 mb-1 flex items-center gap-2">
+                  <FaLock className="text-indigo-500" />
+                  {passwordSet ? "Change Lock Password" : "Set Lock Password"}
+                </p>
+                <p className="text-xs text-gray-500 mb-4">
+                  {passwordSet
+                    ? "Leave blank to keep existing password. Fill both fields to change it."
+                    : "Set a password to activate the locks above."}
+                </p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">New Password</label>
+                    <Input.Password
+                      placeholder="Enter new password"
+                      value={newPassword}
+                      onChange={e => setNewPassword(e.target.value)}
+                      size="large"
+                    />
                   </div>
                   <div>
-                    <p className="font-semibold text-gray-800 text-sm leading-tight">{sec.label}</p>
-                    <p className="text-xs text-gray-500 leading-tight">{sec.desc}</p>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Confirm Password</label>
+                    <Input.Password
+                      placeholder="Confirm new password"
+                      value={confirmPassword}
+                      onChange={e => setConfirmPassword(e.target.value)}
+                      size="large"
+                    />
                   </div>
                 </div>
-                <Switch
-                  checked={locks[sec.key]}
-                  onChange={v => setLocks(prev => ({ ...prev, [sec.key]: v }))}
-                  checkedChildren="Locked"
-                  unCheckedChildren="Open"
-                />
+                {pwMismatch && <p className="text-red-500 text-xs mt-2">❌ Passwords do not match</p>}
+                {pwMatch    && <p className="text-green-600 text-xs mt-2">✅ Passwords match — will be saved on Save Settings</p>}
               </div>
-            ))}
-          </div>
 
-          {/* Password setup */}
-          <div className="p-4 bg-gray-50 rounded-xl border border-gray-200">
-            <p className="font-medium text-gray-800 mb-1 flex items-center gap-2">
-              <FaLock className="text-indigo-500" />
-              {passwordSet ? "Change Lock Password" : "Set Lock Password"}
-            </p>
-            <p className="text-xs text-gray-500 mb-4">
-              {passwordSet
-                ? "Leave blank to keep existing password. Fill both fields to change it."
-                : "Set a password to activate the locks above."}
-            </p>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">New Password</label>
-                <Input.Password
-                  placeholder="Enter new password"
-                  value={newPassword}
-                  onChange={e => setNewPassword(e.target.value)}
-                  size="large"
-                />
+              <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                <p className="text-xs text-amber-800 leading-relaxed">
+                  <strong>How it works:</strong> Toggle ON the areas you want to protect. Set a password and save.
+                  Staff will see a password screen when they try to open locked areas.
+                </p>
               </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Confirm Password</label>
-                <Input.Password
-                  placeholder="Confirm new password"
-                  value={confirmPassword}
-                  onChange={e => setConfirmPassword(e.target.value)}
-                  size="large"
-                />
-              </div>
-            </div>
-            {pwMismatch && <p className="text-red-500 text-xs mt-2">❌ Passwords do not match</p>}
-            {pwMatch    && <p className="text-green-600 text-xs mt-2">✅ Passwords match — will be saved on Save Settings</p>}
-          </div>
 
-          <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
-            <p className="text-xs text-amber-800 leading-relaxed">
-              <strong>How it works:</strong> Toggle ON the areas you want to protect. Set a password and save.
-              Staff will see a password screen when they try to open locked areas.
-            </p>
-          </div>
-
-          {/* JWT Token Expiry */}
-          <div className="mt-4 p-4 bg-blue-50 rounded-xl border border-blue-200">
-            <p className="font-medium text-gray-800 mb-1 flex items-center gap-2">
-              <FaShieldAlt className="text-blue-500" />
-              Session Expiry (Token Duration)
-            </p>
-            <p className="text-xs text-gray-500 mb-3">
-              How long admin login sessions stay valid. After this time, users are automatically logged out and redirected to login.
-            </p>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-              {[
-                { value: "6h",  label: "6 Hours" },
-                { value: "12h", label: "12 Hours" },
-                { value: "1d",  label: "1 Day" },
-                { value: "3d",  label: "3 Days" },
-                { value: "7d",  label: "7 Days" },
-                { value: "30d", label: "30 Days" },
-              ].map(opt => (
-                <div
-                  key={opt.value}
-                  onClick={() => setJwtExpiresIn(opt.value)}
-                  className={`cursor-pointer p-3 rounded-xl border-2 text-center transition-all ${
-                    jwtExpiresIn === opt.value
-                      ? "border-blue-500 bg-blue-100 text-blue-700 font-bold"
-                      : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"
-                  }`}
-                >
-                  {opt.label}
+              {/* JWT Token Expiry */}
+              <div className="mt-4 p-4 bg-blue-50 rounded-xl border border-blue-200">
+                <p className="font-medium text-gray-800 mb-1 flex items-center gap-2">
+                  <FaShieldAlt className="text-blue-500" />
+                  Session Expiry (Token Duration)
+                </p>
+                <p className="text-xs text-gray-500 mb-3">
+                  How long admin login sessions stay valid. After this time, users are automatically logged out and redirected to login.
+                </p>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  {[
+                    { value: "6h",  label: "6 Hours" },
+                    { value: "12h", label: "12 Hours" },
+                    { value: "1d",  label: "1 Day" },
+                    { value: "3d",  label: "3 Days" },
+                    { value: "7d",  label: "7 Days" },
+                    { value: "30d", label: "30 Days" },
+                  ].map(opt => (
+                    <div
+                      key={opt.value}
+                      onClick={() => setJwtExpiresIn(opt.value)}
+                      className={`cursor-pointer p-3 rounded-xl border-2 text-center transition-all ${
+                        jwtExpiresIn === opt.value
+                          ? "border-blue-500 bg-blue-100 text-blue-700 font-bold"
+                          : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"
+                      }`}
+                    >
+                      {opt.label}
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
-            <p className="text-xs text-blue-700 mt-2">
-              Current: <strong>{jwtExpiresIn}</strong>. Takes effect on next login.
-            </p>
-          </div>
-        </Card>
+                <p className="text-xs text-blue-700 mt-2">
+                  Current: <strong>{jwtExpiresIn}</strong>. Takes effect on next login.
+                </p>
+              </div>
+            </Card>
+          </Tabs.TabPane>
+
+          {/* TAB 2: Storefront & SEO settings */}
+          <Tabs.TabPane tab="Storefront & SEO settings" key="2">
+            {/* Storefront Details Card */}
+            <Card className="mb-6 shadow-sm" title={<span className="flex items-center gap-2"><FaStore className="text-indigo-600" /> Storefront Info</span>}>
+              <Form.Item label="Store Name" name="storeName">
+                <Input prefix={<FaStore className="text-gray-400" />} />
+              </Form.Item>
+              <Form.Item label="Phone Number" name="storePhone">
+                <Input prefix={<FaPhone className="text-gray-400" />} />
+              </Form.Item>
+              <Form.Item label="WhatsApp Number" name="storeWhatsapp" extra="Must be in international format (e.g. +917046252356 or 7046252356)">
+                <Input prefix={<FaPhone className="text-green-500" />} />
+              </Form.Item>
+              <Form.Item label="Store Email" name="storeEmail">
+                <Input type="email" prefix={<FaEnvelope className="text-gray-400" />} placeholder="e.g. info@yashodafashion.com" />
+              </Form.Item>
+              <Form.Item label="Store Tagline" name="storeTagline">
+                <Input prefix={<FaQuoteRight className="text-gray-400" />} />
+              </Form.Item>
+              <Form.Item label="Store Address" name="storeAddress">
+                <Input.TextArea rows={2} />
+              </Form.Item>
+              <Form.Item label="Opening Hours" name="storeOpeningHours">
+                <Input placeholder="e.g. Monday - Sunday 10:00 AM - 08:30 PM" />
+              </Form.Item>
+              <Form.Item
+                label="Shipping Charge (₹)"
+                name="shippingCharge"
+                rules={[{ validator: (_, v) => (v === "" || v == null) ? Promise.reject("Enter shipping charge") : isNaN(Number(v)) || Number(v) < 0 ? Promise.reject("Must be ≥ 0") : Promise.resolve() }]}
+                extra="Set to 0 for free shipping."
+              >
+                <Input type="number" min={0} step={1} placeholder="e.g. 100" prefix={<FaTruck className="text-gray-400" />} />
+              </Form.Item>
+              <div className="p-4 bg-yellow-50 rounded-xl border border-yellow-200">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="font-medium text-gray-800">OTP Verification on Signup</p>
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      {requireOtpForSignup ? "Customers must verify mobile via OTP before registering" : "Customers can register without OTP verification"}
+                    </p>
+                  </div>
+                  <Switch checked={requireOtpForSignup} onChange={setRequireOtpForSignup} checkedChildren="OTP ON" unCheckedChildren="OTP OFF" />
+                </div>
+              </div>
+            </Card>
+
+            {/* Local SEO Config Card */}
+            <Card className="mb-6 shadow-sm" title={<span className="flex items-center gap-2"><FaGoogle className="text-indigo-600" /> Google Business & Reviews Config</span>}>
+              <Form.Item label="Google Maps Embed URL" name="googleMapsUrl" extra="From Share -> Embed map -> copy src attribute value.">
+                <Input.TextArea rows={2} placeholder="https://www.google.com/maps/embed?pb=..." />
+              </Form.Item>
+              <Form.Item label="Google Business Profile URL" name="googleBusinessProfileUrl">
+                <Input placeholder="e.g. https://maps.app.goo.gl/..." />
+              </Form.Item>
+              <Form.Item label="Google Review Link" name="googleReviewUrl">
+                <Input placeholder="e.g. https://search.google.com/local/writereview?placeid=..." />
+              </Form.Item>
+              <Form.Item label="Google Review Request Message" name="googleReviewRequestMessage">
+                <Input.TextArea rows={3} placeholder="Thank you message..." />
+              </Form.Item>
+            </Card>
+
+            {/* Social Links Card */}
+            <Card className="mb-6 shadow-sm" title={<span className="flex items-center gap-2"><FaBullhorn className="text-indigo-600" /> Social Links</span>}>
+              <Form.Item label="Instagram URL" name="instagramUrl">
+                <Input placeholder="https://instagram.com/..." />
+              </Form.Item>
+              <Form.Item label="Facebook URL" name="facebookUrl">
+                <Input placeholder="https://facebook.com/..." />
+              </Form.Item>
+              <Form.Item label="YouTube URL" name="youtubeUrl">
+                <Input placeholder="https://youtube.com/..." />
+              </Form.Item>
+            </Card>
+
+            {/* Assets URL Card */}
+            <Card className="mb-6 shadow-sm" title={<span className="flex items-center gap-2"><FaImage className="text-indigo-600" /> Store Branding Assets (URLs)</span>}>
+              <Form.Item label="Store Logo URL" name="storeLogo">
+                <Input placeholder="e.g. https://res.cloudinary.com/... or /yashoda-logo.png" />
+              </Form.Item>
+              <Form.Item label="Store Favicon URL" name="storeFavicon">
+                <Input placeholder="e.g. /favicon.ico" />
+              </Form.Item>
+              <Form.Item label="Social Share Image (Open Graph Image)" name="socialShareImage">
+                <Input placeholder="e.g. URL of image shown when sharing website" />
+              </Form.Item>
+            </Card>
+
+            {/* Homepage Banners Card */}
+            <Card className="mb-6 shadow-sm" title={<span className="flex items-center gap-2"><FaImage className="text-indigo-600" /> Homepage Hero & Promo Banners</span>}>
+              <Form.Item label="Hero Banner Title" name="heroBannerTitle">
+                <Input />
+              </Form.Item>
+              <Form.Item label="Hero Banner Subtext" name="heroBannerSubtext">
+                <Input />
+              </Form.Item>
+              <Form.Item label="Hero Banner CTA Button Label" name="heroBannerCta">
+                <Input />
+              </Form.Item>
+              <Form.Item label="Hero Banner Image URL" name="heroBannerImage">
+                <Input />
+              </Form.Item>
+              <Form.Item label="Promo Banner Image URL" name="promoBannerImage">
+                <Input />
+              </Form.Item>
+              <Form.Item label="Promo Banner Redirect Link" name="promoBannerLink">
+                <Input />
+              </Form.Item>
+            </Card>
+
+            {/* Homepage Layout & SEO Card */}
+            <Card className="mb-6 shadow-sm" title={<span className="flex items-center gap-2"><FaRss className="text-indigo-600" /> Layout & Meta SEO</span>}>
+              <Form.Item label="Homepage SEO Meta Title" name="homepageMetaTitle">
+                <Input />
+              </Form.Item>
+              <Form.Item label="Homepage SEO Meta Description" name="homepageMetaDescription">
+                <Input.TextArea rows={2} />
+              </Form.Item>
+              <Form.Item label="Homepage Sections Order" name="homepageSectionsOrder" extra="Order: hero,categories,newArrivals,bestsellers,trending,festive,premium,offers,faq,location">
+                <Input />
+              </Form.Item>
+              <Form.Item label="Homepage Hidden Sections" name="homepageHiddenSections" extra="Sections to disable, e.g. plusSize,testimonials">
+                <Input />
+              </Form.Item>
+              <Form.Item label="Collapsible FAQ Config (JSON Array format)" name="storeFaqsJson" extra="Must be valid JSON array, e.g. [{'question':'Q?','answer':'A'}]">
+                <Input.TextArea rows={4} />
+              </Form.Item>
+            </Card>
+          </Tabs.TabPane>
+
+          {/* TAB 3: Google Business profile post creator */}
+          <Tabs.TabPane tab="Google Business Post Creator" key="3">
+            <Card className="mb-6 shadow-sm" title={<span className="flex items-center gap-2"><FaBullhorn className="text-orange-600" /> Google Business Profile Post Creator</span>}>
+              <p className="text-sm text-gray-500 mb-4">
+                Quickly format, compose and copy optimized social updates for your Google Business Profile page to attract local traffic.
+              </p>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-xs font-semibold text-gray-600 mb-1">Select Template Angle</label>
+                  <Select
+                    className="w-full font-medium"
+                    value={gbpTemplate}
+                    onChange={v => setGbpTemplate(v)}
+                    options={templates.map(t => ({ label: t, value: t }))}
+                  />
+                </div>
+
+                {gbpTemplate !== "Offer" && (
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-600 mb-1">Select Specific Product (Optional)</label>
+                    <Select
+                      className="w-full"
+                      showSearch
+                      loading={loadingProducts}
+                      placeholder="Search to feature a product"
+                      value={selectedProd}
+                      onChange={v => {
+                        setSelectedProd(v);
+                        setSelectedOffer("");
+                      }}
+                      filterOption={(input, option) => (option?.label ?? "").toLowerCase().includes(input.toLowerCase())}
+                      options={[
+                        { label: "(None - Automatic fallback selection)", value: "" },
+                        ...productList.map(p => ({ label: `${p.title} (₹${p.price})`, value: p._id }))
+                      ]}
+                    />
+                  </div>
+                )}
+
+                {gbpTemplate === "Offer" && (
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-600 mb-1">Select Active Offer (Optional)</label>
+                    <Select
+                      className="w-full"
+                      loading={loadingOffers}
+                      placeholder="Select an offer to feature"
+                      value={selectedOffer}
+                      onChange={v => {
+                        setSelectedOffer(v);
+                        setSelectedProd("");
+                      }}
+                      options={[
+                        { label: "(None - Automatic fallback selection)", value: "" },
+                        ...offersList.map(o => ({ label: `${o.title} (${o.discountType === "percentage" ? `${o.discountValue}% Off` : `₹${o.discountValue} Off`})`, value: o._id }))
+                      ]}
+                    />
+                  </div>
+                )}
+
+                <div className="flex items-center gap-2 p-3 bg-indigo-50 border border-indigo-200 rounded-xl">
+                  <Switch checked={aiPolishGbp} onChange={setAiPolishGbp} />
+                  <div>
+                    <p className="text-xs font-semibold text-indigo-900 leading-tight">AI Polish using Gemini</p>
+                    <p className="text-[10px] text-indigo-700 mt-0.5 leading-tight">Enhance post using active product/category statistics with professional fashion copywriting copy.</p>
+                  </div>
+                </div>
+
+                <Button
+                  type="primary"
+                  className="bg-indigo-600 hover:bg-indigo-700 border-none"
+                  onClick={generateGbpPostDraft}
+                  loading={generatingPost}
+                  icon={<FaMagic />}
+                  block
+                  size="large"
+                >
+                  Generate Post Draft
+                </Button>
+
+                {generatedPost.body && (
+                  <div className="mt-6 border border-gray-200 rounded-xl p-4 bg-gray-50">
+                    <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">GBP Post Preview</p>
+                    
+                    {generatedPost.image && (
+                      <div className="mb-4 rounded-lg overflow-hidden border border-gray-200 max-h-[220px]">
+                        <img src={generatedPost.image} alt="Product preview" className="w-full h-full object-cover" />
+                      </div>
+                    )}
+
+                    <h4 className="font-bold text-gray-800 text-base mb-1">{generatedPost.title}</h4>
+                    <p className="text-sm text-gray-700 whitespace-pre-wrap mb-4">{generatedPost.body}</p>
+                    
+                    <div className="p-3 bg-white rounded-lg border border-gray-150 flex items-center justify-between mb-4">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-[10px] text-gray-400 uppercase leading-none">Button Link Target</p>
+                        <p className="text-xs font-mono text-indigo-600 truncate mt-1">{generatedPost.link}</p>
+                      </div>
+                      <Button size="small" icon={<FaCopy />} onClick={() => copyToClipboard(generatedPost.link)} title="Copy Button URL" />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <Button
+                        icon={<FaCopy />}
+                        onClick={() => {
+                          const fullCopy = `${generatedPost.title}\n\n${generatedPost.body}\n\nShop here: ${generatedPost.link}`;
+                          copyToClipboard(fullCopy);
+                        }}
+                      >
+                        Copy Full Post
+                      </Button>
+                      <Button
+                        type="primary"
+                        className="bg-orange-600 hover:bg-orange-700 border-none flex items-center justify-center"
+                        icon={<FaExternalLinkAlt />}
+                        onClick={() => window.open(form.getFieldValue("googleBusinessProfileUrl") || "https://business.google.com/", "_blank")}
+                      >
+                        Publish on Google
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </Card>
+          </Tabs.TabPane>
+        </Tabs>
 
         <div className="flex justify-end gap-4">
           <Button size="large" onClick={refetchSettings}>Reset</Button>

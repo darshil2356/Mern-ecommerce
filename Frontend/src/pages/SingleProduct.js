@@ -18,6 +18,7 @@ import { base_url } from "../utils/axiosConfig";
 import trackingService from "../utils/trackingService";
 import { productUrl } from "../utils/seoUrl";
 import StockInquiryModal from "../components/StockInquiryModal";
+import { getPublicSettings } from "../utils/publicSettings";
 
 
 const SingleProduct = () => {
@@ -37,7 +38,6 @@ const SingleProduct = () => {
   const [reviewImages, setReviewImages] = useState([]);
   const [uploadingImages, setUploadingImages] = useState(false);
   const [sortBy, setSortBy] = useState("newest");
-  const location = useLocation();
   const navigate = useNavigate();
   const { slug } = useParams();
   const getProductId = slug?.match(/[a-f0-9]{24}$/)?.[0] || slug;
@@ -53,6 +53,28 @@ const SingleProduct = () => {
   const [showInquiryModal, setShowInquiryModal] = useState(false);
   const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' ? window.innerWidth < 768 : false);
   const [showStickyCart, setShowStickyCart] = useState(false);
+  const [storeSettings, setStoreSettings] = useState(null);
+  useEffect(() => {
+    getPublicSettings().then(setStoreSettings);
+  }, []);
+
+  const handleWhatsAppEnquiry = () => {
+    if (!productState) return;
+    const phone = storeSettings?.storeWhatsapp || storeSettings?.storePhone || "7046252356";
+    const cleanPhone = phone.replace(/[^0-9]/g, "");
+    
+    const prodUrl = window.location.href;
+    const sizeText = size ? ` (Size: ${size})` : "";
+    const selectedVariant = productState.variants?.find(
+      (v) => (v.color?._id || v.color)?.toString() === color?.toString()
+    );
+    const colorText = selectedVariant?.color?.title ? ` (Color: ${selectedVariant.color.title})` : "";
+    const skuText = productState.sku ? ` (SKU: ${productState.sku})` : "";
+
+    const message = `Hello Yashoda Fashion, I am interested in this product:\n*${productState.title}*${skuText}${sizeText}${colorText}\nLink: ${prodUrl}`;
+    const encodedMessage = encodeURIComponent(message);
+    window.open(`https://wa.me/${cleanPhone}?text=${encodedMessage}`, "_blank");
+  };
 
   useEffect(() => {
     const handler = () => setIsMobile(window.innerWidth < 768);
@@ -906,6 +928,23 @@ const SingleProduct = () => {
                       {alreadyAdded ? "Go to Cart" : !hasAnyStock ? "Out of Stock" : "Add to Cart"}
                     </button>
 
+                    <button
+                      type="button"
+                      onClick={handleWhatsAppEnquiry}
+                      style={{
+                        flex: 1, background: '#25D366',
+                        color: '#fff',
+                        padding: '15px 32px', border: 'none', borderRadius: '12px',
+                        fontWeight: 700, fontSize: '15px',
+                        transition: 'all 0.2s',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+                        minHeight: '52px',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      <span style={{ fontSize: '18px' }}>💬</span> Enquire on WhatsApp
+                    </button>
+
                     {!hasAnyStock && (
                       <button
                         type="button"
@@ -1019,6 +1058,18 @@ const SingleProduct = () => {
               }}
             >
               {alreadyAdded ? "✓ Go to Cart" : !hasAnyStock ? "Out of Stock" : "Add to Cart"}
+            </button>
+            <button
+              onClick={handleWhatsAppEnquiry}
+              style={{
+                width: '48px', height: '48px', border: 'none',
+                borderRadius: '12px', background: '#25D366',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                cursor: 'pointer', flexShrink: 0, color: '#fff', fontSize: '20px'
+              }}
+              title="Enquire on WhatsApp"
+            >
+              💬
             </button>
             <button
               onClick={handleAddToWishlist}

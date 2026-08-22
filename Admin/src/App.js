@@ -1,6 +1,7 @@
 import "./App.css";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import Dashboard from "./pages/Dashboard";
+import BusinessAnalytics from "./pages/BusinessAnalytics";
 import Login from "./pages/Login";
 import './utils/axiosconfig';
 
@@ -74,6 +75,7 @@ function App() {
           }
         >
           <Route index element={<Dashboard />} />
+          <Route path="business-analytics" element={<BusinessAnalytics />} />
           <Route path="enquiries" element={<Enquiries />} />
           <Route path="enquiries/:id" element={<ViewEnq />} />
           <Route path="blog-list" element={<Bloglist />} />

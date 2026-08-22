@@ -110,6 +110,7 @@ const Dashboard = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [showAll, setShowAll] = useState(false);
   const [showProfit, setShowProfit] = useState(false);
+  const [showAnalyticsBtn, setShowAnalyticsBtn] = useState(false);
   const titleClickRef = useRef(0);
   const titleTimerRef = useRef(null);
 
@@ -129,6 +130,7 @@ const Dashboard = () => {
         return next;
       });
       setShowProfit(prev => !prev);
+      setShowAnalyticsBtn(prev => !prev);
     }
   };
 
@@ -508,16 +510,37 @@ const Dashboard = () => {
               </p>
             </div>
 
-            <Select
-              value={selectedMode}
-              onChange={setSelectedMode}
-              style={{ width:140, flexShrink:0 }}
-              className="header-select"
-            >
-              <Option value="ALL"><div style={{ display:"flex", alignItems:"center", gap:6 }}><BsGrid />All Orders</div></Option>
-              <Option value="ONLINE"><div style={{ display:"flex", alignItems:"center", gap:6 }}><BsGraphUp />Online</div></Option>
-              <Option value="OFFLINE"><div style={{ display:"flex", alignItems:"center", gap:6 }}><BsShop />Offline</div></Option>
-            </Select>
+            <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", flexShrink: 0 }}>
+              {showAnalyticsBtn && (
+                <Button
+                  type="primary"
+                  onClick={() => navigate("/admin/business-analytics")}
+                  style={{
+                    background: "linear-gradient(135deg, #10b981 0%, #059669 100%)",
+                    borderColor: "transparent",
+                    borderRadius: "12px",
+                    fontWeight: "bold",
+                    boxShadow: "0 4px 14px rgba(16, 185, 129, 0.35)",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 6,
+                    height: 38,
+                  }}
+                >
+                  ➕ Add Business Analytics
+                </Button>
+              )}
+              <Select
+                value={selectedMode}
+                onChange={setSelectedMode}
+                style={{ width:140, flexShrink:0 }}
+                className="header-select"
+              >
+                <Option value="ALL"><div style={{ display:"flex", alignItems:"center", gap:6 }}><BsGrid />All Orders</div></Option>
+                <Option value="ONLINE"><div style={{ display:"flex", alignItems:"center", gap:6 }}><BsGraphUp />Online</div></Option>
+                <Option value="OFFLINE"><div style={{ display:"flex", alignItems:"center", gap:6 }}><BsShop />Offline</div></Option>
+              </Select>
+            </div>
           </div>
 
           {/* Filter Pills */}

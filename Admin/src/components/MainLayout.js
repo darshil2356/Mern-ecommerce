@@ -43,6 +43,7 @@ const ROUTE_GROUP = {
   "list-color":         "catalog",
   "list-size":          "catalog",
   "live-tracking":      "analytics",
+  "business-analytics": "analytics",
   "tracking-analytics": "analytics",
   "dropoff-reports":    "analytics",
   "ai-growth":          "analytics",

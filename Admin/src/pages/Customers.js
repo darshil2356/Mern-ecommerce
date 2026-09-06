@@ -60,12 +60,20 @@ const Customers = () => {
     message.success(`Successfully exported ${filteredCustomers.length} customers!`);
   };
 
-  const filteredCustomers = customerState?.filter((c) =>
-    c.firstname?.toLowerCase().includes(searchText.toLowerCase()) ||
-    c.lastname?.toLowerCase().includes(searchText.toLowerCase()) ||
-    c.email?.toLowerCase().includes(searchText.toLowerCase()) ||
-    c.mobile?.includes(searchText)
-  );
+  const filteredCustomers = customerState
+    ?.slice()
+    ?.sort((a, b) => {
+      const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      if (timeA !== timeB) return timeB - timeA;
+      return (b._id || "").localeCompare(a._id || "");
+    })
+    ?.filter((c) =>
+      c.firstname?.toLowerCase().includes(searchText.toLowerCase()) ||
+      c.lastname?.toLowerCase().includes(searchText.toLowerCase()) ||
+      c.email?.toLowerCase().includes(searchText.toLowerCase()) ||
+      c.mobile?.includes(searchText)
+    );
 
   const showDeleteModal = (customer) => { setCustomerToDelete(customer); setDeleteModalOpen(true); };
 

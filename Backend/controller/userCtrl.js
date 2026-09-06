@@ -1370,6 +1370,7 @@ const deleteAddress = asyncHandler(async (req, res) => {
 const getallUser = asyncHandler(async (req, res) => {
   try {
     const getUsers = await User.find()
+      .sort({ createdAt: -1, _id: -1 })
       .populate("wishlist")
       .populate("referredBy", "mobile firstname lastname");
     res.json(getUsers);
@@ -2885,6 +2886,7 @@ const searchUsers = asyncHandler(async (req, res) => {
   }
 
   const users = await User.find({ role: 'user', $or: orConditions })
+    .sort({ createdAt: -1, _id: -1 })
     .limit(8)
     .select('firstname lastname mobile address coins offerDiscount offerType totalOrders')
     .lean();

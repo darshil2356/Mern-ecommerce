@@ -163,10 +163,15 @@ const customerSlice = createSlice({
   extraReducers: (builder) => {
     builder
       .addCase(getCustomers.fulfilled, (state, action) => {
-        state.customers = action.payload;
+        state.customers = (action.payload || []).slice().sort((a, b) => {
+          const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+          const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+          if (timeA !== timeB) return timeB - timeA;
+          return (b._id || "").localeCompare(a._id || "");
+        });
       })
       .addCase(createCustomer.fulfilled, (state, action) => {
-        state.customers.push(action.payload);
+        state.customers.unshift(action.payload);
         state.error = null;
       })
       .addCase(createCustomer.rejected, (state, action) => {

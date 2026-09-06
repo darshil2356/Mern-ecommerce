@@ -116,6 +116,9 @@ app.use("/api/udhar", udharRouter);
 app.use("/api/vendor", vendorRouter);
 app.use("/api/purchase", purchaseRouter);
 app.use("/api/wholesale", wholesaleRouter);
+const whatsappRouter = require("./routes/whatsappRoute");
+
+app.use("/api/whatsapp", whatsappRouter);
 app.use("/api/staff", staffRouter);
 app.use("/", feedRouter); // /feed.xml  /feed.json  /feed/refresh
 

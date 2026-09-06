@@ -53,6 +53,7 @@ import PurchaseList from "./pages/PurchaseList";
 import WholesaleRojmal from "./pages/WholesaleRojmal";
 import RojmelDashboard from "./pages/RojmelDashboard";
 import StaffManagement from "./pages/StaffManagement";
+import WhatsAppMarketing from "./pages/WhatsAppMarketing";
 
 function App() {
   return (
@@ -118,6 +119,7 @@ function App() {
           <Route path="add-offer" element={<AddOffer />} />
           <Route path="offer/:id" element={<AddOffer />} />
           <Route path="offer-list" element={<Offerlist />} />
+          <Route path="whatsapp-marketing" element={<WhatsAppMarketing />} />
           <Route path="product-inquiries" element={<ProductInquiries />} />
           <Route path="udhar" element={<Udhar />} />
           <Route path="vendors" element={<Vendors />} />

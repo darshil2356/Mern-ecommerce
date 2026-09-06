@@ -16,7 +16,7 @@ import {
   FaClipboardList, FaBloggerB, FaChartLine, FaBox, FaUsers, FaTags,
   FaFileAlt, FaCube, FaLink, FaMagic, FaCoins, FaEye, FaChartBar,
   FaRocket, FaBook, FaRuler, FaHandshake, FaShoppingBasket, FaStore,
-  FaLock, FaUnlockAlt,
+  FaLock, FaUnlockAlt, FaWhatsapp,
 } from "react-icons/fa";
 import { SiBrandfolder } from "react-icons/si";
 import { BiCategoryAlt } from "react-icons/bi";
@@ -57,6 +57,7 @@ const ROUTE_GROUP = {
   "coupon":             "marketing",
   "offer-list":         "marketing",
   "offer":              "marketing",
+  "whatsapp-marketing": "marketing",
   "blog-list":          "marketing",
   "blog":               "marketing",
   "blog-category-list": "marketing",
@@ -282,6 +283,7 @@ const MainLayout = () => {
     {
       key: "marketing", icon: <FaTags />, label: "Marketing",
       children: [
+        { key: "whatsapp-marketing", icon: <FaWhatsapp />,  label: "WhatsApp Marketing" },
         { key: "coupon-list",       icon: <RiCouponLine />, label: "Coupons" },
         { key: "offer-list",        icon: <FaTags />,       label: "Offers" },
         { key: "blog-list",         icon: <FaBloggerB />,   label: "Blogs" },

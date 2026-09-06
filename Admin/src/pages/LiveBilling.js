@@ -1238,6 +1238,10 @@ const LiveBilling = () => {
       msg += `Use this offer on your next visit! 🛍️\n\n`;
     }
 
+    msg += `🤝 *Join Our WhatsApp Community:*\nhttps://chat.whatsapp.com/K4Wwm9dv0hj5fkaVUtTJbi\n\n`;
+    msg += `📌 *નોંધ:*\n`;
+    msg += `• કાપડ અને કલર ની કોઈ ગેરંટી રહેશે નહીં.\n`;
+    msg += `• એક વાર બિલ બન્યા પછી વસ્તુ પાછી લેવામાં આવશે નહીં અને બદલી આપવામાં આવશે નહીં.\n\n`;
     msg += `🙏 Thank you for shopping at *${storeName}*!\n`;
     msg += `${storeTagline}`;
 

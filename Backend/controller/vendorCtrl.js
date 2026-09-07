@@ -132,25 +132,56 @@ const getVendorLedger = asyncHandler(async (req, res) => {
       status: p.status,
     });
 
-    // Payment entries (we paid vendor)
+    // Payment / Settlement entries
     (p.payments || []).forEach(pay => {
-      balance -= pay.amount;
-      entries.push({
-        date: pay.date,
-        type: "PAYMENT",
-        description: `Payment (${pay.mode})${pay.referenceNo ? " Ref: " + pay.referenceNo : ""}`,
-        debit: 0,
-        credit: pay.amount,
-        balance,
-        billNo: p.billNo,
-        purchaseId: p._id,
-        paymentMode: pay.mode,
-      });
+      if (pay.amount > 0) {
+        balance -= pay.amount;
+        entries.push({
+          date: pay.date,
+          type: "PAYMENT",
+          description: `Payment (${pay.mode})${pay.referenceNo ? " Ref: " + pay.referenceNo : ""}`,
+          debit: 0,
+          credit: pay.amount,
+          balance,
+          billNo: p.billNo,
+          purchaseId: p._id,
+          paymentMode: pay.mode,
+        });
+      }
+
+      if (pay.discountAmount > 0) {
+        balance -= pay.discountAmount;
+        const discLabel = pay.discountType === "PERCENTAGE" ? `${pay.discountValue}% Discount` : `Flat ₹${pay.discountAmount} Discount`;
+        entries.push({
+          date: pay.date,
+          type: "DISCOUNT",
+          description: `Vendor Discount / Kasar (${discLabel})`,
+          debit: 0,
+          credit: pay.discountAmount,
+          balance,
+          billNo: p.billNo,
+          purchaseId: p._id,
+        });
+      }
+
+      if (pay.grAmount > 0) {
+        balance -= pay.grAmount;
+        entries.push({
+          date: pay.date,
+          type: "GR",
+          description: `Goods Return (GR)${pay.grNote ? " - " + pay.grNote : ""}`,
+          debit: 0,
+          credit: pay.grAmount,
+          balance,
+          billNo: p.billNo,
+          purchaseId: p._id,
+        });
+      }
     });
   });
 
   const totalDebit = entries.filter(e => e.type === "BILL").reduce((a, e) => a + e.debit, 0);
-  const totalCredit = entries.filter(e => e.type === "PAYMENT").reduce((a, e) => a + e.credit, 0);
+  const totalCredit = entries.filter(e => e.type === "PAYMENT" || e.type === "DISCOUNT" || e.type === "GR").reduce((a, e) => a + e.credit, 0);
 
   res.json({
     vendor,

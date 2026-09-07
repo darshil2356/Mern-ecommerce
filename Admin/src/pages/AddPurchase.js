@@ -76,6 +76,10 @@ export default function AddPurchase() {
   // Payment section
   const [payMode, setPayMode] = useState("CREDIT"); // CREDIT = pay later
   const [initialPaidAmount, setInitialPaidAmount] = useState("");
+  const [initialDiscountType, setInitialDiscountType] = useState("NONE");
+  const [initialDiscountValue, setInitialDiscountValue] = useState("");
+  const [initialGrAmount, setInitialGrAmount] = useState("");
+  const [initialGrNote, setInitialGrNote] = useState("");
   const [initialPaymentMode, setInitialPaymentMode] = useState("Cash");
   const [initialPaymentRef, setInitialPaymentRef] = useState("");
   const [initialPaymentNote, setInitialPaymentNote] = useState("");
@@ -162,8 +166,12 @@ export default function AddPurchase() {
   const roundOff = Math.round(rawTotal) - rawTotal;
   const totalAmount = Math.round(rawTotal);
 
+  const initDiscVal = parseFloat(initialDiscountValue) || 0;
+  const initialDiscAmt = initialDiscountType === "PERCENTAGE" ? (totalAmount * initDiscVal) / 100 : (initialDiscountType === "FLAT" ? initDiscVal : 0);
+  const initialGrAmt = parseFloat(initialGrAmount) || 0;
   const paidNow = payMode === "CREDIT" ? 0 : parseFloat(initialPaidAmount) || 0;
-  const balanceDue = totalAmount - paidNow;
+  const totalInitialSettlement = payMode === "CREDIT" ? (initialDiscAmt + initialGrAmt) : (paidNow + initialDiscAmt + initialGrAmt);
+  const balanceDue = Math.max(0, totalAmount - totalInitialSettlement);
 
   const selectedVendor = vendors.find(v => v._id === vendor);
   const filteredVendors = vendors.filter(v =>
@@ -223,6 +231,8 @@ export default function AddPurchase() {
         taxIncluded: gstType !== "NONE" ? taxIncluded : false,
         items: calcItems, note,
         initialPaidAmount: payMode !== "CREDIT" ? paidNow : 0,
+        initialDiscountType, initialDiscountValue, initialDiscountAmount: initialDiscAmt,
+        initialGrAmount: initialGrAmt, initialGrNote,
         initialPaymentMode, initialPaymentRef, initialPaymentNote,
       }));
     }
@@ -771,7 +781,7 @@ export default function AddPurchase() {
               {payMode === "PAID" && (
                 <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                   <div>
-                    <label style={{ display: "block", fontSize: 12, fontWeight: 600, marginBottom: 3 }}>Amount Paid</label>
+                    <label style={{ display: "block", fontSize: 12, fontWeight: 600, marginBottom: 3 }}>Amount Paid (Cash / Bank)</label>
                     <input
                       type="number"
                       value={initialPaidAmount}
@@ -810,18 +820,90 @@ export default function AddPurchase() {
                   )}
                 </div>
               )}
+
+              {/* Initial Discount Section */}
+              <div style={{ marginTop: 12, background: "#fffbeb", borderRadius: 8, padding: 12, border: "1px solid #fde68a" }}>
+                <label style={{ display: "block", fontSize: 12, fontWeight: 700, marginBottom: 4, color: "#92400e" }}>🏷️ Vendor Discount (Kasur)</label>
+                <div style={{ display: "flex", gap: 4, marginBottom: 6 }}>
+                  {[
+                    { value: "NONE", label: "None" },
+                    { value: "PERCENTAGE", label: "% Cut" },
+                    { value: "FLAT", label: "₹ Flat" },
+                  ].map(opt => (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => setInitialDiscountType(opt.value)}
+                      style={{
+                        flex: 1, padding: "4px 2px", borderRadius: 5, cursor: "pointer", fontWeight: 600, fontSize: 11,
+                        border: initialDiscountType === opt.value ? "2px solid #d97706" : "1px solid #fcd34d",
+                        background: initialDiscountType === opt.value ? "#fff" : "#fffbeb",
+                        color: initialDiscountType === opt.value ? "#b45309" : "#78350f",
+                      }}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+                {initialDiscountType !== "NONE" && (
+                  <input
+                    type="number"
+                    value={initialDiscountValue}
+                    onChange={e => setInitialDiscountValue(e.target.value)}
+                    placeholder={initialDiscountType === "PERCENTAGE" ? "Discount %" : "Discount ₹"}
+                    min={0}
+                    style={{ width: "100%", padding: "6px 10px", borderRadius: 6, border: "1px solid #fcd34d", fontSize: 13, fontWeight: 700, boxSizing: "border-box", background: "#fff" }}
+                  />
+                )}
+              </div>
+
+              {/* Initial GR Section */}
+              <div style={{ marginTop: 10, background: "#f0fdf4", borderRadius: 8, padding: 12, border: "1px solid #bbf7d0" }}>
+                <label style={{ display: "block", fontSize: 12, fontWeight: 700, marginBottom: 4, color: "#166534" }}>📦 Goods Return (GR Cut)</label>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
+                  <input
+                    type="number"
+                    value={initialGrAmount}
+                    onChange={e => setInitialGrAmount(e.target.value)}
+                    placeholder="GR ₹"
+                    min={0}
+                    style={{ width: "100%", padding: "6px 8px", borderRadius: 6, border: "1px solid #86efac", fontSize: 13, fontWeight: 700, boxSizing: "border-box", background: "#fff" }}
+                  />
+                  <input
+                    value={initialGrNote}
+                    onChange={e => setInitialGrNote(e.target.value)}
+                    placeholder="GR details"
+                    style={{ width: "100%", padding: "6px 8px", borderRadius: 6, border: "1px solid #86efac", fontSize: 12, boxSizing: "border-box", background: "#fff" }}
+                  />
+                </div>
+              </div>
+
               <div style={{ marginTop: 14, background: "#f9fafb", borderRadius: 8, padding: 12 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}>
                   <span style={{ color: "#6b7280" }}>Total Bill</span>
                   <span style={{ fontWeight: 600 }}>₹{totalAmount}</span>
                 </div>
-                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, marginTop: 4 }}>
-                  <span style={{ color: "#6b7280" }}>Paid Now</span>
-                  <span style={{ fontWeight: 600, color: "#22c55e" }}>₹{paidNow}</span>
-                </div>
+                {paidNow > 0 && (
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, marginTop: 3 }}>
+                    <span style={{ color: "#6b7280" }}>Paid Now</span>
+                    <span style={{ fontWeight: 600, color: "#22c55e" }}>₹{paidNow}</span>
+                  </div>
+                )}
+                {initialDiscAmt > 0 && (
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, marginTop: 3 }}>
+                    <span style={{ color: "#b45309" }}>Discount (Kasur)</span>
+                    <span style={{ fontWeight: 600, color: "#b45309" }}>- ₹{initialDiscAmt.toFixed(2)}</span>
+                  </div>
+                )}
+                {initialGrAmt > 0 && (
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, marginTop: 3 }}>
+                    <span style={{ color: "#166534" }}>Goods Return</span>
+                    <span style={{ fontWeight: 600, color: "#166534" }}>- ₹{initialGrAmt.toFixed(2)}</span>
+                  </div>
+                )}
                 <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14, fontWeight: 700, marginTop: 8, paddingTop: 8, borderTop: "1px solid #e5e7eb" }}>
                   <span>Balance Due</span>
-                  <span style={{ color: balanceDue > 0 ? "#ef4444" : "#22c55e" }}>₹{balanceDue}</span>
+                  <span style={{ color: balanceDue > 0 ? "#ef4444" : "#22c55e" }}>₹{balanceDue.toFixed(2)}</span>
                 </div>
               </div>
             </div>

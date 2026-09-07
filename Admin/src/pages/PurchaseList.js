@@ -57,9 +57,23 @@ export default function PurchaseList() {
   });
   const [activeTab, setActiveTab] = useState("ALL"); // ALL | PENDING | PARTIAL | PAID
   const [payModal, setPayModal] = useState(null);
-  const [payForm, setPayForm] = useState({ amount: "", mode: "Cash", referenceNo: "", note: "", date: new Date().toISOString().split("T")[0] });
   const [viewModal, setViewModal] = useState(null);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
+
+  const EMPTY_PAY_FORM = {
+    amount: "",
+    discountType: "NONE",
+    discountValue: "",
+    discountAmount: "",
+    grAmount: "",
+    grNote: "",
+    mode: "Cash",
+    referenceNo: "",
+    note: "",
+    date: new Date().toISOString().split("T")[0],
+  };
+
+  const [payForm, setPayForm] = useState(EMPTY_PAY_FORM);
 
   const sumMonth = new Date().getMonth() + 1;
   const sumYear = new Date().getFullYear();
@@ -77,16 +91,40 @@ export default function PurchaseList() {
   useEffect(() => {
     dispatch(fetchVendors({}));
     dispatch(fetchPurchaseSummary({ month: sumMonth, year: sumYear }));
-  }, [dispatch]);
+  }, [dispatch, sumMonth, sumYear]);
 
   const handlePay = async (e) => {
     e.preventDefault();
-    if (!payForm.amount || parseFloat(payForm.amount) <= 0) return toast.error("Enter valid amount");
-    const res = await dispatch(recordPurchasePayment({ id: payModal._id, ...payForm }));
+    const paidAmt = parseFloat(payForm.amount) || 0;
+    const discVal = parseFloat(payForm.discountValue) || 0;
+    let discAmt = parseFloat(payForm.discountAmount) || 0;
+    if (payForm.discountType === "PERCENTAGE" && discVal > 0 && !discAmt) {
+      discAmt = (payModal.totalAmount * discVal) / 100;
+    }
+    const grAmt = parseFloat(payForm.grAmount) || 0;
+
+    if (paidAmt <= 0 && discAmt <= 0 && grAmt <= 0) {
+      return toast.error("Please enter a valid paid, discount, or GR amount");
+    }
+
+    const res = await dispatch(recordPurchasePayment({
+      id: payModal._id,
+      amount: paidAmt,
+      discountType: payForm.discountType,
+      discountValue: discVal,
+      discountAmount: discAmt,
+      grAmount: grAmt,
+      grNote: payForm.grNote,
+      mode: payForm.mode,
+      referenceNo: payForm.referenceNo,
+      note: payForm.note,
+      date: payForm.date,
+    }));
+
     if (res.meta.requestStatus === "fulfilled") {
-      toast.success("Payment recorded!");
+      toast.success("Payment & settlement recorded!");
       setPayModal(null);
-      setPayForm({ amount: "", mode: "Cash", referenceNo: "", note: "", date: new Date().toISOString().split("T")[0] });
+      setPayForm(EMPTY_PAY_FORM);
       load();
     } else {
       toast.error(res.payload || "Payment failed");
@@ -430,23 +468,45 @@ export default function PurchaseList() {
                     <span>TOTAL</span><span>₹{viewModal.totalAmount}</span>
                   </div>
                   <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, color: "#22c55e", marginTop: 6 }}>
-                    <span>Paid</span><span>₹{viewModal.paidAmount}</span>
+                    <span>Cash Paid</span><span>₹{viewModal.paidAmount || 0}</span>
                   </div>
-                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14, fontWeight: 700, color: viewModal.balanceDue > 0 ? "#ef4444" : "#22c55e", marginTop: 4 }}>
+                  {viewModal.settlementDiscount > 0 && (
+                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, color: "#b45309", marginTop: 4 }}>
+                      <span>Discount (Kasur)</span><span>₹{viewModal.settlementDiscount}</span>
+                    </div>
+                  )}
+                  {viewModal.grAmount > 0 && (
+                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, color: "#166534", marginTop: 4 }}>
+                      <span>Goods Return (GR)</span><span>₹{viewModal.grAmount}</span>
+                    </div>
+                  )}
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14, fontWeight: 700, color: viewModal.balanceDue > 0 ? "#ef4444" : "#22c55e", marginTop: 6, paddingTop: 6, borderTop: "1px dashed #e5e7eb" }}>
                     <span>Balance Due</span><span>₹{viewModal.balanceDue}</span>
                   </div>
                 </div>
               </div>
 
-              {/* Payment History */}
+              {/* Payment & Settlement History */}
               {viewModal.payments?.length > 0 && (
                 <div style={{ marginTop: 20 }}>
-                  <h4 style={{ margin: "0 0 10px", fontSize: 14, fontWeight: 700 }}>Payment History</h4>
+                  <h4 style={{ margin: "0 0 10px", fontSize: 14, fontWeight: 700 }}>Payment & Settlement History</h4>
                   {viewModal.payments.map((pay, i) => (
-                    <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 12px", background: "#f0fdf4", borderRadius: 8, marginBottom: 6, fontSize: 13 }}>
-                      <span style={{ color: "#6b7280" }}>{fmtDate(pay.date)}</span>
-                      <span>{pay.mode} {pay.referenceNo ? `(${pay.referenceNo})` : ""}</span>
-                      <span style={{ fontWeight: 700, color: "#15803d" }}>₹{pay.amount}</span>
+                    <div key={i} style={{ background: "#f8fafc", borderRadius: 8, border: "1px solid #e2e8f0", padding: "10px 12px", marginBottom: 8 }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 13, marginBottom: 4 }}>
+                        <span style={{ color: "#6b7280", fontWeight: 600 }}>{fmtDate(pay.date)}</span>
+                        <span style={{ fontWeight: 600, color: "#334155" }}>{pay.mode} {pay.referenceNo ? `(${pay.referenceNo})` : ""}</span>
+                      </div>
+                      <div style={{ display: "flex", gap: 12, fontSize: 13, flexWrap: "wrap" }}>
+                        {pay.amount > 0 && <span style={{ fontWeight: 700, color: "#16a34a" }}>Paid: ₹{pay.amount}</span>}
+                        {pay.discountAmount > 0 && (
+                          <span style={{ fontWeight: 600, color: "#b45309" }}>
+                            Disc: ₹{pay.discountAmount} ({pay.discountType === "PERCENTAGE" ? `${pay.discountValue}%` : "Flat"})
+                          </span>
+                        )}
+                        {pay.grAmount > 0 && <span style={{ fontWeight: 600, color: "#166534" }}>GR: ₹{pay.grAmount}</span>}
+                      </div>
+                      {pay.grNote && <div style={{ fontSize: 12, color: "#15803d", marginTop: 2 }}>📦 {pay.grNote}</div>}
+                      {pay.note && <div style={{ fontSize: 12, color: "#64748b", marginTop: 2 }}>📝 {pay.note}</div>}
                     </div>
                   ))}
                 </div>
@@ -463,102 +523,231 @@ export default function PurchaseList() {
       )}
 
       {/* Pay Modal */}
-      {payModal && (
-        <div style={{
-          position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 1001,
-          display: "flex", alignItems: "center", justifyContent: "center", padding: 16,
-        }}>
-          <div style={{ background: "#fff", borderRadius: 16, padding: 28, maxWidth: 420, width: "100%" }}>
-            <h3 style={{ margin: "0 0 6px", fontSize: 18, fontWeight: 700 }}>Record Payment</h3>
-            <p style={{ margin: "0 0 20px", fontSize: 14, color: "#6b7280" }}>
-              {payModal.vendor?.name} · Bill {payModal.billNo || "-"} · Due: <strong style={{ color: "#ef4444" }}>{fmt(payModal.balanceDue)}</strong>
-            </p>
-            <form onSubmit={handlePay} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-              <div>
-                <label style={{ display: "block", fontSize: 13, fontWeight: 600, marginBottom: 4 }}>Amount Paid *</label>
-                <input
-                  type="number"
-                  value={payForm.amount}
-                  onChange={e => setPayForm(f => ({ ...f, amount: e.target.value }))}
-                  required
-                  max={payModal.balanceDue}
-                  min={1}
-                  style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "1px solid #d1d5db", fontSize: 15, fontWeight: 700, boxSizing: "border-box" }}
-                />
-              </div>
-              <div>
-                <label style={{ display: "block", fontSize: 13, fontWeight: 600, marginBottom: 4 }}>Payment Mode</label>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 8 }}>
-                  {[
-                    { value: "Cash",           icon: "💵", label: "Cash" },
-                    { value: "Online-Current", icon: "🏦", label: "Online\nCurrent" },
-                    { value: "Online-Saving",  icon: "📱", label: "Online\nSaving" },
-                    { value: "Cheque",         icon: "🧾", label: "Cheque" },
-                  ].map(({ value, icon, label }) => (
-                    <button
-                      key={value}
-                      type="button"
-                      onClick={() => setPayForm(f => ({ ...f, mode: value }))}
-                      style={{
-                        padding: "10px 6px", borderRadius: 8, cursor: "pointer", fontWeight: 600, fontSize: 12,
-                        border: payForm.mode === value ? "2px solid #6366f1" : "2px solid #e5e7eb",
-                        background: payForm.mode === value ? "#f8f9ff" : "#fff",
-                        color: payForm.mode === value ? "#6366f1" : "#374151",
-                        whiteSpace: "pre-line", lineHeight: 1.3,
-                      }}
-                    >
-                      {icon}<br />{label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              {(payForm.mode === "Online-Current" || payForm.mode === "Online-Saving" || payForm.mode === "Cheque") && (
+      {payModal && (() => {
+        const discVal = parseFloat(payForm.discountValue) || 0;
+        const calcDiscAmt = payForm.discountType === "PERCENTAGE" ? ((payModal.totalAmount || 0) * discVal) / 100 : (payForm.discountType === "FLAT" ? discVal : 0);
+        const effectiveDiscAmt = parseFloat(payForm.discountAmount) || calcDiscAmt;
+        const grAmt = parseFloat(payForm.grAmount) || 0;
+        const paidAmt = parseFloat(payForm.amount) || 0;
+        const totalSettlement = paidAmt + effectiveDiscAmt + grAmt;
+        const remDue = Math.max(0, payModal.balanceDue - totalSettlement);
+
+        return (
+          <div style={{
+            position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 1001,
+            display: "flex", alignItems: "center", justifyContent: "center", padding: 16,
+          }}>
+            <div style={{
+              background: "#fff", borderRadius: 16, padding: 24, maxWidth: 500, width: "100%",
+              maxHeight: "90vh", overflow: "auto", boxShadow: "0 20px 60px rgba(0,0,0,0.3)"
+            }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16 }}>
                 <div>
-                  <label style={{ display: "block", fontSize: 13, fontWeight: 600, marginBottom: 4 }}>
-                    {payForm.mode === "Cheque" ? "Cheque Number" : "UTR / Transaction ID"}
-                  </label>
-                  <input
-                    value={payForm.referenceNo}
-                    onChange={e => setPayForm(f => ({ ...f, referenceNo: e.target.value }))}
-                    placeholder="Reference number"
-                    style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "1px solid #d1d5db", fontSize: 14, boxSizing: "border-box" }}
-                  />
+                  <h3 style={{ margin: "0 0 4px", fontSize: 18, fontWeight: 700 }}>Record Payment & Settlement</h3>
+                  <p style={{ margin: 0, fontSize: 13, color: "#6b7280" }}>
+                    {payModal.vendor?.name} · Bill #{payModal.billNo || "-"} · Total: <strong>{fmt(payModal.totalAmount)}</strong> · Due: <strong style={{ color: "#ef4444" }}>{fmt(payModal.balanceDue)}</strong>
+                  </p>
                 </div>
-              )}
-              <div>
-                <label style={{ display: "block", fontSize: 13, fontWeight: 600, marginBottom: 4 }}>Payment Date</label>
-                <input
-                  type="date"
-                  value={payForm.date}
-                  onChange={e => setPayForm(f => ({ ...f, date: e.target.value }))}
-                  style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "1px solid #d1d5db", fontSize: 14, boxSizing: "border-box" }}
-                />
+                <button onClick={() => setPayModal(null)} style={{ background: "none", border: "none", fontSize: 22, cursor: "pointer", color: "#6b7280" }}>✕</button>
               </div>
-              <div>
-                <label style={{ display: "block", fontSize: 13, fontWeight: 600, marginBottom: 4 }}>Note (optional)</label>
-                <input
-                  value={payForm.note}
-                  onChange={e => setPayForm(f => ({ ...f, note: e.target.value }))}
-                  placeholder="Any note..."
-                  style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "1px solid #d1d5db", fontSize: 14, boxSizing: "border-box" }}
-                />
-              </div>
-              <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
-                <button type="button" onClick={() => setPayModal(null)} style={{
-                  flex: 1, padding: "11px", background: "#f3f4f6", border: "1px solid #d1d5db",
-                  borderRadius: 8, cursor: "pointer", fontWeight: 600,
-                }}>Cancel</button>
-                <button type="submit" disabled={loading} style={{
-                  flex: 2, padding: "11px", background: "#22c55e", color: "#fff",
-                  border: "none", borderRadius: 8, cursor: "pointer", fontWeight: 700, fontSize: 15,
-                }}>
-                  {loading ? "Saving..." : "✅ Confirm Payment"}
-                </button>
-              </div>
-            </form>
+
+              <form onSubmit={handlePay} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                {/* 1. Cash / Online Paid */}
+                <div style={{ background: "#f9fafb", borderRadius: 10, padding: 14, border: "1px solid #e5e7eb" }}>
+                  <label style={{ display: "block", fontSize: 13, fontWeight: 700, marginBottom: 6, color: "#111" }}>💵 Money Paid (Cash / Bank)</label>
+                  <input
+                    type="number"
+                    value={payForm.amount}
+                    onChange={e => setPayForm(f => ({ ...f, amount: e.target.value }))}
+                    placeholder="0"
+                    min={0}
+                    style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "1px solid #d1d5db", fontSize: 15, fontWeight: 700, boxSizing: "border-box" }}
+                  />
+
+                  {/* Payment Mode */}
+                  <div style={{ marginTop: 10 }}>
+                    <label style={{ display: "block", fontSize: 12, fontWeight: 600, marginBottom: 4, color: "#6b7280" }}>Payment Mode</label>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 6 }}>
+                      {[
+                        { value: "Cash",           icon: "💵", label: "Cash" },
+                        { value: "Online-Current", icon: "🏦", label: "Current" },
+                        { value: "Online-Saving",  icon: "📱", label: "Saving" },
+                        { value: "Cheque",         icon: "🧾", label: "Cheque" },
+                      ].map(({ value, icon, label }) => (
+                        <button
+                          key={value}
+                          type="button"
+                          onClick={() => setPayForm(f => ({ ...f, mode: value }))}
+                          style={{
+                            padding: "8px 4px", borderRadius: 7, cursor: "pointer", fontWeight: 600, fontSize: 11,
+                            border: payForm.mode === value ? "2px solid #6366f1" : "2px solid #e5e7eb",
+                            background: payForm.mode === value ? "#f8f9ff" : "#fff",
+                            color: payForm.mode === value ? "#6366f1" : "#374151",
+                          }}
+                        >
+                          {icon}<br />{label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {(payForm.mode === "Online-Current" || payForm.mode === "Online-Saving" || payForm.mode === "Cheque") && (
+                    <div style={{ marginTop: 8 }}>
+                      <input
+                        value={payForm.referenceNo}
+                        onChange={e => setPayForm(f => ({ ...f, referenceNo: e.target.value }))}
+                        placeholder={payForm.mode === "Cheque" ? "Cheque Number" : "UTR / Transaction ID"}
+                        style={{ width: "100%", padding: "6px 10px", borderRadius: 6, border: "1px solid #d1d5db", fontSize: 13, boxSizing: "border-box" }}
+                      />
+                    </div>
+                  )}
+                </div>
+
+                {/* 2. Vendor Discount (Kasur) Section */}
+                <div style={{ background: "#fffbeb", borderRadius: 10, padding: 14, border: "1px solid #fde68a" }}>
+                  <label style={{ display: "block", fontSize: 13, fontWeight: 700, marginBottom: 6, color: "#92400e" }}>🏷️ Vendor Discount (Kasur Cut)</label>
+                  <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>
+                    {[
+                      { value: "NONE", label: "No Disc" },
+                      { value: "PERCENTAGE", label: "% Percentage" },
+                      { value: "FLAT", label: "₹ Flat Disc" },
+                    ].map(opt => (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        onClick={() => setPayForm(f => ({ ...f, discountType: opt.value, discountValue: "", discountAmount: "" }))}
+                        style={{
+                          flex: 1, padding: "6px 4px", borderRadius: 6, cursor: "pointer", fontWeight: 600, fontSize: 12,
+                          border: payForm.discountType === opt.value ? "2px solid #d97706" : "1px solid #fcd34d",
+                          background: payForm.discountType === opt.value ? "#fff" : "#fffbeb",
+                          color: payForm.discountType === opt.value ? "#b45309" : "#78350f",
+                        }}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  {payForm.discountType !== "NONE" && (
+                    <div style={{ display: "grid", gridTemplateColumns: payForm.discountType === "PERCENTAGE" ? "1fr 1fr" : "1fr", gap: 10 }}>
+                      <div>
+                        <label style={{ display: "block", fontSize: 11, fontWeight: 600, color: "#92400e", marginBottom: 2 }}>
+                          {payForm.discountType === "PERCENTAGE" ? "Discount Percentage (%)" : "Flat Discount Amount (₹)"}
+                        </label>
+                        <input
+                          type="number"
+                          value={payForm.discountValue}
+                          onChange={e => {
+                            const val = e.target.value;
+                            setPayForm(f => ({ ...f, discountValue: val, discountAmount: "" }));
+                          }}
+                          placeholder={payForm.discountType === "PERCENTAGE" ? "e.g. 5" : "e.g. 5000"}
+                          min={0}
+                          style={{ width: "100%", padding: "7px 10px", borderRadius: 6, border: "1px solid #fcd34d", fontSize: 14, fontWeight: 700, boxSizing: "border-box", background: "#fff" }}
+                        />
+                      </div>
+                      {payForm.discountType === "PERCENTAGE" && (
+                        <div>
+                          <label style={{ display: "block", fontSize: 11, fontWeight: 600, color: "#92400e", marginBottom: 2 }}>Calculated Cut (₹)</label>
+                          <div style={{ padding: "7px 10px", background: "#fef3c7", borderRadius: 6, border: "1px solid #fcd34d", fontSize: 14, fontWeight: 700, color: "#b45309" }}>
+                            ₹{calcDiscAmt.toFixed(2)}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* 3. Goods Return (GR) Section */}
+                <div style={{ background: "#f0fdf4", borderRadius: 10, padding: 14, border: "1px solid #bbf7d0" }}>
+                  <label style={{ display: "block", fontSize: 13, fontWeight: 700, marginBottom: 6, color: "#166534" }}>📦 Goods Return (GR Cut)</label>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1.5fr", gap: 10 }}>
+                    <div>
+                      <label style={{ display: "block", fontSize: 11, fontWeight: 600, color: "#166534", marginBottom: 2 }}>GR Amount (₹)</label>
+                      <input
+                        type="number"
+                        value={payForm.grAmount}
+                        onChange={e => setPayForm(f => ({ ...f, grAmount: e.target.value }))}
+                        placeholder="e.g. 10000"
+                        min={0}
+                        style={{ width: "100%", padding: "7px 10px", borderRadius: 6, border: "1px solid #86efac", fontSize: 14, fontWeight: 700, boxSizing: "border-box", background: "#fff" }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ display: "block", fontSize: 11, fontWeight: 600, color: "#166534", marginBottom: 2 }}>GR Note / Item Details</label>
+                      <input
+                        value={payForm.grNote}
+                        onChange={e => setPayForm(f => ({ ...f, grNote: e.target.value }))}
+                        placeholder="e.g. 5 sarees returned"
+                        style={{ width: "100%", padding: "7px 10px", borderRadius: 6, border: "1px solid #86efac", fontSize: 13, boxSizing: "border-box", background: "#fff" }}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Date & Note */}
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                  <div>
+                    <label style={{ display: "block", fontSize: 12, fontWeight: 600, marginBottom: 4 }}>Date</label>
+                    <input
+                      type="date"
+                      value={payForm.date}
+                      onChange={e => setPayForm(f => ({ ...f, date: e.target.value }))}
+                      style={{ width: "100%", padding: "7px 10px", borderRadius: 6, border: "1px solid #d1d5db", fontSize: 13, boxSizing: "border-box" }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ display: "block", fontSize: 12, fontWeight: 600, marginBottom: 4 }}>Note (optional)</label>
+                    <input
+                      value={payForm.note}
+                      onChange={e => setPayForm(f => ({ ...f, note: e.target.value }))}
+                      placeholder="Remarks..."
+                      style={{ width: "100%", padding: "7px 10px", borderRadius: 6, border: "1px solid #d1d5db", fontSize: 13, boxSizing: "border-box" }}
+                    />
+                  </div>
+                </div>
+
+                {/* Live Settlement Breakdown */}
+                <div style={{ background: "#f8fafc", borderRadius: 10, padding: 12, border: "1px solid #e2e8f0" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, color: "#475569" }}>
+                    <span>Cash / Bank Paid:</span><span>{fmt(paidAmt)}</span>
+                  </div>
+                  {effectiveDiscAmt > 0 && (
+                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, color: "#b45309", marginTop: 3 }}>
+                      <span>Discount (Kasur):</span><span>- {fmt(effectiveDiscAmt)}</span>
+                    </div>
+                  )}
+                  {grAmt > 0 && (
+                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, color: "#166534", marginTop: 3 }}>
+                      <span>Goods Return (GR):</span><span>- {fmt(grAmt)}</span>
+                    </div>
+                  )}
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14, fontWeight: 700, color: "#1e293b", marginTop: 6, paddingTop: 6, borderTop: "1px dashed #cbd5e1" }}>
+                    <span>Total Settlement:</span><span>{fmt(totalSettlement)}</span>
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14, fontWeight: 700, color: remDue > 0 ? "#dc2626" : "#16a34a", marginTop: 3 }}>
+                    <span>Remaining Due:</span><span>{fmt(remDue)} {remDue === 0 ? "(Fully Settled)" : ""}</span>
+                  </div>
+                </div>
+
+                {/* Action Buttons */}
+                <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
+                  <button type="button" onClick={() => setPayModal(null)} style={{
+                    flex: 1, padding: "11px", background: "#f3f4f6", border: "1px solid #d1d5db",
+                    borderRadius: 8, cursor: "pointer", fontWeight: 600,
+                  }}>Cancel</button>
+                  <button type="submit" disabled={loading} style={{
+                    flex: 2, padding: "11px", background: "#22c55e", color: "#fff",
+                    border: "none", borderRadius: 8, cursor: "pointer", fontWeight: 700, fontSize: 15,
+                  }}>
+                    {loading ? "Saving..." : "✅ Confirm Settlement"}
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Delete Confirm */}
       {deleteConfirm && (

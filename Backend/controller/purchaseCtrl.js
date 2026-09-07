@@ -66,16 +66,32 @@ const createPurchase = asyncHandler(async (req, res) => {
   // Initial payment if provided
   const payments = [];
   const initialPaid = parseFloat(rest.initialPaidAmount) || 0;
-  if (initialPaid > 0) {
+  const initialDiscType = rest.initialDiscountType || "NONE";
+  const initialDiscVal = parseFloat(rest.initialDiscountValue) || 0;
+  let initialDiscAmt = parseFloat(rest.initialDiscountAmount) || 0;
+  if (initialDiscType === "PERCENTAGE" && initialDiscVal > 0 && !initialDiscAmt) {
+    initialDiscAmt = (totalAmount * initialDiscVal) / 100;
+  }
+  const initialGrAmt = parseFloat(rest.initialGrAmount) || 0;
+  const initialGrNote = rest.initialGrNote || "";
+
+  if (initialPaid > 0 || initialDiscAmt > 0 || initialGrAmt > 0) {
     payments.push({
       amount: initialPaid,
+      discountType: initialDiscType,
+      discountValue: initialDiscVal,
+      discountAmount: +initialDiscAmt.toFixed(2),
+      grAmount: +initialGrAmt.toFixed(2),
+      grNote: initialGrNote,
       date: rest.billDate || new Date(),
-      mode: rest.initialPaymentMode || "Cash",
+      mode: rest.initialPaymentMode || (initialPaid > 0 ? "Cash" : initialGrAmt > 0 ? "GR" : "Discount"),
       referenceNo: rest.initialPaymentRef || "",
       note: rest.initialPaymentNote || "",
     });
   }
-  const paidAmount = payments.reduce((a, p) => a + p.amount, 0);
+  const paidAmount = payments.reduce((a, p) => a + (p.amount || 0), 0);
+  const settlementDiscount = payments.reduce((a, p) => a + (p.discountAmount || 0), 0);
+  const grAmount = payments.reduce((a, p) => a + (p.grAmount || 0), 0);
 
   const purchase = await Purchase.create({
     vendor,
@@ -92,6 +108,8 @@ const createPurchase = asyncHandler(async (req, res) => {
     roundOff: +roundOff.toFixed(2),
     totalAmount,
     paidAmount,
+    settlementDiscount,
+    grAmount,
     payments,
     billNo: rest.billNo || "",
     billDate: rest.billDate || new Date(),
@@ -204,15 +222,51 @@ const deletePurchase = asyncHandler(async (req, res) => {
 const recordPayment = asyncHandler(async (req, res) => {
   const { id } = req.params;
   validateMongoDbId(id);
-  const { amount, mode = "Cash", referenceNo = "", note = "", date } = req.body;
+  const {
+    amount,
+    discountType = "NONE",
+    discountValue = 0,
+    discountAmount = 0,
+    grAmount = 0,
+    grNote = "",
+    mode = "Cash",
+    referenceNo = "",
+    note = "",
+    date,
+  } = req.body;
 
-  if (!amount || amount <= 0) return res.status(400).json({ message: "Invalid payment amount" });
+  const paidAmt = parseFloat(amount) || 0;
+  const discVal = parseFloat(discountValue) || 0;
+  let discAmt = parseFloat(discountAmount) || 0;
+  const grAmt = parseFloat(grAmount) || 0;
 
   const purchase = await Purchase.findById(id);
   if (!purchase) return res.status(404).json({ message: "Purchase not found" });
 
-  purchase.payments.push({ amount: parseFloat(amount), mode, referenceNo, note, date: date || new Date() });
-  purchase.paidAmount = purchase.payments.reduce((a, p) => a + p.amount, 0);
+  if (discountType === "PERCENTAGE" && discVal > 0 && !discAmt) {
+    discAmt = (purchase.totalAmount * discVal) / 100;
+  }
+
+  if (paidAmt <= 0 && discAmt <= 0 && grAmt <= 0) {
+    return res.status(400).json({ message: "Enter a valid paid, discount, or GR amount" });
+  }
+
+  purchase.payments.push({
+    amount: paidAmt,
+    discountType,
+    discountValue: discVal,
+    discountAmount: +discAmt.toFixed(2),
+    grAmount: +grAmt.toFixed(2),
+    grNote,
+    mode: mode || (paidAmt > 0 ? "Cash" : grAmt > 0 ? "GR" : "Discount"),
+    referenceNo,
+    note,
+    date: date || new Date(),
+  });
+
+  purchase.paidAmount = purchase.payments.reduce((a, p) => a + (p.amount || 0), 0);
+  purchase.settlementDiscount = purchase.payments.reduce((a, p) => a + (p.discountAmount || 0), 0);
+  purchase.grAmount = purchase.payments.reduce((a, p) => a + (p.grAmount || 0), 0);
   await purchase.save();
 
   await purchase.populate("vendor", "name firmName phone city");

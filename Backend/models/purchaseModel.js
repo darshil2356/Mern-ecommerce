@@ -20,11 +20,20 @@ const purchaseItemSchema = new mongoose.Schema({
 });
 
 const paymentSchema = new mongoose.Schema({
-  amount: { type: Number, required: true },
+  amount: { type: Number, required: true, default: 0 },
   date: { type: Date, default: Date.now },
-  mode: { type: String, enum: ["Cash", "Online-Current", "Online-Saving", "Cheque", "Credit"], default: "Cash" },
+  mode: {
+    type: String,
+    enum: ["Cash", "Online-Current", "Online-Saving", "Cheque", "Credit", "Discount", "GR", "Adjustment"],
+    default: "Cash",
+  },
   referenceNo: { type: String, default: "" },
   note: { type: String, default: "" },
+  discountType: { type: String, enum: ["FLAT", "PERCENTAGE", "NONE"], default: "NONE" },
+  discountValue: { type: Number, default: 0 },
+  discountAmount: { type: Number, default: 0 },
+  grAmount: { type: Number, default: 0 },
+  grNote: { type: String, default: "" },
 });
 
 const purchaseSchema = new mongoose.Schema(
@@ -53,6 +62,8 @@ const purchaseSchema = new mongoose.Schema(
     totalAmount: { type: Number, required: true },
 
     paidAmount: { type: Number, default: 0 },
+    settlementDiscount: { type: Number, default: 0 },
+    grAmount: { type: Number, default: 0 },
     payments: { type: [paymentSchema], default: [] },
     balanceDue: { type: Number, default: 0 },
     status: {
@@ -67,9 +78,10 @@ const purchaseSchema = new mongoose.Schema(
 );
 
 purchaseSchema.pre("save", function (next) {
-  this.balanceDue = Math.max(0, this.totalAmount - this.paidAmount);
-  if (this.paidAmount >= this.totalAmount) this.status = "PAID";
-  else if (this.paidAmount > 0) this.status = "PARTIAL";
+  const totalSettled = (this.paidAmount || 0) + (this.settlementDiscount || 0) + (this.grAmount || 0);
+  this.balanceDue = Math.max(0, this.totalAmount - totalSettled);
+  if (totalSettled >= this.totalAmount) this.status = "PAID";
+  else if (totalSettled > 0) this.status = "PARTIAL";
   else this.status = "PENDING";
   next();
 });

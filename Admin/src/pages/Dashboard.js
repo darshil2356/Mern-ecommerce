@@ -570,6 +570,95 @@ const Dashboard = () => {
         </div>
       </div>
 
+      {/* ── Filter-wise Financial & Udhar Summary ──────────────── */}
+      <div style={{
+        background: "linear-gradient(135deg, #1e293b 0%, #0f172a 100%)",
+        borderRadius: "24px",
+        padding: "24px",
+        marginBottom: "24px",
+        boxShadow: "0 12px 32px rgba(15, 23, 42, 0.25)",
+        color: "#fff"
+      }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "18px", flexWrap: "wrap", gap: 10 }}>
+          <div>
+            <h3 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: "#f8fafc", display: "flex", alignItems: "center", gap: 8 }}>
+              <span>📊</span> {selectedFilter === FILTERS.TODAY ? "Today's Financial & Udhar Cashflow Summary" :
+                 selectedFilter === FILTERS.WEEK ? "7 Days Financial & Udhar Cashflow Summary" :
+                 selectedFilter === FILTERS.MONTH ? "Monthly Financial & Udhar Cashflow Summary" :
+                 selectedFilter === FILTERS.YEAR ? "Annual Financial & Udhar Cashflow Summary" : "Custom Period Financial & Udhar Cashflow Summary"}
+            </h3>
+            <p style={{ margin: "4px 0 0", fontSize: 12, color: "#94a3b8" }}>
+              Live real-time financial cashflow for {selectedFilter === FILTERS.TODAY ? dayjs().format("DD MMMM YYYY") : selectedFilter === FILTERS.WEEK ? "last 7 days" : selectedFilter === FILTERS.MONTH ? dayjs().format("MMMM YYYY") : selectedFilter === FILTERS.YEAR ? dayjs().format("YYYY") : "selected custom range"}
+            </p>
+          </div>
+          <Tag color="cyan" style={{ borderRadius: 12, padding: "4px 12px", fontWeight: 700, fontSize: 12 }}>
+            {selectedFilter.toUpperCase()} CASHFLOW
+          </Tag>
+        </div>
+
+        <Row gutter={[16, 16]}>
+          <Col xs={24} sm={12} md={8} lg={4.8} style={{ flex: 1, minWidth: 200 }}>
+            <div style={{ background: "rgba(255, 255, 255, 0.06)", borderRadius: "16px", padding: "16px", border: "1px solid rgba(255, 255, 255, 0.1)" }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                🛒 Total Sale {selectedFilter === FILTERS.TODAY ? "Today" : `(${selectedFilter})`}
+              </div>
+              <div style={{ fontSize: 22, fontWeight: 800, color: "#38bdf8", marginTop: 6 }}>
+                ₹{Number(dashboardStats?.financialSummary?.totalSalePeriod || dashboardStats?.todayFinancials?.totalSaleToday || 0).toLocaleString("en-IN")}
+              </div>
+              <div style={{ fontSize: 11, color: "#64748b", marginTop: 4 }}>Total sales revenue</div>
+            </div>
+          </Col>
+
+          <Col xs={24} sm={12} md={8} lg={4.8} style={{ flex: 1, minWidth: 200 }}>
+            <div style={{ background: "rgba(255, 255, 255, 0.06)", borderRadius: "16px", padding: "16px", border: "1px solid rgba(255, 255, 255, 0.1)" }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                💵 Direct Sale (Paid)
+              </div>
+              <div style={{ fontSize: 22, fontWeight: 800, color: "#4ade80", marginTop: 6 }}>
+                ₹{Number(dashboardStats?.financialSummary?.directSalesPaidPeriod || dashboardStats?.todayFinancials?.directSalesPaidToday || 0).toLocaleString("en-IN")}
+              </div>
+              <div style={{ fontSize: 11, color: "#64748b", marginTop: 4 }}>Paid upfront on sales</div>
+            </div>
+          </Col>
+
+          <Col xs={24} sm={12} md={8} lg={4.8} style={{ flex: 1, minWidth: 200 }}>
+            <div style={{ background: "rgba(255, 255, 255, 0.06)", borderRadius: "16px", padding: "16px", border: "1px solid rgba(255, 255, 255, 0.1)" }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                📜 Udhar Created {selectedFilter === FILTERS.TODAY ? "Today" : ""}
+              </div>
+              <div style={{ fontSize: 22, fontWeight: 800, color: "#f87171", marginTop: 6 }}>
+                ₹{Number(dashboardStats?.financialSummary?.udharCreatedPeriod || dashboardStats?.todayFinancials?.udharCreatedToday || 0).toLocaleString("en-IN")}
+              </div>
+              <div style={{ fontSize: 11, color: "#64748b", marginTop: 4 }}>New credit balance created</div>
+            </div>
+          </Col>
+
+          <Col xs={24} sm={12} md={8} lg={4.8} style={{ flex: 1, minWidth: 200 }}>
+            <div style={{ background: "rgba(255, 255, 255, 0.06)", borderRadius: "16px", padding: "16px", border: "1px solid rgba(255, 255, 255, 0.1)" }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                📥 Udhar Recovered {selectedFilter === FILTERS.TODAY ? "Today" : ""}
+              </div>
+              <div style={{ fontSize: 22, fontWeight: 800, color: "#fbbf24", marginTop: 6 }}>
+                ₹{Number(dashboardStats?.financialSummary?.udharCollectedPeriod || dashboardStats?.todayFinancials?.udharCollectedToday || 0).toLocaleString("en-IN")}
+              </div>
+              <div style={{ fontSize: 11, color: "#64748b", marginTop: 4 }}>Udhar payments collected</div>
+            </div>
+          </Col>
+
+          <Col xs={24} sm={12} md={8} lg={4.8} style={{ flex: 1, minWidth: 200 }}>
+            <div style={{ background: "linear-gradient(135deg, rgba(16, 185, 129, 0.2) 0%, rgba(5, 150, 105, 0.3) 100%)", borderRadius: "16px", padding: "16px", border: "1px solid #10b981" }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: "#a7f3d0", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                💰 Total In Hand {selectedFilter === FILTERS.TODAY ? "Today" : ""}
+              </div>
+              <div style={{ fontSize: 24, fontWeight: 900, color: "#6ee7b7", marginTop: 6 }}>
+                ₹{Number(dashboardStats?.financialSummary?.totalHandPeriod || dashboardStats?.todayFinancials?.totalHandToday || 0).toLocaleString("en-IN")}
+              </div>
+              <div style={{ fontSize: 11, color: "#a7f3d0", marginTop: 4 }}>Direct Paid + Udhar Recovered</div>
+            </div>
+          </Col>
+        </Row>
+      </div>
+
       {/* ── Stat Cards ─────────────────────────────────────── */}
       <div
         className="dash-cards-grid"

@@ -28,6 +28,15 @@ export const recordUdharPayment = createAsyncThunk("udhar/pay", async ({ id, amo
   }
 });
 
+export const toggleHideUdhar = createAsyncThunk("udhar/toggleHide", async (id, { rejectWithValue }) => {
+  try {
+    const { data } = await api.put(`/udhar/${id}/toggle-hide`);
+    return data;
+  } catch (err) {
+    return rejectWithValue(err.response?.data?.message || err.message);
+  }
+});
+
 export const deleteUdhar = createAsyncThunk("udhar/delete", async (id, { rejectWithValue }) => {
   try {
     await api.delete(`/udhar/${id}`);
@@ -70,6 +79,14 @@ const udharSlice = createSlice({
         if (idx !== -1) state.records[idx] = payload.data;
       })
       .addCase(recordUdharPayment.rejected, rejected)
+
+      .addCase(toggleHideUdhar.pending, pending)
+      .addCase(toggleHideUdhar.fulfilled, (state, { payload }) => {
+        state.loading = false;
+        const idx = state.records.findIndex(r => r._id === payload.data._id);
+        if (idx !== -1) state.records[idx] = payload.data;
+      })
+      .addCase(toggleHideUdhar.rejected, rejected)
 
       .addCase(deleteUdhar.pending, pending)
       .addCase(deleteUdhar.fulfilled, (state, { payload }) => {

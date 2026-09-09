@@ -2662,6 +2662,63 @@ const getDashboardStats = asyncHandler(async (req, res) => {
     ? ((repeatRatioStats.repeatCustomers / repeatRatioStats.totalCustomers) * 100).toFixed(1)
     : "0.0";
 
+  // Calculate Financial & Udhar cashflow summary for selected date filter range (start to end)
+  const periodOrders = await Order.find({
+    createdAt: { $gte: start, $lte: end },
+    orderStatus: { $ne: "Cancelled" },
+  }).select("totalPriceAfterDiscount");
+
+  let totalSalePeriod = 0;
+  periodOrders.forEach((o) => {
+    totalSalePeriod += (o.totalPriceAfterDiscount || 0);
+  });
+
+  // Udhar records created in selected date filter range
+  const Udhar = require("../models/udharModel");
+  const periodUdharEntries = await Udhar.find({
+    createdAt: { $gte: start, $lte: end },
+  });
+
+  let udharCreatedPeriod = 0;
+  periodUdharEntries.forEach((u) => {
+    const uncollected = (u.totalAmount || 0) - (u.paidAmount || 0);
+    udharCreatedPeriod += Math.max(0, uncollected);
+  });
+
+  // Direct sales paid in period = Total sales created in period minus unpaid Udhar created in period
+  const directSalesPaidPeriod = Math.max(0, totalSalePeriod - udharCreatedPeriod);
+
+  // Udhar payments collected/recovered in period (from ANY Udhar record)
+  const allUdharsWithPayments = await Udhar.find({
+    "payments.date": { $gte: start, $lte: end },
+  });
+
+  let udharCollectedPeriod = 0;
+  allUdharsWithPayments.forEach((u) => {
+    (u.payments || []).forEach((p) => {
+      if (p.date && new Date(p.date) >= start && new Date(p.date) <= end) {
+        udharCollectedPeriod += (p.amount || 0);
+      }
+    });
+  });
+
+  // Total cash / money in hand in period = Direct sales collected in period + Pending Udhar collected in period
+  const totalHandPeriod = directSalesPaidPeriod + udharCollectedPeriod;
+
+  const financialSummary = {
+    totalSalePeriod,
+    directSalesPaidPeriod,
+    udharCreatedPeriod,
+    udharCollectedPeriod,
+    totalHandPeriod,
+    // Backward compatibility aliases
+    totalSaleToday: totalSalePeriod,
+    directSalesPaidToday: directSalesPaidPeriod,
+    udharCreatedToday: udharCreatedPeriod,
+    udharCollectedToday: udharCollectedPeriod,
+    totalHandToday: totalHandPeriod,
+  };
+
   res.json({
     stats: stats[0] || { totalRevenue: 0, totalOrders: 0, totalDiscount: 0, totalSubtotal: 0 },
     ordersByStatus,
@@ -2672,6 +2729,8 @@ const getDashboardStats = asyncHandler(async (req, res) => {
     customerRepeatRatio: Number(customerRepeatRatio),
     repeatCustomers: repeatRatioStats.repeatCustomers,
     totalCustomers: repeatRatioStats.totalCustomers,
+    todayFinancials: financialSummary,
+    financialSummary,
     dateRange: { start, end }
   });
 });

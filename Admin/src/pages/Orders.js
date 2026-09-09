@@ -209,7 +209,7 @@ const Orders = () => {
       const productDetails = order.rawOrder?.orderItems
         ?.map(i => `${i.product?.title || "Product"} x${i.quantity}`)
         .join(", ") || "";
-      await dispatch(addUdhar({
+      const res = await dispatch(addUdhar({
         type: "PRODUCT_SALE",
         orderId: order.orderId,
         personName: personName.trim(),
@@ -220,6 +220,11 @@ const Orders = () => {
         note: note.trim(),
       })).unwrap();
       message.success("Order moved to Udhar Khata successfully");
+      if (res?.whatsappUrl) {
+        if (window.confirm(`Order moved to Udhar! Send WhatsApp credit bill receipt to ${personName}?`)) {
+          window.open(res.whatsappUrl, "_blank");
+        }
+      }
       setUdharModal({ open: false, order: null, personName: "", personPhone: "", dueDate: null, note: "" });
     } catch (err) {
       message.error(err || "Failed to move to Udhar Khata");

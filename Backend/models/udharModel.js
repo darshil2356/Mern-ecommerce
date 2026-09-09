@@ -31,6 +31,7 @@ const udharSchema = new mongoose.Schema(
       enum: ["PENDING", "PARTIAL", "CLEARED"],
       default: "PENDING",
     },
+    isHidden: { type: Boolean, default: false },
   },
   { timestamps: true }
 );

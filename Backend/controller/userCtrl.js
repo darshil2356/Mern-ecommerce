@@ -12,6 +12,9 @@ const { createAutoEntry } = require("./rojmelCtrl");
 const { ORDER_STATUS_EVENT_MAP } = require("../config/notificationConfig");
 
 const asyncHandler = require("express-async-handler");
+const SpinConfig = require("../models/spinConfigModel");
+const { CoinConfig, ReferralConfig } = require("../models/rewardConfigModel");
+const Offer = require("../models/offerModel");
 const { generateToken } = require("../config/jwtToken");
 const validateMongoDbId = require("../utils/validateMongodbId");
 const validateAddress = require("../utils/validateAddress");
@@ -3102,6 +3105,102 @@ const getSettings = asyncHandler(async (req, res) => {
   }
 });
 
+// Get combined POS initialization configuration in a single API call
+const getPosConfig = asyncHandler(async (req, res) => {
+  const { _id } = req.user;
+  validateMongoDbId(_id);
+
+  try {
+    const now = new Date();
+    const [user, spinConfigDoc, coinConfigDoc, referralConfigDoc, activeOffersDoc] = await Promise.all([
+      User.findById(_id).select(
+        "gstin email storeName storeTagline storeAddress storePhone storeEmail storeWhatsapp storeOpeningHours googleMapsUrl googleBusinessProfileUrl instagramUrl facebookUrl youtubeUrl storeLogo storeFavicon socialShareImage googleReviewUrl googleReviewRequestMessage homepageMetaTitle homepageMetaDescription heroBannerImage heroBannerTitle heroBannerSubtext heroBannerCta promoBannerImage promoBannerLink homepageSectionsOrder homepageHiddenSections storeFaqsJson cgst sgst igst storeState taxIncluded onlinePaymentDestination shippingCharge upiIdA upiIdB requireOtpForSignup posLockEnabled posLockPassword lockDashboard lockCustomers lockOrders lockCatalog lockAnalytics lockRewards lockMarketing lockPurchase lockRojmel lockUdhar lockReviews lockEnquiries lockSettings lockLiveBilling lockStaff posLockTimeout jwtExpiresIn"
+      ),
+      SpinConfig.findOne(),
+      CoinConfig.findOne(),
+      ReferralConfig.findOne(),
+      Offer.find({
+        isActive: true,
+        startDate: { $lte: now },
+        endDate: { $gte: now },
+      }).select("title description offerType buyQty getFreeQty fixedPrice discountAmount discountPercent minQty applicableProducts applicableCategories"),
+    ]);
+
+    const settings = user ? {
+      gstin: user.gstin || "",
+      email: user.email || "",
+      storeName: user.storeName || "Cart Corner",
+      storeTagline: user.storeTagline || "Your One-Stop Shopping Destination",
+      storeAddress: user.storeAddress || "",
+      storePhone: user.storePhone || "",
+      storeEmail: user.storeEmail || "",
+      storeWhatsapp: user.storeWhatsapp || "",
+      storeOpeningHours: user.storeOpeningHours || "10:00 AM - 08:30 PM",
+      googleMapsUrl: user.googleMapsUrl || "",
+      googleBusinessProfileUrl: user.googleBusinessProfileUrl || "",
+      instagramUrl: user.instagramUrl || "",
+      facebookUrl: user.facebookUrl || "",
+      youtubeUrl: user.youtubeUrl || "",
+      storeLogo: user.storeLogo || "",
+      storeFavicon: user.storeFavicon || "",
+      socialShareImage: user.socialShareImage || "",
+      googleReviewUrl: user.googleReviewUrl || "https://search.google.com/local/writereview?placeid=ChIJP-z0FraHXjkRP-xoeP6FaF0",
+      googleReviewRequestMessage: user.googleReviewRequestMessage || "Thank you for shopping with Yashoda Fashion ❤️ If you loved your shopping experience, we'd really appreciate your honest Google review. Your feedback helps our business grow!",
+      homepageMetaTitle: user.homepageMetaTitle || "Yashoda Fashion | Women's Clothing Store in Bapunagar, Ahmedabad",
+      homepageMetaDescription: user.homepageMetaDescription || "Shop women's kurtis, sarees, suit sets, western wear, pants, tops and festive wear at Yashoda Fashion, Bapunagar, Ahmedabad. Stylish collections at affordable prices.",
+      heroBannerImage: user.heroBannerImage || "",
+      heroBannerTitle: user.heroBannerTitle || "Yashoda Fashion",
+      heroBannerSubtext: user.heroBannerSubtext || "Women's Fashion for Every Occasion",
+      heroBannerCta: user.heroBannerCta || "SHOP NOW",
+      promoBannerImage: user.promoBannerImage || "",
+      promoBannerLink: user.promoBannerLink || "",
+      homepageSectionsOrder: user.homepageSectionsOrder || "hero,categories,newArrivals,bestsellers,trending,festive,premium,ethnic,western,pants,plusSize,offers,whyChooseUs,testimonials,faq,location",
+      homepageHiddenSections: user.homepageHiddenSections || "",
+      storeFaqsJson: user.storeFaqsJson || "[]",
+      cgst: user.cgst || 0,
+      sgst: user.sgst || 0,
+      igst: user.igst || 0,
+      storeState: user.storeState || "Gujarat",
+      taxIncluded: user.taxIncluded === true,
+      onlinePaymentDestination: user.onlinePaymentDestination || "CURRENT_ACCOUNT",
+      shippingCharge: user.shippingCharge || 0,
+      upiIdA: user.upiIdA || "",
+      upiIdB: user.upiIdB || "",
+      requireOtpForSignup: user.requireOtpForSignup === true,
+      posLockEnabled: user.posLockEnabled === true,
+      posLockPasswordSet: !!user.posLockPassword,
+      lockDashboard: user.lockDashboard === true,
+      lockCustomers: user.lockCustomers === true,
+      lockOrders: user.lockOrders === true,
+      lockCatalog: user.lockCatalog === true,
+      lockAnalytics: user.lockAnalytics === true,
+      lockRewards: user.lockRewards === true,
+      lockMarketing: user.lockMarketing === true,
+      lockPurchase: user.lockPurchase === true,
+      lockRojmel: user.lockRojmel === true,
+      lockUdhar: user.lockUdhar === true,
+      lockReviews: user.lockReviews === true,
+      lockEnquiries: user.lockEnquiries === true,
+      lockSettings: user.lockSettings === true,
+      lockLiveBilling: user.lockLiveBilling === true,
+      lockStaff: user.lockStaff === true,
+      posLockTimeout: user.posLockTimeout || "5m",
+      jwtExpiresIn: user.jwtExpiresIn || "1d",
+    } : {};
+
+    res.json({
+      settings,
+      gstin: user?.gstin || "",
+      spinConfig: spinConfigDoc || { isEnabled: false },
+      coinConfig: coinConfigDoc || {},
+      referralConfig: referralConfigDoc || {},
+      activeOffers: activeOffersDoc || [],
+    });
+  } catch (error) {
+    throw new Error(error);
+  }
+});
+
 // Update admin settings/configurations
 const updateSettings = asyncHandler(async (req, res) => {
   const { _id } = req.user;
@@ -4377,6 +4476,7 @@ module.exports = {
   getGstin,
   updateGstin,
   getSettings,
+  getPosConfig,
   updateSettings,
   verifyPosLock,
   getCustomerOffer,

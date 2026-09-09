@@ -554,12 +554,6 @@ const LiveBilling = () => {
   // Active product-level offers from Offer model
   const [activeOffers, setActiveOffers] = useState([]);
 
-  useEffect(() => {
-    axios.get(`${base_url}offers/active`, config)
-      .then(res => setActiveOffers(res.data || []))
-      .catch(() => {});
-  }, []);
-
   // Compute best Offer-model discount for the current cart
   const offerModelDiscount = useMemo(() => {
     if (!activeOffers.length || !Object.keys(cart).length) return 0;
@@ -984,44 +978,29 @@ const LiveBilling = () => {
     }
   }, [customerState, defaultStoreState, defaultCgst, defaultSgst, defaultIgst]);
 
-  // Fetch GSTIN on mount
+  // Fetch POS consolidated configuration on mount in a single API call
   useEffect(() => {
-    const fetchGstin = async () => {
+    const fetchPosConfig = async () => {
       try {
-        const res = await axios.get(`${base_url}user/gstin`, config);
-        setGstin(res.data.gstin || "");
-      } catch (err) {
-        console.error("Failed to fetch GSTIN:", err);
-      }
-    };
-    fetchGstin();
-  }, []);
+        const res = await axios.get(`${base_url}user/pos-config`, config);
+        const data = res.data || {};
 
-  // Fetch coin & referral config on mount
-  useEffect(() => {
-    Promise.all([
-      axios.get(`${base_url}rewards/coins/config`, config),
-      axios.get(`${base_url}rewards/referral/config`, config),
-    ])
-      .then(([coinRes, refRes]) => {
-        setCoinConfig(coinRes.data);
-        setReferralConfig(refRes.data);
-      })
-      .catch(() => {});
-  }, []);
+        // Active offers
+        setActiveOffers(data.activeOffers || []);
 
-  // Fetch settings on mount
-  useEffect(() => {
-    const fetchSettings = async () => {
-      try {
-        const [settingsRes, spinRes] = await Promise.all([
-          axios.get(`${base_url}user/settings`, config),
-          axios.get(`${base_url}spin/config`, config),
-        ]);
-        const cgst = settingsRes.data.cgst || 0;
-        const sgst = settingsRes.data.sgst || 0;
-        const igst = settingsRes.data.igst || 0;
-        const sState = settingsRes.data.storeState || "Gujarat";
+        // GSTIN
+        setGstin(data.gstin || data.settings?.gstin || "");
+
+        // Rewards coin & referral configs
+        if (data.coinConfig) setCoinConfig(data.coinConfig);
+        if (data.referralConfig) setReferralConfig(data.referralConfig);
+
+        // Settings & Spin config
+        const s = data.settings || {};
+        const cgst = s.cgst || 0;
+        const sgst = s.sgst || 0;
+        const igst = s.igst || 0;
+        const sState = s.storeState || "Gujarat";
         setCgstPercent(cgst);
         setSgstPercent(sgst);
         setIgstPercent(igst);
@@ -1031,17 +1010,17 @@ const LiveBilling = () => {
         setDefaultStoreState(sState);
         setStoreState(sState);
         setGstType("CGST_SGST");
-        setTaxIncluded(settingsRes.data.taxIncluded === true);
-        setShowSpinner(spinRes.data.isEnabled === true);
-        setStoreName(settingsRes.data.storeName || "Yashoda Fashion");
-        setStoreTagline(settingsRes.data.storeTagline || "Your One-Stop Shopping Destination");
-        setUpiIdA(settingsRes.data.upiIdA || "");
-        setUpiIdB(settingsRes.data.upiIdB || "");
+        setTaxIncluded(s.taxIncluded === true);
+        setShowSpinner(data.spinConfig?.isEnabled === true);
+        setStoreName(s.storeName || "Yashoda Fashion");
+        setStoreTagline(s.storeTagline || "Your One-Stop Shopping Destination");
+        setUpiIdA(s.upiIdA || "");
+        setUpiIdB(s.upiIdB || "");
       } catch (err) {
-        console.error("Failed to fetch settings:", err);
+        console.error("Failed to fetch POS config:", err);
       }
     };
-    fetchSettings();
+    fetchPosConfig();
   }, []);
 
   // Open GSTIN modal

@@ -48,7 +48,7 @@ const LiveBilling = () => {
   const [exBarcode, setExBarcode] = useState("");
   const [exCart, setExCart] = useState({}); // { [barcode]: { product, barcode, qty, price } }
 
-  const [retPaymentMethod, setRetPaymentMethod] = useState("CASH"); // CASH | ONLINE | COINS | NONE
+  const [retPaymentMethod, setRetPaymentMethod] = useState("CASH"); // CASH | ONLINE | COINS | UDHAR | NONE
   const [retPaymentDestination, setRetPaymentDestination] = useState("CASH"); // CASH | CURRENT_ACCOUNT
   const [retNote, setRetNote] = useState("");
   const [isProcessingReturn, setIsProcessingReturn] = useState(false);
@@ -385,7 +385,9 @@ const LiveBilling = () => {
           <hr style="margin: 8px 0;" />
           <p style="font-size: 15px; font-weight: bold;">
             ${retDifferential > 0 
-              ? `<span style="color: #16a34a;">Customer Pays Extra: +₹${retDifferential} (${retPaymentMethod})</span>` 
+              ? (retPaymentMethod === "UDHAR"
+                  ? `<span style="color: #dc2626; font-weight: bold;">Added to Udhar Khata: ₹${retDifferential}</span>`
+                  : `<span style="color: #16a34a;">Customer Pays Extra: +₹${retDifferential} (${retPaymentMethod})</span>`) 
               : retDifferential < 0 
               ? `<span style="color: #d97706;">Coins Credited: ${Math.abs(retDifferential)} Coins (NO CASH REFUND)</span>`
               : `<span style="color: #2563eb;">Even Exchange (₹0)</span>`
@@ -401,6 +403,13 @@ const LiveBilling = () => {
 
     if (!confirmRes.isConfirmed) return;
 
+    const getProductColorVal = (prod) => {
+      const c = prod?.color;
+      if (!c) return null;
+      if (Array.isArray(c)) return c[0] || null;
+      return c;
+    };
+
     setIsProcessingReturn(true);
     try {
       const payload = {
@@ -412,7 +421,7 @@ const LiveBilling = () => {
           price: Number(i.price),
           quantity: Number(i.qty),
           qcStatus: i.qcStatus,
-          colorId: i.product.color?.[0] || null,
+          colorId: getProductColorVal(i.product),
           size: i.product.size || "",
         })),
         exchangeItems: exItemsList.map(i => ({
@@ -421,7 +430,7 @@ const LiveBilling = () => {
           title: i.product.title,
           price: Number(i.price),
           quantity: Number(i.qty),
-          colorId: i.product.color?.[0] || null,
+          colorId: getProductColorVal(i.product),
           size: i.product.size || "",
         })),
         paymentMethod: retDifferential > 0 ? retPaymentMethod : "NONE",
@@ -449,7 +458,9 @@ const LiveBilling = () => {
               ${retDifferential < 0 
                 ? `<p style="color: #2563eb; font-weight: bold; margin-top: 6px;">Credited ${Math.abs(retDifferential)} Coins to ${customer.name}!</p>` 
                 : retDifferential > 0 
-                ? `<p style="color: #16a34a; font-weight: bold; margin-top: 6px;">Collected ₹${retDifferential} via ${retPaymentMethod}</p>` 
+                ? (retPaymentMethod === "UDHAR"
+                    ? `<p style="color: #dc2626; font-weight: bold; margin-top: 6px;">🤝 Auto-saved ₹${retDifferential} to Udhar Khata!</p>`
+                    : `<p style="color: #16a34a; font-weight: bold; margin-top: 6px;">Collected ₹${retDifferential} via ${retPaymentMethod}</p>`)
                 : `<p style="margin-top: 6px;">Even Exchange complete</p>`
               }
             </div>
@@ -470,6 +481,7 @@ const LiveBilling = () => {
         setRetBarcode("");
         setExBarcode("");
         setRetNote("");
+        setRetPaymentMethod("CASH");
       }
     } catch (err) {
       Swal.fire({
@@ -2490,11 +2502,11 @@ tbody td{padding:6px 4px;vertical-align:top}
               {retDifferential > 0 && (
                 <div className="space-y-3 mb-6">
                   <label className="block text-xs font-bold text-gray-700">Select Extra Payment Method (+₹{retDifferential})</label>
-                  <div className="grid grid-cols-3 gap-2">
+                  <div className="grid grid-cols-4 gap-2">
                     <button
                       type="button"
                       onClick={() => setRetPaymentMethod("CASH")}
-                      className={`py-2 px-3 rounded-xl text-xs font-bold border transition-all ${
+                      className={`py-2 px-2.5 rounded-xl text-xs font-bold border transition-all ${
                         retPaymentMethod === "CASH" ? "bg-green-600 text-white border-green-600 shadow-md" : "bg-gray-50 border-gray-200 text-gray-700"
                       }`}
                     >
@@ -2503,22 +2515,36 @@ tbody td{padding:6px 4px;vertical-align:top}
                     <button
                       type="button"
                       onClick={() => setRetPaymentMethod("ONLINE")}
-                      className={`py-2 px-3 rounded-xl text-xs font-bold border transition-all ${
+                      className={`py-2 px-2.5 rounded-xl text-xs font-bold border transition-all ${
                         retPaymentMethod === "ONLINE" ? "bg-blue-600 text-white border-blue-600 shadow-md" : "bg-gray-50 border-gray-200 text-gray-700"
                       }`}
                     >
-                      💳 Online / UPI
+                      💳 Online
                     </button>
                     <button
                       type="button"
                       onClick={() => setRetPaymentMethod("COINS")}
-                      className={`py-2 px-3 rounded-xl text-xs font-bold border transition-all ${
+                      className={`py-2 px-2.5 rounded-xl text-xs font-bold border transition-all ${
                         retPaymentMethod === "COINS" ? "bg-amber-600 text-white border-amber-600 shadow-md" : "bg-gray-50 border-gray-200 text-gray-700"
                       }`}
                     >
                       🪙 Coins
                     </button>
+                    <button
+                      type="button"
+                      onClick={() => setRetPaymentMethod("UDHAR")}
+                      className={`py-2 px-2.5 rounded-xl text-xs font-bold border transition-all ${
+                        retPaymentMethod === "UDHAR" ? "bg-red-600 text-white border-red-600 shadow-md animate-pulse" : "bg-gray-50 border-gray-200 text-gray-700 hover:bg-red-50"
+                      }`}
+                    >
+                      🤝 Udhar
+                    </button>
                   </div>
+                  {retPaymentMethod === "UDHAR" && (
+                    <p className="text-xs text-red-600 font-semibold bg-red-50 border border-red-200 rounded-lg py-1.5 px-3 flex items-center gap-1.5">
+                      <span>🤝</span> ₹{retDifferential} balance will be auto-saved to Udhar Khata for {customer?.name || "Customer"}
+                    </p>
+                  )}
                 </div>
               )}
 

@@ -22,7 +22,7 @@ const returnExchangeSchema = new mongoose.Schema(
         },
         barcode: { type: String, default: "" },
         title: { type: String, default: "" },
-        color: { type: mongoose.Schema.Types.ObjectId, ref: "Color", default: null },
+        color: { type: mongoose.Schema.Types.Mixed, default: null },
         size: { type: String, default: "" },
         quantity: { type: Number, default: 1 },
         agreedValue: { type: Number, required: true }, // unit price
@@ -38,7 +38,7 @@ const returnExchangeSchema = new mongoose.Schema(
       product: { type: mongoose.Schema.Types.ObjectId, ref: "Product", default: null },
       barcode: { type: String, default: "" },
       title: { type: String, default: "" },
-      color: { type: mongoose.Schema.Types.ObjectId, ref: "Color", default: null },
+      color: { type: mongoose.Schema.Types.Mixed, default: null },
       size: { type: String, default: "" },
       quantity: { type: Number, default: 1 },
       agreedValue: { type: Number, default: 0 },
@@ -54,7 +54,7 @@ const returnExchangeSchema = new mongoose.Schema(
         },
         barcode: { type: String, default: "" },
         title: { type: String, default: "" },
-        color: { type: mongoose.Schema.Types.ObjectId, ref: "Color", default: null },
+        color: { type: mongoose.Schema.Types.Mixed, default: null },
         size: { type: String, default: "" },
         quantity: { type: Number, default: 1 },
         itemValue: { type: Number, default: 0 }, // unit price
@@ -65,7 +65,7 @@ const returnExchangeSchema = new mongoose.Schema(
       product: { type: mongoose.Schema.Types.ObjectId, ref: "Product", default: null },
       barcode: { type: String, default: "" },
       title: { type: String, default: "" },
-      color: { type: mongoose.Schema.Types.ObjectId, ref: "Color", default: null },
+      color: { type: mongoose.Schema.Types.Mixed, default: null },
       size: { type: String, default: "" },
       quantity: { type: Number, default: 1 },
       itemValue: { type: Number, default: 0 },
@@ -86,7 +86,7 @@ const returnExchangeSchema = new mongoose.Schema(
     extraAmountPaid: { type: Number, default: 0 },
     paymentMethod: {
       type: String,
-      enum: ["CASH", "ONLINE", "COINS", "NONE"],
+      enum: ["CASH", "ONLINE", "COINS", "UDHAR", "NONE"],
       default: "NONE",
     },
     paymentDestination: {
@@ -99,6 +99,11 @@ const returnExchangeSchema = new mongoose.Schema(
     rojmelEntry: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Rojmel",
+      default: null,
+    },
+    udharEntry: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Udhar",
       default: null,
     },
     processedBy: {

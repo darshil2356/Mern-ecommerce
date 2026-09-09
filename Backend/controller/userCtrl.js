@@ -4003,6 +4003,13 @@ const processPosReturnExchange = asyncHandler(async (req, res) => {
     return res.status(404).json({ message: "Customer not found" });
   }
 
+  const resolveItemColor = (itemColor, defaultProductColor) => {
+    const candidate = itemColor || defaultProductColor;
+    if (!candidate) return null;
+    if (typeof candidate === "object" && candidate._id) return candidate._id;
+    return candidate;
+  };
+
   // Process Returned Items (Inventory + Totals)
   let returnedTotal = 0;
   const processedReturnedItems = [];
@@ -4030,7 +4037,7 @@ const processPosReturnExchange = asyncHandler(async (req, res) => {
       product: prodDoc._id,
       barcode: item.barcode || prodDoc.barcode || "",
       title: item.title || prodDoc.title,
-      color: item.colorId || null,
+      color: resolveItemColor(item.colorId, prodDoc.color),
       size: item.size || "",
       quantity: qty,
       agreedValue: unitPrice,
@@ -4064,7 +4071,7 @@ const processPosReturnExchange = asyncHandler(async (req, res) => {
       product: prodDoc._id,
       barcode: item.barcode || prodDoc.barcode || "",
       title: item.title || prodDoc.title,
-      color: item.colorId || null,
+      color: resolveItemColor(item.colorId, prodDoc.color),
       size: item.size || "",
       quantity: qty,
       itemValue: unitPrice,
@@ -4078,12 +4085,13 @@ const processPosReturnExchange = asyncHandler(async (req, res) => {
   let coinsDebited = 0;
   let extraAmountPaid = 0;
   let rojmelDoc = null;
+  let udharDoc = null;
 
   if (differentialAmount > 0) {
     settlementType = "EXTRA_PAYMENT";
-    extraAmountPaid = differentialAmount;
 
     if (paymentMethod === "COINS") {
+      extraAmountPaid = differentialAmount;
       if ((customer.coins || 0) < differentialAmount) {
         return res.status(400).json({
           message: `Customer has only ${customer.coins || 0} coins, but differential is ${differentialAmount} coins.`,
@@ -4099,7 +4107,26 @@ const processPosReturnExchange = asyncHandler(async (req, res) => {
         description: `POS Multi-Item Exchange Differential: Pay +₹${differentialAmount}`,
       });
       await customer.save();
+    } else if (paymentMethod === "UDHAR") {
+      extraAmountPaid = 0;
+      const Udhar = require("../models/udharModel");
+      const customerNameStr = `${customer.firstname || ""} ${customer.lastname || ""}`.trim() || customer.mobile || "Valued Customer";
+      const returnTitles = processedReturnedItems.map(i => i.title).join(", ");
+      const exchangeTitles = processedExchangeItems.map(i => i.title).join(", ");
+      
+      udharDoc = await Udhar.create({
+        type: "PRODUCT_SALE",
+        personName: customerNameStr,
+        personPhone: customer.mobile || customer.contact || "",
+        productDetails: exchangeTitles ? `Exchange Balance: Returned [${returnTitles}], Exchanged for [${exchangeTitles}]` : `Return & Exchange Balance`,
+        totalAmount: differentialAmount,
+        paidAmount: 0,
+        payments: [],
+        note: note || `Return & Exchange Udhar Balance`,
+        status: "PENDING",
+      });
     } else {
+      extraAmountPaid = differentialAmount;
       const returnTitles = processedReturnedItems.map(i => i.title).join(", ");
       const exchangeTitles = processedExchangeItems.map(i => i.title).join(", ");
       rojmelDoc = await Rojmel.create({
@@ -4143,7 +4170,11 @@ const processPosReturnExchange = asyncHandler(async (req, res) => {
 
   let settlementText = "";
   if (differentialAmount > 0) {
-    settlementText = `• Extra Amount Paid: +₹${differentialAmount} (via ${paymentMethod})`;
+    if (paymentMethod === "UDHAR") {
+      settlementText = `⚠️ Remaining Exchange Balance Added to Udhar (Baki): ₹${differentialAmount}`;
+    } else {
+      settlementText = `• Extra Amount Paid: +₹${differentialAmount} (via ${paymentMethod})`;
+    }
   } else if (differentialAmount < 0) {
     settlementText = `• Reward Coins Credited: +${coinsCredited} Coins (No Cash Refund)`;
   } else {
@@ -4193,6 +4224,7 @@ Thank you for shopping with us! Visit again.`;
     whatsappSent: true,
     whatsappText: whatsappMessage,
     rojmelEntry: rojmelDoc ? rojmelDoc._id : null,
+    udharEntry: udharDoc ? udharDoc._id : null,
     processedBy: adminId || null,
     note: note || "",
   });

@@ -15,18 +15,21 @@ const FEED_XML_URL  = `${BACKEND_ROOT}/feed.xml`;
 const FEED_JSON_URL = `${BACKEND_ROOT}/feed.json`;
 
 const LOCK_SECTIONS = [
-  { key: "lockCustomers", label: "Customers",       desc: "Protect the Customers section" },
-  { key: "lockOrders",    label: "Orders",           desc: "Protect the Orders section" },
-  { key: "lockCatalog",   label: "Catalog",          desc: "Protect Products, Brands, Categories, etc." },
-  { key: "lockAnalytics", label: "Analytics",        desc: "Protect Reports & Analytics" },
-  { key: "lockRewards",   label: "Rewards",          desc: "Protect Spin, Referral & Coins" },
-  { key: "lockMarketing", label: "Marketing",        desc: "Protect Coupons, Offers & Blogs" },
-  { key: "lockPurchase",  label: "Purchase",         desc: "Protect Purchase & Vendors" },
-  { key: "lockRojmel",    label: "Rojmel",           desc: "Protect Rojmel section" },
-  { key: "lockUdhar",     label: "Udhar",            desc: "Protect Udhar section" },
-  { key: "lockReviews",   label: "Reviews",          desc: "Protect Reviews section" },
-  { key: "lockEnquiries", label: "Enquiries",        desc: "Protect Enquiries & Product Inquiries" },
-  { key: "lockSettings",  label: "Settings Page",    desc: "Require password every time Settings is opened" },
+  { key: "lockDashboard",   label: "Dashboard",        desc: "Protect Main Dashboard (/admin)" },
+  { key: "lockLiveBilling", label: "POS Billing",      desc: "Protect POS Billing section" },
+  { key: "lockCustomers",   label: "Customers",        desc: "Protect the Customers section" },
+  { key: "lockOrders",      label: "Orders",           desc: "Protect the Orders section" },
+  { key: "lockCatalog",     label: "Catalog",          desc: "Protect Products, Brands, Categories, etc." },
+  { key: "lockAnalytics",   label: "Analytics",        desc: "Protect Reports & Analytics" },
+  { key: "lockRewards",     label: "Rewards",          desc: "Protect Spin, Referral & Coins" },
+  { key: "lockMarketing",   label: "Marketing",        desc: "Protect Coupons, Offers & Blogs" },
+  { key: "lockPurchase",    label: "Purchase",         desc: "Protect Purchase & Vendors" },
+  { key: "lockRojmel",      label: "Rojmel",           desc: "Protect Rojmel section" },
+  { key: "lockUdhar",       label: "Udhar",            desc: "Protect Udhar section" },
+  { key: "lockStaff",       label: "Staff",            desc: "Protect Staff Management" },
+  { key: "lockReviews",     label: "Reviews",          desc: "Protect Reviews section" },
+  { key: "lockEnquiries",   label: "Enquiries",        desc: "Protect Enquiries & Product Inquiries" },
+  { key: "lockSettings",    label: "Settings Page",    desc: "Require password when Settings is opened" },
 ];
 
 const LOCK_DEFAULTS = Object.fromEntries(LOCK_SECTIONS.map(s => [s.key, false]));
@@ -43,6 +46,9 @@ const PasswordGate = ({ onUnlock }) => {
     setError("");
     try {
       await axios.post(`${base_url}user/verify-pos-lock`, { password: input }, { headers: { Authorization: `Bearer ${JSON.parse(localStorage.getItem("user") || "{}").token || ""}` } });
+      const currentUnlocked = JSON.parse(sessionStorage.getItem("admin_unlocked_groups") || "{}");
+      currentUnlocked.settings = true;
+      sessionStorage.setItem("admin_unlocked_groups", JSON.stringify(currentUnlocked));
       onUnlock();
     } catch {
       setError("Wrong password. Try again.");
@@ -107,6 +113,7 @@ const Settings = () => {
   // Lock state
   const [locks, setLocks]           = useState(LOCK_DEFAULTS);
   const [passwordSet, setPasswordSet] = useState(false);
+  const [posLockTimeout, setPosLockTimeout]   = useState("5m");
   const [newPassword, setNewPassword]         = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
 
@@ -175,7 +182,8 @@ const Settings = () => {
       try {
         const res = await api.get(`${base_url}user/settings`);
         const data = res.data;
-        if (data.lockSettings && data.posLockPasswordSet) {
+        const unlockedStorage = JSON.parse(sessionStorage.getItem("admin_unlocked_groups") || "{}");
+        if (data.lockSettings && data.posLockPasswordSet && !unlockedStorage.settings) {
           // Gate needed — cache data for after unlock
           cachedSettings.current = data;
           setGateRequired(true);
@@ -247,6 +255,7 @@ const Settings = () => {
     setRequireOtpForSignup(data.requireOtpForSignup === true);
     setLocks(Object.fromEntries(LOCK_SECTIONS.map(s => [s.key, !!data[s.key]])));
     setPasswordSet(!!data.posLockPasswordSet);
+    setPosLockTimeout(data.posLockTimeout || "5m");
     setJwtExpiresIn(data.jwtExpiresIn || "1d");
     setPageLoading(false);
   };
@@ -279,6 +288,7 @@ const Settings = () => {
         storeState,
         onlinePaymentDestination,
         requireOtpForSignup,
+        posLockTimeout,
         jwtExpiresIn,
         upiIdA: values.upiIdA || "",
         upiIdB: values.upiIdB || "",
@@ -533,10 +543,43 @@ const Settings = () => {
                 {pwMatch    && <p className="text-green-600 text-xs mt-2">✅ Passwords match — will be saved on Save Settings</p>}
               </div>
 
+              {/* Auto-Lock Expiry Timeout */}
+              <div className="mt-4 p-4 bg-indigo-50/70 rounded-xl border border-indigo-200">
+                <p className="font-medium text-gray-800 mb-1 flex items-center gap-2">
+                  <FaShieldAlt className="text-indigo-600" />
+                  Auto-Lock Expiry Timeout
+                </p>
+                <p className="text-xs text-gray-500 mb-3">
+                  Once unlocked with password, automatically re-lock protected areas after this inactivity/timer duration:
+                </p>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  {[
+                    { value: "5m",       label: "5 Minutes (Default)" },
+                    { value: "15m",      label: "15 Minutes" },
+                    { value: "30m",      label: "30 Minutes" },
+                    { value: "1h",       label: "1 Hour" },
+                    { value: "0m",       label: "Immediate (Every Page)" },
+                    { value: "session",  label: "Browser Session" },
+                  ].map(opt => (
+                    <div
+                      key={opt.value}
+                      onClick={() => setPosLockTimeout(opt.value)}
+                      className={`cursor-pointer p-3 rounded-xl border-2 text-center transition-all ${
+                        posLockTimeout === opt.value
+                          ? "border-indigo-600 bg-indigo-100 text-indigo-800 font-bold shadow-xs"
+                          : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"
+                      }`}
+                    >
+                      <span className="text-xs">{opt.label}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
               <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
                 <p className="text-xs text-amber-800 leading-relaxed">
                   <strong>How it works:</strong> Toggle ON the areas you want to protect. Set a password and save.
-                  Staff will see a password screen when they try to open locked areas.
+                  Staff will see a password screen when accessing locked areas. The unlock automatically expires after your chosen timeout (e.g. 5 minutes).
                 </p>
               </div>
 

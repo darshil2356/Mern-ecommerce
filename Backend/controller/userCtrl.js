@@ -2971,7 +2971,7 @@ const getSettings = asyncHandler(async (req, res) => {
 
   try {
     const user = await User.findById(_id).select(
-      "gstin email storeName storeTagline storeAddress storePhone storeEmail storeWhatsapp storeOpeningHours googleMapsUrl googleBusinessProfileUrl instagramUrl facebookUrl youtubeUrl storeLogo storeFavicon socialShareImage googleReviewUrl googleReviewRequestMessage homepageMetaTitle homepageMetaDescription heroBannerImage heroBannerTitle heroBannerSubtext heroBannerCta promoBannerImage promoBannerLink homepageSectionsOrder homepageHiddenSections storeFaqsJson cgst sgst igst storeState taxIncluded onlinePaymentDestination shippingCharge upiIdA upiIdB requireOtpForSignup posLockEnabled posLockPassword lockCustomers lockOrders lockCatalog lockAnalytics lockRewards lockMarketing lockPurchase lockRojmel lockUdhar lockReviews lockEnquiries lockSettings jwtExpiresIn"
+      "gstin email storeName storeTagline storeAddress storePhone storeEmail storeWhatsapp storeOpeningHours googleMapsUrl googleBusinessProfileUrl instagramUrl facebookUrl youtubeUrl storeLogo storeFavicon socialShareImage googleReviewUrl googleReviewRequestMessage homepageMetaTitle homepageMetaDescription heroBannerImage heroBannerTitle heroBannerSubtext heroBannerCta promoBannerImage promoBannerLink homepageSectionsOrder homepageHiddenSections storeFaqsJson cgst sgst igst storeState taxIncluded onlinePaymentDestination shippingCharge upiIdA upiIdB requireOtpForSignup posLockEnabled posLockPassword lockDashboard lockCustomers lockOrders lockCatalog lockAnalytics lockRewards lockMarketing lockPurchase lockRojmel lockUdhar lockReviews lockEnquiries lockSettings lockLiveBilling lockStaff posLockTimeout jwtExpiresIn"
     );
     res.json({
       gstin: user.gstin || "",
@@ -3015,19 +3015,23 @@ const getSettings = asyncHandler(async (req, res) => {
       upiIdB: user.upiIdB || "",
       requireOtpForSignup: user.requireOtpForSignup === true,
       posLockPasswordSet: !!(user.posLockPassword),
-      lockCustomers: user.lockCustomers === true,
-      lockOrders:    user.lockOrders    === true,
-      lockCatalog:   user.lockCatalog   === true,
-      lockAnalytics: user.lockAnalytics === true,
-      lockRewards:   user.lockRewards   === true,
-      lockMarketing: user.lockMarketing === true,
-      lockPurchase:  user.lockPurchase  === true,
-      lockRojmel:    user.lockRojmel    === true,
-      lockUdhar:     user.lockUdhar     === true,
-      lockReviews:   user.lockReviews   === true,
-      lockEnquiries: user.lockEnquiries === true,
-      lockSettings:  user.lockSettings  === true,
-      jwtExpiresIn:  user.jwtExpiresIn  || "1d",
+      lockDashboard:   user.lockDashboard   === true,
+      lockCustomers:   user.lockCustomers   === true,
+      lockOrders:      user.lockOrders      === true,
+      lockCatalog:     user.lockCatalog     === true,
+      lockAnalytics:   user.lockAnalytics   === true,
+      lockRewards:     user.lockRewards     === true,
+      lockMarketing:   user.lockMarketing   === true,
+      lockPurchase:    user.lockPurchase    === true,
+      lockRojmel:      user.lockRojmel      === true,
+      lockUdhar:       user.lockUdhar       === true,
+      lockReviews:     user.lockReviews     === true,
+      lockEnquiries:   user.lockEnquiries   === true,
+      lockSettings:    user.lockSettings    === true,
+      lockLiveBilling: user.lockLiveBilling === true,
+      lockStaff:       user.lockStaff       === true,
+      posLockTimeout:  user.posLockTimeout  || "5m",
+      jwtExpiresIn:    user.jwtExpiresIn    || "1d",
     });
   } catch (error) {
     throw new Error(error);
@@ -3048,9 +3052,9 @@ const updateSettings = asyncHandler(async (req, res) => {
     promoBannerImage, promoBannerLink, homepageSectionsOrder, homepageHiddenSections, storeFaqsJson,
     onlinePaymentDestination, shippingCharge, upiIdA, upiIdB,
     requireOtpForSignup, posLockPassword,
-    lockCustomers, lockOrders, lockCatalog, lockAnalytics, lockRewards,
+    lockDashboard, lockCustomers, lockOrders, lockCatalog, lockAnalytics, lockRewards,
     lockMarketing, lockPurchase, lockRojmel, lockUdhar, lockReviews,
-    lockEnquiries, lockSettings, jwtExpiresIn,
+    lockEnquiries, lockSettings, lockLiveBilling, lockStaff, posLockTimeout, jwtExpiresIn,
   } = req.body;
 
   const updatedUser = await User.findByIdAndUpdate(
@@ -3095,19 +3099,23 @@ const updateSettings = asyncHandler(async (req, res) => {
       ...(upiIdB !== undefined && { upiIdB: upiIdB || "" }),
       ...(requireOtpForSignup !== undefined && { requireOtpForSignup: Boolean(requireOtpForSignup) }),
       ...(posLockPassword     !== undefined && posLockPassword !== "" && { posLockPassword }),
-      ...(lockCustomers !== undefined && { lockCustomers: Boolean(lockCustomers) }),
-      ...(lockOrders    !== undefined && { lockOrders:    Boolean(lockOrders) }),
-      ...(lockCatalog   !== undefined && { lockCatalog:   Boolean(lockCatalog) }),
-      ...(lockAnalytics !== undefined && { lockAnalytics: Boolean(lockAnalytics) }),
-      ...(lockRewards   !== undefined && { lockRewards:   Boolean(lockRewards) }),
-      ...(lockMarketing !== undefined && { lockMarketing: Boolean(lockMarketing) }),
-      ...(lockPurchase  !== undefined && { lockPurchase:  Boolean(lockPurchase) }),
-      ...(lockRojmel    !== undefined && { lockRojmel:    Boolean(lockRojmel) }),
-      ...(lockUdhar     !== undefined && { lockUdhar:     Boolean(lockUdhar) }),
-      ...(lockReviews   !== undefined && { lockReviews:   Boolean(lockReviews) }),
-      ...(lockEnquiries !== undefined && { lockEnquiries: Boolean(lockEnquiries) }),
-      ...(lockSettings  !== undefined && { lockSettings:  Boolean(lockSettings) }),
-      ...(jwtExpiresIn  !== undefined && { jwtExpiresIn: jwtExpiresIn || "1d" }),
+      ...(lockDashboard   !== undefined && { lockDashboard:   Boolean(lockDashboard) }),
+      ...(lockCustomers   !== undefined && { lockCustomers:   Boolean(lockCustomers) }),
+      ...(lockOrders      !== undefined && { lockOrders:      Boolean(lockOrders) }),
+      ...(lockCatalog     !== undefined && { lockCatalog:     Boolean(lockCatalog) }),
+      ...(lockAnalytics   !== undefined && { lockAnalytics:   Boolean(lockAnalytics) }),
+      ...(lockRewards     !== undefined && { lockRewards:     Boolean(lockRewards) }),
+      ...(lockMarketing   !== undefined && { lockMarketing:   Boolean(lockMarketing) }),
+      ...(lockPurchase    !== undefined && { lockPurchase:    Boolean(lockPurchase) }),
+      ...(lockRojmel      !== undefined && { lockRojmel:      Boolean(lockRojmel) }),
+      ...(lockUdhar       !== undefined && { lockUdhar:       Boolean(lockUdhar) }),
+      ...(lockReviews     !== undefined && { lockReviews:     Boolean(lockReviews) }),
+      ...(lockEnquiries   !== undefined && { lockEnquiries:   Boolean(lockEnquiries) }),
+      ...(lockSettings    !== undefined && { lockSettings:    Boolean(lockSettings) }),
+      ...(lockLiveBilling !== undefined && { lockLiveBilling: Boolean(lockLiveBilling) }),
+      ...(lockStaff       !== undefined && { lockStaff:       Boolean(lockStaff) }),
+      ...(posLockTimeout  !== undefined && { posLockTimeout:  posLockTimeout || "5m" }),
+      ...(jwtExpiresIn    !== undefined && { jwtExpiresIn:    jwtExpiresIn || "1d" }),
     },
     { new: true }
   );

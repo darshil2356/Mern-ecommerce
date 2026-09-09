@@ -34,10 +34,13 @@ const ROUTE_GROUP = {
   "customer":           "customers",
   "orders":             "orders",
   "order":              "orders",
+  "live-billing":       "live-billing",
   "list-product":       "catalog",
   "product":            "catalog",
+  "add-product":        "catalog",
   "list-bundle":        "catalog",
   "bundle":             "catalog",
+  "add-bundle":         "catalog",
   "list-brand":         "catalog",
   "list-category":      "catalog",
   "list-color":         "catalog",
@@ -55,13 +58,17 @@ const ROUTE_GROUP = {
   "coin-settings":      "rewards",
   "coupon-list":        "marketing",
   "coupon":             "marketing",
+  "add-coupon":         "marketing",
   "offer-list":         "marketing",
   "offer":              "marketing",
+  "add-offer":          "marketing",
   "whatsapp-marketing": "marketing",
   "blog-list":          "marketing",
   "blog":               "marketing",
+  "add-blog":           "marketing",
   "blog-category-list": "marketing",
   "blog-category":      "marketing",
+  "add-blog-category":  "marketing",
   "purchase-list":      "purchase",
   "add-purchase":       "purchase",
   "vendors":            "purchase",
@@ -75,6 +82,38 @@ const ROUTE_GROUP = {
   "enquiries":          "enquiries",
   "product-inquiries":  "enquiries",
   "settings":           "settings",
+};
+
+const getRouteGroup = (pathname) => {
+  const parts = pathname.toLowerCase().split("/").filter(Boolean);
+  if (parts.length === 0 || (parts.length === 1 && parts[0] === "admin")) {
+    return "dashboard";
+  }
+  const subParts = parts[0] === "admin" ? parts.slice(1) : parts;
+  if (subParts.length === 0) return "dashboard";
+
+  const primaryKey = subParts[0];
+
+  if (ROUTE_GROUP[primaryKey]) {
+    return ROUTE_GROUP[primaryKey];
+  }
+
+  if (primaryKey.startsWith("customer")) return "customers";
+  if (primaryKey.startsWith("order")) return "orders";
+  if (primaryKey.startsWith("product") || primaryKey.startsWith("bundle") || primaryKey.startsWith("brand") || primaryKey.startsWith("category") || primaryKey.startsWith("color") || primaryKey.startsWith("size") || primaryKey.startsWith("list-")) return "catalog";
+  if (primaryKey.startsWith("live-billing")) return "live-billing";
+  if (primaryKey.startsWith("tracking") || primaryKey.startsWith("dropoff") || primaryKey.startsWith("report") || primaryKey.includes("analytics")) return "analytics";
+  if (primaryKey.includes("referral") || primaryKey.includes("spin") || primaryKey.includes("coin")) return "rewards";
+  if (primaryKey.startsWith("coupon") || primaryKey.startsWith("offer") || primaryKey.startsWith("blog") || primaryKey.includes("whatsapp")) return "marketing";
+  if (primaryKey.includes("purchase") || primaryKey.includes("vendor")) return "purchase";
+  if (primaryKey.includes("rojm")) return "rojmel";
+  if (primaryKey.startsWith("udhar")) return "udhar";
+  if (primaryKey.startsWith("staff")) return "staff";
+  if (primaryKey.startsWith("review")) return "reviews";
+  if (primaryKey.includes("enquir") || primaryKey.includes("inquir")) return "enquiries";
+  if (primaryKey.startsWith("setting")) return "settings";
+
+  return "";
 };
 
 // ─── Lock Overlay ─────────────────────────────────────────────────────────────
@@ -138,6 +177,31 @@ const LockOverlay = ({ groupLabel, onUnlock }) => {
   );
 };
 
+const getTimeoutMs = (timeoutStr = "5m") => {
+  switch (timeoutStr) {
+    case "0m": return 0;
+    case "5m": return 5 * 60 * 1000;
+    case "15m": return 15 * 60 * 1000;
+    case "30m": return 30 * 60 * 1000;
+    case "1h": return 60 * 60 * 1000;
+    case "session": return Infinity;
+    default: return 5 * 60 * 1000;
+  }
+};
+
+const isGroupUnlocked = (group, unlockedMap, timeoutStr) => {
+  if (!group || !unlockedMap || !unlockedMap[group]) return false;
+  const unlockedAt = unlockedMap[group];
+  if (typeof unlockedAt === "boolean") return unlockedAt;
+  
+  const timeoutMs = getTimeoutMs(timeoutStr);
+  if (timeoutMs === Infinity) return true;
+  if (timeoutMs === 0) return false;
+  
+  const elapsed = Date.now() - Number(unlockedAt);
+  return elapsed < timeoutMs;
+};
+
 // ─── Main Layout ──────────────────────────────────────────────────────────────
 const MainLayout = () => {
   const [collapsed, setCollapsed]   = useState(false);
@@ -147,10 +211,17 @@ const MainLayout = () => {
 
   // Lock system
   const [lockedGroups, setLockedGroups]     = useState({});   // { groupKey: true } — which groups are locked
-  const [unlockedGroups, setUnlockedGroups] = useState({});   // { groupKey: true } — unlocked this session
+  const [unlockedGroups, setUnlockedGroups] = useState(() => {
+    try {
+      return JSON.parse(sessionStorage.getItem("admin_unlocked_groups") || "{}");
+    } catch {
+      return {};
+    }
+  });
   const [groupLabels, setGroupLabels]       = useState({});   // { groupKey: "Display Name" }
   const [activeOverlay, setActiveOverlay]   = useState(null); // groupKey currently showing overlay
   const [passwordSet, setPasswordSet]       = useState(false);
+  const [posLockTimeout, setPosLockTimeout] = useState("5m");
 
   const { token: { colorBgContainer } } = theme.useToken();
   const navigate  = useNavigate();
@@ -164,33 +235,40 @@ const MainLayout = () => {
         const res = await axios.get(`${base_url}user/settings`, config);
         const d = res.data;
         setPasswordSet(!!d.posLockPasswordSet);
+        setPosLockTimeout(d.posLockTimeout || "5m");
         setLockedGroups({
-          customers: !!d.lockCustomers,
-          orders:    !!d.lockOrders,
-          catalog:   !!d.lockCatalog,
-          analytics: !!d.lockAnalytics,
-          rewards:   !!d.lockRewards,
-          marketing: !!d.lockMarketing,
-          purchase:  !!d.lockPurchase,
-          rojmel:    !!d.lockRojmel,
-          udhar:     !!d.lockUdhar,
-          reviews:   !!d.lockReviews,
-          enquiries: !!d.lockEnquiries,
-          settings:  !!d.lockSettings,
+          dashboard:      !!d.lockDashboard,
+          "live-billing": !!d.lockLiveBilling,
+          customers:      !!d.lockCustomers,
+          orders:         !!d.lockOrders,
+          catalog:        !!d.lockCatalog,
+          analytics:      !!d.lockAnalytics,
+          rewards:        !!d.lockRewards,
+          marketing:      !!d.lockMarketing,
+          purchase:       !!d.lockPurchase,
+          rojmel:         !!d.lockRojmel,
+          udhar:          !!d.lockUdhar,
+          staff:          !!d.lockStaff,
+          reviews:        !!d.lockReviews,
+          enquiries:      !!d.lockEnquiries,
+          settings:       !!d.lockSettings,
         });
         setGroupLabels({
-          customers: "Customers",
-          orders:    "Orders",
-          catalog:   "Catalog",
-          analytics: "Analytics",
-          rewards:   "Rewards",
-          marketing: "Marketing",
-          purchase:  "Purchase",
-          rojmel:    "Rojmel",
-          udhar:     "Udhar Khata",
-          reviews:   "Reviews",
-          enquiries: "Enquiries",
-          settings:  "Settings",
+          dashboard:      "Dashboard",
+          "live-billing": "POS Billing",
+          customers:      "Customers",
+          orders:         "Orders",
+          catalog:        "Catalog",
+          analytics:      "Analytics",
+          rewards:        "Rewards",
+          marketing:      "Marketing",
+          purchase:       "Purchase",
+          rojmel:         "Rojmel",
+          udhar:          "Udhar Khata",
+          staff:          "Staff Management",
+          reviews:        "Reviews",
+          enquiries:      "Enquiries",
+          settings:       "Settings",
         });
       } catch {
         // silently fail — no lock applied
@@ -211,16 +289,42 @@ const MainLayout = () => {
 
     setSelectedKeys([routeKey]);
 
-    const group = ROUTE_GROUP[routeKey];
-    if (group && lockedGroups[group] && !unlockedGroups[group] && passwordSet) {
+    const group = getRouteGroup(path);
+    const unlocked = isGroupUnlocked(group, unlockedGroups, posLockTimeout);
+
+    if (group && lockedGroups[group] && !unlocked && passwordSet) {
       setActiveOverlay(group);
     } else {
       setActiveOverlay(null);
     }
-  }, [location.pathname, lockedGroups, unlockedGroups, passwordSet]);
+  }, [location.pathname, lockedGroups, unlockedGroups, passwordSet, posLockTimeout]);
+
+  // Periodic lock expiry check
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const group = getRouteGroup(location.pathname);
+      if (group && lockedGroups[group] && passwordSet) {
+        const unlocked = isGroupUnlocked(group, unlockedGroups, posLockTimeout);
+        if (!unlocked) {
+          setActiveOverlay(group);
+        }
+      }
+    }, 10000);
+    return () => clearInterval(interval);
+  }, [location.pathname, lockedGroups, unlockedGroups, passwordSet, posLockTimeout]);
 
   const handleUnlock = useCallback((group) => {
-    setUnlockedGroups(prev => ({ ...prev, [group]: true }));
+    setUnlockedGroups(prev => {
+      const updated = { ...prev, [group]: Date.now() };
+      sessionStorage.setItem("admin_unlocked_groups", JSON.stringify(updated));
+      return updated;
+    });
+    setActiveOverlay(null);
+  }, []);
+
+  const handleLockAll = useCallback(() => {
+    sessionStorage.removeItem("admin_unlocked_groups");
+    setUnlockedGroups({});
     setActiveOverlay(null);
   }, []);
 
@@ -244,13 +348,28 @@ const MainLayout = () => {
     }
   }, [navigate, isMobile]);
 
+  const renderItemLabel = (label, groupKey) => {
+    if (!passwordSet || !groupKey || !lockedGroups[groupKey]) {
+      return label;
+    }
+    const isUnlocked = isGroupUnlocked(groupKey, unlockedGroups, posLockTimeout);
+    return (
+      <span className="flex items-center justify-between w-full pr-2">
+        <span>{label}</span>
+        <span className={`text-xs ${isUnlocked ? "text-emerald-400" : "text-amber-400"}`} title={isUnlocked ? "Unlocked" : "Password Protected"}>
+          {isUnlocked ? "🔓" : "🔒"}
+        </span>
+      </span>
+    );
+  };
+
   const menuItems = [
-    { key: "", icon: <AiOutlineDashboard />, label: "Dashboard" },
-    { key: "customers", icon: <FaUsers />, label: "Customers" },
-    { key: "orders", icon: <FaClipboardList />, label: "Orders" },
-    { key: "live-billing", icon: <AiOutlineShoppingCart />, label: "POS Billing" },
+    { key: "", icon: <AiOutlineDashboard />, label: renderItemLabel("Dashboard", "dashboard") },
+    { key: "customers", icon: <FaUsers />, label: renderItemLabel("Customers", "customers") },
+    { key: "orders", icon: <FaClipboardList />, label: renderItemLabel("Orders", "orders") },
+    { key: "live-billing", icon: <AiOutlineShoppingCart />, label: renderItemLabel("POS Billing", "live-billing") },
     {
-      key: "Catalog", icon: <FaBox />, label: "Catalog",
+      key: "Catalog", icon: <FaBox />, label: renderItemLabel("Catalog", "catalog"),
       children: [
         { key: "list-product",   icon: <AiOutlineShoppingCart />, label: "Products" },
         { key: "list-bundle",    icon: <FaCube />,                label: "Bundles" },
@@ -261,7 +380,7 @@ const MainLayout = () => {
       ],
     },
     {
-      key: "analytics-tracking", icon: <FaChartBar />, label: "Analytics",
+      key: "analytics-tracking", icon: <FaChartBar />, label: renderItemLabel("Analytics", "analytics"),
       children: [
         { key: "live-tracking",      icon: <FaEye />,       label: "Live Tracking" },
         { key: "tracking-analytics", icon: <FaChartLine />, label: "Analytics" },
@@ -272,7 +391,7 @@ const MainLayout = () => {
       ],
     },
     {
-      key: "rewards", icon: <FaCoins />, label: "Rewards",
+      key: "rewards", icon: <FaCoins />, label: renderItemLabel("Rewards", "rewards"),
       children: [
         { key: "spin-management",  icon: <FaMagic />,  label: "Spin Wheel" },
         { key: "referral-settings",icon: <FaLink />,   label: "Referral Settings" },
@@ -281,7 +400,7 @@ const MainLayout = () => {
       ],
     },
     {
-      key: "marketing", icon: <FaTags />, label: "Marketing",
+      key: "marketing", icon: <FaTags />, label: renderItemLabel("Marketing", "marketing"),
       children: [
         { key: "whatsapp-marketing", icon: <FaWhatsapp />,  label: "WhatsApp Marketing" },
         { key: "coupon-list",       icon: <RiCouponLine />, label: "Coupons" },
@@ -291,7 +410,7 @@ const MainLayout = () => {
       ],
     },
     {
-      key: "purchase-module", icon: <FaShoppingBasket />, label: "Purchase",
+      key: "purchase-module", icon: <FaShoppingBasket />, label: renderItemLabel("Purchase", "purchase"),
       children: [
         { key: "vendor-dashboard", icon: <FaChartBar />,     label: "Vendor Dashboard" },
         { key: "purchase-list", icon: <FaFileAlt />,       label: "Purchase Bills" },
@@ -299,14 +418,14 @@ const MainLayout = () => {
         ...(vendorsVisible ? [{ key: "vendors", icon: <FaStore />, label: "Vendors (Vepari)" }] : []),
       ],
     },
-    { key: "rojmel",           icon: <FaBook />,          label: "Rojmel" },
-    { key: "rojmel-dashboard", icon: <FaChartBar />,      label: "Financial Master Dashboard" },
-    { key: "wholesale-rojmal", icon: <FaStore />,         label: "Wholesale Rojmal" },
-    { key: "udhar",            icon: <FaHandshake />,     label: "Udhar Khata" },
-    { key: "staff",            icon: <FaUsers />,         label: "Staff Management" },
-    { key: "reviews",          icon: <AiFillStar />,      label: "Reviews" },
-    { key: "enquiries",        icon: <AiOutlineFileText />,label: "Enquiries" },
-    { key: "product-inquiries",icon: <AiOutlineFileText />,label: "Stock Inquiries" },
+    { key: "rojmel",           icon: <FaBook />,          label: renderItemLabel("Rojmel", "rojmel") },
+    { key: "rojmel-dashboard", icon: <FaChartBar />,      label: renderItemLabel("Financial Master", "rojmel") },
+    { key: "wholesale-rojmal", icon: <FaStore />,         label: renderItemLabel("Wholesale Rojmal", "rojmel") },
+    { key: "udhar",            icon: <FaHandshake />,     label: renderItemLabel("Udhar Khata", "udhar") },
+    { key: "staff",            icon: <FaUsers />,         label: renderItemLabel("Staff Management", "staff") },
+    { key: "reviews",          icon: <AiFillStar />,      label: renderItemLabel("Reviews", "reviews") },
+    { key: "enquiries",        icon: <AiOutlineFileText />,label: renderItemLabel("Enquiries", "enquiries") },
+    { key: "product-inquiries",icon: <AiOutlineFileText />,label: renderItemLabel("Stock Inquiries", "enquiries") },
     { key: "signout",          icon: <AiOutlineLogout />, label: "Sign Out" },
   ];
 
@@ -367,7 +486,17 @@ const MainLayout = () => {
             </div>
           </div>
           <div className="header-right">
-            <div className="header-action-btns">
+            <div className="header-action-btns flex items-center gap-2">
+              {passwordSet && Object.keys(unlockedGroups).length > 0 && (
+                <button
+                  onClick={handleLockAll}
+                  className="px-3 py-1 text-xs font-semibold text-red-600 bg-red-50 hover:bg-red-100 border border-red-200 rounded-lg flex items-center gap-1.5 transition-all shadow-xs"
+                  title="Re-lock all sections"
+                >
+                  <FaLock className="text-red-500 text-xs" />
+                  <span>Lock All</span>
+                </button>
+              )}
               <button className="action-btn notification-btn">
                 <IoIosNotifications className="fs-5" />
                 <span className="notification-badge">3</span>

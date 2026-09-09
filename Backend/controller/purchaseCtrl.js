@@ -251,7 +251,7 @@ const recordPayment = asyncHandler(async (req, res) => {
     return res.status(400).json({ message: "Enter a valid paid, discount, or GR amount" });
   }
 
-  purchase.payments.push({
+  const newPayment = {
     amount: paidAmt,
     discountType,
     discountValue: discVal,
@@ -262,15 +262,23 @@ const recordPayment = asyncHandler(async (req, res) => {
     referenceNo,
     note,
     date: date || new Date(),
-  });
+  };
 
-  purchase.paidAmount = purchase.payments.reduce((a, p) => a + (p.amount || 0), 0);
-  purchase.settlementDiscount = purchase.payments.reduce((a, p) => a + (p.discountAmount || 0), 0);
-  purchase.grAmount = purchase.payments.reduce((a, p) => a + (p.grAmount || 0), 0);
-  await purchase.save();
+  const updatedPurchase = await Purchase.findByIdAndUpdate(
+    id,
+    {
+      $push: { payments: newPayment },
+      $inc: {
+        paidAmount: paidAmt,
+        settlementDiscount: +discAmt.toFixed(2),
+        grAmount: +grAmt.toFixed(2),
+      },
+    },
+    { new: true, runValidators: true }
+  ).populate("vendor", "name firmName phone city");
 
-  await purchase.populate("vendor", "name firmName phone city");
-  res.json(purchase);
+  if (!updatedPurchase) return res.status(404).json({ message: "Purchase not found" });
+  res.json(updatedPurchase);
 });
 
 const getPurchaseSummary = asyncHandler(async (req, res) => {

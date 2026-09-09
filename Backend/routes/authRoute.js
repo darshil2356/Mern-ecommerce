@@ -39,6 +39,8 @@ const {
   getMySingleOrder,
   updateOrder,
   createOfflineOrder,
+  processPosReturnExchange,
+  verifyCustomerReturnProduct,
   getCustomerOffer,
   updateCustomerOffer,
   getDailySales,
@@ -68,6 +70,18 @@ router.post(
   authMiddleware,
   isAdmin,
   createOfflineOrder
+);
+router.post(
+  "/pos/return-exchange",
+  authMiddleware,
+  isAdmin,
+  processPosReturnExchange
+);
+router.post(
+  "/pos/verify-return-product",
+  authMiddleware,
+  isAdmin,
+  verifyCustomerReturnProduct
 );
 
 // Stock check route

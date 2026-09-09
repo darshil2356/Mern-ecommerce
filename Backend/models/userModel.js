@@ -289,7 +289,7 @@ var userSchema = new mongoose.Schema(
         },
         source: {
           type: String,
-          enum: ["referral_purchase", "purchase", "admin_adjustment", "expiry", "other"],
+          enum: ["referral_purchase", "purchase", "admin_adjustment", "expiry", "return_credit", "exchange_credit", "exchange_debit", "other"],
           default: "other",
         },
         description: {

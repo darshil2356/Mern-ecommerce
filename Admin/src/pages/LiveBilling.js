@@ -24,7 +24,12 @@ import {
   FaGift,
   FaTag,
   FaCoins,
-  FaUserPlus
+  FaUserPlus,
+  FaSync,
+  FaExchangeAlt,
+  FaArrowRight,
+  FaBoxOpen,
+  FaUndo
 } from "react-icons/fa";
 import SpinWheel from "../components/SpinWheel";
 import PrintBillButton from "../components/PrintBillButton";
@@ -32,6 +37,27 @@ import PrintBillButton from "../components/PrintBillButton";
 const LiveBilling = () => {
   const [buffer, setBuffer] = useState("");
   const [cart, setCart] = useState({});
+
+  // Tab mode: "BILLING" | "RETURN_EXCHANGE"
+  const [posTabMode, setPosTabMode] = useState("BILLING");
+
+  // Return & Exchange Tab Multi-Item Basket State
+  const [retBarcode, setRetBarcode] = useState("");
+  const [retCart, setRetCart] = useState({}); // { [barcode]: { product, barcode, qty, qcStatus, price, purchaseVerification } }
+
+  const [exBarcode, setExBarcode] = useState("");
+  const [exCart, setExCart] = useState({}); // { [barcode]: { product, barcode, qty, price } }
+
+  const [retPaymentMethod, setRetPaymentMethod] = useState("CASH"); // CASH | ONLINE | COINS | NONE
+  const [retPaymentDestination, setRetPaymentDestination] = useState("CASH"); // CASH | CURRENT_ACCOUNT
+  const [retNote, setRetNote] = useState("");
+  const [isProcessingReturn, setIsProcessingReturn] = useState(false);
+
+  // Return Customer Search Auto-Suggest & Purchase Verification state
+  const [retCustSearchInput, setRetCustSearchInput] = useState("");
+  const [retCustResults, setRetCustResults] = useState([]);
+  const [showRetCustDropdown, setShowRetCustDropdown] = useState(false);
+  const [purchaseVerification, setPurchaseVerification] = useState(null);
 
   const [cgstPercent, setCgstPercent] = useState(0);
   const [sgstPercent, setSgstPercent] = useState(0);
@@ -167,6 +193,292 @@ const LiveBilling = () => {
       return res.data;
     } catch (err) {
       return null;
+    }
+  };
+
+  /* =========================
+     RETURN & EXCHANGE HANDLERS
+     ========================= */
+  /* =========================
+     MULTI-ITEM RETURN & EXCHANGE HANDLERS
+     ========================= */
+
+  // Return Basket Handlers
+  const handleAddReturnProductByBarcode = async (codeToLookup) => {
+    const b = (codeToLookup || retBarcode).trim();
+    if (!b) return;
+    try {
+      const prod = await fetchProductByBarcode(b);
+      if (prod && prod._id) {
+        let verData = null;
+        if (customer?._id) {
+          try {
+            const verRes = await axios.post(
+              `${base_url}user/pos/verify-return-product`,
+              { customerId: customer._id, barcode: b, productId: prod._id },
+              config
+            );
+            if (verRes.data) verData = verRes.data;
+          } catch (err) { console.error(err); }
+        }
+
+        setRetCart(prev => {
+          const existing = prev[b];
+          const qty = existing ? existing.qty + 1 : 1;
+          return {
+            ...prev,
+            [b]: {
+              product: prod,
+              barcode: b,
+              qty,
+              qcStatus: existing ? existing.qcStatus : "RESELLABLE",
+              price: existing ? existing.price : (verData?.pricePaid || prod.price || 0),
+              purchaseVerification: verData || null,
+            }
+          };
+        });
+        setRetBarcode("");
+      } else {
+        Swal.fire({ icon: "error", title: "Product Not Found", text: `No product found for barcode: ${b}` });
+      }
+    } catch (err) {
+      Swal.fire({ icon: "error", title: "Product Not Found", text: `Error fetching barcode: ${b}` });
+    }
+  };
+
+  const updateRetCartQty = (barcode, newQty) => {
+    const q = Math.max(1, Number(newQty) || 1);
+    setRetCart(prev => ({
+      ...prev,
+      [barcode]: { ...prev[barcode], qty: q }
+    }));
+  };
+
+  const updateRetCartPrice = (barcode, newPrice) => {
+    setRetCart(prev => ({
+      ...prev,
+      [barcode]: { ...prev[barcode], price: Math.max(0, Number(newPrice) || 0) }
+    }));
+  };
+
+  const updateRetCartQc = (barcode, qcStatus) => {
+    setRetCart(prev => ({
+      ...prev,
+      [barcode]: { ...prev[barcode], qcStatus }
+    }));
+  };
+
+  const removeRetCartItem = (barcode) => {
+    setRetCart(prev => {
+      const next = { ...prev };
+      delete next[barcode];
+      return next;
+    });
+  };
+
+  // Exchange Basket Handlers
+  const handleAddExchangeProductByBarcode = async (codeToLookup) => {
+    const b = (codeToLookup || exBarcode).trim();
+    if (!b) return;
+    try {
+      const prod = await fetchProductByBarcode(b);
+      if (prod && prod._id) {
+        setExCart(prev => {
+          const existing = prev[b];
+          const qty = existing ? existing.qty + 1 : 1;
+          return {
+            ...prev,
+            [b]: {
+              product: prod,
+              barcode: b,
+              qty,
+              price: existing ? existing.price : (prod.price || 0),
+            }
+          };
+        });
+        setExBarcode("");
+      } else {
+        Swal.fire({ icon: "error", title: "Product Not Found", text: `No product found for barcode: ${b}` });
+      }
+    } catch (err) {
+      Swal.fire({ icon: "error", title: "Product Not Found", text: `Error fetching barcode: ${b}` });
+    }
+  };
+
+  const updateExCartQty = (barcode, newQty) => {
+    const q = Math.max(1, Number(newQty) || 1);
+    setExCart(prev => ({
+      ...prev,
+      [barcode]: { ...prev[barcode], qty: q }
+    }));
+  };
+
+  const updateExCartPrice = (barcode, newPrice) => {
+    setExCart(prev => ({
+      ...prev,
+      [barcode]: { ...prev[barcode], price: Math.max(0, Number(newPrice) || 0) }
+    }));
+  };
+
+  const removeExCartItem = (barcode) => {
+    setExCart(prev => {
+      const next = { ...prev };
+      delete next[barcode];
+      return next;
+    });
+  };
+
+  // Aggregations
+  const retTotalVal = useMemo(() => {
+    return Object.values(retCart).reduce((sum, item) => sum + (Number(item.price || 0) * Number(item.qty || 1)), 0);
+  }, [retCart]);
+
+  const exTotalVal = useMemo(() => {
+    return Object.values(exCart).reduce((sum, item) => sum + (Number(item.price || 0) * Number(item.qty || 1)), 0);
+  }, [exCart]);
+
+  const retDifferential = exTotalVal - retTotalVal;
+
+  const handleExecutePosReturnExchange = async () => {
+    if (!customer?._id) {
+      return Swal.fire({
+        icon: "warning",
+        title: "Customer Required",
+        text: "Please select or add a customer first so reward coins/refund records can be assigned to their account!",
+      });
+    }
+
+    const retItemsList = Object.values(retCart);
+    if (retItemsList.length === 0) {
+      return Swal.fire({
+        icon: "warning",
+        title: "Return Products Required",
+        text: "Please scan or add at least one product to the Return Basket!",
+      });
+    }
+
+    const exItemsList = Object.values(exCart);
+
+    if (retDifferential > 0 && retPaymentMethod === "COINS") {
+      if ((customer.coins || 0) < retDifferential) {
+        return Swal.fire({
+          icon: "error",
+          title: "Insufficient Customer Coins",
+          text: `Customer has only ${customer.coins || 0} coins, but required differential is ₹${retDifferential}`,
+        });
+      }
+    }
+
+    const confirmRes = await Swal.fire({
+      title: "Process Return & Exchange?",
+      html: `
+        <div style="text-align: left; font-size: 13px;">
+          <p style="margin-bottom: 6px;"><strong>Customer:</strong> ${customer.name} (${customer.contact || "No Mobile"})</p>
+          <p style="margin-bottom: 4px;"><strong>Returned Items (${retItemsList.length}):</strong></p>
+          <ul style="padding-left: 16px; margin-bottom: 8px;">
+            ${retItemsList.map(i => `<li>${i.product.title} x${i.qty} = ₹${i.price * i.qty}</li>`).join("")}
+          </ul>
+          <p style="margin-bottom: 4px;"><strong>Exchange Items (${exItemsList.length}):</strong></p>
+          <ul style="padding-left: 16px; margin-bottom: 8px;">
+            ${exItemsList.length > 0 ? exItemsList.map(i => `<li>${i.product.title} x${i.qty} = ₹${i.price * i.qty}</li>`).join("") : "<li>None (Pure Return for Coins)</li>"}
+          </ul>
+          <hr style="margin: 8px 0;" />
+          <p style="font-size: 15px; font-weight: bold;">
+            ${retDifferential > 0 
+              ? `<span style="color: #16a34a;">Customer Pays Extra: +₹${retDifferential} (${retPaymentMethod})</span>` 
+              : retDifferential < 0 
+              ? `<span style="color: #d97706;">Coins Credited: ${Math.abs(retDifferential)} Coins (NO CASH REFUND)</span>`
+              : `<span style="color: #2563eb;">Even Exchange (₹0)</span>`
+            }
+          </p>
+        </div>
+      `,
+      icon: "question",
+      showCancelButton: true,
+      confirmButtonText: "Yes, Confirm & Complete",
+      cancelButtonText: "Cancel",
+    });
+
+    if (!confirmRes.isConfirmed) return;
+
+    setIsProcessingReturn(true);
+    try {
+      const payload = {
+        customerId: customer._id,
+        returnedItems: retItemsList.map(i => ({
+          productId: i.product._id,
+          barcode: i.barcode,
+          title: i.product.title,
+          price: Number(i.price),
+          quantity: Number(i.qty),
+          qcStatus: i.qcStatus,
+          colorId: i.product.color?.[0] || null,
+          size: i.product.size || "",
+        })),
+        exchangeItems: exItemsList.map(i => ({
+          productId: i.product._id,
+          barcode: i.barcode,
+          title: i.product.title,
+          price: Number(i.price),
+          quantity: Number(i.qty),
+          colorId: i.product.color?.[0] || null,
+          size: i.product.size || "",
+        })),
+        paymentMethod: retDifferential > 0 ? retPaymentMethod : "NONE",
+        paymentDestination: retPaymentDestination,
+        note: retNote,
+      };
+
+      const res = await axios.post(`${base_url}user/pos/return-exchange`, payload, config);
+
+      if (res.data && res.data.success) {
+        if (typeof res.data.customerCoins !== "undefined") {
+          setCustomer(prev => ({ ...prev, coins: res.data.customerCoins }));
+        }
+
+        const rawPhone = (customer.contact || res.data.customerMobile || "").replace(/\D/g, "");
+        const cleanPhone = rawPhone.length === 10 ? `91${rawPhone}` : rawPhone;
+        const encodedMsg = encodeURIComponent(res.data.whatsappMessage || "");
+
+        Swal.fire({
+          icon: "success",
+          title: "Return & Exchange Completed!",
+          html: `
+            <div style="font-size: 14px;">
+              <p>Return ID: <strong>${res.data.returnExchange?.returnId}</strong></p>
+              ${retDifferential < 0 
+                ? `<p style="color: #2563eb; font-weight: bold; margin-top: 6px;">Credited ${Math.abs(retDifferential)} Coins to ${customer.name}!</p>` 
+                : retDifferential > 0 
+                ? `<p style="color: #16a34a; font-weight: bold; margin-top: 6px;">Collected ₹${retDifferential} via ${retPaymentMethod}</p>` 
+                : `<p style="margin-top: 6px;">Even Exchange complete</p>`
+              }
+            </div>
+          `,
+          showCancelButton: true,
+          confirmButtonText: "📱 Send WhatsApp Receipt",
+          cancelButtonText: "Done",
+          confirmButtonColor: "#25D366",
+        }).then((result) => {
+          if (result.isConfirmed && cleanPhone && res.data.whatsappMessage) {
+            window.open(`https://wa.me/${cleanPhone}?text=${encodedMsg}`, "_blank");
+          }
+        });
+
+        // Clear Return & Exchange Baskets
+        setRetCart({});
+        setExCart({});
+        setRetBarcode("");
+        setExBarcode("");
+        setRetNote("");
+      }
+    } catch (err) {
+      Swal.fire({
+        icon: "error",
+        title: "Processing Failed",
+        text: err.response?.data?.message || "Failed to process return & exchange",
+      });
+    } finally {
+      setIsProcessingReturn(false);
     }
   };
 
@@ -1126,6 +1438,26 @@ const LiveBilling = () => {
     return () => clearTimeout(delay);
   }, [contactSearch]);
 
+  // Return & Exchange Customer Search debounce
+  useEffect(() => {
+    if (retCustSearchInput.trim().length < 2) {
+      setRetCustResults([]);
+      return;
+    }
+    const delay = setTimeout(async () => {
+      try {
+        const res = await axios.get(
+          `${base_url}user/search?query=${encodeURIComponent(retCustSearchInput.trim())}`,
+          config
+        );
+        setRetCustResults(res.data || []);
+      } catch (err) {
+        console.error(err);
+      }
+    }, 300);
+    return () => clearTimeout(delay);
+  }, [retCustSearchInput]);
+
   // Search referrals with debounce
   useEffect(() => {
     if (!referralSearch.trim()) {
@@ -1693,11 +2025,536 @@ tbody td{padding:6px 4px;vertical-align:top}
      ========================= */
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-2 sm:p-3 md:p-6">
-      {/* PREMIUM HEADER */}
+      {/* POS MODE SWITCH HEADER */}
+      <div className="flex flex-wrap items-center justify-between gap-4 mb-6 bg-white p-4 rounded-2xl shadow-md border border-gray-100">
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => setPosTabMode("BILLING")}
+            className={`px-5 py-2.5 rounded-xl font-bold text-sm flex items-center gap-2 transition-all ${
+              posTabMode === "BILLING"
+                ? "bg-indigo-600 text-white shadow-lg shadow-indigo-200"
+                : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+            }`}
+          >
+            <FaShoppingCart /> POS Billing Mode
+          </button>
+          <button
+            type="button"
+            onClick={() => setPosTabMode("RETURN_EXCHANGE")}
+            className={`px-5 py-2.5 rounded-xl font-bold text-sm flex items-center gap-2 transition-all ${
+              posTabMode === "RETURN_EXCHANGE"
+                ? "bg-amber-600 text-white shadow-lg shadow-amber-200"
+                : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+            }`}
+          >
+            <FaSync className={posTabMode === "RETURN_EXCHANGE" ? "animate-spin" : ""} /> Return & Exchange Tab
+          </button>
+        </div>
 
+        <div className="flex items-center gap-4">
+          {customer?._id && (
+            <div className="flex items-center gap-2 bg-amber-50 px-3.5 py-1.5 rounded-xl border border-amber-200">
+              <FaCoins className="text-amber-500" />
+              <span className="text-xs font-bold text-amber-900">
+                {customer.name}: {customer.coins || 0} Reward Coins
+              </span>
+            </div>
+          )}
+          <span className="text-xs font-bold px-3 py-1.5 bg-gray-100 text-gray-600 rounded-xl">
+            Store: {storeName}
+          </span>
+        </div>
+      </div>
 
-      {/* MAIN CONTENT GRID */}
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+      {posTabMode === "RETURN_EXCHANGE" ? (
+        <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+          {/* LEFT 2/3 COLUMN: RETURN & EXCHANGE SCANNING */}
+          <div className="xl:col-span-2 space-y-6">
+
+            {/* CUSTOMER SELECTION CARD WITH AUTO-SUGGESTIONS */}
+            <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
+              <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2 mb-4">
+                <FaUser className="text-amber-600" />
+                Select Customer (Required for Bill Verification & Coins)
+              </h2>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Customer Auto-Suggest Input */}
+                <div className="relative">
+                  <label className="block text-xs font-medium text-gray-500 mb-1">
+                    Search Customer by Name or Mobile <span className="text-red-500">*</span>
+                  </label>
+                  <div className="relative flex items-center">
+                    <FaSearch className="absolute left-3 text-gray-400" />
+                    <input
+                      className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:border-amber-500 outline-none text-sm font-medium"
+                      value={retCustSearchInput}
+                      placeholder="Type mobile number or name..."
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setRetCustSearchInput(val);
+                        setShowRetCustDropdown(true);
+                      }}
+                      onFocus={() => {
+                        if (retCustSearchInput.trim()) setShowRetCustDropdown(true);
+                      }}
+                    />
+                  </div>
+                  {/* Dropdown Auto-Suggestions */}
+                  {showRetCustDropdown && retCustResults.length > 0 && (
+                    <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-xl shadow-2xl max-h-56 overflow-y-auto divide-y divide-gray-100">
+                      {retCustResults.map((cust) => {
+                        const fullName = `${cust.firstname || ""} ${cust.lastname || ""}`.trim() || cust.mobile;
+                        return (
+                          <div
+                            key={cust._id}
+                            className="p-3 hover:bg-amber-50 cursor-pointer transition-colors flex items-center justify-between"
+                            onClick={async () => {
+                              const newCustObj = {
+                                _id: cust._id,
+                                name: fullName,
+                                contact: cust.mobile,
+                                coins: cust.coins || 0,
+                              };
+                              setCustomer(newCustObj);
+                              setRetCustSearchInput(`${fullName} (${cust.mobile})`);
+                              setShowRetCustDropdown(false);
+
+                              // Re-verify returned products if already scanned
+                              if (Object.keys(retCart).length > 0) {
+                                for (const b of Object.keys(retCart)) {
+                                  const item = retCart[b];
+                                  if (item?.product?._id) {
+                                    try {
+                                      const verRes = await axios.post(
+                                        `${base_url}user/pos/verify-return-product`,
+                                        { customerId: newCustObj._id, barcode: b, productId: item.product._id },
+                                        config
+                                      );
+                                      if (verRes?.data) {
+                                        setRetCart(prev => ({
+                                          ...prev,
+                                          [b]: {
+                                            ...prev[b],
+                                            purchaseVerification: verRes.data,
+                                            price: verRes.data.pricePaid || prev[b].price,
+                                          }
+                                        }));
+                                      }
+                                    } catch (err) { console.error(err); }
+                                  }
+                                }
+                              }
+                            }}
+                          >
+                            <div className="flex items-center gap-3">
+                              <div className="w-8 h-8 rounded-full bg-amber-100 text-amber-800 flex items-center justify-center font-bold text-xs">
+                                {fullName.charAt(0).toUpperCase()}
+                              </div>
+                              <div>
+                                <p className="text-sm font-bold text-gray-800">{fullName}</p>
+                                <p className="text-xs text-gray-500">📱 {cust.mobile}</p>
+                              </div>
+                            </div>
+                            <span className="text-xs font-bold px-2.5 py-1 bg-amber-100 text-amber-900 rounded-lg">
+                              🪙 {cust.coins || 0} Coins
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                {/* Selected Customer Details */}
+                {customer?._id ? (
+                  <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-bold text-amber-900">{customer.name}</p>
+                      <p className="text-xs text-amber-700">📱 {customer.contact}</p>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-xs font-bold block text-amber-800">Wallet Balance</span>
+                      <span className="text-base font-extrabold text-amber-900">🪙 {customer.coins || 0} Coins</span>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="bg-gray-50 border border-dashed border-gray-300 rounded-xl p-3 flex items-center justify-center text-xs text-gray-500">
+                    ⚠️ Type above to select customer
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* STEP 1: RETURN PRODUCTS BASKET */}
+            <div className="bg-white rounded-2xl shadow-lg border border-red-100 p-6">
+              <div className="flex items-center justify-between border-b border-red-50 pb-3 mb-4">
+                <h3 className="text-base font-bold text-red-700 flex items-center gap-2">
+                  <FaUndo className="text-red-500" /> Step 1: Scan Return Product Barcodes
+                </h3>
+                <span className="text-xs font-bold text-red-600 bg-red-50 px-2.5 py-1 rounded-lg">
+                  {Object.keys(retCart).length} RETURN ITEMS
+                </span>
+              </div>
+
+              {/* Barcode Search Row */}
+              <div className="flex gap-2 mb-4">
+                <div className="relative flex-1">
+                  <FaBarcode className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                  <input
+                    className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:border-red-500 outline-none text-sm font-mono"
+                    placeholder="Scan returned item barcode or enter..."
+                    value={retBarcode}
+                    onChange={(e) => setRetBarcode(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") handleAddReturnProductByBarcode(e.target.value);
+                    }}
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleAddReturnProductByBarcode()}
+                  className="px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-bold shadow-md transition-all flex items-center gap-1.5"
+                >
+                  <FaPlus /> Add Return Item
+                </button>
+              </div>
+
+              {/* Return Cart Items Table */}
+              {Object.keys(retCart).length > 0 ? (
+                <div className="space-y-3">
+                  <div className="overflow-x-auto border border-red-100 rounded-xl">
+                    <table className="w-full text-left text-xs">
+                      <thead className="bg-red-50/70 text-red-900 font-bold border-b border-red-100">
+                        <tr>
+                          <th className="p-3">Product</th>
+                          <th className="p-3">Barcode</th>
+                          <th className="p-3 text-center">Qty</th>
+                          <th className="p-3 text-center">QC Status</th>
+                          <th className="p-3 text-right">Agreed Price (₹)</th>
+                          <th className="p-3 text-right">Total</th>
+                          <th className="p-3 text-center">Action</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100 font-medium">
+                        {Object.entries(retCart).map(([b, item]) => (
+                          <tr key={b} className="hover:bg-red-50/30">
+                            <td className="p-3 font-bold text-gray-900">{item.product.title}</td>
+                            <td className="p-3 font-mono text-gray-500">{b}</td>
+                            <td className="p-3 text-center">
+                              <div className="inline-flex items-center gap-1 border border-gray-200 rounded-lg p-0.5 bg-white">
+                                <button
+                                  type="button"
+                                  onClick={() => updateRetCartQty(b, item.qty - 1)}
+                                  className="w-6 h-6 rounded flex items-center justify-center bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold"
+                                >
+                                  -
+                                </button>
+                                <span className="w-7 text-center font-bold text-sm">{item.qty}</span>
+                                <button
+                                  type="button"
+                                  onClick={() => updateRetCartQty(b, item.qty + 1)}
+                                  className="w-6 h-6 rounded flex items-center justify-center bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold"
+                                >
+                                  +
+                                </button>
+                              </div>
+                            </td>
+                            <td className="p-3 text-center">
+                              <select
+                                className="py-1 px-2 text-xs font-semibold bg-white border border-gray-200 rounded-lg outline-none"
+                                value={item.qcStatus}
+                                onChange={(e) => updateRetCartQc(b, e.target.value)}
+                              >
+                                <option value="RESELLABLE">🟢 Resellable (+stock)</option>
+                                <option value="DAMAGED">🔴 Damaged</option>
+                              </select>
+                            </td>
+                            <td className="p-3 text-right">
+                              <input
+                                type="number"
+                                className="w-24 text-right font-bold bg-white border border-gray-200 rounded-lg px-2 py-1 outline-none focus:border-red-500"
+                                value={item.price}
+                                onChange={(e) => updateRetCartPrice(b, e.target.value)}
+                              />
+                            </td>
+                            <td className="p-3 text-right font-extrabold text-red-600">
+                              - ₹{(item.price * item.qty).toFixed(2)}
+                            </td>
+                            <td className="p-3 text-center">
+                              <button
+                                type="button"
+                                onClick={() => removeRetCartItem(b)}
+                                className="text-red-500 hover:text-red-700 p-1.5 rounded-lg hover:bg-red-50"
+                              >
+                                <FaTrash />
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Per-item Purchase Verifications */}
+                  {Object.values(retCart).map((item) => (
+                    item.purchaseVerification && (
+                      <div key={item.barcode} className={`p-3 rounded-xl border text-xs ${
+                        item.purchaseVerification.isPurchased
+                          ? "bg-emerald-50 border-emerald-300 text-emerald-900"
+                          : "bg-amber-50 border-amber-300 text-amber-900"
+                      }`}>
+                        {item.purchaseVerification.isPurchased ? (
+                          <div className="flex items-center justify-between font-medium">
+                            <span>✅ <strong>{item.product.title} ({item.barcode}):</strong> {item.purchaseVerification.message}</span>
+                            <span className="bg-emerald-200 text-emerald-900 px-2 py-0.5 rounded text-xs font-mono font-bold">
+                              {item.purchaseVerification.recencyText}
+                            </span>
+                          </div>
+                        ) : (
+                          <span>⚠️ <strong>{item.product.title} ({item.barcode}):</strong> Customer has no purchase record for this item.</span>
+                        )}
+                      </div>
+                    )
+                  ))}
+                </div>
+              ) : (
+                <div className="bg-gray-50 border border-dashed border-gray-200 rounded-xl p-4 text-center text-xs text-gray-400">
+                  Scan barcode of returned products to add them to Return Basket
+                </div>
+              )}
+            </div>
+
+            {/* STEP 2: EXCHANGE PRODUCTS BASKET */}
+            <div className="bg-white rounded-2xl shadow-lg border border-green-100 p-6">
+              <div className="flex items-center justify-between border-b border-green-50 pb-3 mb-4">
+                <h3 className="text-base font-bold text-green-700 flex items-center gap-2">
+                  <FaExchangeAlt className="text-green-500" /> Step 2: Scan Exchange Product Barcodes (Optional)
+                </h3>
+                <span className="text-xs font-bold text-green-600 bg-green-50 px-2.5 py-1 rounded-lg">
+                  {Object.keys(exCart).length} NEW ITEMS
+                </span>
+              </div>
+
+              {/* Barcode Search Row */}
+              <div className="flex gap-2 mb-4">
+                <div className="relative flex-1">
+                  <FaBarcode className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                  <input
+                    className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:border-green-500 outline-none text-sm font-mono"
+                    placeholder="Scan exchange item barcode or enter..."
+                    value={exBarcode}
+                    onChange={(e) => setExBarcode(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") handleAddExchangeProductByBarcode(e.target.value);
+                    }}
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleAddExchangeProductByBarcode()}
+                  className="px-4 py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-xl text-xs font-bold shadow-md transition-all flex items-center gap-1.5"
+                >
+                  <FaPlus /> Add Exchange Item
+                </button>
+              </div>
+
+              {/* Exchange Cart Items Table */}
+              {Object.keys(exCart).length > 0 ? (
+                <div className="overflow-x-auto border border-green-100 rounded-xl">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-green-50/70 text-green-900 font-bold border-b border-green-100">
+                      <tr>
+                        <th className="p-3">Product</th>
+                        <th className="p-3">Barcode</th>
+                        <th className="p-3 text-center">Stock</th>
+                        <th className="p-3 text-center">Qty</th>
+                        <th className="p-3 text-right">Price (₹)</th>
+                        <th className="p-3 text-right">Total</th>
+                        <th className="p-3 text-center">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100 font-medium">
+                      {Object.entries(exCart).map(([b, item]) => (
+                        <tr key={b} className="hover:bg-green-50/30">
+                          <td className="p-3 font-bold text-gray-900">{item.product.title}</td>
+                          <td className="p-3 font-mono text-gray-500">{b}</td>
+                          <td className="p-3 text-center text-xs font-bold text-gray-600">{item.product.quantity}</td>
+                          <td className="p-3 text-center">
+                            <div className="inline-flex items-center gap-1 border border-gray-200 rounded-lg p-0.5 bg-white">
+                              <button
+                                type="button"
+                                onClick={() => updateExCartQty(b, item.qty - 1)}
+                                className="w-6 h-6 rounded flex items-center justify-center bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold"
+                              >
+                                -
+                              </button>
+                              <span className="w-7 text-center font-bold text-sm">{item.qty}</span>
+                              <button
+                                type="button"
+                                onClick={() => updateExCartQty(b, item.qty + 1)}
+                                className="w-6 h-6 rounded flex items-center justify-center bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold"
+                              >
+                                +
+                              </button>
+                            </div>
+                          </td>
+                          <td className="p-3 text-right">
+                            <input
+                              type="number"
+                              className="w-24 text-right font-bold bg-white border border-gray-200 rounded-lg px-2 py-1 outline-none focus:border-green-500"
+                              value={item.price}
+                              onChange={(e) => updateExCartPrice(b, e.target.value)}
+                            />
+                          </td>
+                          <td className="p-3 text-right font-extrabold text-green-600">
+                            + ₹{(item.price * item.qty).toFixed(2)}
+                          </td>
+                          <td className="p-3 text-center">
+                            <button
+                              type="button"
+                              onClick={() => removeExCartItem(b)}
+                              className="text-red-500 hover:text-red-700 p-1.5 rounded-lg hover:bg-red-50"
+                            >
+                              <FaTrash />
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div className="bg-gray-50 border border-dashed border-gray-200 rounded-xl p-4 text-center text-xs text-gray-400">
+                  Scan barcode of exchange products to add them to Exchange Basket (Leave empty for pure return)
+                </div>
+              )}
+            </div>
+
+          </div>
+
+          {/* RIGHT 1/3 COLUMN: SUMMARY & SETTLEMENT PANEL */}
+          <div className="space-y-6">
+            <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6 sticky top-6">
+              <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2 border-b border-gray-100 pb-3 mb-4">
+                <FaCoins className="text-amber-500" /> Exchange Settlement Summary
+              </h3>
+
+              {/* Calculation Breakdown */}
+              <div className="space-y-3 mb-6 bg-gray-50 p-4 rounded-xl border border-gray-200">
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-600">Returned Product Value:</span>
+                  <span className="font-bold text-red-600">- ₹{retTotalVal}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-600">New Product Value:</span>
+                  <span className="font-bold text-green-600">+ ₹{exTotalVal}</span>
+                </div>
+                <hr className="border-gray-200" />
+                <div className="flex justify-between items-center text-base font-extrabold">
+                  <span>Net Differential:</span>
+                  <span className={retDifferential > 0 ? "text-green-600" : retDifferential < 0 ? "text-amber-600" : "text-blue-600"}>
+                    {retDifferential > 0 ? `+ ₹${retDifferential}` : retDifferential < 0 ? `- ₹${Math.abs(retDifferential)}` : "₹0"}
+                  </span>
+                </div>
+              </div>
+
+              {/* Action & Policy Box */}
+              <div className={`p-4 rounded-xl mb-6 text-xs font-semibold ${
+                retDifferential > 0 
+                  ? "bg-green-50 border border-green-200 text-green-800" 
+                  : retDifferential < 0 
+                  ? "bg-amber-50 border border-amber-200 text-amber-900" 
+                  : "bg-blue-50 border border-blue-200 text-blue-800"
+              }`}>
+                {retDifferential > 0 ? (
+                  <div>
+                    <p className="font-bold text-sm mb-1">💵 Customer Pays Extra (+₹{retDifferential})</p>
+                    <p>Customer selected a higher value item. Collect ₹{retDifferential} extra money or use existing reward coins.</p>
+                  </div>
+                ) : retDifferential < 0 ? (
+                  <div>
+                    <p className="font-bold text-sm mb-1">🪙 Reward Coins Credit ({Math.abs(retDifferential)} Coins)</p>
+                    <p>🚫 <strong>Strict No Cash Refund Policy!</strong> {Math.abs(retDifferential)} reward coins will be credited to customer's wallet balance.</p>
+                  </div>
+                ) : (
+                  <div>
+                    <p className="font-bold text-sm mb-1">⚖️ Even Exchange (₹0)</p>
+                    <p>Equal value product exchange. Stock will be adjusted automatically.</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Payment selector for Extra Amount */}
+              {retDifferential > 0 && (
+                <div className="space-y-3 mb-6">
+                  <label className="block text-xs font-bold text-gray-700">Select Extra Payment Method (+₹{retDifferential})</label>
+                  <div className="grid grid-cols-3 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setRetPaymentMethod("CASH")}
+                      className={`py-2 px-3 rounded-xl text-xs font-bold border transition-all ${
+                        retPaymentMethod === "CASH" ? "bg-green-600 text-white border-green-600 shadow-md" : "bg-gray-50 border-gray-200 text-gray-700"
+                      }`}
+                    >
+                      💵 Cash
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setRetPaymentMethod("ONLINE")}
+                      className={`py-2 px-3 rounded-xl text-xs font-bold border transition-all ${
+                        retPaymentMethod === "ONLINE" ? "bg-blue-600 text-white border-blue-600 shadow-md" : "bg-gray-50 border-gray-200 text-gray-700"
+                      }`}
+                    >
+                      💳 Online / UPI
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setRetPaymentMethod("COINS")}
+                      className={`py-2 px-3 rounded-xl text-xs font-bold border transition-all ${
+                        retPaymentMethod === "COINS" ? "bg-amber-600 text-white border-amber-600 shadow-md" : "bg-gray-50 border-gray-200 text-gray-700"
+                      }`}
+                    >
+                      🪙 Coins
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Note / Reason input */}
+              <div className="mb-6">
+                <label className="block text-xs font-medium text-gray-500 mb-1">Exchange Reason / Note</label>
+                <input
+                  type="text"
+                  className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs outline-none focus:border-amber-500"
+                  placeholder="e.g. Size issue / Product swap"
+                  value={retNote}
+                  onChange={(e) => setRetNote(e.target.value)}
+                />
+              </div>
+
+              {/* Submit Exchange Button */}
+              <button
+                type="button"
+                disabled={isProcessingReturn || Object.keys(retCart).length === 0 || !customer?._id}
+                onClick={handleExecutePosReturnExchange}
+                className="w-full py-4 bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-700 hover:to-amber-800 disabled:opacity-50 text-white font-extrabold text-base rounded-2xl shadow-xl shadow-amber-200 transition-all flex items-center justify-center gap-2"
+              >
+                {isProcessingReturn ? (
+                  "Processing Exchange..."
+                ) : (
+                  <>
+                    <FaCheckCircle /> Complete Return & Exchange
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : (
+        /* MAIN CONTENT GRID */
+        <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
         {/* LEFT COLUMN - 2/3 */}
         <div className="xl:col-span-2 space-y-6">
           {/* CUSTOMER DETAILS CARD */}
@@ -2745,6 +3602,7 @@ tbody td{padding:6px 4px;vertical-align:top}
           </div>
         </div>
       </div>
+      )}
 
       {/* Manual Add Product Modal */}
       <Modal

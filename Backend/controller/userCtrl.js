@@ -4,6 +4,8 @@ const Cart = require("../models/cartModel");
 const Coupon = require("../models/couponModel");
 const Order = require("../models/orderModel");
 const Color = require("../models/colorModel");
+const ReturnExchange = require("../models/returnExchangeModel");
+const Rojmel = require("../models/rojmelModel");
 const uniqid = require("uniqid");
 const { notifyUser } = require("./notificationCtrl");
 const { createAutoEntry } = require("./rojmelCtrl");
@@ -3903,6 +3905,329 @@ const validateShippingAddress = asyncHandler(async (req, res) => {
   res.json(result);
 });
 
+// Process POS Return and Exchange (supports multiple returned & exchange items with quantities)
+const processPosReturnExchange = asyncHandler(async (req, res) => {
+  const adminId = req.user?._id;
+  let {
+    customerId,
+    returnedItems, // Array: [{ productId, barcode, title, price, quantity, qcStatus }]
+    returnedItem,  // Single item fallback
+    exchangeItems, // Array: [{ productId, barcode, title, price, quantity }]
+    exchangeItem,  // Single item fallback
+    paymentMethod, // "CASH" | "ONLINE" | "COINS" | "NONE"
+    paymentDestination, // "CASH" | "CURRENT_ACCOUNT" | "OTHER_ACCOUNT"
+    note,
+  } = req.body;
+
+  if (!customerId) {
+    return res.status(400).json({ message: "Customer selection is required for Return / Exchange" });
+  }
+
+  if (!Array.isArray(returnedItems) || returnedItems.length === 0) {
+    if (returnedItem && returnedItem.productId) {
+      returnedItems = [returnedItem];
+    } else {
+      return res.status(400).json({ message: "At least one returned item is required" });
+    }
+  }
+
+  if (!Array.isArray(exchangeItems)) {
+    if (exchangeItem && exchangeItem.productId) {
+      exchangeItems = [exchangeItem];
+    } else {
+      exchangeItems = [];
+    }
+  }
+
+  const customer = await User.findById(customerId);
+  if (!customer) {
+    return res.status(404).json({ message: "Customer not found" });
+  }
+
+  // Process Returned Items (Inventory + Totals)
+  let returnedTotal = 0;
+  const processedReturnedItems = [];
+
+  for (const item of returnedItems) {
+    const prodDoc = await Product.findById(item.productId);
+    if (!prodDoc) {
+      return res.status(404).json({ message: `Return product not found: ${item.title || item.productId}` });
+    }
+
+    const qty = Math.max(1, Number(item.quantity) || 1);
+    const unitPrice = Number(item.price) || Number(prodDoc.price) || 0;
+    const lineTotal = unitPrice * qty;
+    returnedTotal += lineTotal;
+
+    const qcStatus = item.qcStatus === "DAMAGED" ? "DAMAGED" : "RESELLABLE";
+
+    if (qcStatus === "RESELLABLE") {
+      await Product.findByIdAndUpdate(item.productId, { $inc: { quantity: qty } });
+    } else if (typeof prodDoc.damagedQuantity !== "undefined") {
+      await Product.findByIdAndUpdate(item.productId, { $inc: { damagedQuantity: qty } });
+    }
+
+    processedReturnedItems.push({
+      product: prodDoc._id,
+      barcode: item.barcode || prodDoc.barcode || "",
+      title: item.title || prodDoc.title,
+      color: item.colorId || null,
+      size: item.size || "",
+      quantity: qty,
+      agreedValue: unitPrice,
+      qcStatus,
+    });
+  }
+
+  // Process Exchange Items (Inventory + Totals)
+  let exchangeTotal = 0;
+  const processedExchangeItems = [];
+
+  for (const item of exchangeItems) {
+    if (!item.productId) continue;
+    const prodDoc = await Product.findById(item.productId);
+    if (!prodDoc) {
+      return res.status(404).json({ message: `Exchange product not found: ${item.title || item.productId}` });
+    }
+
+    const qty = Math.max(1, Number(item.quantity) || 1);
+    if (prodDoc.quantity < qty) {
+      return res.status(400).json({ message: `Insufficient stock for exchange item (${prodDoc.title}). Available: ${prodDoc.quantity}, Requested: ${qty}` });
+    }
+
+    const unitPrice = Number(item.price) || Number(prodDoc.price) || 0;
+    const lineTotal = unitPrice * qty;
+    exchangeTotal += lineTotal;
+
+    await Product.findByIdAndUpdate(item.productId, { $inc: { quantity: -qty } });
+
+    processedExchangeItems.push({
+      product: prodDoc._id,
+      barcode: item.barcode || prodDoc.barcode || "",
+      title: item.title || prodDoc.title,
+      color: item.colorId || null,
+      size: item.size || "",
+      quantity: qty,
+      itemValue: unitPrice,
+    });
+  }
+
+  const differentialAmount = exchangeTotal - returnedTotal;
+
+  let settlementType = "EVEN";
+  let coinsCredited = 0;
+  let coinsDebited = 0;
+  let extraAmountPaid = 0;
+  let rojmelDoc = null;
+
+  if (differentialAmount > 0) {
+    settlementType = "EXTRA_PAYMENT";
+    extraAmountPaid = differentialAmount;
+
+    if (paymentMethod === "COINS") {
+      if ((customer.coins || 0) < differentialAmount) {
+        return res.status(400).json({
+          message: `Customer has only ${customer.coins || 0} coins, but differential is ${differentialAmount} coins.`,
+        });
+      }
+      customer.coins = (customer.coins || 0) - differentialAmount;
+      coinsDebited = differentialAmount;
+      appendCoinTransaction(customer, {
+        type: "debit",
+        coins: differentialAmount,
+        reason: `Paid differential for product exchange (${processedReturnedItems.length} returned -> ${processedExchangeItems.length} taken)`,
+        source: "exchange_debit",
+        description: `POS Multi-Item Exchange Differential: Pay +₹${differentialAmount}`,
+      });
+      await customer.save();
+    } else {
+      const returnTitles = processedReturnedItems.map(i => i.title).join(", ");
+      const exchangeTitles = processedExchangeItems.map(i => i.title).join(", ");
+      rojmelDoc = await Rojmel.create({
+        date: new Date(),
+        particulars: `POS Product Exchange Inflow (Returned: [${returnTitles}], Exchanged: [${exchangeTitles}])`,
+        type: "INCOME",
+        amount: differentialAmount,
+        paymentMethod: paymentMethod === "CASH" ? "Cash" : "Online",
+        category: "Sales Differential",
+        entrySource: "AUTO",
+      });
+    }
+  } else if (differentialAmount < 0) {
+    settlementType = "COIN_CREDIT";
+    coinsCredited = Math.abs(differentialAmount);
+    customer.coins = (customer.coins || 0) + coinsCredited;
+
+    const actionText = exchangeTotal > 0
+      ? `Exchange differential reward credit (${processedReturnedItems.length} returned -> ${processedExchangeItems.length} taken)`
+      : `Product Return Reward Coins (${processedReturnedItems.length} items returned)`;
+
+    appendCoinTransaction(customer, {
+      type: "credit",
+      coins: coinsCredited,
+      reason: actionText,
+      source: exchangeTotal > 0 ? "exchange_credit" : "return_credit",
+      description: `POS Return/Exchange: Credit ${coinsCredited} Coins (No cash refund)`,
+    });
+    await customer.save();
+  }
+
+  const returnId = `RET-${Date.now().toString().slice(-6)}`;
+
+  const customerName = `${customer.firstname || ""} ${customer.lastname || ""}`.trim() || customer.mobile || "Valued Customer";
+  const dateStr = new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "2-digit", year: "numeric" });
+  
+  let retItemsListStr = processedReturnedItems.map(i => `• ${i.title} (${i.quantity}x) - ₹${i.agreedValue * i.quantity}`).join("\n");
+  let exItemsListStr = processedExchangeItems.length > 0 
+    ? processedExchangeItems.map(i => `• ${i.title} (${i.quantity}x) - ₹${i.itemValue * i.quantity}`).join("\n") 
+    : "• None (Pure Return for Reward Coins)";
+
+  let settlementText = "";
+  if (differentialAmount > 0) {
+    settlementText = `• Extra Amount Paid: +₹${differentialAmount} (via ${paymentMethod})`;
+  } else if (differentialAmount < 0) {
+    settlementText = `• Reward Coins Credited: +${coinsCredited} Coins (No Cash Refund)`;
+  } else {
+    settlementText = `• Even Exchange (₹0 Differential)`;
+  }
+
+  const whatsappMessage = `🛍️ *Yashoda Fashion - Product Return & Exchange Receipt* 🛍️
+
+Dear *${customerName}*,
+
+Thank you for visiting us! Here is your Return & Exchange summary:
+
+📋 *Return Reference:* ${returnId}
+📅 *Date:* ${dateStr}
+
+🔄 *Returned Items:*
+${retItemsListStr}
+
+✨ *Exchange Items Taken:*
+${exItemsListStr}
+
+💰 *Settlement Breakdown:*
+• Returned Total: -₹${returnedTotal}
+• New Items Total: +₹${exchangeTotal}
+${settlementText}
+
+🪙 *Updated Wallet Coins Balance:* ${customer.coins || 0} Coins
+
+Thank you for shopping with us! Visit again.`;
+
+  const returnExchangeDoc = await ReturnExchange.create({
+    returnId,
+    customer: customer._id,
+    returnedItems: processedReturnedItems,
+    returnedItem: processedReturnedItems[0],
+    exchangeItems: processedExchangeItems,
+    exchangeItem: processedExchangeItems[0] || null,
+    returnedTotal,
+    exchangeTotal,
+    differentialAmount,
+    settlementType,
+    coinsCredited,
+    coinsDebited,
+    extraAmountPaid,
+    paymentMethod: paymentMethod || "NONE",
+    paymentDestination: paymentDestination || "CASH",
+    whatsappSent: true,
+    whatsappText: whatsappMessage,
+    rojmelEntry: rojmelDoc ? rojmelDoc._id : null,
+    processedBy: adminId || null,
+    note: note || "",
+  });
+
+  return res.json({
+    success: true,
+    message: "POS Return & Exchange processed successfully",
+    returnExchange: returnExchangeDoc,
+    customerCoins: customer.coins,
+    whatsappMessage,
+    customerMobile: customer.mobile,
+  });
+});
+
+// Verify if customer actually purchased the product being returned + calculate purchase recency
+const verifyCustomerReturnProduct = asyncHandler(async (req, res) => {
+  const { customerId, barcode, productId } = req.body;
+
+  if (!customerId) {
+    return res.status(400).json({ message: "Customer selection is required" });
+  }
+  if (!barcode && !productId) {
+    return res.status(400).json({ message: "Product barcode or ID is required" });
+  }
+
+  const customer = await User.findById(customerId);
+  if (!customer) {
+    return res.status(404).json({ message: "Customer not found" });
+  }
+
+  // Search orders for this customer by user ID or mobile phone number
+  const queryOr = [{ user: customer._id }];
+  if (customer.mobile) {
+    queryOr.push({ "shippingInfo.phone": customer.mobile });
+  }
+
+  const orders = await Order.find({ $or: queryOr }).sort({ createdAt: -1 });
+
+  let matchedOrder = null;
+  let matchedItem = null;
+
+  for (const order of orders) {
+    for (const item of order.orderItems || []) {
+      const barcodeMatch = barcode && item.barcode && item.barcode.trim().toLowerCase() === barcode.trim().toLowerCase();
+      const productMatch = productId && item.product && item.product.toString() === productId.toString();
+
+      if (barcodeMatch || productMatch) {
+        matchedOrder = order;
+        matchedItem = item;
+        break;
+      }
+    }
+    if (matchedOrder) break;
+  }
+
+  if (!matchedOrder || !matchedItem) {
+    return res.json({
+      isPurchased: false,
+      message: `⚠️ Customer ${customer.firstname || customer.mobile} has NO purchase record for barcode: ${barcode || productId}`,
+    });
+  }
+
+  const purchaseDate = matchedOrder.createdAt || matchedOrder.paidAt || matchedOrder.updatedAt;
+  const now = new Date();
+  const diffMs = Math.max(0, now - new Date(purchaseDate));
+
+  const diffMinutes = Math.floor(diffMs / (1000 * 60));
+  const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+  let recencyText = "";
+  if (diffDays >= 1) {
+    recencyText = `Purchased ${diffDays} day${diffDays > 1 ? "s" : ""} ago (${diffHours} hours ago)`;
+  } else if (diffHours >= 1) {
+    recencyText = `Purchased ${diffHours} hour${diffHours > 1 ? "s" : ""} ago (${diffMinutes} mins ago)`;
+  } else {
+    recencyText = `Purchased ${diffMinutes} minute${diffMinutes !== 1 ? "s" : ""} ago`;
+  }
+
+  return res.json({
+    isPurchased: true,
+    recencyText,
+    purchaseDate,
+    daysAgo: diffDays,
+    hoursAgo: diffHours,
+    minutesAgo: diffMinutes,
+    orderId: matchedOrder._id,
+    orderStatus: matchedOrder.orderStatus,
+    pricePaid: matchedItem.price,
+    quantityPaid: matchedItem.quantity,
+    message: `✅ Purchase Verified: ${recencyText}`,
+  });
+});
+
 // Validate pincode via postal API — public endpoint, no auth needed
 const validatePincodeCtrl = asyncHandler(async (req, res) => {
   const { pincode, state } = req.body;
@@ -3913,6 +4238,8 @@ const validatePincodeCtrl = asyncHandler(async (req, res) => {
 
 module.exports = {
   createUser,
+  processPosReturnExchange,
+  verifyCustomerReturnProduct,
   validateShippingAddress,
   loginUserCtrl,
   getallUser,

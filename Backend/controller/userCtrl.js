@@ -2664,7 +2664,7 @@ const getDashboardStats = asyncHandler(async (req, res) => {
 
   // Calculate Financial & Udhar cashflow summary for selected date filter range (start to end)
   const periodOrders = await Order.find({
-    createdAt: { $gte: start, $lte: end },
+    ...matchCondition,
     orderStatus: { $ne: "Cancelled" },
   }).select("totalPriceAfterDiscount");
 
@@ -2674,33 +2674,36 @@ const getDashboardStats = asyncHandler(async (req, res) => {
   });
 
   // Udhar records created in selected date filter range
-  const Udhar = require("../models/udharModel");
-  const periodUdharEntries = await Udhar.find({
-    createdAt: { $gte: start, $lte: end },
-  });
-
   let udharCreatedPeriod = 0;
-  periodUdharEntries.forEach((u) => {
-    const uncollected = (u.totalAmount || 0) - (u.paidAmount || 0);
-    udharCreatedPeriod += Math.max(0, uncollected);
-  });
+  let udharCollectedPeriod = 0;
+
+  if (paymentFilter === "all" || paymentFilter === "cash") {
+    const Udhar = require("../models/udharModel");
+    const periodUdharEntries = await Udhar.find({
+      createdAt: { $gte: start, $lte: end },
+    });
+
+    periodUdharEntries.forEach((u) => {
+      const uncollected = (u.totalAmount || 0) - (u.paidAmount || 0);
+      udharCreatedPeriod += Math.max(0, uncollected);
+    });
+
+    // Udhar payments collected/recovered in period (from ANY Udhar record)
+    const allUdharsWithPayments = await Udhar.find({
+      "payments.date": { $gte: start, $lte: end },
+    });
+
+    allUdharsWithPayments.forEach((u) => {
+      (u.payments || []).forEach((p) => {
+        if (p.date && new Date(p.date) >= start && new Date(p.date) <= end) {
+          udharCollectedPeriod += (p.amount || 0);
+        }
+      });
+    });
+  }
 
   // Direct sales paid in period = Total sales created in period minus unpaid Udhar created in period
   const directSalesPaidPeriod = Math.max(0, totalSalePeriod - udharCreatedPeriod);
-
-  // Udhar payments collected/recovered in period (from ANY Udhar record)
-  const allUdharsWithPayments = await Udhar.find({
-    "payments.date": { $gte: start, $lte: end },
-  });
-
-  let udharCollectedPeriod = 0;
-  allUdharsWithPayments.forEach((u) => {
-    (u.payments || []).forEach((p) => {
-      if (p.date && new Date(p.date) >= start && new Date(p.date) <= end) {
-        udharCollectedPeriod += (p.amount || 0);
-      }
-    });
-  });
 
   // Total cash / money in hand in period = Direct sales collected in period + Pending Udhar collected in period
   const totalHandPeriod = directSalesPaidPeriod + udharCollectedPeriod;

@@ -581,11 +581,15 @@ const Dashboard = () => {
       }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "18px", flexWrap: "wrap", gap: 10 }}>
           <div>
-            <h3 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: "#f8fafc", display: "flex", alignItems: "center", gap: 8 }}>
+            <h3
+              style={{ margin: 0, fontSize: 18, fontWeight: 800, color: "#f8fafc", display: "flex", alignItems: "center", gap: 8, cursor: "pointer", userSelect: "none" }}
+              onClick={handleTitleClick}
+            >
               <span>📊</span> {selectedFilter === FILTERS.TODAY ? "Today's Financial & Udhar Cashflow Summary" :
                  selectedFilter === FILTERS.WEEK ? "7 Days Financial & Udhar Cashflow Summary" :
                  selectedFilter === FILTERS.MONTH ? "Monthly Financial & Udhar Cashflow Summary" :
                  selectedFilter === FILTERS.YEAR ? "Annual Financial & Udhar Cashflow Summary" : "Custom Period Financial & Udhar Cashflow Summary"}
+              {showAll && <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#fbbf24", display: "inline-block" }} title="Triple-Click Active: All Cash & Udhar Data Unlocked" />}
             </h3>
             <p style={{ margin: "4px 0 0", fontSize: 12, color: "#94a3b8" }}>
               Live real-time financial cashflow for {selectedFilter === FILTERS.TODAY ? dayjs().format("DD MMMM YYYY") : selectedFilter === FILTERS.WEEK ? "last 7 days" : selectedFilter === FILTERS.MONTH ? dayjs().format("MMMM YYYY") : selectedFilter === FILTERS.YEAR ? dayjs().format("YYYY") : "selected custom range"}

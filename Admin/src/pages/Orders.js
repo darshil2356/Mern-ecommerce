@@ -13,7 +13,7 @@ import dayjs from "dayjs";
 import { getOrders, updateAOrder, adminCancelAOrder } from "../features/auth/authSlice";
 import { addUdhar } from "../features/udhar/udharSlice";
 import { base_url } from "../utils/baseUrl";
-import { config } from "../utils/axiosconfig";
+import { config, cachedGet } from "../utils/axiosconfig";
 import axios from "axios";
 
 const { RangePicker } = DatePicker;
@@ -265,7 +265,7 @@ const Orders = () => {
       const [orderRes, pickupRes, settingsRes] = await Promise.all([
         axios.get(`${base_url}user/getaOrder/${orderId}`, config),
         axios.get(`${base_url}shiprocket/pickup-address`, config).catch(() => ({ data: { address: null } })),
-        axios.get(`${base_url}user/settings`, config).catch(() => ({ data: {} })),
+        cachedGet(`${base_url}user/settings`).catch(() => ({ data: {} })),
       ]);
       const order = orderRes.data.orders;
       const pickup = pickupRes.data.address;

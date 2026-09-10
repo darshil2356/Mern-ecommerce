@@ -84,7 +84,7 @@ export default function PurchaseList() {
     if (!showAll) params.onlyGST = "true";
     else params.onlyGST = "false";
     dispatch(fetchPurchases(params));
-  }, [dispatch, filters, activeTab, showAll]);
+  }, [dispatch, filters.status, filters.vendor, filters.startDate, filters.endDate, filters.billNo, activeTab, showAll]);
 
   useEffect(() => { load(); }, [load]);
 

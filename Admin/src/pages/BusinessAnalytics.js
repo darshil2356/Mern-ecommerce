@@ -9,7 +9,7 @@ import {
   BsDownload, BsPrinter, BsSearch, BsFilter, BsArrowRepeat,
   BsQuestionCircle, BsCheckCircle, BsExclamationTriangle
 } from "react-icons/bs";
-import api from "../utils/axiosconfig";
+import api, { cachedGet } from "../utils/axiosconfig";
 import dayjs from "dayjs";
 
 const { Option } = Select;
@@ -55,10 +55,10 @@ const BusinessAnalytics = () => {
     const loadDropdowns = async () => {
       try {
         const [catRes, brandRes, sizeRes, prodRes] = await Promise.all([
-          api.get("/category").catch(() => ({ data: [] })),
-          api.get("/brand").catch(() => ({ data: [] })),
-          api.get("/size").catch(() => ({ data: [] })),
-          api.get("/product").catch(() => ({ data: [] }))
+          cachedGet("/category").catch(() => ({ data: [] })),
+          cachedGet("/brand").catch(() => ({ data: [] })),
+          cachedGet("/size").catch(() => ({ data: [] })),
+          cachedGet("/product").catch(() => ({ data: [] }))
         ]);
 
         if (Array.isArray(catRes.data)) setCategories(catRes.data);

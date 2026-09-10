@@ -1,10 +1,21 @@
 import { createSlice, createAsyncThunk, createAction } from "@reduxjs/toolkit";
 import sizeService from "./sizeService";
 
-export const getSizes = createAsyncThunk("size/get-sizes", async (_, thunkAPI) => {
-  try { return await sizeService.getSizes(); }
-  catch (error) { return thunkAPI.rejectWithValue(error); }
-});
+export const getSizes = createAsyncThunk(
+  "size/get-sizes",
+  async (force, thunkAPI) => {
+    try { return await sizeService.getSizes(); }
+    catch (error) { return thunkAPI.rejectWithValue(error); }
+  },
+  {
+    condition: (force, { getState }) => {
+      if (force === true) return true;
+      const state = getState();
+      if (state.size?.sizes?.length > 0) return false;
+      return true;
+    },
+  }
+);
 
 export const createSize = createAsyncThunk("size/create-size", async (data, thunkAPI) => {
   try { return await sizeService.createSize(data); }

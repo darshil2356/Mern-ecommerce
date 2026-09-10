@@ -36,6 +36,20 @@ const processQueue = (error, token = null) => {
   failedQueue = [];
 };
 
+const inflightGetRequests = new Map();
+
+export const cachedGet = (url, reqConfig = {}) => {
+  const key = `${url}:${JSON.stringify(reqConfig.params || {})}`;
+  if (inflightGetRequests.has(key)) {
+    return inflightGetRequests.get(key);
+  }
+  const promise = api.get(url, reqConfig).finally(() => {
+    inflightGetRequests.delete(key);
+  });
+  inflightGetRequests.set(key, promise);
+  return promise;
+};
+
 // Attach fresh token before every request
 api.interceptors.request.use((req) => {
   const token = getTokenFromLocalStorage();
@@ -43,7 +57,7 @@ api.interceptors.request.use((req) => {
   return req;
 });
 
-// On 401 — try refresh, retry original; if refresh fails → logout
+// Response interceptor to handle 401 token refresh
 api.interceptors.response.use(
   (response) => response,
   async (error) => {

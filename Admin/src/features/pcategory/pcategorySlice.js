@@ -3,17 +3,33 @@ import pCategoryService from "./pcategoryService";
 
 export const getCategories = createAsyncThunk(
   "productCategory/get-categories",
-  async (_, thunkAPI) => {
+  async (force, thunkAPI) => {
     try { return await pCategoryService.getProductCategories(); }
     catch (error) { return thunkAPI.rejectWithValue(error); }
+  },
+  {
+    condition: (force, { getState }) => {
+      if (force === true) return true;
+      const state = getState();
+      if (state.pCategory?.pCategories?.length > 0) return false;
+      return true;
+    },
   }
 );
 
 export const getCategoryTree = createAsyncThunk(
   "productCategory/get-tree",
-  async (_, thunkAPI) => {
+  async (force, thunkAPI) => {
     try { return await pCategoryService.getCategoryTree(); }
     catch (error) { return thunkAPI.rejectWithValue(error); }
+  },
+  {
+    condition: (force, { getState }) => {
+      if (force === true) return true;
+      const state = getState();
+      if (state.pCategory?.categoryTree?.length > 0) return false;
+      return true;
+    },
   }
 );
 

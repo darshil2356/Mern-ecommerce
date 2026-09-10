@@ -3,12 +3,20 @@ import colorService from "./colorService";
 
 export const getColors = createAsyncThunk(
   "color/get-colors",
-  async (thunkAPI) => {
+  async (force, thunkAPI) => {
     try {
       return await colorService.getColors();
     } catch (error) {
       return thunkAPI.rejectWithValue(error);
     }
+  },
+  {
+    condition: (force, { getState }) => {
+      if (force === true) return true;
+      const state = getState();
+      if (state.color?.colors?.length > 0) return false;
+      return true;
+    },
   }
 );
 export const createColor = createAsyncThunk(

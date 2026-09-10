@@ -3,12 +3,20 @@ import brandService from "./brandService";
 
 export const getBrands = createAsyncThunk(
   "brand/get-brands",
-  async (thunkAPI) => {
+  async (force, thunkAPI) => {
     try {
       return await brandService.getBrands();
     } catch (error) {
       return thunkAPI.rejectWithValue(error);
     }
+  },
+  {
+    condition: (force, { getState }) => {
+      if (force === true) return true;
+      const state = getState();
+      if (state.brand?.brands?.length > 0) return false;
+      return true;
+    },
   }
 );
 export const getABrand = createAsyncThunk(

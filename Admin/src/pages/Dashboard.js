@@ -1,4 +1,5 @@
-import React, { useEffect, useState, useMemo, useRef } from "react";
+// Admin Dashboard
+import React, { useEffect, useState, useMemo, useCallback, useRef } from "react";
 import {
   BsArrowDownRight, BsArrowUpRight, BsCart4, BsGraphUp, BsBoxSeam,
   BsCurrencyRupee, BsPercent, BsCheckCircle, BsTruck, BsXCircle,
@@ -136,18 +137,18 @@ const Dashboard = () => {
 
   const orderState = useSelector((state) => state?.auth?.orders?.orders);
 
-  const getTokenFromLocalStorage = localStorage.getItem("user")
-    ? JSON.parse(localStorage.getItem("user"))
-    : null;
+  const config3 = useMemo(() => {
+    const userStr = localStorage.getItem("user");
+    const user = userStr ? JSON.parse(userStr) : null;
+    return {
+      headers: {
+        Authorization: `Bearer ${user?.token || ""}`,
+        Accept: "application/json",
+      },
+    };
+  }, []);
 
-  const config3 = {
-    headers: {
-      Authorization: `Bearer ${getTokenFromLocalStorage !== null ? getTokenFromLocalStorage.token : ""}`,
-      Accept: "application/json",
-    },
-  };
-
-  const buildQueryParams = () => {
+  const buildQueryParams = useCallback(() => {
     const params = new URLSearchParams();
     params.append("filter", selectedFilter);
     params.append("mode", selectedMode === "ALL" ? "" : selectedMode);
@@ -157,23 +158,23 @@ const Dashboard = () => {
       params.append("endDate", dateRange[1].toISOString());
     }
     return params.toString();
-  };
-
-  useEffect(() => {
-    const pf = showAll ? "all" : "online_current";
-    dispatch(getMonthlyData(pf));
-    dispatch(getYearlyData(pf));
-  }, [showAll]);
+  }, [selectedFilter, selectedMode, dateRange, showAll]);
 
   useEffect(() => {
     setIsLoading(true);
+    const pf = showAll ? "all" : "online_current";
     const params = buildQueryParams();
-    dispatch(getDashboardStatsData({ params, config: config3 }));
-    dispatch(getDailySalesData({ params, config: config3 }));
-    dispatch(getOrders(showAll ? "all" : "online_current"));
-    const timer = setTimeout(() => setIsLoading(false), 500);
-    return () => clearTimeout(timer);
-  }, [selectedFilter, selectedMode, dateRange, showAll]);
+
+    Promise.all([
+      dispatch(getMonthlyData(pf)),
+      dispatch(getYearlyData(pf)),
+      dispatch(getDashboardStatsData({ params, config: config3 })),
+      dispatch(getDailySalesData({ params, config: config3 })),
+      dispatch(getOrders(pf)),
+    ]).finally(() => {
+      setIsLoading(false);
+    });
+  }, [dispatch, selectedFilter, selectedMode, dateRange, showAll, buildQueryParams, config3]);
 
   const filteredOrders = useMemo(() => {
     if (!orderState) return [];

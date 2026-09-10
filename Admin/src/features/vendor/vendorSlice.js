@@ -1,10 +1,21 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import vendorService from "./vendorService";
 
-export const getVendors = createAsyncThunk("vendor/get-all", async (_, thunkAPI) => {
-  try { return await vendorService.getVendors(); }
-  catch (error) { return thunkAPI.rejectWithValue(error); }
-});
+export const getVendors = createAsyncThunk(
+  "vendor/get-all",
+  async (force, thunkAPI) => {
+    try { return await vendorService.getVendors(); }
+    catch (error) { return thunkAPI.rejectWithValue(error); }
+  },
+  {
+    condition: (force, { getState }) => {
+      if (force === true) return true;
+      const state = getState();
+      if (state.vendor?.vendors?.length > 0) return false;
+      return true;
+    },
+  }
+);
 
 export const createVendor = createAsyncThunk("vendor/create", async (data, thunkAPI) => {
   try { return await vendorService.createVendor(data); }

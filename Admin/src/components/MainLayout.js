@@ -23,7 +23,7 @@ import { BiCategoryAlt } from "react-icons/bi";
 import { Layout, Menu, theme, Drawer } from "antd";
 import axios from "axios";
 import { base_url } from "../utils/baseUrl";
-import { config } from "../utils/axiosconfig";
+import { config, cachedGet } from "../utils/axiosconfig";
 
 const { Header, Sider, Content } = Layout;
 
@@ -232,7 +232,7 @@ const MainLayout = () => {
   useEffect(() => {
     const fetchLockConfig = async () => {
       try {
-        const res = await axios.get(`${base_url}user/settings`, config);
+        const res = await cachedGet(`${base_url}user/settings`);
         const d = res.data;
         setPasswordSet(!!d.posLockPasswordSet);
         setPosLockTimeout(d.posLockTimeout || "5m");

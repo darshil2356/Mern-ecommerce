@@ -76,7 +76,7 @@ export default function Udhar() {
     if (filters.endDate) params.endDate = filters.endDate;
     if (activeTab !== "ALL") params.type = activeTab;
     dispatch(fetchAllUdhar(params));
-  }, [dispatch, filters, activeTab]);
+  }, [dispatch, filters.status, filters.search, filters.startDate, filters.endDate, activeTab]);
 
   useEffect(() => {
     load();

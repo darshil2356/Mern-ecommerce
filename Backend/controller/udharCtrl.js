@@ -28,7 +28,7 @@ const addUdhar = asyncHandler(async (req, res) => {
     productDetails: productDetails || "",
     totalAmount: total,
     paidAmount: initialPaid,
-    payments: initialPaid > 0 ? [{ amount: initialPaid, date: new Date(), note: note || "Initial Payment" }] : [],
+    payments: initialPaid > 0 ? [{ amount: initialPaid, date: new Date(), note: note || "Initial Payment", isInitialPayment: true }] : [],
     dueDate: dueDate || null,
     note: note || "",
   });

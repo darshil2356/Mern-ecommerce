@@ -590,7 +590,7 @@ if (referrer) {
         productDetails: Object.values(req.body.items || []).map(i => i.barcode).join(", "),
         totalAmount: totalPriceAfterDiscount,
         paidAmount: paidNow,
-        payments: paidNow > 0 ? [{ amount: paidNow, date: new Date(), note: paymentNote || "Partial payment at POS" }] : [],
+        payments: paidNow > 0 ? [{ amount: paidNow, date: new Date(), note: paymentNote || "Partial payment at POS", isInitialPayment: true }] : [],
         note: paymentNote || "",
         status: paidNow === 0 ? "PENDING" : "PARTIAL",
       }).catch(err => console.error("Udhar auto-entry failed:", err))
@@ -2691,7 +2691,7 @@ const getDashboardStats = asyncHandler(async (req, res) => {
       udharCreatedPeriod += Math.max(0, uncollected);
     });
 
-    // Udhar payments collected/recovered in period (from ANY Udhar record)
+    // Udhar cash payments collected/recovered in period (excluding initial bill payments & product return adjustments)
     const allUdharsWithPayments = await Udhar.find({
       "payments.date": { $gte: start, $lte: end },
     });
@@ -2699,17 +2699,36 @@ const getDashboardStats = asyncHandler(async (req, res) => {
     allUdharsWithPayments.forEach((u) => {
       (u.payments || []).forEach((p) => {
         if (p.date && new Date(p.date) >= start && new Date(p.date) <= end) {
-          udharCollectedPeriod += (p.amount || 0);
+          const noteLower = (p.note || "").toLowerCase();
+          const isInitial = p.isInitialPayment || noteLower.includes("initial") || noteLower.includes("partial payment at pos");
+          const isReturn = p.isReturnAdjustment || noteLower.includes("return");
+
+          if (!isReturn && !isInitial) {
+            udharCollectedPeriod += (p.amount || 0);
+          }
         }
       });
     });
   }
 
+  // Subtract Cash / Money Refunds given for returns in this period
+  const periodRefundDocs = await ReturnExchange.find({
+    createdAt: { $gte: start, $lte: end },
+    settlementType: { $in: ["CASH_REFUND", "ONLINE_REFUND"] },
+  });
+
+  let cashRefundsPeriod = 0;
+  periodRefundDocs.forEach((r) => {
+    cashRefundsPeriod += Math.abs(r.differentialAmount || r.returnedTotal || 0);
+  });
+
+  totalSalePeriod = Math.max(0, totalSalePeriod - cashRefundsPeriod);
+
   // Direct sales paid in period = Total sales created in period minus unpaid Udhar created in period
   const directSalesPaidPeriod = Math.max(0, totalSalePeriod - udharCreatedPeriod);
 
   // Total cash / money in hand in period = Direct sales collected in period + Pending Udhar collected in period
-  const totalHandPeriod = directSalesPaidPeriod + udharCollectedPeriod;
+  const totalHandPeriod = Math.max(0, directSalesPaidPeriod + udharCollectedPeriod);
 
   const financialSummary = {
     totalSalePeriod,
@@ -2717,6 +2736,7 @@ const getDashboardStats = asyncHandler(async (req, res) => {
     udharCreatedPeriod,
     udharCollectedPeriod,
     totalHandPeriod,
+    cashRefundsPeriod,
     // Backward compatibility aliases
     totalSaleToday: totalSalePeriod,
     directSalesPaidToday: directSalesPaidPeriod,
@@ -4242,22 +4262,100 @@ const processPosReturnExchange = asyncHandler(async (req, res) => {
       });
     }
   } else if (differentialAmount < 0) {
-    settlementType = "COIN_CREDIT";
-    coinsCredited = Math.abs(differentialAmount);
-    customer.coins = (customer.coins || 0) + coinsCredited;
+    const returnCredit = Math.abs(differentialAmount);
 
-    const actionText = exchangeTotal > 0
-      ? `Exchange differential reward credit (${processedReturnedItems.length} returned -> ${processedExchangeItems.length} taken)`
-      : `Product Return Reward Coins (${processedReturnedItems.length} items returned)`;
+    if (paymentMethod === "UDHAR") {
+      settlementType = "UDHAR_ADJUST";
+      const Udhar = require("../models/udharModel");
+      const phone = customer.mobile || customer.contact || "";
+      const nameStr = `${customer.firstname || ""} ${customer.lastname || ""}`.trim();
 
-    appendCoinTransaction(customer, {
-      type: "credit",
-      coins: coinsCredited,
-      reason: actionText,
-      source: exchangeTotal > 0 ? "exchange_credit" : "return_credit",
-      description: `POS Return/Exchange: Credit ${coinsCredited} Coins (No cash refund)`,
-    });
-    await customer.save();
+      let udharFilter = { status: { $in: ["PENDING", "PARTIAL"] } };
+      if (phone) {
+        udharFilter.$or = [{ personPhone: phone }];
+        if (nameStr) udharFilter.$or.push({ personName: new RegExp(nameStr, "i") });
+      } else if (nameStr) {
+        udharFilter.personName = new RegExp(nameStr, "i");
+      }
+
+      const pendingUdhars = await Udhar.find(udharFilter).sort({ createdAt: 1 });
+      let remainingCredit = returnCredit;
+      let totalUdharCleared = 0;
+      let lastUdharDoc = null;
+
+      for (const udh of pendingUdhars) {
+        if (remainingCredit <= 0) break;
+        const pendingAmt = udh.totalAmount - (udh.paidAmount || 0);
+        if (pendingAmt <= 0) continue;
+
+        const payAmt = Math.min(remainingCredit, pendingAmt);
+        udh.paidAmount = (udh.paidAmount || 0) + payAmt;
+        udh.payments = udh.payments || [];
+        udh.payments.push({
+          amount: payAmt,
+          date: new Date(),
+          note: note || `Product Return Adjustment (${processedReturnedItems.map(i => i.title).join(", ")})`,
+          isReturnAdjustment: true,
+        });
+
+        if (udh.paidAmount >= udh.totalAmount) {
+          udh.status = "CLEARED";
+        } else {
+          udh.status = "PARTIAL";
+        }
+
+        await udh.save();
+        remainingCredit -= payAmt;
+        totalUdharCleared += payAmt;
+        lastUdharDoc = udh;
+      }
+
+      udharDoc = lastUdharDoc;
+
+      // If leftover return credit remains after clearing all Udhar balance, issue remaining as Coins
+      if (remainingCredit > 0) {
+        coinsCredited = remainingCredit;
+        customer.coins = (customer.coins || 0) + coinsCredited;
+        appendCoinTransaction(customer, {
+          type: "credit",
+          coins: coinsCredited,
+          reason: `Leftover return credit after clearing full Udhar balance`,
+          source: "return_credit",
+          description: `POS Return: Credited ${coinsCredited} Coins after Udhar settlement`,
+        });
+        await customer.save();
+      }
+    } else if (paymentMethod === "CASH" || paymentMethod === "ONLINE") {
+      settlementType = paymentMethod === "CASH" ? "CASH_REFUND" : "ONLINE_REFUND";
+      extraAmountPaid = -returnCredit;
+      const returnTitles = processedReturnedItems.map(i => i.title).join(", ");
+
+      rojmelDoc = await createAutoEntry({
+        particulars: `POS Product Return Refund (Returned: [${returnTitles}])`,
+        type: "EXPENSE",
+        amount: returnCredit,
+        paymentMethod: paymentMethod === "CASH" ? "Cash" : "Online",
+        category: "Product Refund",
+        referenceId: null,
+      });
+    } else {
+      settlementType = "COIN_CREDIT";
+      coinsCredited = returnCredit;
+      customer.coins = (customer.coins || 0) + coinsCredited;
+
+      const actionText = exchangeTotal > 0
+        ? `Exchange differential reward credit (${processedReturnedItems.length} returned -> ${processedExchangeItems.length} taken)`
+        : `Product Return Reward Coins (${processedReturnedItems.length} items returned)`;
+
+      appendCoinTransaction(customer, {
+        type: "credit",
+        coins: coinsCredited,
+        reason: actionText,
+        source: exchangeTotal > 0 ? "exchange_credit" : "return_credit",
+        description: `POS Return/Exchange: Credit ${coinsCredited} Coins (No cash refund)`,
+      });
+      await customer.save();
+    }
   }
 
   const returnId = `RET-${Date.now().toString().slice(-6)}`;
@@ -4268,7 +4366,7 @@ const processPosReturnExchange = asyncHandler(async (req, res) => {
   let retItemsListStr = processedReturnedItems.map(i => `• ${i.title} (${i.quantity}x) - ₹${i.agreedValue * i.quantity}`).join("\n");
   let exItemsListStr = processedExchangeItems.length > 0 
     ? processedExchangeItems.map(i => `• ${i.title} (${i.quantity}x) - ₹${i.itemValue * i.quantity}`).join("\n") 
-    : "• None (Pure Return for Reward Coins)";
+    : "• None (Pure Return)";
 
   let settlementText = "";
   if (differentialAmount > 0) {
@@ -4278,7 +4376,13 @@ const processPosReturnExchange = asyncHandler(async (req, res) => {
       settlementText = `• Extra Amount Paid: +₹${differentialAmount} (via ${paymentMethod})`;
     }
   } else if (differentialAmount < 0) {
-    settlementText = `• Reward Coins Credited: +${coinsCredited} Coins (No Cash Refund)`;
+    if (paymentMethod === "UDHAR") {
+      settlementText = `🤝 Return Credit Applied to Udhar Khata (No Cash Outflow)\n• Adjusted Against Udhar: -₹${Math.abs(differentialAmount)}${coinsCredited > 0 ? `\n• Leftover Issued as Coins: +${coinsCredited} Coins` : ""}`;
+    } else if (paymentMethod === "CASH" || paymentMethod === "ONLINE") {
+      settlementText = `💵 Money Refunded to Customer: -₹${Math.abs(differentialAmount)} (via ${paymentMethod})`;
+    } else {
+      settlementText = `• Reward Coins Credited: +${coinsCredited} Coins (No Cash Refund)`;
+    }
   } else {
     settlementText = `• Even Exchange (₹0 Differential)`;
   }

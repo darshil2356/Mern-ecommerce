@@ -433,7 +433,7 @@ const LiveBilling = () => {
           colorId: getProductColorVal(i.product),
           size: i.product.size || "",
         })),
-        paymentMethod: retDifferential > 0 ? retPaymentMethod : "NONE",
+        paymentMethod: retPaymentMethod || "NONE",
         paymentDestination: retPaymentDestination,
         note: retNote,
       };
@@ -456,7 +456,11 @@ const LiveBilling = () => {
             <div style="font-size: 14px;">
               <p>Return ID: <strong>${res.data.returnExchange?.returnId}</strong></p>
               ${retDifferential < 0 
-                ? `<p style="color: #2563eb; font-weight: bold; margin-top: 6px;">Credited ${Math.abs(retDifferential)} Coins to ${customer.name}!</p>` 
+                ? (retPaymentMethod === "UDHAR"
+                    ? `<p style="color: #16a34a; font-weight: bold; margin-top: 6px;">🤝 Adjusted ₹${Math.abs(retDifferential)} against Udhar Khata!</p>`
+                    : retPaymentMethod === "CASH" || retPaymentMethod === "ONLINE"
+                    ? `<p style="color: #16a34a; font-weight: bold; margin-top: 6px;">💵 Refunded ₹${Math.abs(retDifferential)} via ${retPaymentMethod} to ${customer.name}!</p>`
+                    : `<p style="color: #2563eb; font-weight: bold; margin-top: 6px;">Credited ${Math.abs(retDifferential)} Coins to ${customer.name}!</p>`)
                 : retDifferential > 0 
                 ? (retPaymentMethod === "UDHAR"
                     ? `<p style="color: #dc2626; font-weight: bold; margin-top: 6px;">🤝 Auto-saved ₹${retDifferential} to Udhar Khata!</p>`
@@ -2466,8 +2470,8 @@ tbody td{padding:6px 4px;vertical-align:top}
                   </div>
                 ) : retDifferential < 0 ? (
                   <div>
-                    <p className="font-bold text-sm mb-1">🪙 Reward Coins Credit ({Math.abs(retDifferential)} Coins)</p>
-                    <p>🚫 <strong>Strict No Cash Refund Policy!</strong> {Math.abs(retDifferential)} reward coins will be credited to customer's wallet balance.</p>
+                    <p className="font-bold text-sm mb-1">🔄 Product Return Credit (₹{Math.abs(retDifferential)})</p>
+                    <p>Select how to settle the return value for {customer?.name || "this customer"}.</p>
                   </div>
                 ) : (
                   <div>
@@ -2522,6 +2526,68 @@ tbody td{padding:6px 4px;vertical-align:top}
                   {retPaymentMethod === "UDHAR" && (
                     <p className="text-xs text-red-600 font-semibold bg-red-50 border border-red-200 rounded-lg py-1.5 px-3 flex items-center gap-1.5">
                       <span>🤝</span> ₹{retDifferential} balance will be auto-saved to Udhar Khata for {customer?.name || "Customer"}
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* Settlement selector for Return Credit */}
+              {retDifferential < 0 && (
+                <div className="space-y-3 mb-6">
+                  <label className="block text-xs font-bold text-gray-700">Select Return Refund / Settlement Method (₹{Math.abs(retDifferential)})</label>
+                  <div className="grid grid-cols-4 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setRetPaymentMethod("UDHAR")}
+                      className={`py-2 px-2 rounded-xl text-xs font-bold border transition-all flex items-center justify-center gap-1 ${
+                        retPaymentMethod === "UDHAR" ? "bg-emerald-600 text-white border-emerald-600 shadow-md" : "bg-gray-50 border-gray-200 text-gray-700 hover:bg-emerald-50"
+                      }`}
+                    >
+                      🤝 Udhar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setRetPaymentMethod("CASH")}
+                      className={`py-2 px-2 rounded-xl text-xs font-bold border transition-all flex items-center justify-center gap-1 ${
+                        retPaymentMethod === "CASH" ? "bg-green-600 text-white border-green-600 shadow-md" : "bg-gray-50 border-gray-200 text-gray-700 hover:bg-green-50"
+                      }`}
+                    >
+                      💵 Cash
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setRetPaymentMethod("ONLINE")}
+                      className={`py-2 px-2 rounded-xl text-xs font-bold border transition-all flex items-center justify-center gap-1 ${
+                        retPaymentMethod === "ONLINE" ? "bg-blue-600 text-white border-blue-600 shadow-md" : "bg-gray-50 border-gray-200 text-gray-700 hover:bg-blue-50"
+                      }`}
+                    >
+                      💳 Online
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setRetPaymentMethod("COINS")}
+                      className={`py-2 px-2 rounded-xl text-xs font-bold border transition-all flex items-center justify-center gap-1 ${
+                        retPaymentMethod === "COINS" ? "bg-amber-600 text-white border-amber-600 shadow-md" : "bg-gray-50 border-gray-200 text-gray-700 hover:bg-amber-50"
+                      }`}
+                    >
+                      🪙 Coins
+                    </button>
+                  </div>
+                  {retPaymentMethod === "UDHAR" ? (
+                    <p className="text-xs text-emerald-700 font-medium bg-emerald-50 border border-emerald-200 rounded-lg py-2 px-3 flex items-center gap-1.5">
+                      <span>🤝</span> <strong>Deduct Udhar:</strong> ₹{Math.abs(retDifferential)} return value will pay off {customer?.name || "Customer"}'s debt in Udhar Khata. (No cash outflow, No coins inflated)
+                    </p>
+                  ) : retPaymentMethod === "CASH" ? (
+                    <p className="text-xs text-green-700 font-medium bg-green-50 border border-green-200 rounded-lg py-2 px-3 flex items-center gap-1.5">
+                      <span>💵</span> <strong>Cash Refund:</strong> Pay ₹{Math.abs(retDifferential)} physical Cash refund to {customer?.name || "Customer"}. (Logged as Expense Outflow in Rojmel)
+                    </p>
+                  ) : retPaymentMethod === "ONLINE" ? (
+                    <p className="text-xs text-blue-700 font-medium bg-blue-50 border border-blue-200 rounded-lg py-2 px-3 flex items-center gap-1.5">
+                      <span>💳</span> <strong>Online Refund:</strong> Send ₹{Math.abs(retDifferential)} via Bank / UPI transfer to {customer?.name || "Customer"}. (Logged as Expense Outflow in Rojmel)
+                    </p>
+                  ) : (
+                    <p className="text-xs text-amber-700 font-medium bg-amber-50 border border-amber-200 rounded-lg py-2 px-3 flex items-center gap-1.5">
+                      <span>🪙</span> <strong>Store Credit:</strong> {Math.abs(retDifferential)} reward coins will be added to {customer?.name || "Customer"}'s wallet balance.
                     </p>
                   )}
                 </div>

@@ -4,6 +4,8 @@ const paymentSchema = new mongoose.Schema({
   amount: { type: Number, required: true },
   date: { type: Date, default: Date.now },
   note: { type: String, default: "" },
+  isReturnAdjustment: { type: Boolean, default: false },
+  isInitialPayment: { type: Boolean, default: false },
 });
 
 const udharSchema = new mongoose.Schema(

@@ -2711,24 +2711,34 @@ const getDashboardStats = asyncHandler(async (req, res) => {
     });
   }
 
-  // Subtract Cash / Money Refunds given for returns in this period
-  const periodRefundDocs = await ReturnExchange.find({
+  // Process Return & Exchange docs in selected date filter range (start to end)
+  const periodReturnDocs = await ReturnExchange.find({
     createdAt: { $gte: start, $lte: end },
-    settlementType: { $in: ["CASH_REFUND", "ONLINE_REFUND"] },
   });
 
   let cashRefundsPeriod = 0;
-  periodRefundDocs.forEach((r) => {
-    cashRefundsPeriod += Math.abs(r.differentialAmount || r.returnedTotal || 0);
+  let posExchangeInflowPeriod = 0;
+
+  periodReturnDocs.forEach((r) => {
+    if (r.differentialAmount > 0 || r.extraAmountPaid > 0) {
+      const extraAmt = r.extraAmountPaid || r.differentialAmount || 0;
+      posExchangeInflowPeriod += extraAmt;
+    } else if (r.differentialAmount < 0 && ["CASH_REFUND", "ONLINE_REFUND"].includes(r.settlementType)) {
+      cashRefundsPeriod += Math.abs(r.differentialAmount || r.returnedTotal || 0);
+    }
   });
 
-  totalSalePeriod = Math.max(0, totalSalePeriod - cashRefundsPeriod);
+  // Total sales for period = Order sales + POS exchange positive differentials - cash refunds
+  totalSalePeriod = Math.max(0, totalSalePeriod + posExchangeInflowPeriod - cashRefundsPeriod);
 
   // Direct sales paid in period = Total sales created in period minus unpaid Udhar created in period
   const directSalesPaidPeriod = Math.max(0, totalSalePeriod - udharCreatedPeriod);
 
   // Total cash / money in hand in period = Direct sales collected in period + Pending Udhar collected in period
   const totalHandPeriod = Math.max(0, directSalesPaidPeriod + udharCollectedPeriod);
+
+  const mainStats = stats[0] || { totalRevenue: 0, totalOrders: 0, totalDiscount: 0, totalSubtotal: 0 };
+  mainStats.totalRevenue = Math.max(0, (mainStats.totalRevenue || 0) + posExchangeInflowPeriod - cashRefundsPeriod);
 
   const financialSummary = {
     totalSalePeriod,
@@ -2737,6 +2747,7 @@ const getDashboardStats = asyncHandler(async (req, res) => {
     udharCollectedPeriod,
     totalHandPeriod,
     cashRefundsPeriod,
+    posExchangeInflowPeriod,
     // Backward compatibility aliases
     totalSaleToday: totalSalePeriod,
     directSalesPaidToday: directSalesPaidPeriod,
@@ -2746,7 +2757,7 @@ const getDashboardStats = asyncHandler(async (req, res) => {
   };
 
   res.json({
-    stats: stats[0] || { totalRevenue: 0, totalOrders: 0, totalDiscount: 0, totalSubtotal: 0 },
+    stats: mainStats,
     ordersByStatus,
     ordersByMode,
     topProducts,

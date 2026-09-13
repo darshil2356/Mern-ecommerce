@@ -1,7 +1,34 @@
 const Order = require("../models/orderModel");
 const Product = require("../models/productModel");
 const User = require("../models/userModel");
+const ReturnExchange = require("../models/returnExchangeModel");
 const asyncHandler = require("express-async-handler");
+
+const getPosExchangeInflows = async (startDate, endDate) => {
+  const docs = await ReturnExchange.find({
+    createdAt: { $gte: startDate, $lte: endDate },
+  });
+  let totalInflow = 0;
+  let cashInflow = 0;
+  let onlineInflow = 0;
+
+  docs.forEach((r) => {
+    if (r.differentialAmount > 0 || r.extraAmountPaid > 0) {
+      const amt = r.extraAmountPaid || r.differentialAmount || 0;
+      totalInflow += amt;
+      const pm = (r.paymentMethod || "").toUpperCase();
+      if (pm === "CASH") {
+        cashInflow += amt;
+      } else if (pm === "ONLINE") {
+        onlineInflow += amt;
+      } else if (pm !== "UDHAR") {
+        cashInflow += amt;
+      }
+    }
+  });
+
+  return { totalInflow, cashInflow, onlineInflow };
+};
 
 const monthNames = [
   "January","February","March","April","May","June",
@@ -87,10 +114,11 @@ const getMonthlyReport = asyncHandler(async (req, res) => {
   const activeOrders = orders.filter(o => o.orderStatus !== "Cancelled");
   const cancelledOrders = orders.filter(o => o.orderStatus === "Cancelled");
 
+  const posInflows = await getPosExchangeInflows(startDate, endDate);
   const totalOrders = activeOrders.length;
-  const totalSales = activeOrders.reduce((sum, o) => sum + (o.totalPrice || 0), 0);
+  const totalSales = activeOrders.reduce((sum, o) => sum + (o.totalPrice || 0), 0) + posInflows.totalInflow;
   const totalDiscount = activeOrders.reduce((sum, o) => sum + getOrderDiscount(o), 0);
-  const netRevenue = activeOrders.reduce((sum, o) => sum + (o.totalPriceAfterDiscount || 0), 0);
+  const netRevenue = activeOrders.reduce((sum, o) => sum + (o.totalPriceAfterDiscount || 0), 0) + posInflows.totalInflow;
 
   const { cancelledAmount, coinRefundAmount, cashRefundAmount } = buildCancelledSummary(cancelledOrders);
   // netActualRevenue = revenue from active orders minus any real cash refunds
@@ -153,12 +181,12 @@ const getMonthlyReport = asyncHandler(async (req, res) => {
       averageOrderValue: totalOrders > 0 ? netRevenue / totalOrders : 0
     },
     modeBreakdown: {
-      cash:          { orders: cashOrders.length,          amount: cashOrders.reduce((s, o) => s + (o.totalPriceAfterDiscount || 0), 0) },
-      onlineCurrent: { orders: onlineCurrentOrders.length, amount: onlineCurrentOrders.reduce((s, o) => s + (o.totalPriceAfterDiscount || 0), 0) },
+      cash:          { orders: cashOrders.length,          amount: cashOrders.reduce((s, o) => s + (o.totalPriceAfterDiscount || 0), 0) + posInflows.cashInflow },
+      onlineCurrent: { orders: onlineCurrentOrders.length, amount: onlineCurrentOrders.reduce((s, o) => s + (o.totalPriceAfterDiscount || 0), 0) + posInflows.onlineInflow },
       onlineOther:   { orders: onlineOtherOrders.length,   amount: onlineOtherOrders.reduce((s, o) => s + (o.totalPriceAfterDiscount || 0), 0) },
       // legacy keys kept for frontend compatibility
-      online:  { orders: onlineCurrentOrders.length + onlineOtherOrders.length, amount: [...onlineCurrentOrders, ...onlineOtherOrders].reduce((s, o) => s + (o.totalPriceAfterDiscount || 0), 0) },
-      offline: { orders: cashOrders.length, amount: cashOrders.reduce((s, o) => s + (o.totalPriceAfterDiscount || 0), 0) }
+      online:  { orders: onlineCurrentOrders.length + onlineOtherOrders.length, amount: [...onlineCurrentOrders, ...onlineOtherOrders].reduce((s, o) => s + (o.totalPriceAfterDiscount || 0), 0) + posInflows.onlineInflow },
+      offline: { orders: cashOrders.length, amount: cashOrders.reduce((s, o) => s + (o.totalPriceAfterDiscount || 0), 0) + posInflows.cashInflow }
     },
     statusBreakdown, topProducts, topCustomers, dailyData,
     orders: orders.map(order => ({
@@ -209,10 +237,11 @@ const getYearlyReport = asyncHandler(async (req, res) => {
 
   const activeOrders = orders.filter(o => o.orderStatus !== "Cancelled");
   const cancelledOrders = orders.filter(o => o.orderStatus === "Cancelled");
+  const posInflows_y = await getPosExchangeInflows(startDate, endDate);
   const totalOrders = activeOrders.length;
-  const totalSales = activeOrders.reduce((sum, o) => sum + (o.totalPrice || 0), 0);
+  const totalSales = activeOrders.reduce((sum, o) => sum + (o.totalPrice || 0), 0) + posInflows_y.totalInflow;
   const totalDiscount = activeOrders.reduce((sum, o) => sum + getOrderDiscount(o), 0);
-  const netRevenue = activeOrders.reduce((sum, o) => sum + (o.totalPriceAfterDiscount || 0), 0);
+  const netRevenue = activeOrders.reduce((sum, o) => sum + (o.totalPriceAfterDiscount || 0), 0) + posInflows_y.totalInflow;
 
   const { cancelledAmount, coinRefundAmount, cashRefundAmount } = buildCancelledSummary(cancelledOrders);
   const netActualRevenue = netRevenue - cashRefundAmount;
@@ -240,11 +269,11 @@ const getYearlyReport = asyncHandler(async (req, res) => {
     },
     monthlyBreakdown,
     modeBreakdown: {
-      cash:          { orders: cashOrders_y.length,          amount: cashOrders_y.reduce((s, o) => s + (o.totalPriceAfterDiscount || 0), 0) },
-      onlineCurrent: { orders: onlineCurrentOrders_y.length, amount: onlineCurrentOrders_y.reduce((s, o) => s + (o.totalPriceAfterDiscount || 0), 0) },
+      cash:          { orders: cashOrders_y.length,          amount: cashOrders_y.reduce((s, o) => s + (o.totalPriceAfterDiscount || 0), 0) + posInflows_y.cashInflow },
+      onlineCurrent: { orders: onlineCurrentOrders_y.length, amount: onlineCurrentOrders_y.reduce((s, o) => s + (o.totalPriceAfterDiscount || 0), 0) + posInflows_y.onlineInflow },
       onlineOther:   { orders: onlineOtherOrders_y.length,   amount: onlineOtherOrders_y.reduce((s, o) => s + (o.totalPriceAfterDiscount || 0), 0) },
-      online:  { orders: onlineCurrentOrders_y.length + onlineOtherOrders_y.length, amount: [...onlineCurrentOrders_y, ...onlineOtherOrders_y].reduce((s, o) => s + (o.totalPriceAfterDiscount || 0), 0) },
-      offline: { orders: cashOrders_y.length, amount: cashOrders_y.reduce((s, o) => s + (o.totalPriceAfterDiscount || 0), 0) }
+      online:  { orders: onlineCurrentOrders_y.length + onlineOtherOrders_y.length, amount: [...onlineCurrentOrders_y, ...onlineOtherOrders_y].reduce((s, o) => s + (o.totalPriceAfterDiscount || 0), 0) + posInflows_y.onlineInflow },
+      offline: { orders: cashOrders_y.length, amount: cashOrders_y.reduce((s, o) => s + (o.totalPriceAfterDiscount || 0), 0) + posInflows_y.cashInflow }
     },
     statusBreakdown,
     orders: orders.map(order => ({
@@ -285,10 +314,11 @@ const getDateRangeReport = asyncHandler(async (req, res) => {
 
   const activeOrders = orders.filter(o => o.orderStatus !== "Cancelled");
   const cancelledOrders = orders.filter(o => o.orderStatus === "Cancelled");
+  const posInflows_dr = await getPosExchangeInflows(start, end);
   const totalOrders = activeOrders.length;
-  const totalSales = activeOrders.reduce((sum, o) => sum + (o.totalPrice || 0), 0);
+  const totalSales = activeOrders.reduce((sum, o) => sum + (o.totalPrice || 0), 0) + posInflows_dr.totalInflow;
   const totalDiscount = activeOrders.reduce((sum, o) => sum + getOrderDiscount(o), 0);
-  const netRevenue = activeOrders.reduce((sum, o) => sum + (o.totalPriceAfterDiscount || 0), 0);
+  const netRevenue = activeOrders.reduce((sum, o) => sum + (o.totalPriceAfterDiscount || 0), 0) + posInflows_dr.totalInflow;
 
   const { cancelledAmount, coinRefundAmount, cashRefundAmount } = buildCancelledSummary(cancelledOrders);
   const netActualRevenue = netRevenue - cashRefundAmount;
@@ -307,11 +337,11 @@ const getDateRangeReport = asyncHandler(async (req, res) => {
       averageOrderValue: totalOrders > 0 ? netRevenue / totalOrders : 0
     },
     modeBreakdown: {
-      cash:          { orders: cashOrders_dr.length,          amount: cashOrders_dr.reduce((s, o) => s + (o.totalPriceAfterDiscount || 0), 0) },
-      onlineCurrent: { orders: onlineCurrentOrders_dr.length, amount: onlineCurrentOrders_dr.reduce((s, o) => s + (o.totalPriceAfterDiscount || 0), 0) },
+      cash:          { orders: cashOrders_dr.length,          amount: cashOrders_dr.reduce((s, o) => s + (o.totalPriceAfterDiscount || 0), 0) + posInflows_dr.cashInflow },
+      onlineCurrent: { orders: onlineCurrentOrders_dr.length, amount: onlineCurrentOrders_dr.reduce((s, o) => s + (o.totalPriceAfterDiscount || 0), 0) + posInflows_dr.onlineInflow },
       onlineOther:   { orders: onlineOtherOrders_dr.length,   amount: onlineOtherOrders_dr.reduce((s, o) => s + (o.totalPriceAfterDiscount || 0), 0) },
-      online:  { orders: onlineCurrentOrders_dr.length + onlineOtherOrders_dr.length, amount: [...onlineCurrentOrders_dr, ...onlineOtherOrders_dr].reduce((s, o) => s + (o.totalPriceAfterDiscount || 0), 0) },
-      offline: { orders: cashOrders_dr.length, amount: cashOrders_dr.reduce((s, o) => s + (o.totalPriceAfterDiscount || 0), 0) }
+      online:  { orders: onlineCurrentOrders_dr.length + onlineOtherOrders_dr.length, amount: [...onlineCurrentOrders_dr, ...onlineOtherOrders_dr].reduce((s, o) => s + (o.totalPriceAfterDiscount || 0), 0) + posInflows_dr.onlineInflow },
+      offline: { orders: cashOrders_dr.length, amount: cashOrders_dr.reduce((s, o) => s + (o.totalPriceAfterDiscount || 0), 0) + posInflows_dr.cashInflow }
     },
     orders: orders.map(order => ({
       _id: order._id,

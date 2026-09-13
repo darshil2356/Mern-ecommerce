@@ -14,7 +14,7 @@ import AdminDataTable from "../components/AdminDataTable";
 import { useDispatch, useSelector } from "react-redux";
 import { getMonthlyData, getOrders, getYearlyData, getDailySalesData, getDashboardStatsData } from "../features/auth/authSlice";
 import dayjs from "dayjs";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 
 const { Option } = Select;
 
@@ -336,53 +336,236 @@ const Dashboard = () => {
     if (dashboardStats?.hourlyData) {
       setHourlyData(dashboardStats.hourlyData.map((h) => ({ hour: h._id || 0, count: h.count || 0, revenue: h.revenue || 0 })));
     }
-    setOrderData(filteredOrders.slice(0, 10).map((order, i) => ({
-      key: i,
-      name: order.user ? `${order.user.firstname || ""} ${order.user.lastname || ""}`.trim() : "Deleted User",
-      product: order.orderItems?.length,
-      price: order.totalPrice,
-      dprice: order.totalPriceAfterDiscount || order.totalPrice,
-      discount: order.discountAmount || ((order.totalPrice || 0) - (order.totalPriceAfterDiscount || 0)),
-      staus: order.orderStatus,
-      date: order.createdAt,
-      mode: order.mode,
-    })));
+    setOrderData(
+      filteredOrders.slice(0, 10).map((order, i) => {
+        const name = order.user
+          ? `${order.user.firstname || ""} ${order.user.lastname || ""}`.trim()
+          : order.shippingInfo?.firstname
+          ? `${order.shippingInfo.firstname} ${order.shippingInfo.lastname || ""}`.trim()
+          : "Walk-in Customer";
+        const mobile =
+          order.user?.mobile ||
+          order.shippingInfo?.mobile ||
+          order.shippingInfo?.phone ||
+          "";
+        return {
+          key: order._id || i,
+          rawId: order._id,
+          orderId: order._id ? order._id.toString().slice(-8).toUpperCase() : "N/A",
+          name: name || "Walk-in Customer",
+          mobile,
+          product: order.orderItems?.length || 0,
+          price: order.totalPrice || 0,
+          dprice: order.totalPriceAfterDiscount || order.totalPrice || 0,
+          discount:
+            order.discountAmount ||
+            Math.max(0, (order.totalPrice || 0) - (order.totalPriceAfterDiscount || 0)),
+          status: order.orderStatus || "Processing",
+          date: order.createdAt
+            ? dayjs(order.createdAt).format("DD MMM YYYY, hh:mm A")
+            : "N/A",
+          mode: order.mode || "ONLINE",
+        };
+      })
+    );
   }, [filteredOrders, monthlyDataState, dailySalesData, dashboardStats]);
 
   const columns = [
     {
-      title: "#", dataIndex: "key", width: 44,
-      render: (_, __, index) => <span style={{ color:"#94a3b8", fontWeight:600, fontSize:12 }}>{index + 1}</span>
+      title: "#",
+      dataIndex: "key",
+      width: 44,
+      render: (_, __, index) => (
+        <span style={{ color: "#94a3b8", fontWeight: 600, fontSize: 12 }}>
+          {index + 1}
+        </span>
+      ),
     },
     {
-      title: "Customer", dataIndex: "name",
-      render: (name) => (
-        <div style={{ display:"flex", alignItems:"center", gap:10 }}>
-          <div style={{ width:34, height:34, borderRadius:10, background:hashColor(name), display:"flex", alignItems:"center", justifyContent:"center", color:"#fff", fontWeight:700, fontSize:13, flexShrink:0 }}>
+      title: "Order ID",
+      dataIndex: "orderId",
+      render: (id, record) =>
+        record.rawId ? (
+          <Link
+            to={`/admin/order/${record.rawId}`}
+            style={{
+              fontFamily: "monospace",
+              fontWeight: 700,
+              color: "#6366f1",
+              fontSize: 13,
+            }}
+          >
+            #{id}
+          </Link>
+        ) : (
+          <span style={{ fontFamily: "monospace", fontWeight: 600, color: "#64748b", fontSize: 12 }}>
+            #{id}
+          </span>
+        ),
+    },
+    {
+      title: "Customer",
+      dataIndex: "name",
+      render: (name, record) => (
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <div
+            style={{
+              width: 34,
+              height: 34,
+              borderRadius: 10,
+              background: hashColor(name),
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              color: "#fff",
+              fontWeight: 700,
+              fontSize: 13,
+              flexShrink: 0,
+            }}
+          >
             {name.charAt(0).toUpperCase()}
           </div>
-          <span style={{ fontWeight:600, fontSize:13, color:"#1e293b" }}>{name}</span>
+          <div>
+            <div style={{ fontWeight: 600, fontSize: 13, color: "#1e293b" }}>
+              {name}
+            </div>
+            {record.mobile && (
+              <div style={{ fontSize: 11, color: "#94a3b8" }}>
+                {record.mobile}
+              </div>
+            )}
+          </div>
         </div>
       ),
     },
-    { title: "Items", dataIndex: "product", width: 60, align: "center", render: (v) => <span style={{ background:"#f1f5f9", borderRadius:8, padding:"2px 8px", fontWeight:600, fontSize:12 }}>{v}</span> },
-    { title: "Total", dataIndex: "price", render: (v) => <span style={{ fontWeight:600, color:"#64748b", fontSize:13 }}>₹{v?.toLocaleString()}</span> },
-    { title: "Discount", dataIndex: "discount", render: (v) => v > 0 ? <span style={{ color:"#10b981", fontWeight:600, fontSize:13 }}>-₹{v?.toLocaleString()}</span> : <span style={{ color:"#cbd5e1" }}>—</span> },
-    { title: "Final", dataIndex: "dprice", render: (v) => <span style={{ fontWeight:800, color:"#6366f1", fontSize:14 }}>₹{v?.toLocaleString()}</span> },
     {
-      title: "Status", dataIndex: "staus",
+      title: "Date & Time",
+      dataIndex: "date",
+      render: (d) => (
+        <span style={{ color: "#64748b", fontSize: 12, fontWeight: 500 }}>
+          {d}
+        </span>
+      ),
+    },
+    {
+      title: "Items",
+      dataIndex: "product",
+      width: 80,
+      align: "center",
+      render: (v) => (
+        <span
+          style={{
+            background: "#f1f5f9",
+            color: "#475569",
+            borderRadius: 8,
+            padding: "2px 8px",
+            fontWeight: 600,
+            fontSize: 12,
+          }}
+        >
+          {v} {v === 1 ? "item" : "items"}
+        </span>
+      ),
+    },
+    {
+      title: "Total",
+      dataIndex: "price",
+      render: (v) => (
+        <span style={{ fontWeight: 600, color: "#64748b", fontSize: 13 }}>
+          ₹{Number(v || 0).toLocaleString("en-IN")}
+        </span>
+      ),
+    },
+    {
+      title: "Discount",
+      dataIndex: "discount",
+      render: (v) =>
+        v > 0 ? (
+          <span style={{ color: "#10b981", fontWeight: 600, fontSize: 13 }}>
+            -₹{Number(v).toLocaleString("en-IN")}
+          </span>
+        ) : (
+          <span style={{ color: "#cbd5e1" }}>—</span>
+        ),
+    },
+    {
+      title: "Final Amount",
+      dataIndex: "dprice",
+      render: (v) => (
+        <span style={{ fontWeight: 800, color: "#6366f1", fontSize: 14 }}>
+          ₹{Number(v || 0).toLocaleString("en-IN")}
+        </span>
+      ),
+    },
+    {
+      title: "Status",
+      dataIndex: "status",
       render: (status) => {
-        const cfg = { Processing: { color:"#f59e0b", bg:"#fef3c7" }, Shipped: { color:"#3b82f6", bg:"#dbeafe" }, Delivered: { color:"#10b981", bg:"#d1fae5" }, Cancelled: { color:"#ef4444", bg:"#fee2e2" } };
-        const c = cfg[status] || { color:"#64748b", bg:"#f1f5f9" };
-        return <span style={{ background:c.bg, color:c.color, borderRadius:20, padding:"3px 12px", fontWeight:600, fontSize:11, display:"inline-block" }}>{status}</span>;
+        const cfg = {
+          Ordered: { color: "#d97706", bg: "#fffbeb" },
+          Processing: { color: "#f59e0b", bg: "#fef3c7" },
+          Packed: { color: "#7c3aed", bg: "#f5f3ff" },
+          Shipped: { color: "#3b82f6", bg: "#dbeafe" },
+          "Out for Delivery": { color: "#db2777", bg: "#fdf2f8" },
+          Delivered: { color: "#10b981", bg: "#d1fae5" },
+          Cancelled: { color: "#ef4444", bg: "#fee2e2" },
+        };
+        const c = cfg[status] || { color: "#64748b", bg: "#f1f5f9" };
+        return (
+          <span
+            style={{
+              background: c.bg,
+              color: c.color,
+              borderRadius: 20,
+              padding: "3px 12px",
+              fontWeight: 600,
+              fontSize: 11,
+              display: "inline-block",
+            }}
+          >
+            {status}
+          </span>
+        );
       },
     },
     {
-      title: "Mode", dataIndex: "mode",
+      title: "Mode",
+      dataIndex: "mode",
       render: (mode) => {
         const isOnline = !mode || mode === "ONLINE";
-        return <span style={{ background: isOnline ? "#e0f2fe" : "#f3e8ff", color: isOnline ? "#0284c7" : "#7c3aed", borderRadius:20, padding:"3px 12px", fontWeight:600, fontSize:11 }}>{mode || "ONLINE"}</span>;
+        return (
+          <span
+            style={{
+              background: isOnline ? "#e0f2fe" : "#f3e8ff",
+              color: isOnline ? "#0284c7" : "#7c3aed",
+              borderRadius: 20,
+              padding: "3px 12px",
+              fontWeight: 600,
+              fontSize: 11,
+            }}
+          >
+            {mode || "ONLINE"}
+          </span>
+        );
       },
+    },
+    {
+      title: "Action",
+      key: "action",
+      render: (_, record) =>
+        record.rawId ? (
+          <Link to={`/admin/order/${record.rawId}`}>
+            <Button
+              type="primary"
+              ghost
+              size="small"
+              icon={<BsEye />}
+              style={{ borderRadius: 8, fontSize: 12, fontWeight: 600 }}
+            >
+              View
+            </Button>
+          </Link>
+        ) : null,
     },
   ];
 

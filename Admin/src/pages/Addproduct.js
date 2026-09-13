@@ -134,12 +134,12 @@ const Addproduct = () => {
   };
 
   useEffect(() => {
-    dispatch(getBrands());
-    dispatch(getCategories());
+    dispatch(getBrands(true));
+    dispatch(getCategories(true));
     dispatch(getCategoryTree());
-    dispatch(getColors());
-    dispatch(getSizes());
-    dispatch(getVendors());
+    dispatch(getColors(true));
+    dispatch(getSizes(true));
+    dispatch(getVendors(true));
   }, []);
 
   const brandState = useSelector((state) => state.brand.brands);

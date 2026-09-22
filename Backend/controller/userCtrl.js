@@ -2687,8 +2687,15 @@ const getDashboardStats = asyncHandler(async (req, res) => {
     });
 
     periodUdharEntries.forEach((u) => {
-      const uncollected = (u.totalAmount || 0) - (u.paidAmount || 0);
-      udharCreatedPeriod += Math.max(0, uncollected);
+      let initialPaid = 0;
+      (u.payments || []).forEach((p) => {
+        const noteLower = (p.note || "").toLowerCase();
+        if (p.isInitialPayment || noteLower.includes("initial") || noteLower.includes("partial payment at pos")) {
+          initialPaid += (p.amount || 0);
+        }
+      });
+      const originalCreditCreated = Math.max(0, (u.totalAmount || 0) - initialPaid);
+      udharCreatedPeriod += originalCreditCreated;
     });
 
     // Udhar cash payments collected/recovered in period (excluding initial bill payments & product return adjustments)

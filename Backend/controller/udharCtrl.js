@@ -10,7 +10,7 @@ const {
 
 // POST /udhar/add
 const addUdhar = asyncHandler(async (req, res) => {
-  const { type, personName, personPhone, orderId, productDetails, totalAmount, paidAmount, dueDate, note } = req.body;
+  const { type, personName, personPhone, orderId, productDetails, totalAmount, paidAmount, dueDate, note, paymentMode } = req.body;
 
   if (!type || !personName || totalAmount === undefined || totalAmount === null) {
     res.status(400);
@@ -20,18 +20,50 @@ const addUdhar = asyncHandler(async (req, res) => {
   const initialPaid = Number(paidAmount || 0);
   const total = Number(totalAmount);
 
-  const udhar = await Udhar.create({
-    type,
-    personName,
-    personPhone,
-    orderId: orderId || null,
-    productDetails: productDetails || "",
-    totalAmount: total,
-    paidAmount: initialPaid,
-    payments: initialPaid > 0 ? [{ amount: initialPaid, date: new Date(), note: note || "Initial Payment", isInitialPayment: true }] : [],
-    dueDate: dueDate || null,
-    note: note || "",
-  });
+  let udhar = null;
+  if (orderId) {
+    udhar = await Udhar.findOne({ orderId });
+  }
+
+  if (udhar) {
+    udhar.personName = personName;
+    if (personPhone) udhar.personPhone = personPhone;
+    udhar.totalAmount = total;
+    udhar.paidAmount = initialPaid;
+    if (dueDate) udhar.dueDate = dueDate;
+    if (note) udhar.note = note;
+    if (initialPaid > 0 && udhar.payments.length === 0) {
+      udhar.payments.push({ amount: initialPaid, date: new Date(), note: note || "Initial Payment", isInitialPayment: true });
+    }
+    await udhar.save();
+  } else {
+    udhar = await Udhar.create({
+      type,
+      personName,
+      personPhone,
+      orderId: orderId || null,
+      productDetails: productDetails || "",
+      totalAmount: total,
+      paidAmount: initialPaid,
+      payments: initialPaid > 0 ? [{ amount: initialPaid, date: new Date(), note: note || "Initial Payment", isInitialPayment: true }] : [],
+      dueDate: dueDate || null,
+      note: note || "",
+    });
+  }
+
+  // Update corresponding Order if linked
+  if (orderId) {
+    const Order = require("../models/orderModel");
+    const existingOrder = await Order.findById(orderId);
+    if (existingOrder) {
+      existingOrder.amountPaid = initialPaid;
+      if (paymentMode) {
+        existingOrder.paymentDestination = paymentMode === "CASH" ? "CASH" : "CURRENT_ACCOUNT";
+        existingOrder.mode = paymentMode === "CASH" ? "OFFLINE" : "ONLINE";
+      }
+      await existingOrder.save();
+    }
+  }
 
   // Generate WhatsApp notification message
   const storeName = await getStoreName();

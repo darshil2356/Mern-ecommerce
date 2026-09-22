@@ -793,7 +793,11 @@ const Dashboard = () => {
               <div style={{ fontSize: 22, fontWeight: 800, color: "#38bdf8", marginTop: 6 }}>
                 ₹{Number(dashboardStats?.financialSummary?.totalSalePeriod || dashboardStats?.todayFinancials?.totalSaleToday || 0).toLocaleString("en-IN")}
               </div>
-              <div style={{ fontSize: 11, color: "#64748b", marginTop: 4 }}>Total sales revenue</div>
+              <div style={{ fontSize: 11, color: "#64748b", marginTop: 4 }}>
+                {dashboardStats?.financialSummary?.cashRefundsPeriod > 0
+                  ? `Gross Billed (-₹${Number(dashboardStats.financialSummary.cashRefundsPeriod).toLocaleString("en-IN")} refunded)`
+                  : "Total gross sales revenue"}
+              </div>
             </div>
           </Col>
 
@@ -805,7 +809,11 @@ const Dashboard = () => {
               <div style={{ fontSize: 22, fontWeight: 800, color: "#4ade80", marginTop: 6 }}>
                 ₹{Number(dashboardStats?.financialSummary?.directSalesPaidPeriod || dashboardStats?.todayFinancials?.directSalesPaidToday || 0).toLocaleString("en-IN")}
               </div>
-              <div style={{ fontSize: 11, color: "#64748b", marginTop: 4 }}>Paid upfront on sales</div>
+              <div style={{ fontSize: 11, color: "#64748b", marginTop: 4 }}>
+                {dashboardStats?.financialSummary?.cashRefundsPeriod > 0
+                  ? "Net Paid (Gross - Refunds - Udhar)"
+                  : "Paid upfront on sales"}
+              </div>
             </div>
           </Col>
 
@@ -860,7 +868,11 @@ const Dashboard = () => {
         <StatCard
           title="Total Revenue"
           value={`₹${(displayStats.totalRevenue || 0).toLocaleString()}`}
-          subtitle={`From ${displayStats.totalOrders || 0} orders`}
+          subtitle={
+            dashboardStats?.financialSummary?.cashRefundsPeriod > 0
+              ? `Gross ₹${Number(dashboardStats?.financialSummary?.grossSalePeriod || ((displayStats.totalRevenue || 0) + (dashboardStats.financialSummary.cashRefundsPeriod || 0))).toLocaleString("en-IN")} - Refund ₹${Number(dashboardStats.financialSummary.cashRefundsPeriod).toLocaleString("en-IN")}`
+              : `From ${displayStats.totalOrders || 0} orders`
+          }
           icon={<BsCurrencyRupee />}
           gradient="linear-gradient(135deg,#6366f1 0%,#4f46e5 100%)"
           shadowColor="rgba(99,102,241,0.35)"

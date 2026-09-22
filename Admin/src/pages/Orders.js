@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo, useRef } from "react";
-import { Table, Button, Select, Tag, message, Space, Tooltip, Input, DatePicker, Badge, Avatar, Modal, Dropdown, Pagination } from "antd";
+import { Table, Button, Select, Tag, message, Space, Tooltip, Input, InputNumber, DatePicker, Badge, Avatar, Modal, Dropdown, Pagination } from "antd";
 import {
   FilterOutlined, EyeOutlined, PrinterOutlined, RocketOutlined,
   SearchOutlined, ShoppingOutlined, CarOutlined, CheckCircleOutlined,
@@ -151,7 +151,7 @@ const Orders = () => {
   const [dateRange, setDateRange] = useState(null);
   const [paymentFilter, setPaymentFilter] = useState("All");
   const [cancelModal, setCancelModal] = useState({ open: false, orderId: null, reason: "" });
-  const [udharModal, setUdharModal] = useState({ open: false, order: null, personName: "", personPhone: "", dueDate: null, note: "" });
+  const [udharModal, setUdharModal] = useState({ open: false, order: null, personName: "", personPhone: "", paidAmount: 0, paymentMode: "ONLINE", dueDate: null, note: "" });
   const [udharLoading, setUdharLoading] = useState(false);
   const [modeFilter, setModeFilter] = useState("all"); // 'all' | 'online' | 'offline'
   // default: only Online-Current (GST) orders. Triple-click title to toggle all orders
@@ -196,13 +196,15 @@ const Orders = () => {
       order: r,
       personName: r.name !== "N/A" ? r.name : "",
       personPhone: r.mobile !== "N/A" ? r.mobile : "",
+      paidAmount: r.rawOrder?.amountPaid ?? 0,
+      paymentMode: r.rawOrder?.paymentDestination === "CASH" ? "CASH" : "ONLINE",
       dueDate: null,
       note: "",
     });
   };
 
   const handleMoveToUdhar = async () => {
-    const { order, personName, personPhone, dueDate, note } = udharModal;
+    const { order, personName, personPhone, paidAmount, paymentMode, dueDate, note } = udharModal;
     if (!personName.trim()) { message.warning("Customer name is required"); return; }
     setUdharLoading(true);
     try {
@@ -215,17 +217,20 @@ const Orders = () => {
         personName: personName.trim(),
         personPhone: personPhone.trim(),
         totalAmount: order.finalAmount,
+        paidAmount: Number(paidAmount || 0),
+        paymentMode,
         productDetails,
         dueDate: dueDate ? dueDate.toISOString() : undefined,
         note: note.trim(),
       })).unwrap();
-      message.success("Order moved to Udhar Khata successfully");
+      message.success("Order moved/updated in Udhar Khata successfully");
       if (res?.whatsappUrl) {
         if (window.confirm(`Order moved to Udhar! Send WhatsApp credit bill receipt to ${personName}?`)) {
           window.open(res.whatsappUrl, "_blank");
         }
       }
-      setUdharModal({ open: false, order: null, personName: "", personPhone: "", dueDate: null, note: "" });
+      setUdharModal({ open: false, order: null, personName: "", personPhone: "", paidAmount: 0, paymentMode: "ONLINE", dueDate: null, note: "" });
+      dispatch(getOrders(showAll ? 'all' : 'online_current'));
     } catch (err) {
       message.error(err || "Failed to move to Udhar Khata");
     }
@@ -767,20 +772,58 @@ tbody td{padding:14px 14px;font-size:13px;color:#333}
 
       {/* ── Udhar Khata Modal ── */}
       <Modal
-        title={<span style={{ display: "flex", alignItems: "center", gap: 8 }}><AccountBookOutlined style={{ color: "#f59e0b" }} /> Move to Udhar Khata</span>}
+        title={<span style={{ display: "flex", alignItems: "center", gap: 8 }}><AccountBookOutlined style={{ color: "#f59e0b" }} /> Move to Udhar Khata & Adjust Payment</span>}
         open={udharModal.open}
-        onCancel={() => setUdharModal({ open: false, order: null, personName: "", personPhone: "", dueDate: null, note: "" })}
+        onCancel={() => setUdharModal({ open: false, order: null, personName: "", personPhone: "", paidAmount: 0, paymentMode: "ONLINE", dueDate: null, note: "" })}
         onOk={handleMoveToUdhar}
-        okText="Move to Udhar"
+        okText="Save to Udhar"
         okButtonProps={{ style: { background: "#f59e0b", border: "none", fontWeight: 700 }, loading: udharLoading }}
         cancelText="Cancel"
       >
         {udharModal.order && (
           <div>
-            <div style={{ background: "#fffbeb", border: "1px solid #fbbf24", borderRadius: 8, padding: "10px 14px", marginBottom: 16 }}>
+            <div style={{ background: "#fffbeb", border: "1px solid #fbbf24", borderRadius: 8, padding: "12px 14px", marginBottom: 16 }}>
               <div style={{ fontWeight: 700, color: "#92400e", fontSize: 13 }}>Order #{udharModal.order.orderId.slice(-8).toUpperCase()}</div>
-              <div style={{ color: "#b45309", fontSize: 12, marginTop: 4 }}>Amount Due: <strong>₹{udharModal.order.finalAmount?.toFixed(2)}</strong></div>
+              <div style={{ color: "#b45309", fontSize: 13, marginTop: 4, display: "flex", justifyContent: "space-between" }}>
+                <span>Total Bill Amount:</span>
+                <strong>₹{udharModal.order.finalAmount?.toFixed(2)}</strong>
+              </div>
             </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
+              <div>
+                <label style={{ fontSize: 12, fontWeight: 600, color: "#374151", display: "block", marginBottom: 4 }}>Amount Paid Now (₹)</label>
+                <InputNumber
+                  min={0}
+                  max={udharModal.order.finalAmount || 0}
+                  value={udharModal.paidAmount}
+                  onChange={v => setUdharModal(p => ({ ...p, paidAmount: v || 0 }))}
+                  style={{ width: "100%", borderRadius: 8 }}
+                  placeholder="e.g. 10000"
+                />
+              </div>
+              <div>
+                <label style={{ fontSize: 12, fontWeight: 600, color: "#374151", display: "block", marginBottom: 4 }}>Payment Mode</label>
+                <Select
+                  value={udharModal.paymentMode}
+                  onChange={v => setUdharModal(p => ({ ...p, paymentMode: v }))}
+                  style={{ width: "100%", borderRadius: 8 }}
+                >
+                  <Option value="ONLINE">Online Current Account</Option>
+                  <Option value="CASH">Cash</Option>
+                </Select>
+              </div>
+            </div>
+
+            <div style={{ background: "#fef2f2", border: "1px dashed #f87171", borderRadius: 8, padding: "10px 14px", marginBottom: 14 }}>
+              <div style={{ fontSize: 12, color: "#991b1b", fontWeight: 600 }}>
+                🤝 Udhar Balance Due: <strong>₹{Math.max(0, (udharModal.order.finalAmount || 0) - (udharModal.paidAmount || 0)).toFixed(2)}</strong>
+              </div>
+              <div style={{ fontSize: 11, color: "#b91c1c", marginTop: 2 }}>
+                This balance will be logged in Udhar Khata under customer credit.
+              </div>
+            </div>
+
             <div style={{ marginBottom: 12 }}>
               <label style={{ fontSize: 12, fontWeight: 600, color: "#374151", display: "block", marginBottom: 4 }}>Customer Name *</label>
               <Input

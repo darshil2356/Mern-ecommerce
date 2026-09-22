@@ -45,6 +45,8 @@ const getOrderDiscount = (o) => {
   return Math.max(breakdown, fromAmount);
 };
 
+const getEffectivePaid = (o) => (o.amountPaid !== undefined && o.amountPaid !== null) ? o.amountPaid : (o.totalPriceAfterDiscount || 0);
+
 const buildPaymentFilter = (query) => {
   const paymentFilter = (query.paymentFilter || "all").toString().toLowerCase();
   switch (paymentFilter) {
@@ -181,12 +183,12 @@ const getMonthlyReport = asyncHandler(async (req, res) => {
       averageOrderValue: totalOrders > 0 ? netRevenue / totalOrders : 0
     },
     modeBreakdown: {
-      cash:          { orders: cashOrders.length,          amount: cashOrders.reduce((s, o) => s + (o.totalPriceAfterDiscount || 0), 0) + posInflows.cashInflow },
-      onlineCurrent: { orders: onlineCurrentOrders.length, amount: onlineCurrentOrders.reduce((s, o) => s + (o.totalPriceAfterDiscount || 0), 0) + posInflows.onlineInflow },
-      onlineOther:   { orders: onlineOtherOrders.length,   amount: onlineOtherOrders.reduce((s, o) => s + (o.totalPriceAfterDiscount || 0), 0) },
+      cash:          { orders: cashOrders.length,          amount: cashOrders.reduce((s, o) => s + getEffectivePaid(o), 0) + posInflows.cashInflow },
+      onlineCurrent: { orders: onlineCurrentOrders.length, amount: onlineCurrentOrders.reduce((s, o) => s + getEffectivePaid(o), 0) + posInflows.onlineInflow },
+      onlineOther:   { orders: onlineOtherOrders.length,   amount: onlineOtherOrders.reduce((s, o) => s + getEffectivePaid(o), 0) },
       // legacy keys kept for frontend compatibility
-      online:  { orders: onlineCurrentOrders.length + onlineOtherOrders.length, amount: [...onlineCurrentOrders, ...onlineOtherOrders].reduce((s, o) => s + (o.totalPriceAfterDiscount || 0), 0) + posInflows.onlineInflow },
-      offline: { orders: cashOrders.length, amount: cashOrders.reduce((s, o) => s + (o.totalPriceAfterDiscount || 0), 0) + posInflows.cashInflow }
+      online:  { orders: onlineCurrentOrders.length + onlineOtherOrders.length, amount: [...onlineCurrentOrders, ...onlineOtherOrders].reduce((s, o) => s + getEffectivePaid(o), 0) + posInflows.onlineInflow },
+      offline: { orders: cashOrders.length, amount: cashOrders.reduce((s, o) => s + getEffectivePaid(o), 0) + posInflows.cashInflow }
     },
     statusBreakdown, topProducts, topCustomers, dailyData,
     orders: orders.map(order => ({

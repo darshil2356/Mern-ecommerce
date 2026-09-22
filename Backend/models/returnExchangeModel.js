@@ -78,7 +78,7 @@ const returnExchangeSchema = new mongoose.Schema(
     // Settlement distribution
     settlementType: {
       type: String,
-      enum: ["COIN_CREDIT", "EXTRA_PAYMENT", "EVEN"],
+      enum: ["COIN_CREDIT", "EXTRA_PAYMENT", "EVEN", "CASH_REFUND", "ONLINE_REFUND", "UDHAR_ADJUST"],
       required: true,
     },
     coinsCredited: { type: Number, default: 0 },

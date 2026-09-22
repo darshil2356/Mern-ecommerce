@@ -2444,7 +2444,7 @@ const getDailySales = asyncHandler(async (req, res) => {
           $dateToString: { format: "%Y-%m-%d", date: "$createdAt" }
         },
         date: { $first: "$createdAt" },
-        amount: { $sum: "$totalPriceAfterDiscount" },
+        amount: { $sum: { $ifNull: ["$amountPaid", "$totalPriceAfterDiscount"] } },
         count: { $sum: 1 },
         discount: { $sum: "$discountAmount" }
       },
@@ -2724,24 +2724,31 @@ const getDashboardStats = asyncHandler(async (req, res) => {
       const extraAmt = r.extraAmountPaid || r.differentialAmount || 0;
       posExchangeInflowPeriod += extraAmt;
     } else if (r.differentialAmount < 0 && ["CASH_REFUND", "ONLINE_REFUND"].includes(r.settlementType)) {
-      cashRefundsPeriod += Math.abs(r.differentialAmount || r.returnedTotal || 0);
+      const refundVal = typeof r.differentialAmount === "number" ? r.differentialAmount : (r.returnedTotal || 0);
+      cashRefundsPeriod += Math.abs(refundVal);
     }
   });
 
-  // Total sales for period = Order sales + POS exchange positive differentials - cash refunds
-  totalSalePeriod = Math.max(0, totalSalePeriod + posExchangeInflowPeriod - cashRefundsPeriod);
+  // Gross sales for period = Order sales + POS exchange positive inflows
+  const grossSalePeriod = totalSalePeriod + posExchangeInflowPeriod;
+  // Net sales for period = Gross sales - cash/online refunds
+  const netSalePeriod = Math.max(0, grossSalePeriod - cashRefundsPeriod);
 
-  // Direct sales paid in period = Total sales created in period minus unpaid Udhar created in period
-  const directSalesPaidPeriod = Math.max(0, totalSalePeriod - udharCreatedPeriod);
+  // Direct sales paid in period = Net sales created in period minus unpaid Udhar created in period
+  const directSalesPaidPeriod = Math.max(0, netSalePeriod - udharCreatedPeriod);
 
   // Total cash / money in hand in period = Direct sales collected in period + Pending Udhar collected in period
   const totalHandPeriod = Math.max(0, directSalesPaidPeriod + udharCollectedPeriod);
 
   const mainStats = stats[0] || { totalRevenue: 0, totalOrders: 0, totalDiscount: 0, totalSubtotal: 0 };
-  mainStats.totalRevenue = Math.max(0, (mainStats.totalRevenue || 0) + posExchangeInflowPeriod - cashRefundsPeriod);
+  const baseRevenue = mainStats.totalRevenue || 0;
+  mainStats.grossRevenue = baseRevenue + posExchangeInflowPeriod;
+  mainStats.totalRevenue = Math.max(0, baseRevenue + posExchangeInflowPeriod - cashRefundsPeriod);
 
   const financialSummary = {
-    totalSalePeriod,
+    grossSalePeriod,
+    totalSalePeriod: grossSalePeriod,
+    netSalePeriod,
     directSalesPaidPeriod,
     udharCreatedPeriod,
     udharCollectedPeriod,
@@ -2749,7 +2756,8 @@ const getDashboardStats = asyncHandler(async (req, res) => {
     cashRefundsPeriod,
     posExchangeInflowPeriod,
     // Backward compatibility aliases
-    totalSaleToday: totalSalePeriod,
+    totalSaleToday: grossSalePeriod,
+    netSaleToday: netSalePeriod,
     directSalesPaidToday: directSalesPaidPeriod,
     udharCreatedToday: udharCreatedPeriod,
     udharCollectedToday: udharCollectedPeriod,
@@ -4260,17 +4268,6 @@ const processPosReturnExchange = asyncHandler(async (req, res) => {
       });
     } else {
       extraAmountPaid = differentialAmount;
-      const returnTitles = processedReturnedItems.map(i => i.title).join(", ");
-      const exchangeTitles = processedExchangeItems.map(i => i.title).join(", ");
-      rojmelDoc = await Rojmel.create({
-        date: new Date(),
-        particulars: `POS Product Exchange Inflow (Returned: [${returnTitles}], Exchanged: [${exchangeTitles}])`,
-        type: "INCOME",
-        amount: differentialAmount,
-        paymentMethod: paymentMethod === "CASH" ? "Cash" : "Online",
-        category: "Sales Differential",
-        entrySource: "AUTO",
-      });
     }
   } else if (differentialAmount < 0) {
     const returnCredit = Math.abs(differentialAmount);
@@ -4339,16 +4336,6 @@ const processPosReturnExchange = asyncHandler(async (req, res) => {
     } else if (paymentMethod === "CASH" || paymentMethod === "ONLINE") {
       settlementType = paymentMethod === "CASH" ? "CASH_REFUND" : "ONLINE_REFUND";
       extraAmountPaid = -returnCredit;
-      const returnTitles = processedReturnedItems.map(i => i.title).join(", ");
-
-      rojmelDoc = await createAutoEntry({
-        particulars: `POS Product Return Refund (Returned: [${returnTitles}])`,
-        type: "EXPENSE",
-        amount: returnCredit,
-        paymentMethod: paymentMethod === "CASH" ? "Cash" : "Online",
-        category: "Product Refund",
-        referenceId: null,
-      });
     } else {
       settlementType = "COIN_CREDIT";
       coinsCredited = returnCredit;

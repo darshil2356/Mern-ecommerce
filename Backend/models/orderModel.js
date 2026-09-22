@@ -168,6 +168,10 @@ paymentInfo: {
       type: Number,
       required: true,
     },
+    amountPaid: {
+      type: Number,
+      default: null,
+    },
     discountAmount: {
       type: Number,
       default: 0,

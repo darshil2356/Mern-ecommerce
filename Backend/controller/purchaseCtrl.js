@@ -44,6 +44,35 @@ function calcItem(item, gstType, taxIncluded) {
   };
 }
 
+// Auto-heal purchase balanceDue and status fields if they are out of sync
+const autoHealPurchases = async () => {
+  try {
+    const purchases = await Purchase.find({});
+    const bulkOps = [];
+    for (const p of purchases) {
+      const totalSettled = (p.paidAmount || 0) + (p.settlementDiscount || 0) + (p.grAmount || 0);
+      const expectedBalance = Math.max(0, p.totalAmount - totalSettled);
+      let expectedStatus = "PENDING";
+      if (totalSettled >= p.totalAmount) expectedStatus = "PAID";
+      else if (totalSettled > 0) expectedStatus = "PARTIAL";
+
+      if (p.balanceDue !== expectedBalance || p.status !== expectedStatus) {
+        bulkOps.push({
+          updateOne: {
+            filter: { _id: p._id },
+            update: { $set: { balanceDue: expectedBalance, status: expectedStatus } },
+          },
+        });
+      }
+    }
+    if (bulkOps.length > 0) {
+      await Purchase.bulkWrite(bulkOps);
+    }
+  } catch (err) {
+    console.error("Auto-heal purchases error:", err);
+  }
+};
+
 const createPurchase = asyncHandler(async (req, res) => {
   const { vendor, items = [], gstType = "NONE", taxIncluded = false, ...rest } = req.body;
 
@@ -121,6 +150,8 @@ const createPurchase = asyncHandler(async (req, res) => {
 });
 
 const getAllPurchases = asyncHandler(async (req, res) => {
+  await autoHealPurchases();
+
   const { vendor, status, startDate, endDate, search, page = 1, limit = 50, onlyGST } = req.query;
   const filter = {};
 
@@ -178,6 +209,9 @@ const updatePurchase = asyncHandler(async (req, res) => {
   validateMongoDbId(id);
   const { items = [], gstType = "NONE", taxIncluded = false, ...rest } = req.body;
 
+  const purchase = await Purchase.findById(id);
+  if (!purchase) return res.status(404).json({ message: "Purchase not found" });
+
   const calcItems = items.map(it => calcItem(it, gstType, taxIncluded));
   const subtotal = calcItems.reduce((a, i) => a + i.qty * i.rate - (i.discountAmount || 0), 0);
   const taxableAmount = calcItems.reduce((a, i) => a + i.taxableAmount, 0);
@@ -189,24 +223,22 @@ const updatePurchase = asyncHandler(async (req, res) => {
   const roundOff = Math.round(rawTotal) - rawTotal;
   const totalAmount = Math.round(rawTotal);
 
-  const purchase = await Purchase.findByIdAndUpdate(
-    id,
-    {
-      ...rest,
-      items: calcItems,
-      gstType,
-      taxIncluded,
-      subtotal: +subtotal.toFixed(2),
-      taxableAmount: +taxableAmount.toFixed(2),
-      totalCGST: +totalCGST.toFixed(2),
-      totalSGST: +totalSGST.toFixed(2),
-      totalIGST: +totalIGST.toFixed(2),
-      totalTax: +totalTax.toFixed(2),
-      roundOff: +roundOff.toFixed(2),
-      totalAmount,
-    },
-    { new: true, runValidators: true }
-  ).populate("vendor", "name firmName phone gstin city state");
+  Object.assign(purchase, rest, {
+    items: calcItems,
+    gstType,
+    taxIncluded,
+    subtotal: +subtotal.toFixed(2),
+    taxableAmount: +taxableAmount.toFixed(2),
+    totalCGST: +totalCGST.toFixed(2),
+    totalSGST: +totalSGST.toFixed(2),
+    totalIGST: +totalIGST.toFixed(2),
+    totalTax: +totalTax.toFixed(2),
+    roundOff: +roundOff.toFixed(2),
+    totalAmount,
+  });
+
+  await purchase.save();
+  await purchase.populate("vendor", "name firmName phone gstin city state");
 
   res.json(purchase);
 });
@@ -264,21 +296,15 @@ const recordPayment = asyncHandler(async (req, res) => {
     date: date || new Date(),
   };
 
-  const updatedPurchase = await Purchase.findByIdAndUpdate(
-    id,
-    {
-      $push: { payments: newPayment },
-      $inc: {
-        paidAmount: paidAmt,
-        settlementDiscount: +discAmt.toFixed(2),
-        grAmount: +grAmt.toFixed(2),
-      },
-    },
-    { new: true, runValidators: true }
-  ).populate("vendor", "name firmName phone city");
+  purchase.payments.push(newPayment);
+  purchase.paidAmount = (purchase.paidAmount || 0) + paidAmt;
+  purchase.settlementDiscount = (purchase.settlementDiscount || 0) + +discAmt.toFixed(2);
+  purchase.grAmount = (purchase.grAmount || 0) + +grAmt.toFixed(2);
 
-  if (!updatedPurchase) return res.status(404).json({ message: "Purchase not found" });
-  res.json(updatedPurchase);
+  await purchase.save();
+  await purchase.populate("vendor", "name firmName phone city");
+
+  res.json(purchase);
 });
 
 const getPurchaseSummary = asyncHandler(async (req, res) => {
@@ -343,6 +369,7 @@ const getPurchaseSummary = asyncHandler(async (req, res) => {
 });
 
 module.exports = {
+  autoHealPurchases,
   createPurchase,
   getAllPurchases,
   getPurchase,

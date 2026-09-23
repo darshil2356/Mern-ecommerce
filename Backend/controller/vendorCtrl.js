@@ -1,5 +1,6 @@
 const Vendor = require("../models/vendorModel");
 const Purchase = require("../models/purchaseModel");
+const { autoHealPurchases } = require("./purchaseCtrl");
 const asyncHandler = require("express-async-handler");
 const validateMongoDbId = require("../utils/validateMongodbId");
 
@@ -31,6 +32,8 @@ const getVendor = asyncHandler(async (req, res) => {
 });
 
 const getAllVendors = asyncHandler(async (req, res) => {
+  await autoHealPurchases();
+
   const { status, search } = req.query;
   const filter = {};
   if (status) filter.status = status;
@@ -81,6 +84,8 @@ const getAllVendors = asyncHandler(async (req, res) => {
 });
 
 const getVendorLedger = asyncHandler(async (req, res) => {
+  await autoHealPurchases();
+
   const { id } = req.params;
   validateMongoDbId(id);
 
@@ -195,6 +200,8 @@ const getVendorLedger = asyncHandler(async (req, res) => {
 });
 
 const getVendorDashboardStats = asyncHandler(async (req, res) => {
+  await autoHealPurchases();
+
   const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
   thirtyDaysAgo.setHours(0, 0, 0, 0);
 

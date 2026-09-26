@@ -110,6 +110,15 @@ export const fetchVendorLedger = createAsyncThunk("purchase/vendorLedger", async
   }
 });
 
+export const fetchVendorAnalysis = createAsyncThunk("purchase/vendorAnalysis", async (id, { rejectWithValue }) => {
+  try {
+    const { data } = await api.get(`/vendor/${id}/analysis`);
+    return data;
+  } catch (err) {
+    return rejectWithValue(err.response?.data?.message || err.message);
+  }
+});
+
 const purchaseSlice = createSlice({
   name: "purchase",
   initialState: {
@@ -120,6 +129,7 @@ const purchaseSlice = createSlice({
     vendors: [],
     vendorsGrandTotal: { totalPurchases: 0, totalPaid: 0, totalDue: 0 },
     vendorLedger: null,
+    vendorAnalysis: null,
     summary: null,
     loading: false,
     error: null,
@@ -128,6 +138,7 @@ const purchaseSlice = createSlice({
   reducers: {
     clearCurrentPurchase: (state) => { state.currentPurchase = null; },
     clearVendorLedger: (state) => { state.vendorLedger = null; },
+    clearVendorAnalysis: (state) => { state.vendorAnalysis = null; },
     toggleVendorsVisible: (state) => {
       state.vendorsVisible = !state.vendorsVisible;
       localStorage.setItem("vendorsVisible", state.vendorsVisible);
@@ -228,9 +239,16 @@ const purchaseSlice = createSlice({
         state.loading = false;
         state.vendorLedger = payload;
       })
-      .addCase(fetchVendorLedger.rejected, rejected);
+      .addCase(fetchVendorLedger.rejected, rejected)
+
+      .addCase(fetchVendorAnalysis.pending, pending)
+      .addCase(fetchVendorAnalysis.fulfilled, (state, { payload }) => {
+        state.loading = false;
+        state.vendorAnalysis = payload;
+      })
+      .addCase(fetchVendorAnalysis.rejected, rejected);
   },
 });
 
-export const { clearCurrentPurchase, clearVendorLedger, toggleVendorsVisible } = purchaseSlice.actions;
+export const { clearCurrentPurchase, clearVendorLedger, clearVendorAnalysis, toggleVendorsVisible } = purchaseSlice.actions;
 export default purchaseSlice.reducer;

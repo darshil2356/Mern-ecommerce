@@ -7,6 +7,7 @@ const {
   getAllVendors,
   getVendorLedger,
   getVendorDashboardStats,
+  getVendorAnalysis,
 } = require("../controller/vendorCtrl");
 const { authMiddleware, isAdmin } = require("../middlewares/authMiddleware");
 const router = express.Router();
@@ -15,6 +16,7 @@ router.post("/", authMiddleware, isAdmin, createVendor);
 router.get("/", authMiddleware, isAdmin, getAllVendors);
 router.get("/dashboard-stats", authMiddleware, isAdmin, getVendorDashboardStats);
 router.get("/:id/ledger", authMiddleware, isAdmin, getVendorLedger);
+router.get("/:id/analysis", authMiddleware, isAdmin, getVendorAnalysis);
 
 router.get("/:id", authMiddleware, isAdmin, getVendor);
 router.put("/:id", authMiddleware, isAdmin, updateVendor);

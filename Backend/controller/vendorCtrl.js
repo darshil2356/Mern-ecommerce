@@ -1,5 +1,7 @@
 const Vendor = require("../models/vendorModel");
 const Purchase = require("../models/purchaseModel");
+const Product = require("../models/productModel");
+const Order = require("../models/orderModel");
 const { autoHealPurchases } = require("./purchaseCtrl");
 const asyncHandler = require("express-async-handler");
 const validateMongoDbId = require("../utils/validateMongodbId");
@@ -398,6 +400,200 @@ const getVendorDashboardStats = asyncHandler(async (req, res) => {
   });
 });
 
+const getVendorAnalysis = asyncHandler(async (req, res) => {
+  await autoHealPurchases();
+
+  const { id } = req.params;
+  validateMongoDbId(id);
+
+  const vendor = await Vendor.findById(id);
+  if (!vendor) return res.status(404).json({ message: "Vendor not found" });
+
+  // 1. Vendor name search criteria
+  const searchNames = [];
+  if (vendor.name && vendor.name.trim()) searchNames.push(vendor.name.trim());
+  if (vendor.firmName && vendor.firmName.trim()) searchNames.push(vendor.firmName.trim());
+
+  const escapeRegex = (str) => str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const regexConditions = searchNames.map((n) => ({
+    vendorName: { $regex: new RegExp("^" + escapeRegex(n) + "$", "i") },
+  }));
+
+  const productFilter = {
+    $or: [
+      { vendorName: { $in: [...searchNames, vendor._id.toString()] } },
+      ...regexConditions,
+    ],
+  };
+
+  // 2. Query products for this vendor
+  const products = await Product.find(productFilter)
+    .populate("categoryId", "title")
+    .select("title slug price purchasePrice mrp quantity sold images category categoryId subcategory brand sku sizeStock variants vendorName createdAt");
+
+  const productIds = products.map((p) => p._id);
+
+  // 3. Aggregate non-cancelled sales orders for these products
+  const orderSales = await Order.aggregate([
+    { $match: { orderStatus: { $ne: "Cancelled" } } },
+    { $unwind: "$orderItems" },
+    { $match: { "orderItems.product": { $in: productIds } } },
+    {
+      $group: {
+        _id: "$orderItems.product",
+        totalQtySold: { $sum: "$orderItems.quantity" },
+        totalRevenue: { $sum: { $multiply: ["$orderItems.quantity", "$orderItems.price"] } },
+      },
+    },
+  ]);
+
+  const salesMap = {};
+  orderSales.forEach((s) => {
+    if (s._id) salesMap[s._id.toString()] = s;
+  });
+
+  // 4. Calculate stock and sale stats
+  let totalStockQty = 0;
+  let totalStockCostValue = 0;
+  let totalStockRetailValue = 0;
+
+  let totalSoldQty = 0;
+  let totalRealizedRevenue = 0;
+  let totalSoldCostValue = 0;
+
+  const productAnalysisList = products.map((p) => {
+    let stockQty = Number(p.quantity || 0);
+    if (p.variants && p.variants.length > 0) {
+      const variantQty = p.variants.reduce(
+        (sum, v) => sum + (v.sizeStock || []).reduce((q, s) => q + Number(s.quantity || 0), 0),
+        0
+      );
+      if (variantQty > 0) stockQty = variantQty;
+    } else if (p.sizeStock && p.sizeStock.length > 0) {
+      const sizeQty = p.sizeStock.reduce((sum, s) => sum + Number(s.quantity || 0), 0);
+      if (sizeQty > 0) stockQty = sizeQty;
+    }
+
+    const sellingPrice = Number(p.price || 0);
+    const costPrice = Number(p.purchasePrice !== null && p.purchasePrice !== undefined ? p.purchasePrice : sellingPrice);
+
+    const stockCost = stockQty * costPrice;
+    const stockRetail = stockQty * sellingPrice;
+    const stockProfit = stockRetail - stockCost;
+
+    const orderStat = salesMap[p._id.toString()] || {};
+    const orderQtySold = orderStat.totalQtySold || 0;
+    const orderRevenue = orderStat.totalRevenue || 0;
+
+    const soldUnits = Math.max(Number(p.sold || 0), orderQtySold);
+    const realizedRev = orderRevenue > 0 ? orderRevenue : soldUnits * sellingPrice;
+    const soldCost = soldUnits * costPrice;
+    const realizedProf = realizedRev - soldCost;
+
+    totalStockQty += stockQty;
+    totalStockCostValue += stockCost;
+    totalStockRetailValue += stockRetail;
+
+    totalSoldQty += soldUnits;
+    totalRealizedRevenue += realizedRev;
+    totalSoldCostValue += soldCost;
+
+    const catName = p.categoryId?.title || p.category || p.subcategory || "-";
+
+    return {
+      _id: p._id,
+      title: p.title,
+      slug: p.slug,
+      sku: p.sku || "-",
+      category: catName,
+      image: p.images?.[0]?.url || "",
+      stockQty,
+      soldQty: soldUnits,
+      costPrice,
+      sellingPrice,
+      stockCostValue: Math.round(stockCost),
+      stockRetailValue: Math.round(stockRetail),
+      potentialProfit: Math.round(stockProfit),
+      realizedRevenue: Math.round(realizedRev),
+      realizedProfit: Math.round(realizedProf),
+    };
+  });
+
+  const potentialProfitInHand = totalStockRetailValue - totalStockCostValue;
+  const potentialMarginPercent =
+    totalStockRetailValue > 0 ? (potentialProfitInHand / totalStockRetailValue) * 100 : 0;
+
+  const realizedProfit = totalRealizedRevenue - totalSoldCostValue;
+  const realizedMarginPercent =
+    totalRealizedRevenue > 0 ? (realizedProfit / totalRealizedRevenue) * 100 : 0;
+
+  // 5. Vendor purchases history & balance
+  const purchases = await Purchase.find({ vendor: id }).sort({ billDate: -1 });
+
+  const totalPurchasesFromVendor = purchases.reduce((a, p) => a + (p.totalAmount || 0), 0);
+  const totalPaidToVendor = purchases.reduce((a, p) => a + (p.paidAmount || 0) + (p.settlementDiscount || 0) + (p.grAmount || 0), 0);
+  const totalDueToVendor = purchases.reduce((a, p) => a + (p.balanceDue || 0), 0);
+
+  // 6. Recent sales orders
+  const recentOrders = await Order.find({
+    orderStatus: { $ne: "Cancelled" },
+    "orderItems.product": { $in: productIds },
+  })
+    .sort({ createdAt: -1 })
+    .limit(10)
+    .select("createdAt orderStatus totalPrice paymentInfo shippingInfo orderItems mode");
+
+  res.json({
+    vendor,
+    summary: {
+      totalProductsCount: products.length,
+      // In-Stock Metrics
+      totalStockQty,
+      totalStockCostValue: Math.round(totalStockCostValue),
+      totalStockRetailValue: Math.round(totalStockRetailValue),
+      potentialProfitInHand: Math.round(potentialProfitInHand),
+      potentialMarginPercent: +potentialMarginPercent.toFixed(1),
+
+      // Realized Sales Metrics
+      totalSoldQty,
+      totalRealizedRevenue: Math.round(totalRealizedRevenue),
+      totalSoldCostValue: Math.round(totalSoldCostValue),
+      realizedProfit: Math.round(realizedProfit),
+      realizedMarginPercent: +realizedMarginPercent.toFixed(1),
+
+      // Purchase & Payables
+      totalPurchasesFromVendor,
+      totalPaidToVendor,
+      totalDueToVendor,
+      billCount: purchases.length,
+
+      // Total Potential Turnover
+      grandTurnoverPotential: Math.round(totalRealizedRevenue + totalStockRetailValue),
+      grandProfitPotential: Math.round(realizedProfit + potentialProfitInHand),
+    },
+    products: productAnalysisList,
+    purchases: purchases.map((p) => ({
+      _id: p._id,
+      billNo: p.billNo,
+      billDate: p.billDate,
+      totalAmount: p.totalAmount,
+      paidAmount: p.paidAmount,
+      balanceDue: p.balanceDue,
+      status: p.status,
+      itemCount: p.items?.length || 0,
+    })),
+    recentOrders: recentOrders.map((o) => ({
+      _id: o._id,
+      date: o.createdAt,
+      status: o.orderStatus,
+      customerName: o.shippingInfo ? `${o.shippingInfo.firstname || ""} ${o.shippingInfo.lastname || ""}`.trim() : "Customer",
+      totalPrice: o.totalPrice,
+      mode: o.mode,
+      vendorItemsCount: o.orderItems.filter((it) => productIds.some((id) => id.toString() === it.product?.toString())).length,
+    })),
+  });
+});
+
 module.exports = {
   createVendor,
   updateVendor,
@@ -406,5 +602,6 @@ module.exports = {
   getAllVendors,
   getVendorLedger,
   getVendorDashboardStats,
+  getVendorAnalysis,
 };
 

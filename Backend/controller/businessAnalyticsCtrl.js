@@ -222,8 +222,11 @@ const getBusinessAnalytics = asyncHandler(async (req, res) => {
     const sellingPrice = Number(item.price || 0);
     
     // Distribute discount proportionally
-    const orderTotal = Number(item.totalPrice || 1);
-    const discountRatio = Number(item.totalPriceAfterDiscount || item.totalPrice || 0) / orderTotal;
+    const orderTotal = Number(item.totalPrice || 0);
+    const orderNet = item.totalPriceAfterDiscount !== undefined && item.totalPriceAfterDiscount !== null
+      ? Number(item.totalPriceAfterDiscount)
+      : (item.totalPrice ? Number(item.totalPrice) - Number(item.discountAmount || 0) : orderTotal);
+    const discountRatio = orderTotal > 0 ? Math.max(0, orderNet / orderTotal) : 1;
     
     const itemRevenue = sellingPrice * qty * discountRatio;
     const itemCost = Number(item.product?.purchasePrice || 0) * qty;

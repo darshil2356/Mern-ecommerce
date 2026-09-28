@@ -233,9 +233,34 @@ const Dashboard = () => {
 
     filteredOrders.forEach(order => {
       res.totalOrders += 1;
+
+      // Calculate gross subtotal of order items
+      const orderItemsGrossSubtotal = (order.orderItems || []).reduce((sum, item) => {
+        const qty = Number(item.quantity || 1);
+        const price = Number(item.price || item.sellingPrice || item.product?.price || 0) || 0;
+        return sum + (price * qty);
+      }, 0);
+
+      // Gross order total before discount
+      const orderGrossTotal = orderItemsGrossSubtotal > 0 ? orderItemsGrossSubtotal : Number(order.totalPrice || 0);
+
+      // Net order revenue after discount
+      const orderNetTotal = Number(
+        order.totalPriceAfterDiscount !== undefined && order.totalPriceAfterDiscount !== null
+          ? order.totalPriceAfterDiscount
+          : (order.totalPrice !== undefined && order.totalPrice !== null
+              ? order.totalPrice - (order.discountAmount || 0)
+              : orderGrossTotal - (order.discountAmount || 0))
+      );
+
+      // Proportional discount ratio to allocate order-level discount across items
+      const discountRatio = orderGrossTotal > 0 ? Math.max(0, orderNetTotal / orderGrossTotal) : 1;
+
       (order.orderItems || []).forEach(item => {
         const qty = Number(item.quantity || 1);
-        const selling = Number(item.price || item.sellingPrice || item.product?.price || 0) || 0;
+        const sellingUnitGross = Number(item.price || item.sellingPrice || item.product?.price || 0) || 0;
+        const sellingUnitNet = sellingUnitGross * discountRatio;
+
         const purchase =
           item.purchasePrice !== undefined && item.purchasePrice !== null
             ? Number(item.purchasePrice)
@@ -244,17 +269,15 @@ const Dashboard = () => {
             : null;
 
         if (purchase !== null && !Number.isNaN(purchase)) {
-          const profitPerUnit = selling - purchase;
+          const profitPerUnit = sellingUnitNet - purchase;
           res.itemsWithPurchase += 1;
           res.totalProfit += profitPerUnit * qty;
-          res.totalRevenue += selling * qty;
+          res.totalRevenue += sellingUnitNet * qty;
           res.totalProfitKnown += profitPerUnit * qty;
-          res.totalRevenueKnown += selling * qty;
+          res.totalRevenueKnown += sellingUnitNet * qty;
         } else {
           // Skip unknown-purchase items from "known" calculations so the displayed
           // profit margin reflects only items with reliable cost data.
-          // We still count total items to compute coverage.
-          // If you prefer an estimated overall margin, we can compute that separately.
         }
 
         res.totalItems += qty;

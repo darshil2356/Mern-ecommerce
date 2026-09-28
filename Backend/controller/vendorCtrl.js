@@ -594,6 +594,224 @@ const getVendorAnalysis = asyncHandler(async (req, res) => {
   });
 });
 
+const getVendorStockWiseAnalytics = asyncHandler(async (req, res) => {
+  const vendors = await Vendor.find().sort({ name: 1 });
+
+  const products = await Product.find()
+    .populate("categoryId", "title")
+    .select(
+      "title slug price purchasePrice mrp quantity sold images category categoryId subcategory brand sku barcode sizeStock variants vendorName createdAt"
+    );
+
+  const vendorStatsMap = {};
+
+  vendors.forEach((v) => {
+    const vId = v._id.toString();
+    vendorStatsMap[vId] = {
+      vendor: {
+        _id: v._id,
+        name: v.name,
+        firmName: v.firmName || "",
+        phone: v.phone || "",
+        city: v.city || "",
+        gstin: v.gstin || "",
+        status: v.status || "ACTIVE",
+      },
+      totalProducts: 0,
+      totalStockQty: 0,
+      totalStockCostValue: 0,
+      totalStockRetailValue: 0,
+      totalSoldQty: 0,
+      items: [],
+    };
+  });
+
+  const unassignedId = "unassigned";
+  vendorStatsMap[unassignedId] = {
+    vendor: {
+      _id: null,
+      name: "Unassigned / General Store",
+      firmName: "Direct Shop Stock",
+      phone: "-",
+      city: "-",
+      status: "ACTIVE",
+    },
+    totalProducts: 0,
+    totalStockQty: 0,
+    totalStockCostValue: 0,
+    totalStockRetailValue: 0,
+    totalSoldQty: 0,
+    items: [],
+  };
+
+  const normalizeStr = (str) =>
+    String(str || "")
+      .toLowerCase()
+      .replace(/[^a-z0-9]/g, "");
+
+  const findVendorIdForProduct = (vName) => {
+    if (!vName) return unassignedId;
+    const rawVName = String(vName).trim();
+    if (!rawVName) return unassignedId;
+
+    // 1. Direct ID match
+    if (vendorStatsMap[rawVName]) return rawVName;
+
+    const normVName = normalizeStr(rawVName);
+    if (!normVName) return unassignedId;
+
+    // 2. Normalized exact match (ignoring dots, spaces, hyphens, case)
+    for (const v of vendors) {
+      const vId = v._id.toString();
+      const normName = normalizeStr(v.name);
+      const normFirm = normalizeStr(v.firmName);
+
+      if (
+        normVName === normalizeStr(vId) ||
+        (normName && normVName === normName) ||
+        (normFirm && normVName === normFirm)
+      ) {
+        return vId;
+      }
+    }
+
+    // 3. Substring / Partial match (e.g. "J.B fashion" vs "J.B. Fashion")
+    if (normVName.length >= 2) {
+      for (const v of vendors) {
+        const vId = v._id.toString();
+        const normName = normalizeStr(v.name);
+        const normFirm = normalizeStr(v.firmName);
+
+        if (
+          (normName && (normVName.includes(normName) || normName.includes(normVName))) ||
+          (normFirm && (normVName.includes(normFirm) || normFirm.includes(normVName)))
+        ) {
+          return vId;
+        }
+      }
+    }
+
+    // 4. Fallback for vendor names entered on products that are not yet in Vendor collection
+    const dynamicKey = `vendor_name_${normVName}`;
+    if (!vendorStatsMap[dynamicKey]) {
+      vendorStatsMap[dynamicKey] = {
+        vendor: {
+          _id: null,
+          name: rawVName,
+          firmName: "Store Product Vendor",
+          phone: "-",
+          city: "-",
+          status: "ACTIVE",
+        },
+        totalProducts: 0,
+        totalStockQty: 0,
+        totalStockCostValue: 0,
+        totalStockRetailValue: 0,
+        totalSoldQty: 0,
+        items: [],
+      };
+    }
+    return dynamicKey;
+  };
+
+  let grandTotalStockQty = 0;
+  let grandTotalStockCostValue = 0;
+  let grandTotalStockRetailValue = 0;
+  let grandTotalSoldQty = 0;
+
+  products.forEach((p) => {
+    let stockQty = Number(p.quantity || 0);
+    if (p.variants && p.variants.length > 0) {
+      const variantQty = p.variants.reduce(
+        (sum, v) => sum + (v.sizeStock || []).reduce((q, s) => q + Number(s.quantity || 0), 0),
+        0
+      );
+      if (variantQty > 0) stockQty = variantQty;
+    } else if (p.sizeStock && p.sizeStock.length > 0) {
+      const sizeQty = p.sizeStock.reduce((sum, s) => sum + Number(s.quantity || 0), 0);
+      if (sizeQty > 0) stockQty = sizeQty;
+    }
+
+    const sellingPrice = Number(p.price || 0);
+    const costPrice = Number(
+      p.purchasePrice !== null && p.purchasePrice !== undefined && p.purchasePrice !== 0
+        ? p.purchasePrice
+        : sellingPrice
+    );
+
+    const stockCost = stockQty * costPrice;
+    const stockRetail = stockQty * sellingPrice;
+    const soldUnits = Number(p.sold || 0);
+
+    const targetVendorId = findVendorIdForProduct(p.vendorName);
+    const targetBucket = vendorStatsMap[targetVendorId];
+
+    const categoryTitle = p.categoryId?.title || p.category || p.subcategory || "General";
+    const itemData = {
+      _id: p._id,
+      title: p.title,
+      slug: p.slug,
+      sku: p.sku || "-",
+      barcode: p.barcode || "-",
+      category: categoryTitle,
+      brand: p.brand || "-",
+      image: p.images?.[0]?.url || "",
+      stockQty,
+      soldQty: soldUnits,
+      costPrice,
+      sellingPrice,
+      stockCostValue: Math.round(stockCost),
+      stockRetailValue: Math.round(stockRetail),
+      potentialProfit: Math.round(stockRetail - stockCost),
+      vendorName: p.vendorName || "",
+    };
+
+    targetBucket.totalProducts += 1;
+    targetBucket.totalStockQty += stockQty;
+    targetBucket.totalStockCostValue += stockCost;
+    targetBucket.totalStockRetailValue += stockRetail;
+    targetBucket.totalSoldQty += soldUnits;
+    targetBucket.items.push(itemData);
+
+    grandTotalStockQty += stockQty;
+    grandTotalStockCostValue += stockCost;
+    grandTotalStockRetailValue += stockRetail;
+    grandTotalSoldQty += soldUnits;
+  });
+
+  const vendorWiseList = Object.values(vendorStatsMap)
+    .filter((v) => v.vendor._id !== null || v.totalProducts > 0)
+    .map((vStats) => {
+      const potentialProfit = vStats.totalStockRetailValue - vStats.totalStockCostValue;
+      const sharePercent =
+        grandTotalStockCostValue > 0
+          ? ((vStats.totalStockCostValue / grandTotalStockCostValue) * 100).toFixed(1)
+          : "0.0";
+
+      return {
+        ...vStats,
+        totalStockCostValue: Math.round(vStats.totalStockCostValue),
+        totalStockRetailValue: Math.round(vStats.totalStockRetailValue),
+        potentialProfit: Math.round(potentialProfit),
+        stockSharePercent: Number(sharePercent),
+      };
+    })
+    .sort((a, b) => b.totalStockCostValue - a.totalStockCostValue);
+
+  res.json({
+    summary: {
+      grandTotalStockQty,
+      grandTotalStockCostValue: Math.round(grandTotalStockCostValue),
+      grandTotalStockRetailValue: Math.round(grandTotalStockRetailValue),
+      grandTotalPotentialProfit: Math.round(grandTotalStockRetailValue - grandTotalStockCostValue),
+      grandTotalSoldQty,
+      totalVendorsCount: vendors.length,
+      vendorsWithStockCount: vendorWiseList.filter((v) => v.totalStockQty > 0 && v.vendor._id !== null).length,
+    },
+    vendorWiseStock: vendorWiseList,
+  });
+});
+
 module.exports = {
   createVendor,
   updateVendor,
@@ -603,5 +821,7 @@ module.exports = {
   getVendorLedger,
   getVendorDashboardStats,
   getVendorAnalysis,
+  getVendorStockWiseAnalytics,
 };
+
 

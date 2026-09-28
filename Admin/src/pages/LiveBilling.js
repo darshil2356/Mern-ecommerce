@@ -1535,19 +1535,23 @@ const LiveBilling = () => {
     }
     msg += `━━━━━━━━━━━━━━━\n\n`;
 
+    const displayCoinBalance = (typeof newCoinBalance === "number" && newCoinBalance >= 0)
+      ? newCoinBalance
+      : (useCoins ? Math.max(0, customerCoins - coinAmount) : customerCoins);
+
     // Coins earned on this purchase
     if (coinsEarned > 0) {
       msg += `🪙 *Coins Earned This Purchase: +${coinsEarned} coins*\n`;
-      msg += `💼 *Your Coin Balance: ${newCoinBalance} coins*\n`;
+      msg += `💼 *Your Coin Balance: ${displayCoinBalance} coins*\n`;
       msg += `✨ You can use these coins as discount on your next purchase!\n`;
       msg += `   (1 coin = ₹1 discount)\n\n`;
-      msg += `🔁 *Referral Total Coins: ${newCoinBalance} coins*\n`;
+      msg += `🔁 *Referral Total Coins: ${displayCoinBalance} coins*\n`;
       msg += `💥 આ બિલ પર તમે કમાયા: ${coinsEarned} કોઇન્સ\n\n`;
-    } else if (activeCustomer.contact && customerCoins > 0) {
-      msg += `🪙 *Your Coin Balance: ${customerCoins} coins*\n`;
+    } else if (activeCustomer.contact) {
+      msg += `🪙 *Your Coin Balance: ${displayCoinBalance} coins*\n`;
       msg += `✨ Use these coins as discount on your next purchase!\n`;
       msg += `   (1 coin = ₹1 discount)\n\n`;
-      msg += `🔁 *Referral Total Coins: ${customerCoins} coins*\n\n`;
+      msg += `🔁 *Referral Total Coins: ${displayCoinBalance} coins*\n\n`;
     }
 
     msg += `📣 *Referral અને ખરીદી બંને પર coin મેળવો!*\n`;
@@ -1697,7 +1701,7 @@ const LiveBilling = () => {
 
       // Fetch updated coin balance to include in WhatsApp message
       let coinsEarned = 0;
-      let newCoinBalance = customerCoins;
+      let newCoinBalance = useCoins ? Math.max(0, customerCoins - coinAmount) : customerCoins;
       if (customerData.contact) {
         try {
           const updatedOffer = await axios.get(`${base_url}user/customer-offer?mobile=${customerData.contact}`, config);

@@ -11,6 +11,7 @@ import {
   clearVendorLedger,
   recordPurchasePayment,
 } from "../features/purchase/purchaseSlice";
+import VendorStockAnalyticsModal from "../components/VendorStockAnalyticsModal";
 
 const fmt = (n) =>
   new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(n || 0);
@@ -48,6 +49,7 @@ export default function Vendors() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("ACTIVE");
   const [showForm, setShowForm] = useState(false);
+  const [showStockModal, setShowStockModal] = useState(false);
   const [editId, setEditId] = useState(null);
   const [form, setForm] = useState(EMPTY_FORM);
   const [activeTab, setActiveTab] = useState("info");
@@ -215,7 +217,14 @@ export default function Vendors() {
             All vendors — GST & Non-GST bills tracked per bill
           </p>
         </div>
-        <div style={{ display: "flex", gap: 10 }}>
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+          <button onClick={() => setShowStockModal(true)} style={{
+            background: "linear-gradient(135deg, #4f46e5 0%, #3730a3 100%)", color: "#fff", border: "none", borderRadius: 8,
+            padding: "10px 18px", fontWeight: 700, cursor: "pointer", fontSize: 14,
+            display: "flex", alignItems: "center", gap: 6, boxShadow: "0 4px 12px rgba(79, 70, 229, 0.35)",
+          }}>
+            🏬 Stock Analytics
+          </button>
           <button onClick={() => navigate("/admin/vendor-dashboard")} style={{
             background: "#1e293b", color: "#fff", border: "none", borderRadius: 8,
             padding: "10px 18px", fontWeight: 600, cursor: "pointer", fontSize: 14,
@@ -758,6 +767,12 @@ export default function Vendors() {
           </div>
         </div>
       )}
+
+      {/* Vendor Stock Wise Analytics Modal */}
+      <VendorStockAnalyticsModal
+        isOpen={showStockModal}
+        onClose={() => setShowStockModal(false)}
+      />
     </div>
   );
 }

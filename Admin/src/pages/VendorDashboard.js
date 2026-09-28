@@ -4,6 +4,7 @@ import { useDispatch } from "react-redux";
 import { toast } from "react-toastify";
 import api from "../utils/axiosconfig";
 import { recordPurchasePayment } from "../features/purchase/purchaseSlice";
+import VendorStockAnalyticsModal from "../components/VendorStockAnalyticsModal";
 
 const fmt = (n) =>
   new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(n || 0);
@@ -19,6 +20,7 @@ export default function VendorDashboard() {
   const [data, setData] = useState(null);
   const [overdueSearch, setOverdueSearch] = useState("");
   const [selectedVendorOverdue, setSelectedVendorOverdue] = useState(null);
+  const [showStockModal, setShowStockModal] = useState(false);
 
   // Payment Modal State
   const [payModal, setPayModal] = useState(null); // { purchaseId, billNo, vendorName, dueAmount }
@@ -133,6 +135,25 @@ export default function VendorDashboard() {
           </p>
         </div>
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+          <button
+            onClick={() => setShowStockModal(true)}
+            style={{
+              padding: "10px 18px",
+              background: "linear-gradient(135deg, #4f46e5 0%, #3730a3 100%)",
+              color: "#fff",
+              border: "none",
+              borderRadius: 10,
+              fontWeight: 700,
+              cursor: "pointer",
+              fontSize: 14,
+              boxShadow: "0 4px 14px rgba(79, 70, 229, 0.35)",
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+            }}
+          >
+            🏬 Vendor Wise Stock Analysis
+          </button>
           <button
             onClick={() => navigate("/admin/vendors")}
             style={{
@@ -883,6 +904,12 @@ export default function VendorDashboard() {
           </div>
         </div>
       )}
+
+      {/* Vendor Stock Wise Analytics Modal */}
+      <VendorStockAnalyticsModal
+        isOpen={showStockModal}
+        onClose={() => setShowStockModal(false)}
+      />
     </div>
   );
 }

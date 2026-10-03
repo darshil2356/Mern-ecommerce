@@ -3,6 +3,7 @@ const asyncHandler = require("express-async-handler");
 const {
   buildUdharPurchaseMessage,
   buildUdharPaymentMessage,
+  buildConsolidatedUdharMessage,
   sendMetaWhatsAppCloudApi,
   generateWhatsAppUrl,
   getStoreName,
@@ -277,6 +278,170 @@ const toggleHideUdhar = asyncHandler(async (req, res) => {
   });
 });
 
+// POST /udhar/send-customer-reminder — Send single consolidated Udhar reminder (all bills grouped) for a customer
+const sendCustomerReminder = asyncHandler(async (req, res) => {
+  const { personPhone, personName } = req.body;
+
+  if (!personPhone && !personName) {
+    res.status(400);
+    throw new Error("Customer phone or name is required");
+  }
+
+  const searchConditions = [];
+  if (personPhone && personPhone.trim()) {
+    const cleanDigits = personPhone.trim().replace(/\D/g, "");
+    if (cleanDigits) {
+      searchConditions.push({ personPhone: { $regex: cleanDigits } });
+    }
+  }
+  if (personName && personName.trim()) {
+    const escapedName = personName.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    searchConditions.push({ personName: { $regex: `^${escapedName}$`, $options: "i" } });
+  }
+
+  if (searchConditions.length === 0) {
+    res.status(400);
+    throw new Error("Invalid customer identifier");
+  }
+
+  // 1. Check if customer is HIDDEN — STRICT PROTECTION: Do NOT send reminder to hidden customers!
+  const isCustomerHidden = await Udhar.exists({
+    $or: searchConditions,
+    isHidden: true,
+  });
+
+  if (isCustomerHidden) {
+    res.status(400);
+    throw new Error("Cannot send reminder: Customer is hidden or archived. Unhide customer first to send messages.");
+  }
+
+  // 2. Fetch all non-hidden, non-cleared bills for this customer
+  const bills = await Udhar.find({
+    $or: searchConditions,
+    isHidden: { $ne: true },
+    status: { $ne: "CLEARED" },
+  }).sort({ createdAt: 1 });
+
+  const activeBills = bills.filter(b => {
+    const remaining = Math.max(0, Number(b.totalAmount || 0) - Number(b.paidAmount || 0));
+    return remaining > 0.01;
+  });
+
+  if (activeBills.length === 0) {
+    res.status(400);
+    throw new Error("No active pending bills found for this customer.");
+  }
+
+  // Get Store Info
+  const User = require("../models/userModel");
+  const adminUser = await User.findOne({ role: "admin" }).select("storeName storePhone");
+  const storeName = adminUser?.storeName || "Yashoda Fashion";
+  const storePhone = adminUser?.storePhone || "";
+
+  const targetName = activeBills[0]?.personName || personName || "Customer";
+  const targetPhone = activeBills[0]?.personPhone || personPhone || "";
+
+  // 3. Build ONE consolidated message for ALL bills
+  const whatsappMessage = buildConsolidatedUdharMessage({
+    personName: targetName,
+    bills: activeBills,
+    storeName,
+    storePhone,
+  });
+
+  const whatsappUrl = generateWhatsAppUrl({ phone: targetPhone, messageText: whatsappMessage });
+
+  let whatsappSent = false;
+  if (targetPhone) {
+    const apiResult = await sendMetaWhatsAppCloudApi({ phone: targetPhone, messageText: whatsappMessage });
+    whatsappSent = apiResult.success;
+  }
+
+  const totalRemaining = activeBills.reduce((s, b) => s + Math.max(0, Number(b.totalAmount || 0) - Number(b.paidAmount || 0)), 0);
+
+  res.json({
+    success: true,
+    personName: targetName,
+    personPhone: targetPhone,
+    billCount: activeBills.length,
+    totalRemaining,
+    whatsappMessage,
+    whatsappUrl,
+    whatsappSent,
+  });
+});
+
+// POST /udhar/send-all-reminders — Consolidated reminders for ALL active non-hidden customers
+const sendAllCustomerReminders = asyncHandler(async (req, res) => {
+  // Fetch all active non-hidden, non-cleared records
+  const allRecords = await Udhar.find({
+    isHidden: { $ne: true },
+    status: { $ne: "CLEARED" },
+  }).sort({ createdAt: 1 });
+
+  // Group by customer key (phone or lowercased name)
+  const customerMap = new Map();
+  allRecords.forEach(r => {
+    const remaining = Math.max(0, Number(r.totalAmount || 0) - Number(r.paidAmount || 0));
+    if (remaining <= 0.01) return;
+
+    const phoneKey = r.personPhone ? r.personPhone.trim().replace(/\D/g, "") : "";
+    const nameKey = r.personName ? r.personName.trim().toLowerCase() : "";
+    const key = phoneKey || nameKey;
+
+    if (!key) return;
+
+    if (!customerMap.has(key)) {
+      customerMap.set(key, {
+        personName: r.personName,
+        personPhone: r.personPhone,
+        bills: [],
+      });
+    }
+    customerMap.get(key).bills.push(r);
+  });
+
+  const User = require("../models/userModel");
+  const adminUser = await User.findOne({ role: "admin" }).select("storeName storePhone");
+  const storeName = adminUser?.storeName || "Yashoda Fashion";
+  const storePhone = adminUser?.storePhone || "";
+
+  const results = [];
+  for (const [key, cust] of customerMap.entries()) {
+    const whatsappMessage = buildConsolidatedUdharMessage({
+      personName: cust.personName,
+      bills: cust.bills,
+      storeName,
+      storePhone,
+    });
+    const whatsappUrl = generateWhatsAppUrl({ phone: cust.personPhone, messageText: whatsappMessage });
+
+    let whatsappSent = false;
+    if (cust.personPhone) {
+      const apiRes = await sendMetaWhatsAppCloudApi({ phone: cust.personPhone, messageText: whatsappMessage });
+      whatsappSent = apiRes.success;
+    }
+
+    const totalRemaining = cust.bills.reduce((s, b) => s + Math.max(0, Number(b.totalAmount || 0) - Number(b.paidAmount || 0)), 0);
+
+    results.push({
+      personName: cust.personName,
+      personPhone: cust.personPhone,
+      billCount: cust.bills.length,
+      totalRemaining,
+      whatsappMessage,
+      whatsappUrl,
+      whatsappSent,
+    });
+  }
+
+  res.json({
+    success: true,
+    totalCustomers: results.length,
+    data: results,
+  });
+});
+
 // GET /udhar/:id
 const getOne = asyncHandler(async (req, res) => {
   const udhar = await Udhar.findById(req.params.id);
@@ -291,4 +456,14 @@ const deleteUdhar = asyncHandler(async (req, res) => {
   res.json({ success: true, message: "Deleted" });
 });
 
-module.exports = { addUdhar, recordPayment, getAll, getOne, deleteUdhar, toggleHideUdhar };
+module.exports = {
+  addUdhar,
+  recordPayment,
+  getAll,
+  getOne,
+  deleteUdhar,
+  toggleHideUdhar,
+  sendCustomerReminder,
+  sendAllCustomerReminders,
+};
+

@@ -50,6 +50,82 @@ Thank you for your prompt payment!`;
 };
 
 /**
+ * Build Consolidated Udhar Reminder WhatsApp message text in Gujarati (ગુજરાતી)
+ */
+const buildConsolidatedUdharMessage = ({
+  personName,
+  bills = [],
+  storeName = "Yashoda Fashion",
+  storePhone = "",
+}) => {
+  const nameStr = personName || "ગ્રાહક મિત્ર";
+
+  // Filter out any 0 balance items
+  const pendingBills = bills.filter(
+    (b) => Math.max(0, Number(b.totalAmount || 0) - Number(b.paidAmount || 0)) > 0.01
+  );
+
+  if (pendingBills.length === 0) {
+    return `🛍️ *${storeName}* 🛍️
+
+નમસ્તે *${nameStr}* જી 🙏,
+તમારો તમામ ઉધાર બાકી હિસાબ પૂર્ણ ચૂકવાઈ ગયો છે! 🎉
+અમારી દુકાનેથી ખરીદી કરવા બદલ આપનો ખૂબ ખૂબ આભાર! ❤️`;
+  }
+
+  // Helper to format date in Gujarati/Indian format
+  const formatDateStr = (d) => {
+    if (!d) return "N/A";
+    const dateObj = new Date(d);
+    return isNaN(dateObj.getTime())
+      ? "N/A"
+      : dateObj.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+  };
+
+  let totalCombinedPending = 0;
+
+  // Build itemized list of all bills with Date and Amount in Gujarati
+  const billLines = pendingBills
+    .map((b, index) => {
+      const billDate = formatDateStr(b.createdAt || b.date || b.dueDate);
+      const tot = Number(b.totalAmount || 0);
+      const paid = Number(b.paidAmount || 0);
+      const rem = Math.max(0, tot - paid);
+      totalCombinedPending += rem;
+
+      const desc = b.productDetails
+        ? ` (${b.productDetails})`
+        : b.type === "PERSONAL_LOAN"
+          ? " (પર્સનલ લોન)"
+          : "";
+      const paidText = paid > 0 ? ` [જમા: ₹${paid.toFixed(0)}]` : "";
+
+      return `${index + 1}. 📅 *તારીખ:* ${billDate}\n   📦 *બિલ રકમ:* ₹${tot.toFixed(0)}${desc}${paidText}\n   ⚠️ *બાકી રકમ:* ₹${rem.toFixed(0)}`;
+    })
+    .join("\n\n");
+
+  const billCountHeader =
+    pendingBills.length > 1 ? ` (કુલ ${pendingBills.length} બિલ)` : "";
+
+  return `🛍️ *${storeName}* 🛍️
+*ઉધાર બાકી હિસાબ વિગતો*
+કૃપા કરીને બાકી રકમ વહેલી તકે GPay / PhonePe અથવા કેશ (રોકડ) દ્વારા જમા કરાવવા વિનંતી.
+
+નમસ્તે *${nameStr}* જી 🙏,
+તમારી કુલ ઉધાર બાકી હિસાબની વિગતો નીચે મુજબ છે${billCountHeader}:
+
+----------------------------------
+${billLines}
+----------------------------------
+
+💰 *કુલ ચૂકવવાની બાકી રકમ: ₹${totalCombinedPending.toFixed(0)}*
+
+અમારા પર વિશ્વાસ રાખવા બદલ આપનો ખૂબ ખૂબ આભાર! ❤️
+${storePhone ? `\n📞 સંપર્ક: ${storePhone}` : "9909895645"}`;
+};
+
+
+/**
  * Send WhatsApp message via Meta Cloud API if configured
  */
 const sendMetaWhatsAppCloudApi = async ({ phone, messageText }) => {
@@ -110,7 +186,9 @@ module.exports = {
   formatPhoneNumber,
   buildUdharPurchaseMessage,
   buildUdharPaymentMessage,
+  buildConsolidatedUdharMessage,
   sendMetaWhatsAppCloudApi,
   generateWhatsAppUrl,
   getStoreName,
 };
+

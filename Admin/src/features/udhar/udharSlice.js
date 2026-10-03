@@ -46,6 +46,25 @@ export const deleteUdhar = createAsyncThunk("udhar/delete", async (id, { rejectW
   }
 });
 
+export const sendUdharCustomerReminder = createAsyncThunk("udhar/sendCustomerReminder", async (payload, { rejectWithValue }) => {
+  try {
+    const { data } = await api.post("/udhar/send-customer-reminder", payload);
+    return data;
+  } catch (err) {
+    return rejectWithValue(err.response?.data?.message || err.message);
+  }
+});
+
+export const sendAllUdharReminders = createAsyncThunk("udhar/sendAllReminders", async (_, { rejectWithValue }) => {
+  try {
+    const { data } = await api.post("/udhar/send-all-reminders");
+    return data;
+  } catch (err) {
+    return rejectWithValue(err.response?.data?.message || err.message);
+  }
+});
+
+
 const udharSlice = createSlice({
   name: "udhar",
   initialState: {

@@ -8,7 +8,10 @@ import {
   recordUdharPayment,
   deleteUdhar,
   toggleHideUdhar,
+  sendUdharCustomerReminder,
+  sendAllUdharReminders,
 } from "../features/udhar/udharSlice";
+
 
 /* ─── helpers ─────────────────────────────────────────────── */
 const fmt = (n) =>
@@ -57,6 +60,8 @@ export default function Udhar() {
   const [payNote, setPayNote] = useState("");
   const [activeTab, setActiveTab] = useState("ALL"); // ALL | PRODUCT_SALE | PERSONAL_LOAN
   const [whatsappPrompt, setWhatsappPrompt] = useState({ open: false, title: "", personName: "", whatsappUrl: "", messageText: "", whatsappSent: false });
+  const [bulkPrompt, setBulkPrompt] = useState({ open: false, title: "", customers: [], currentIndex: 0 });
+
 
   const [form, setForm] = useState({
     type: "PRODUCT_SALE",
@@ -255,16 +260,96 @@ export default function Udhar() {
     }
   };
 
-  /* ── send card whatsapp ── */
-  const sendCardWhatsapp = (record) => {
-    if (!record.personPhone) return toast.error("No phone number registered for this entry");
-    const remaining = Math.max(0, record.totalAmount - record.paidAmount);
-    const msg = `🛍️ *Yashoda Fashion* 🛍️\n*Udhar Status Notice*\n\nHello *${record.personName}*,\nHere is your current balance summary:\n\n💵 *Total Bill:* ₹${record.totalAmount}\n✅ *Paid So Far:* ₹${record.paidAmount}\n⚠️ *Remaining Baki (Udhar):* ₹${remaining}\n\nThank you!`;
-    const cleanPhone = String(record.personPhone).replace(/\D/g, "");
-    const targetPhone = cleanPhone.length === 10 ? `91${cleanPhone}` : cleanPhone;
-    const url = `https://web.whatsapp.com/send?phone=${targetPhone}&text=${encodeURIComponent(msg)}`;
-    window.open(url, "_blank");
+  /* ── send consolidated WhatsApp for a customer (all bills grouped in 1 polite message) ── */
+  const sendConsolidatedCustomerWhatsapp = async (personName, personPhone) => {
+    // 1. Check if customer is hidden or archived — strictly block sending messages to hidden customers
+    const matchingRecords = records.filter(
+      (r) =>
+        (personName && (r.personName || "").trim().toLowerCase() === personName.trim().toLowerCase()) ||
+        (personPhone && r.personPhone && r.personPhone.trim() === personPhone.trim())
+    );
+
+    const isHiddenCustomer = matchingRecords.some((r) => r.isHidden === true);
+    if (isHiddenCustomer || filters.status === "HIDDEN") {
+      return toast.warning("🙈 Hidden Customer! Cannot send Udhar reminder to hidden customers. Please unhide the customer first.");
+    }
+
+    const activeBills = matchingRecords.filter(
+      (r) => !r.isHidden && r.status !== "CLEARED" && Number(r.totalAmount || 0) - Number(r.paidAmount || 0) > 0.01
+    );
+
+    if (activeBills.length === 0) {
+      return toast.info(`ℹ️ Customer "${personName || "Customer"}" has no active pending Udhar balance.`);
+    }
+
+    const res = await dispatch(sendUdharCustomerReminder({ personName, personPhone }));
+    if (res.meta.requestStatus === "fulfilled") {
+      const payload = res.payload;
+      setWhatsappPrompt({
+        open: true,
+        title: `Udhar Balance Statement (${payload.billCount || activeBills.length} Bill${(payload.billCount || activeBills.length) > 1 ? "s" : ""} Grouped in 1 Message)`,
+        personName: payload.personName || personName,
+        whatsappUrl: payload.whatsappUrl || "",
+        messageText: payload.whatsappMessage || "",
+        whatsappSent: payload.whatsappSent || false,
+      });
+      toast.success(
+        `Generated 1 single message with date & amount for all ${payload.billCount || activeBills.length} bill(s) of ${payload.personName || personName}!`
+      );
+    } else {
+      toast.error(res.payload || "Failed to generate reminder message");
+    }
   };
+
+  /* ── legacy single card trigger redirects to consolidated helper ── */
+  const sendCardWhatsapp = (record) => {
+    if (record.isHidden) {
+      return toast.warning("🙈 Hidden Customer! Cannot send Udhar reminder to hidden customers. Please unhide the customer first.");
+    }
+    if (!record.personPhone && !record.personName) {
+      return toast.error("No name or phone number registered for this entry");
+    }
+    sendConsolidatedCustomerWhatsapp(record.personName, record.personPhone);
+  };
+
+  /* ── bulk reminders for all active non-hidden customers ── */
+  const handleSendAllReminders = async () => {
+    const activePendingCustomers = uniqueCustomers.filter((cust) => {
+      const custBills = records.filter((r) => (r.personName || "").trim().toLowerCase() === cust.toLowerCase());
+      return custBills.some((r) => !r.isHidden && r.status !== "CLEARED" && Number(r.totalAmount || 0) - Number(r.paidAmount || 0) > 0.01);
+    });
+
+    if (activePendingCustomers.length === 0) {
+      return toast.info("No active non-hidden customers with pending Udhar balance.");
+    }
+
+    if (
+      !window.confirm(
+        `📱 Send Gujarati Udhar balance statements to all ${activePendingCustomers.length} active customer(s)?\n\n- All bills for each customer will be combined into 1 message with date & amount.\n- Hidden customers will be automatically excluded.`
+      )
+    ) {
+      return;
+    }
+
+    const res = await dispatch(sendAllUdharReminders());
+    if (res.meta.requestStatus === "fulfilled") {
+      const data = res.payload?.data || [];
+      if (data.length > 0) {
+        setBulkPrompt({
+          open: true,
+          title: `📱 Bulk Udhar Reminders (${data.length} Customers)`,
+          customers: data,
+          currentIndex: 0,
+        });
+        toast.success(`Prepared consolidated Gujarati reminders for all ${data.length} customer(s)!`);
+      } else {
+        toast.info("No active pending customer reminders to send.");
+      }
+    } else {
+      toast.error(res.payload || "Failed to fetch reminders");
+    }
+  };
+
 
   /* ── delete ── */
   const handleDelete = async (id) => {
@@ -285,12 +370,22 @@ export default function Udhar() {
         <div className="ud-header">
           <div>
             <h1 className="ud-title">🤝 Udhar Khata (Credit Manager)</h1>
-            <p className="ud-subtitle">Track customer credit sales, repayments, and automated WhatsApp receipts</p>
+            <p className="ud-subtitle">Track customer credit sales, repayments, and send consolidated WhatsApp statements</p>
           </div>
-          <button className="ud-btn-green" onClick={() => setShowForm(!showForm)}>
-            {showForm ? "✕ Close Form" : "+ New Udhar Entry"}
-          </button>
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+            <button
+              className="ud-btn-outline"
+              style={{ borderColor: "#25D366", color: "#16a34a", fontWeight: 700, fontSize: 13, background: "#f0fdf4" }}
+              onClick={handleSendAllReminders}
+            >
+              📱 Send Consolidated Reminders (All Active)
+            </button>
+            <button className="ud-btn-green" onClick={() => setShowForm(!showForm)}>
+              {showForm ? "✕ Close Form" : "+ New Udhar Entry"}
+            </button>
+          </div>
         </div>
+
 
         {/* ── Interactive Summary Cards ── */}
         <div className="ud-summary-grid">
@@ -438,14 +533,33 @@ export default function Udhar() {
                   </div>
                 </div>
               </div>
-              <button
-                className="ud-btn-outline"
-                style={{ fontSize: 12, padding: "6px 14px", borderColor: "#fca5a5", color: "#dc2626", fontWeight: 700 }}
-                onClick={() => setFilters(f => ({ ...f, selectedCustomer: "" }))}
-              >
-                ✕ Clear Customer Filter
-              </button>
+              <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+                <button
+                  className="ud-btn-green"
+                  style={{
+                    background: "linear-gradient(135deg, #16a34a, #25D366)",
+                    borderColor: "#25D366",
+                    fontSize: 12,
+                    padding: "7px 14px",
+                    fontWeight: 700,
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 6,
+                  }}
+                  onClick={() => sendConsolidatedCustomerWhatsapp(filters.selectedCustomer, customerRecords[0]?.personPhone)}
+                >
+                  💬 Send Consolidated Udhar Message (All {customerRecords.filter((r) => !r.isHidden && r.status !== "CLEARED" && (r.totalAmount - r.paidAmount) > 0.01).length || custStats.totalBills} Bills in 1 Msg)
+                </button>
+                <button
+                  className="ud-btn-outline"
+                  style={{ fontSize: 12, padding: "6px 14px", borderColor: "#fca5a5", color: "#dc2626", fontWeight: 700 }}
+                  onClick={() => setFilters((f) => ({ ...f, selectedCustomer: "" }))}
+                >
+                  ✕ Clear Customer Filter
+                </button>
+              </div>
             </div>
+
 
             <div className="ud-cust-stats-grid" style={{ marginTop: 14, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 12 }}>
               <div className="ud-cust-stat-box">
@@ -768,10 +882,155 @@ export default function Udhar() {
           </div>
         )}
 
+        {/* ── Bulk Customer WhatsApp Dispatcher Modal (Queue for All Active Customers) ── */}
+        {bulkPrompt.open && (
+          <div className="ud-modal-overlay" onClick={() => setBulkPrompt(p => ({ ...p, open: false }))}>
+            <div className="ud-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 680, width: "92%" }}>
+              <div className="ud-modal-title" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", color: "#16a34a" }}>
+                <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <span>📱</span> {bulkPrompt.title}
+                </span>
+                <span style={{ fontSize: 12, fontWeight: 700, color: "#475569", background: "#e2e8f0", padding: "4px 10px", borderRadius: 20 }}>
+                  Customer {bulkPrompt.currentIndex + 1} of {bulkPrompt.customers.length}
+                </span>
+              </div>
+
+              {/* Customer Selector Pills / Tabs */}
+              <div style={{ display: "flex", gap: 6, overflowX: "auto", padding: "8px 0", margin: "10px 0", borderBottom: "1px solid #cbd5e1" }}>
+                {bulkPrompt.customers.map((cust, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => setBulkPrompt(p => ({ ...p, currentIndex: idx }))}
+                    style={{
+                      fontSize: 11,
+                      fontWeight: 700,
+                      padding: "6px 12px",
+                      borderRadius: 16,
+                      border: "1px solid",
+                      cursor: "pointer",
+                      whiteSpace: "nowrap",
+                      borderColor: bulkPrompt.currentIndex === idx ? "#16a34a" : "#cbd5e1",
+                      background: bulkPrompt.currentIndex === idx ? "#f0fdf4" : "#f8fafc",
+                      color: bulkPrompt.currentIndex === idx ? "#166534" : "#475569",
+                      boxShadow: bulkPrompt.currentIndex === idx ? "0 2px 4px rgba(22,163,74,0.15)" : "none",
+                    }}
+                  >
+                    👤 {cust.personName} ({cust.billCount} Bill{cust.billCount > 1 ? "s" : ""})
+                  </button>
+                ))}
+              </div>
+
+              {/* Current Selected Customer Details */}
+              {bulkPrompt.customers[bulkPrompt.currentIndex] && (() => {
+                const cur = bulkPrompt.customers[bulkPrompt.currentIndex];
+                return (
+                  <div>
+                    <div style={{ background: "#f8fafc", padding: 12, borderRadius: 10, border: "1px solid #cbd5e1", marginBottom: 12, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10 }}>
+                      <div>
+                        <div style={{ fontSize: 15, fontWeight: 800, color: "#0f172a" }}>
+                          👤 {cur.personName} {cur.personPhone && <span style={{ color: "#2563eb", fontWeight: 700 }}>({cur.personPhone})</span>}
+                        </div>
+                        <div style={{ fontSize: 12, color: "#64748b", marginTop: 2 }}>
+                          {cur.billCount} Pending Bill(s) Combined | Total Outstanding Baki: <strong style={{ color: "#dc2626" }}>₹{cur.totalRemaining}</strong>
+                        </div>
+                      </div>
+                      {cur.whatsappSent ? (
+                        <span style={{ fontSize: 11, fontWeight: 700, color: "#166534", background: "#d1fae5", padding: "4px 10px", borderRadius: 6 }}>
+                          ✅ Sent via Meta API
+                        </span>
+                      ) : (
+                        <span style={{ fontSize: 11, fontWeight: 700, color: "#92400e", background: "#fef3c7", padding: "4px 10px", borderRadius: 6 }}>
+                          ⏳ Ready for WhatsApp Web
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Message Preview */}
+                    <div style={{ fontSize: 12, fontWeight: 700, color: "#475569", marginBottom: 6 }}>
+                      📝 Gujarati Udhar Statement Message Preview:
+                    </div>
+                    <div style={{ background: "#0f172a", color: "#f8fafc", padding: 14, borderRadius: 10, fontSize: 12, fontFamily: "monospace", whiteSpace: "pre-wrap", maxHeight: 220, overflowY: "auto", border: "1px solid #334155", lineHeight: 1.5 }}>
+                      {cur.whatsappMessage}
+                    </div>
+
+                    {/* Dispatch Actions */}
+                    <div style={{ display: "flex", gap: 8, marginTop: 16, flexWrap: "wrap" }}>
+                      {cur.personPhone ? (
+                        <button
+                          type="button"
+                          className="ud-btn-green"
+                          style={{ flex: 1, background: "#25D366", borderColor: "#25D366", fontWeight: 700, padding: "10px", minWidth: 200 }}
+                          onClick={() => {
+                            if (cur.whatsappUrl) window.open(cur.whatsappUrl, "_blank");
+                            if (bulkPrompt.currentIndex < bulkPrompt.customers.length - 1) {
+                              setBulkPrompt(p => ({ ...p, currentIndex: p.currentIndex + 1 }));
+                            }
+                          }}
+                        >
+                          💬 Send WhatsApp to {cur.personName} {bulkPrompt.currentIndex < bulkPrompt.customers.length - 1 && "➡️ (Next Customer)"}
+                        </button>
+                      ) : (
+                        <div style={{ fontSize: 12, color: "#ef4444", fontWeight: 700, display: "flex", alignItems: "center" }}>
+                          ⚠️ No Phone number available for this customer
+                        </div>
+                      )}
+
+                      <div style={{ display: "flex", gap: 6 }}>
+                        <button
+                          type="button"
+                          className="ud-btn-outline"
+                          disabled={bulkPrompt.currentIndex === 0}
+                          onClick={() => setBulkPrompt(p => ({ ...p, currentIndex: Math.max(0, p.currentIndex - 1) }))}
+                          style={{ fontSize: 12, opacity: bulkPrompt.currentIndex === 0 ? 0.5 : 1 }}
+                        >
+                          ⬅️ Prev
+                        </button>
+                        <button
+                          type="button"
+                          className="ud-btn-outline"
+                          disabled={bulkPrompt.currentIndex === bulkPrompt.customers.length - 1}
+                          onClick={() => setBulkPrompt(p => ({ ...p, currentIndex: Math.min(p.customers.length - 1, p.currentIndex + 1) }))}
+                          style={{ fontSize: 12, opacity: bulkPrompt.currentIndex === bulkPrompt.customers.length - 1 ? 0.5 : 1 }}
+                        >
+                          Next ➡️
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 16, paddingTop: 12, borderTop: "1px solid #e2e8f0" }}>
+                <button
+                  type="button"
+                  className="ud-btn-outline"
+                  style={{ fontSize: 12, borderColor: "#25D366", color: "#16a34a", fontWeight: 700, background: "#f0fdf4" }}
+                  onClick={() => {
+                    bulkPrompt.customers.forEach(c => {
+                      if (c.whatsappUrl) window.open(c.whatsappUrl, "_blank");
+                    });
+                  }}
+                >
+                  🚀 Open ALL {bulkPrompt.customers.length} WhatsApp Links
+                </button>
+                <button
+                  type="button"
+                  className="ud-btn-outline"
+                  onClick={() => setBulkPrompt(p => ({ ...p, open: false }))}
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
       </div>
     </>
   );
 }
+
 
 /* ── Sub-components ── */
 function SummaryCard({ label, value, color, icon, bold, active, onClick }) {

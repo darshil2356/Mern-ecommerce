@@ -2198,8 +2198,23 @@ const getsingleOrder = asyncHandler(async (req, res) => {
       })
       .populate("orderItems.color")
       .populate("user", "firstname lastname email mobile");
+
+    let returnExchanges = [];
+    if (orders && orders.user) {
+      const custId = orders.user._id || orders.user;
+      returnExchanges = await ReturnExchange.find({
+        $or: [
+          { order: orders._id },
+          { customer: custId }
+        ]
+      })
+      .populate("processedBy", "firstname lastname")
+      .sort({ createdAt: -1 });
+    }
+
     res.json({
       orders,
+      returnExchanges,
     });
   } catch (error) {
     throw new Error(error);
@@ -3423,10 +3438,20 @@ const getCustomerDetails = asyncHandler(async (req, res) => {
       .populate("orderItems.color")
       .sort({ createdAt: -1 });
 
-    // Calculate statistics
+    // Calculate total purchase amount and orders
     const totalOrders = orders.length;
     const totalPurchaseAmount = orders.reduce((sum, order) => sum + (order.totalPriceAfterDiscount || 0), 0);
     const lastOrder = orders.length > 0 ? orders[0] : null;
+
+    // Get all return & exchange records for this customer
+    const returnExchanges = await ReturnExchange.find({ customer: id })
+      .populate("processedBy", "firstname lastname")
+      .sort({ createdAt: -1 });
+
+    const totalReturnedAmount = returnExchanges.reduce((sum, r) => sum + (r.returnedTotal || 0), 0);
+    const totalExchangedAmount = returnExchanges.reduce((sum, r) => sum + (r.exchangeTotal || 0), 0);
+    const netPurchaseAmount = Math.max(0, totalPurchaseAmount - totalReturnedAmount + totalExchangedAmount);
+    const totalReturnsCount = returnExchanges.length;
 
     // Calculate total savings offered (discounts only, excluding GST)
     const totalSavings = orders.reduce((sum, order) => {
@@ -3461,6 +3486,7 @@ const getCustomerDetails = asyncHandler(async (req, res) => {
       coinTransactions: (customer.coinTransactions || []).sort(
         (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
       ),
+      returnExchanges,
       referralInfo: {
         referredBy: referredByUser
           ? {
@@ -3475,6 +3501,10 @@ const getCustomerDetails = asyncHandler(async (req, res) => {
       statistics: {
         totalOrders,
         totalPurchaseAmount,
+        totalReturnedAmount,
+        totalExchangedAmount,
+        netPurchaseAmount,
+        totalReturnsCount,
         totalSavings,
         lastOrderDate: lastOrder ? lastOrder.createdAt : null,
       },
@@ -4419,6 +4449,7 @@ Thank you for shopping with us! Visit again.`;
   const returnExchangeDoc = await ReturnExchange.create({
     returnId,
     customer: customer._id,
+    order: req.body.orderId || req.body.order || null,
     returnedItems: processedReturnedItems,
     returnedItem: processedReturnedItems[0],
     exchangeItems: processedExchangeItems,
@@ -4448,6 +4479,57 @@ Thank you for shopping with us! Visit again.`;
     whatsappMessage,
     customerMobile: customer.mobile,
   });
+});
+
+// Get Return & Exchange list with filtering and search
+const getReturnExchangesList = asyncHandler(async (req, res) => {
+  try {
+    const { search, customerId, page = 1, limit = 50 } = req.query;
+    let query = {};
+
+    if (customerId) {
+      query.customer = customerId;
+    }
+
+    if (search) {
+      const searchRegex = new RegExp(search, "i");
+      const users = await User.find({
+        $or: [
+          { firstname: searchRegex },
+          { lastname: searchRegex },
+          { mobile: searchRegex },
+          { email: searchRegex }
+        ]
+      }).select("_id");
+      const userIds = users.map(u => u._id);
+
+      query.$or = [
+        { returnId: searchRegex },
+        { customer: { $in: userIds } },
+        { "returnedItems.title": searchRegex },
+        { "exchangeItems.title": searchRegex },
+        { note: searchRegex }
+      ];
+    }
+
+    const total = await ReturnExchange.countDocuments(query);
+    const returnExchanges = await ReturnExchange.find(query)
+      .populate("customer", "firstname lastname mobile email")
+      .populate("processedBy", "firstname lastname")
+      .sort({ createdAt: -1 })
+      .skip((Number(page) - 1) * Number(limit))
+      .limit(Number(limit));
+
+    res.json({
+      success: true,
+      total,
+      page: Number(page),
+      limit: Number(limit),
+      returnExchanges,
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
 });
 
 // Verify if customer actually purchased the product being returned + calculate purchase recency
@@ -4606,4 +4688,5 @@ module.exports = {
   adminCancelOrder,
   manualDeductCoins,
   manualAddCoins,
+  getReturnExchangesList,
 };

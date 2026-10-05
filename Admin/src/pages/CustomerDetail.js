@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Table, Tag, Button, Spin, Tooltip, Tabs, Modal, Form, InputNumber, Input, message } from "antd";
+import { Table, Tag, Button, Spin, Tooltip, Tabs, Modal, Form, InputNumber, Input, message, Space } from "antd";
 import { useDispatch, useSelector } from "react-redux";
 import { useLocation, useNavigate, Link } from "react-router-dom";
 import {
@@ -10,8 +10,10 @@ import {
   FaUser, FaEnvelope, FaPhone, FaMapMarkerAlt, FaCalendarAlt,
   FaIdCard, FaShoppingBag, FaCoins, FaGift, FaChartLine,
   FaArrowUp, FaArrowDown, FaTag, FaUsers, FaMinusCircle,
+  FaSync, FaExchangeAlt, FaPrint, FaWhatsapp,
 } from "react-icons/fa";
 import { getCustomerDetails, deductCoins, addCoins } from "../features/customers/customerSlice";
+import { printReturnExchangeReceipt } from "../utils/printReturnReceipt";
 
 const statusConfig = {
   Ordered: { color: "default", bg: "#f5f5f5", text: "#595959" },
@@ -113,7 +115,7 @@ const CustomerDetail = () => {
     );
   }
 
-  const { customer, statistics, orders, coinTransactions = [], referralInfo = {} } = customerDetails;
+  const { customer, statistics, orders, coinTransactions = [], returnExchanges = [], referralInfo = {} } = customerDetails;
 
   const totalCoinCredits = coinTransactions.filter((t) => t.type === "credit").reduce((s, t) => s + (t.coins || 0), 0);
   const totalCoinDebits = coinTransactions.filter((t) => t.type === "debit").reduce((s, t) => s + (t.coins || 0), 0);
@@ -253,8 +255,122 @@ const CustomerDetail = () => {
     },
   ];
 
+  const returnColumns = [
+    {
+      title: "Return ID",
+      dataIndex: "returnId",
+      key: "returnId",
+      render: (id) => <span className="font-mono text-xs font-bold bg-amber-50 text-amber-700 px-2 py-1 rounded-lg">#{id}</span>,
+    },
+    {
+      title: "Date",
+      dataIndex: "createdAt",
+      key: "createdAt",
+      responsive: ["md"],
+      render: (date) => <span className="text-gray-500 text-xs">{new Date(date).toLocaleString("en-IN", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}</span>,
+      sorter: (a, b) => new Date(a.createdAt) - new Date(b.createdAt),
+      defaultSortOrder: "descend",
+    },
+    {
+      title: "Returned Items",
+      key: "returnedItems",
+      render: (_, r) => {
+        const items = r.returnedItems && r.returnedItems.length > 0 ? r.returnedItems : (r.returnedItem?.product ? [r.returnedItem] : []);
+        return (
+          <div className="space-y-1">
+            {items.map((it, idx) => (
+              <div key={idx} className="text-xs text-red-600 font-medium">
+                • {it.title || "Returned Item"} x{it.quantity || 1} <span className="text-gray-400">(₹{it.agreedValue || 0})</span>
+              </div>
+            ))}
+            <div className="text-xs font-bold text-red-700 pt-0.5 border-t border-gray-100">
+              Total: -₹{r.returnedTotal || 0}
+            </div>
+          </div>
+        );
+      },
+    },
+    {
+      title: "Exchange Items Taken",
+      key: "exchangeItems",
+      render: (_, r) => {
+        const items = r.exchangeItems && r.exchangeItems.length > 0 ? r.exchangeItems : (r.exchangeItem?.product ? [r.exchangeItem] : []);
+        if (items.length === 0) return <span className="text-gray-400 text-xs italic">Pure Return (No Exchange)</span>;
+        return (
+          <div className="space-y-1">
+            {items.map((it, idx) => (
+              <div key={idx} className="text-xs text-emerald-600 font-medium">
+                • {it.title || "Exchange Item"} x{it.quantity || 1} <span className="text-gray-400">(₹{it.itemValue || 0})</span>
+              </div>
+            ))}
+            <div className="text-xs font-bold text-emerald-700 pt-0.5 border-t border-gray-100">
+              Total: +₹{r.exchangeTotal || 0}
+            </div>
+          </div>
+        );
+      },
+    },
+    {
+      title: "Settlement",
+      key: "settlement",
+      render: (_, r) => {
+        const diff = r.differentialAmount || 0;
+        return (
+          <div>
+            {diff > 0 ? (
+              <span className="inline-block text-xs font-bold bg-green-50 text-green-700 px-2 py-0.5 rounded-md">
+                Paid Extra: +₹{diff} ({r.paymentMethod || "CASH"})
+              </span>
+            ) : diff < 0 ? (
+              <span className="inline-block text-xs font-bold bg-red-50 text-red-700 px-2 py-0.5 rounded-md">
+                Refunded: -₹{Math.abs(diff)} ({r.paymentMethod || "CASH"})
+              </span>
+            ) : (
+              <span className="inline-block text-xs font-bold bg-blue-50 text-blue-700 px-2 py-0.5 rounded-md">
+                Even Exchange (₹0)
+              </span>
+            )}
+            {r.note && <p className="text-[11px] text-gray-400 mt-1 italic">Note: {r.note}</p>}
+          </div>
+        );
+      },
+    },
+    {
+      title: "Actions",
+      key: "actions",
+      align: "center",
+      render: (_, r) => (
+        <Space size="small">
+          <Tooltip title="Print Return Receipt">
+            <Button
+              size="small"
+              icon={<FaPrint size={11} />}
+              onClick={() => printReturnExchangeReceipt(r, customer)}
+              className="bg-gray-100 hover:bg-gray-200 text-gray-700 border-0 rounded-lg flex items-center justify-center cursor-pointer"
+            />
+          </Tooltip>
+          {r.whatsappText && (
+            <Tooltip title="Send WhatsApp Receipt">
+              <Button
+                size="small"
+                icon={<FaWhatsapp size={12} />}
+                onClick={() => {
+                  const phone = (customer.mobile || "").replace(/\D/g, "");
+                  const cleanPhone = phone.length === 10 ? `91${phone}` : phone;
+                  window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(r.whatsappText)}`, "_blank");
+                }}
+                className="bg-green-50 text-green-600 hover:bg-green-600 hover:text-white border-0 rounded-lg flex items-center justify-center cursor-pointer"
+              />
+            </Tooltip>
+          )}
+        </Space>
+      ),
+    },
+  ];
+
   const orderDataSource = orders?.map((o, i) => ({ key: i + 1, ...o })) || [];
   const coinDataSource = coinTransactions?.map((t, i) => ({ key: i + 1, ...t })) || [];
+  const returnDataSource = returnExchanges?.map((r, i) => ({ key: i + 1, ...r })) || [];
 
   const tabItems = [
     {
@@ -272,6 +388,26 @@ const CustomerDetail = () => {
           dataSource={orderDataSource}
           pagination={{ pageSize: 8, showSizeChanger: false }}
           scroll={{ x: 600 }}
+          size="small"
+          className="detail-table"
+        />
+      ),
+    },
+    {
+      key: "returns",
+      label: (
+        <span className="flex items-center gap-2 text-sm">
+          <FaExchangeAlt size={13} />
+          Returns & Exchanges
+          <span className="bg-amber-100 text-amber-700 text-xs font-bold px-1.5 py-0.5 rounded-full">{returnExchanges?.length || 0}</span>
+        </span>
+      ),
+      children: (
+        <Table
+          columns={returnColumns}
+          dataSource={returnDataSource}
+          pagination={{ pageSize: 8, showSizeChanger: false }}
+          scroll={{ x: 700 }}
           size="small"
           className="detail-table"
         />
@@ -421,9 +557,11 @@ const CustomerDetail = () => {
         {/* Right: Stats + Tabs */}
         <div className="xl:col-span-3 space-y-5">
           {/* Stats Grid */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-4 gap-3">
             <StatCard label="Total Orders" value={statistics.totalOrders} color="blue" icon={<FaShoppingBag size={16} />} />
-            <StatCard label="Total Purchase" value={`₹${statistics.totalPurchaseAmount?.toFixed(0)}`} color="green" icon={<FaChartLine size={16} />} />
+            <StatCard label="Net Spending" value={`₹${(statistics.netPurchaseAmount ?? statistics.totalPurchaseAmount)?.toFixed(0)}`} color="green" icon={<FaChartLine size={16} />} />
+            <StatCard label="Gross Purchase" value={`₹${statistics.totalPurchaseAmount?.toFixed(0)}`} color="teal" icon={<FaChartLine size={16} />} />
+            <StatCard label="Returns & Exch." value={returnExchanges?.length || 0} color="red" icon={<FaExchangeAlt size={16} />} />
             <StatCard label="Total Savings" value={`₹${statistics.totalSavings?.toFixed(0)}`} color="amber" icon={<FaTag size={16} />} />
             <StatCard label="Coin Balance" value={customer.coins || 0} color="purple" icon={<FaCoins size={16} />} />
             <StatCard label="Referral Count" value={customer.referralCount || 0} color="teal" icon={<FaUsers size={16} />} />

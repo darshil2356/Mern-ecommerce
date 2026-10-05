@@ -40,6 +40,7 @@ const {
   updateOrder,
   createOfflineOrder,
   processPosReturnExchange,
+  getReturnExchangesList,
   verifyCustomerReturnProduct,
   getCustomerOffer,
   updateCustomerOffer,
@@ -76,6 +77,12 @@ router.post(
   authMiddleware,
   isAdmin,
   processPosReturnExchange
+);
+router.get(
+  "/pos/return-exchange-list",
+  authMiddleware,
+  isAdmin,
+  getReturnExchangesList
 );
 router.post(
   "/pos/verify-return-product",

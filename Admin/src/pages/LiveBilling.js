@@ -33,6 +33,7 @@ import {
 } from "react-icons/fa";
 import SpinWheel from "../components/SpinWheel";
 import PrintBillButton from "../components/PrintBillButton";
+import { printReturnExchangeReceipt } from "../utils/printReturnReceipt";
 
 const LiveBilling = () => {
   const [buffer, setBuffer] = useState("");
@@ -470,22 +471,51 @@ const LiveBilling = () => {
             </div>
           `,
           showCancelButton: true,
-          confirmButtonText: "📱 Send WhatsApp Receipt",
+          showDenyButton: true,
+          confirmButtonText: "📱 WhatsApp Receipt",
+          denyButtonText: "🖨️ Print Receipt",
           cancelButtonText: "Done",
           confirmButtonColor: "#25D366",
+          denyButtonColor: "#2563eb",
         }).then((result) => {
           if (result.isConfirmed && cleanPhone && res.data.whatsappMessage) {
             window.open(`https://wa.me/${cleanPhone}?text=${encodedMsg}`, "_blank");
+          } else if (result.isDenied && res.data.returnExchange) {
+            printReturnExchangeReceipt(res.data.returnExchange, customer);
           }
         });
 
-        // Clear Return & Exchange Baskets
+        // Clear Return & Exchange Baskets and Customer Details
         setRetCart({});
         setExCart({});
         setRetBarcode("");
         setExBarcode("");
         setRetNote("");
         setRetPaymentMethod("CASH");
+
+        // Clear Customer details automatically after completing Return & Exchange
+        setCustomer({ name: "", address: "", contact: "", referralContact: "", referralCode: "" });
+        setCustomerState("Gujarat");
+        setSearchTerm("");
+        setContactSearch("");
+        setNameResults([]);
+        setContactResults([]);
+        setContactSearchDone(false);
+        setNameSearchDone(false);
+        setShowDropdown(false);
+        setShowContactDropdown(false);
+        setReferralSearch("");
+        setReferralResults([]);
+        setReferrerName("");
+        setReferrerError("");
+        setReferrerCode("");
+        setRetCustSearchInput("");
+        setRetCustResults([]);
+        setShowRetCustDropdown(false);
+        setPurchaseVerification(null);
+        setCustomerCoins(0);
+        setUseCoins(false);
+        setCoinAmount(0);
       }
     } catch (err) {
       Swal.fire({
@@ -679,7 +709,7 @@ const LiveBilling = () => {
 
     if (buffer.trim() === "") {
       if (!isProcessingSaleRef.current) {
-        await finalizeSale();
+        await handleCompleteSale();
       }
       return;
     }
@@ -1109,8 +1139,8 @@ const LiveBilling = () => {
   };
 
   const selectReferrer = (user) => {
-    setReferrerName(user.firstname + " " + user.lastname);
-    setReferrerCode(user.referralCode || "N/A");
+    setReferrerName((user.firstname + " " + (user.lastname || "")).trim() || user.mobile);
+    setReferrerCode(user.referralCode || "");
     setReferrerError("");
     setReferralSearch(user.mobile);
     setCustomer(prev => ({ ...prev, referralContact: user.mobile, referralCode: user.referralCode || "" }));
@@ -1122,34 +1152,49 @@ const LiveBilling = () => {
     try {
       const res = await axios.get(`${base_url}user/${user._id}`, config);
       const fullCustomer = res.data.getaUser;
-      const fullName = `${fullCustomer.firstname || user.firstname || ''} ${fullCustomer.lastname || user.lastname || ''}`.trim();
+      const fullName = `${fullCustomer.firstname || user.firstname || ''} ${fullCustomer.lastname || user.lastname || ''}`.trim() || fullCustomer.mobile || user.mobile || '';
+      const mobileNum = fullCustomer.mobile || user.mobile || '';
+      const custId = fullCustomer._id || user._id;
+      const custCoins = typeof fullCustomer.coins !== 'undefined' ? fullCustomer.coins : (user.coins || 0);
+
       setCustomer({
+        _id: custId,
         name: fullName,
         address: fullCustomer.address || user.address || '',
-        contact: fullCustomer.mobile || user.mobile || '',
+        contact: mobileNum,
+        coins: custCoins,
         referralContact: '',
         referralCode: '',
       });
+      setSearchTerm(fullName);
+      setContactSearch(mobileNum);
+      setRetCustSearchInput(mobileNum ? `${fullName} (${mobileNum})` : fullName);
       clearReferrer();
 
       if (fullCustomer.referredBy) {
         const referrer = fullCustomer.referredBy;
         const referrerName = `${referrer.firstname || ''} ${referrer.lastname || ''}`.trim();
         setReferrerName(referrerName || 'Referrer');
-        setReferrerCode(referrer.referralCode || 'N/A');
+        setReferrerCode(referrer.referralCode || '');
         setReferralSearch(referrer.mobile || '');
         setCustomer(prev => ({ ...prev, referralContact: referrer.mobile || '', referralCode: referrer.referralCode || '' }));
       }
     } catch (err) {
       console.error('Failed to load customer details', err);
-      const fullName = `${user.firstname || ''} ${user.lastname || ''}`.trim();
+      const fullName = `${user.firstname || ''} ${user.lastname || ''}`.trim() || user.mobile || '';
+      const mobileNum = user.mobile || '';
       setCustomer({
+        _id: user._id,
         name: fullName,
         address: user.address || '',
-        contact: user.mobile || '',
+        contact: mobileNum,
+        coins: user.coins || 0,
         referralContact: '',
         referralCode: '',
       });
+      setSearchTerm(fullName);
+      setContactSearch(mobileNum);
+      setRetCustSearchInput(mobileNum ? `${fullName} (${mobileNum})` : fullName);
       clearReferrer();
     }
   };
@@ -1323,8 +1368,6 @@ const LiveBilling = () => {
         address: newUser.address || '',
         mobile: newUser.mobile || '',
       });
-      setContactSearch("");
-      setSearchTerm("");
       setContactResults([]);
       setNameResults([]);
       setContactSearchDone(false);
@@ -1479,7 +1522,7 @@ const LiveBilling = () => {
   /* =========================
      GENERATE WHATSAPP MESSAGE
      ========================= */
-  const generateWhatsAppMessage = (activeCart, activeCustomer, activeOffer, activeAppliedAmount, activeWonOffer, coinsEarned = 0, newCoinBalance = 0) => {
+  const generateWhatsAppMessage = (activeCart, activeCustomer, activeOffer, activeAppliedAmount, activeWonOffer, coinsEarned = 0, newCoinBalance = 0, paidAmount = null, dueBalance = null) => {
     const now = new Date();
     let msg = `🧾 *Bill Receipt - ${storeName}*\n\n`;
     msg += `👤 *${activeCustomer.name || "Walk-in Customer"}*\n`;
@@ -1526,7 +1569,18 @@ const LiveBilling = () => {
     if (activeAppliedAmount > 0) msg += `🎁 Offer Discount: -₹${activeAppliedAmount.toFixed(2)}\n`;
     if (discountAmount > activeAppliedAmount) msg += `💰 Extra Discount: -₹${(discountAmount - activeAppliedAmount).toFixed(2)}\n`;
     if (coinDiscountAmount > 0) msg += `🪙 Coins Used: -₹${coinDiscountAmount.toFixed(2)} (${coinAmount} coins)\n`;
-    msg += `\n*💵 Total Paid: ₹${payableAmount.toFixed(2)}*\n`;
+    
+    msg += `\n*💵 Bill Total: ₹${payableAmount.toFixed(0)}*\n`;
+
+    const activePaidAmt = typeof paidAmount === "number" ? paidAmount : parsedAmountPaid;
+    const activeBalanceDue = typeof dueBalance === "number" ? dueBalance : balanceDue;
+
+    if (activeBalanceDue > 0) {
+      msg += `💳 Received Payment (આપેલ રકમ): ₹${activePaidAmt.toFixed(0)}\n`;
+      msg += `🤝 *Udhar / Baki Amount (બાકી રકમ): ₹${activeBalanceDue.toFixed(0)}*\n`;
+    } else {
+      msg += `💳 Received Payment (આપેલ રકમ): ₹${activePaidAmt.toFixed(0)} (Full Paid / પૂરેપૂરું ચૂકવેલ)\n`;
+    }
 
     if (totalSavingsAmt > 0) {
       const savingsPercent = activeTotalMrp > 0 ? Math.round((totalSavingsAmt / activeTotalMrp) * 100) : 0;
@@ -1600,6 +1654,17 @@ const LiveBilling = () => {
      ========================= */
   const finalizeSale = async () => {
     if (isProcessingSaleRef.current) return; // Prevent multiple calls using ref
+
+    // Customer name is required to finalize sale
+    if (!customer.name || !customer.name.trim()) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Customer Details Required',
+        text: 'Please select or enter customer details before completing the sale.',
+        confirmButtonColor: '#d4af37',
+      });
+      return;
+    }
 
     const items = Object.entries(cart).map(([barcode, data]) => ({
       barcode,
@@ -1713,7 +1778,17 @@ const LiveBilling = () => {
 
       // Send WhatsApp message if customer has contact
       if (customerData.contact) {
-        const message = generateWhatsAppMessage(cartData, customerData, offerData, appliedAmount, null, coinsEarned, newCoinBalance);
+        const message = generateWhatsAppMessage(
+          cartData,
+          customerData,
+          offerData,
+          appliedAmount,
+          null,
+          coinsEarned,
+          newCoinBalance,
+          billPaidAmt,
+          billBalanceDue
+        );
         openWhatsApp(message, customerData);
         Swal.fire({
           icon: 'success',
@@ -2110,25 +2185,19 @@ tbody td{padding:6px 4px;vertical-align:top}
                             key={cust._id}
                             className="p-3 hover:bg-amber-50 cursor-pointer transition-colors flex items-center justify-between"
                             onClick={async () => {
-                              const newCustObj = {
-                                _id: cust._id,
-                                name: fullName,
-                                contact: cust.mobile,
-                                coins: cust.coins || 0,
-                              };
-                              setCustomer(newCustObj);
-                              setRetCustSearchInput(`${fullName} (${cust.mobile})`);
+                              await selectCustomerWithReferral(cust);
                               setShowRetCustDropdown(false);
 
                               // Re-verify returned products if already scanned
-                              if (Object.keys(retCart).length > 0) {
+                              const targetId = cust._id;
+                              if (targetId && Object.keys(retCart).length > 0) {
                                 for (const b of Object.keys(retCart)) {
                                   const item = retCart[b];
                                   if (item?.product?._id) {
                                     try {
                                       const verRes = await axios.post(
                                         `${base_url}user/pos/verify-return-product`,
-                                        { customerId: newCustObj._id, barcode: b, productId: item.product._id },
+                                        { customerId: targetId, barcode: b, productId: item.product._id },
                                         config
                                       );
                                       if (verRes?.data) {
@@ -2612,9 +2681,9 @@ tbody td{padding:6px 4px;vertical-align:top}
               {/* Submit Exchange Button */}
               <button
                 type="button"
-                disabled={isProcessingReturn || Object.keys(retCart).length === 0 || !customer?._id}
+                disabled={isProcessingReturn || Object.keys(retCart).length === 0 || !customer?._id || !customer?.name?.trim()}
                 onClick={handleExecutePosReturnExchange}
-                className="w-full py-4 bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-700 hover:to-amber-800 disabled:opacity-50 text-white font-extrabold text-base rounded-2xl shadow-xl shadow-amber-200 transition-all flex items-center justify-center gap-2"
+                className="w-full py-4 bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-700 hover:to-amber-800 disabled:opacity-50 disabled:cursor-not-allowed text-white font-extrabold text-base rounded-2xl shadow-xl shadow-amber-200 transition-all flex items-center justify-center gap-2"
               >
                 {isProcessingReturn ? (
                   "Processing Exchange..."
@@ -3495,7 +3564,7 @@ tbody td{padding:6px 4px;vertical-align:top}
 
                 <button
                   onClick={handleCompleteSale}
-                  disabled={!Object.keys(cart).length || isProcessingSale}
+                  disabled={!Object.keys(cart).length || !customer.name?.trim() || isProcessingSale}
                   className="w-full py-4 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 rounded-xl font-bold flex items-center justify-center gap-2 transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isProcessingSale ? (

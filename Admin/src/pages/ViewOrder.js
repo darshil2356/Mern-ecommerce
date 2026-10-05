@@ -19,6 +19,7 @@ import dayjs from "dayjs";
 import { getColorSwatch, getReadableColorName } from "../utils/colorDisplay";
 import { base_url } from "../utils/baseUrl";
 import { config } from "../utils/axiosconfig";
+import { printReturnExchangeReceipt } from "../utils/printReturnReceipt";
 import axios from "axios";
 
 const { Title, Text } = Typography;
@@ -523,7 +524,8 @@ tbody td{padding:12px 14px;font-size:13px;vertical-align:top}
     dispatch(getaOrder(orderId));
   }, [dispatch, orderId]);
   
-  const orderState = useSelector((state) => state?.auth?.singleorder?.orders);
+  const orderState = useSelector((state) => state?.auth?.singleorder?.orders || state?.auth?.singleorder);
+  const returnExchanges = useSelector((state) => state?.auth?.singleorder?.returnExchanges || []);
   console.log("Order State:", orderState);
 
   if (!orderState) {
@@ -1588,6 +1590,110 @@ tbody td{padding:12px 14px;font-size:13px;vertical-align:top}
           )}
         />
       </Card>
+      )}
+      {returnExchanges && returnExchanges.length > 0 && (
+        <Card
+          title={
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <div style={{ width: 32, height: 32, borderRadius: 8, background: "#d97706", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <SyncOutlined style={{ color: "#fff", fontSize: 16 }} />
+              </div>
+              <div>
+                <Title level={4} style={{ margin: 0, fontSize: 16, color: "#1e293b" }}>Customer Return & Exchange Records ({returnExchanges.length})</Title>
+                <Text type="secondary" style={{ fontSize: 12 }}>Past returns & exchanges history for this customer</Text>
+              </div>
+            </div>
+          }
+          style={{ marginTop: 20, borderRadius: 16, border: "1px solid #f1f5f9", boxShadow: "0 2px 8px rgba(0,0,0,0.04)" }}
+        >
+          <Table
+            dataSource={returnExchanges.map((r, i) => ({ key: i + 1, ...r }))}
+            pagination={false}
+            size="small"
+            columns={[
+              {
+                title: "Return ID",
+                dataIndex: "returnId",
+                key: "returnId",
+                render: (id) => <span style={{ fontFamily: "monospace", fontWeight: 700, background: "#fef3c7", color: "#b45309", padding: "3px 8px", borderRadius: 6, fontSize: 12 }}>#{id}</span>
+              },
+              {
+                title: "Date",
+                dataIndex: "createdAt",
+                key: "createdAt",
+                render: (date) => <span style={{ fontSize: 12, color: "#64748b" }}>{new Date(date).toLocaleString("en-IN", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}</span>
+              },
+              {
+                title: "Returned Items",
+                key: "returnedItems",
+                render: (_, r) => {
+                  const items = r.returnedItems && r.returnedItems.length > 0 ? r.returnedItems : (r.returnedItem?.product ? [r.returnedItem] : []);
+                  return (
+                    <div>
+                      {items.map((it, idx) => (
+                        <div key={idx} style={{ fontSize: 12, color: "#dc2626", fontWeight: 600 }}>
+                          • {it.title || "Returned Product"} x{it.quantity || 1} (₹{it.agreedValue || 0})
+                        </div>
+                      ))}
+                      <div style={{ fontSize: 12, fontWeight: 800, color: "#991b1b", marginTop: 2 }}>Total: -₹{r.returnedTotal || 0}</div>
+                    </div>
+                  );
+                }
+              },
+              {
+                title: "Exchange Items Taken",
+                key: "exchangeItems",
+                render: (_, r) => {
+                  const items = r.exchangeItems && r.exchangeItems.length > 0 ? r.exchangeItems : (r.exchangeItem?.product ? [r.exchangeItem] : []);
+                  if (items.length === 0) return <span style={{ fontSize: 12, color: "#94a3b8", fontStyle: "italic" }}>Pure Return</span>;
+                  return (
+                    <div>
+                      {items.map((it, idx) => (
+                        <div key={idx} style={{ fontSize: 12, color: "#16a34a", fontWeight: 600 }}>
+                          • {it.title || "Exchange Product"} x{it.quantity || 1} (₹{it.itemValue || 0})
+                        </div>
+                      ))}
+                      <div style={{ fontSize: 12, fontWeight: 800, color: "#166534", marginTop: 2 }}>Total: +₹{r.exchangeTotal || 0}</div>
+                    </div>
+                  );
+                }
+              },
+              {
+                title: "Settlement",
+                key: "settlement",
+                render: (_, r) => {
+                  const diff = r.differentialAmount || 0;
+                  return (
+                    <div>
+                      {diff > 0 ? (
+                        <Tag color="success">Paid Extra: +₹{diff} ({r.paymentMethod || "CASH"})</Tag>
+                      ) : diff < 0 ? (
+                        <Tag color="error">Refunded: -₹{Math.abs(diff)} ({r.paymentMethod || "CASH"})</Tag>
+                      ) : (
+                        <Tag color="processing">Even Exchange (₹0)</Tag>
+                      )}
+                    </div>
+                  );
+                }
+              },
+              {
+                title: "Action",
+                key: "action",
+                align: "center",
+                render: (_, r) => (
+                  <Button
+                    size="small"
+                    icon={<PrinterOutlined />}
+                    onClick={() => printReturnExchangeReceipt(r, orderState?.user)}
+                    style={{ borderRadius: 8, borderColor: "#cbd5e1" }}
+                  >
+                    Print Return Receipt
+                  </Button>
+                )
+              }
+            ]}
+          />
+        </Card>
       )}
     </div>
   );

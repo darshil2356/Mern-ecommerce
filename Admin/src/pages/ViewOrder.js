@@ -1,11 +1,11 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import {
   Card, Row, Col, Tag, Button, Divider, Descriptions, Timeline,
   Space, Alert, Typography, Progress, Avatar, List, Table,
   Badge, Steps, Statistic, Modal, Input, message
 } from "antd";
 import { useDispatch, useSelector } from "react-redux";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import {
   ArrowLeftOutlined, HomeOutlined, UserOutlined, CreditCardOutlined,
   ShopOutlined, CarOutlined, CheckCircleOutlined, ClockCircleOutlined,
@@ -311,7 +311,8 @@ const getTimelineItems = (order) => {
 
 const ViewOrder = () => {
   const location = useLocation();
-  const orderId = location.pathname.split("/")[3];
+  const params = useParams();
+  const orderId = params?.id || location.pathname.split("/")[3];
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const [cancelModalOpen, setCancelModalOpen] = useState(false);
@@ -521,10 +522,20 @@ tbody td{padding:12px 14px;font-size:13px;vertical-align:top}
   };
   
   useEffect(() => {
-    dispatch(getaOrder(orderId));
+    if (orderId && orderId !== "undefined") {
+      dispatch(getaOrder(orderId));
+    }
   }, [dispatch, orderId]);
   
-  const orderState = useSelector((state) => state?.auth?.singleorder?.orders || state?.auth?.singleorder);
+  const rawSingleOrder = useSelector((state) => state?.auth?.singleorder);
+  const orderState = useMemo(() => {
+    const ord = rawSingleOrder?.orders || rawSingleOrder;
+    if (ord && ord._id && orderId && String(ord._id) === String(orderId)) {
+      return ord;
+    }
+    return null;
+  }, [rawSingleOrder, orderId]);
+
   const returnExchanges = useSelector((state) => state?.auth?.singleorder?.returnExchanges || []);
   console.log("Order State:", orderState);
 

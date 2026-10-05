@@ -57,15 +57,11 @@ const {
   searchUsers,
   validateCartStock,
   validateShippingAddress,
+  getCustomersByProductBarcode,
 } = require("../controller/userCtrl");
 
-
-
-
-
-
-
 const router = express.Router();
+router.get("/get-customers-by-product-barcode", authMiddleware, isAdmin, getCustomersByProductBarcode);
 router.post(
   "/offline-order",
   authMiddleware,

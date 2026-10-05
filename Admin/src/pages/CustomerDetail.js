@@ -193,7 +193,7 @@ const CustomerDetail = () => {
       title: "",
       key: "action",
       width: 50,
-      render: (_, record) => (
+      render: (record) => (
         <Tooltip title="View Order">
           <Link to={`/admin/order/${record._id}`}>
             <button className="w-7 h-7 rounded-lg bg-blue-50 text-blue-500 hover:bg-blue-500 hover:text-white flex items-center justify-center transition-all border-0 cursor-pointer">

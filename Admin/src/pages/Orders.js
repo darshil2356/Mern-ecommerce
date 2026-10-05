@@ -5,7 +5,7 @@ import {
   SearchOutlined, ShoppingOutlined, CarOutlined, CheckCircleOutlined,
   ClockCircleOutlined, CloseCircleOutlined, SyncOutlined, ThunderboltOutlined,
   UserOutlined, ReloadOutlined, TrophyOutlined, FireOutlined, StopOutlined,
-  DownOutlined, EditOutlined, AccountBookOutlined
+  DownOutlined, EditOutlined, AccountBookOutlined, BarcodeOutlined
 } from "@ant-design/icons";
 import { useDispatch, useSelector } from "react-redux";
 import { Link } from "react-router-dom";
@@ -15,6 +15,7 @@ import { addUdhar } from "../features/udhar/udharSlice";
 import { base_url } from "../utils/baseUrl";
 import { config, cachedGet } from "../utils/axiosconfig";
 import axios from "axios";
+import BarcodeCustomerSearchModal from "../components/BarcodeCustomerSearchModal";
 
 const { RangePicker } = DatePicker;
 const { Option } = Select;
@@ -153,6 +154,7 @@ const Orders = () => {
   const [cancelModal, setCancelModal] = useState({ open: false, orderId: null, reason: "" });
   const [udharModal, setUdharModal] = useState({ open: false, order: null, personName: "", personPhone: "", paidAmount: 0, paymentMode: "ONLINE", dueDate: null, note: "" });
   const [udharLoading, setUdharLoading] = useState(false);
+  const [barcodeModalOpen, setBarcodeModalOpen] = useState(false);
   const [modeFilter, setModeFilter] = useState("all"); // 'all' | 'online' | 'offline'
   // default: only Online-Current (GST) orders. Triple-click title to toggle all orders
   const [showAll, setShowAll] = useState(false);
@@ -497,7 +499,7 @@ tbody td{padding:14px 14px;font-size:13px;color:#333}
       title: "Order",
       key: "order",
       width: 260,
-      render: (_, r) => (
+      render: (r) => (
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <Avatar size={44} style={{ background: "linear-gradient(135deg,#f093fb,#f5576c)", fontWeight: 700, fontSize: 16, flexShrink: 0 }}>
             {r.name.charAt(0).toUpperCase()}
@@ -577,7 +579,7 @@ tbody td{padding:14px 14px;font-size:13px;color:#333}
       title: "Tracking",
       key: "tracking",
       width: 170,
-      render: (_, r) => (
+      render: (r) => (
         <div>
           {r.courierName !== "—" && <div style={{ fontWeight: 600, fontSize: 12, color: "#0f172a", marginBottom: 4 }}>🚚 {r.courierName}</div>}
           {r.trackingId !== "—" ? (
@@ -593,7 +595,7 @@ tbody td{padding:14px 14px;font-size:13px;color:#333}
       key: "actions",
       width: 140,
       align: "center",
-      render: (_, r) => (
+      render: (r) => (
         <Space size={6}>
           <Tooltip title="View Details">
             <Link to={`/admin/order/${r.orderId}`}>
@@ -715,6 +717,20 @@ tbody td{padding:14px 14px;font-size:13px;color:#333}
           </Select>
           <Button icon={<ReloadOutlined />} onClick={() => { setActiveStatus("All"); setSearchText(""); setDateRange(null); setPaymentFilter("All"); setModeFilter("all"); }} style={{ borderRadius: 10 }}>
             Reset
+          </Button>
+          <Button
+            type="primary"
+            icon={<BarcodeOutlined />}
+            onClick={() => setBarcodeModalOpen(true)}
+            style={{
+              borderRadius: 10,
+              background: "linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)",
+              border: "none",
+              fontWeight: 700,
+              boxShadow: "0 4px 12px rgba(99,102,241,0.25)",
+            }}
+          >
+            Scan Barcode / Search Customer
           </Button>
           {/* modeFilter is intentionally NOT reset here so it persists across resets */}
           {selectedRowKeys.length > 0 && (
@@ -876,6 +892,11 @@ tbody td{padding:14px 14px;font-size:13px;color:#333}
         printOrderBill={printOrderBill}
         openUdharModal={openUdharModal}
         STATUS_CONFIG={STATUS_CONFIG}
+      />
+
+      <BarcodeCustomerSearchModal
+        open={barcodeModalOpen}
+        onClose={() => setBarcodeModalOpen(false)}
       />
 
       <style>{`

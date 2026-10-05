@@ -1,3 +1,4 @@
+const mongoose = require("mongoose");
 const User = require("../models/userModel");
 const Product = require("../models/productModel");
 const Cart = require("../models/cartModel");
@@ -4620,6 +4621,158 @@ const validatePincodeCtrl = asyncHandler(async (req, res) => {
   res.json(result);
 });
 
+
+
+const getCustomersByProductBarcode = asyncHandler(async (req, res) => {
+  const { barcode } = req.query;
+  if (!barcode || !barcode.trim()) {
+    res.status(400);
+    throw new Error("Barcode or search query is required");
+  }
+
+  const rawTerm = barcode.trim();
+  const normalized = normalizeBarcode(rawTerm);
+  const searchRegex = new RegExp(escapeRegExp(rawTerm), "i");
+
+  // 1. Find products matching barcode, size barcode, title, slug, or ID
+  let products = [];
+  if (mongoose.Types.ObjectId.isValid(rawTerm)) {
+    const p = await Product.findById(rawTerm).populate("color").populate("variants.color");
+    if (p) products.push(p);
+  }
+
+  if (products.length === 0) {
+    products = await Product.find({
+      $or: [
+        { barcode: searchRegex },
+        { "sizeStock.barcode": searchRegex },
+        { "variants.sizeStock.barcode": searchRegex },
+        { title: searchRegex },
+        { slug: searchRegex }
+      ]
+    }).populate("color").populate("variants.color");
+  }
+
+  if (products.length === 0) {
+    const exactP = await findProductByBarcode(rawTerm);
+    if (exactP) products.push(exactP);
+  }
+
+  const matchedProductIds = products.map((p) => p._id);
+  const matchedBarcodes = new Set([normalized, rawTerm]);
+
+  products.forEach((p) => {
+    if (p.barcode) matchedBarcodes.add(normalizeBarcode(p.barcode));
+    if (p.sizeStock) {
+      p.sizeStock.forEach((s) => {
+        if (s.barcode) matchedBarcodes.add(normalizeBarcode(s.barcode));
+      });
+    }
+    if (p.variants) {
+      p.variants.forEach((v) => {
+        (v.sizeStock || []).forEach((s) => {
+          if (s.barcode) matchedBarcodes.add(normalizeBarcode(s.barcode));
+        });
+      });
+    }
+  });
+
+  const barcodeArray = Array.from(matchedBarcodes);
+
+  // 2. Search all Orders for matching product or matching barcode in orderItems
+  const orders = await Order.find({
+    $or: [
+      { "orderItems.barcode": { $in: barcodeArray } },
+      { "orderItems.barcode": searchRegex },
+      { "orderItems.product": { $in: matchedProductIds } },
+      { "orderItems.bundleProducts.productId": { $in: matchedProductIds } },
+    ],
+  })
+    .populate("user", "firstname lastname email mobile")
+    .populate("orderItems.product", "title brand price images barcode hsnCode")
+    .populate("orderItems.color", "title name code")
+    .sort({ createdAt: -1 });
+
+  // 3. Process sales list
+  const salesList = [];
+  let totalQtySoldForBarcode = 0;
+
+  orders.forEach((ord) => {
+    const custName =
+      (ord.shippingInfo?.firstname || ord.shippingInfo?.lastname)
+        ? `${ord.shippingInfo?.firstname || ""} ${ord.shippingInfo?.lastname || ""}`.trim()
+        : (ord.user ? `${ord.user.firstname || ""} ${ord.user.lastname || ""}`.trim() : "Walk-in Customer");
+    const custPhone = ord.shippingInfo?.phone || ord.user?.mobile || "N/A";
+    const custEmail = ord.user?.email || "N/A";
+    const address = ord.shippingInfo
+      ? [ord.shippingInfo.address, ord.shippingInfo.city, ord.shippingInfo.state, ord.shippingInfo.pincode].filter(Boolean).join(", ")
+      : "N/A";
+
+    ord.orderItems.forEach((item) => {
+      const itemBarcodeNorm = item.barcode ? normalizeBarcode(item.barcode) : "";
+      const isProductMatch = matchedProductIds.some(
+        (id) => item.product && item.product._id.toString() === id.toString()
+      );
+      const isBarcodeMatch =
+        (itemBarcodeNorm && barcodeArray.includes(itemBarcodeNorm)) ||
+        (item.barcode && searchRegex.test(item.barcode));
+
+      if (isProductMatch || isBarcodeMatch) {
+        totalQtySoldForBarcode += Number(item.quantity || 1);
+
+        salesList.push({
+          orderId: ord._id,
+          displayOrderId: ord._id.toString().slice(-8).toUpperCase(),
+          customerName: custName || "Walk-in Customer",
+          phone: custPhone,
+          email: custEmail,
+          address: address,
+          orderDate: ord.createdAt,
+          orderStatus: ord.orderStatus,
+          mode: ord.mode || "ONLINE",
+          paymentMode: ord.paymentDestination || (ord.mode === "OFFLINE" ? "CASH" : "ONLINE"),
+          itemTitle: item.product?.title || "Product",
+          itemImage: item.product?.images?.[0]?.url || null,
+          barcode: item.barcode || item.product?.barcode || rawTerm,
+          quantity: item.quantity,
+          price: item.price,
+          totalItemAmount: item.price * item.quantity,
+          size: item.size || "N/A",
+          color: item.color?.title || item.color?.name || "N/A",
+        });
+      }
+    });
+  });
+
+  // Calculate primary product summary if available
+  let primaryProduct = products[0] || null;
+  let productSummary = null;
+
+  if (primaryProduct) {
+    const totalInventoryStock = normalizeProductQuantity(primaryProduct);
+    productSummary = {
+      id: primaryProduct._id,
+      title: primaryProduct.title,
+      barcode: primaryProduct.barcode || rawTerm,
+      image: primaryProduct.images?.[0]?.url || null,
+      brand: primaryProduct.brand,
+      category: primaryProduct.category,
+      price: primaryProduct.price,
+      currentStock: totalInventoryStock,
+      totalSoldAcrossOrders: totalQtySoldForBarcode,
+    };
+  }
+
+  res.json({
+    success: true,
+    searchQuery: rawTerm,
+    product: productSummary,
+    totalSalesCount: salesList.length,
+    totalQuantitySold: totalQtySoldForBarcode,
+    sales: salesList,
+  });
+});
+
 module.exports = {
   createUser,
   processPosReturnExchange,
@@ -4689,4 +4842,6 @@ module.exports = {
   manualDeductCoins,
   manualAddCoins,
   getReturnExchangesList,
+  getCustomersByProductBarcode,
 };
+

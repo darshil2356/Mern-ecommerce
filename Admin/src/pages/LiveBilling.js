@@ -34,6 +34,7 @@ import {
 import SpinWheel from "../components/SpinWheel";
 import PrintBillButton from "../components/PrintBillButton";
 import { printReturnExchangeReceipt } from "../utils/printReturnReceipt";
+import BarcodeCustomerSearchModal from "../components/BarcodeCustomerSearchModal";
 
 const LiveBilling = () => {
   const [buffer, setBuffer] = useState("");
@@ -41,6 +42,7 @@ const LiveBilling = () => {
 
   // Tab mode: "BILLING" | "RETURN_EXCHANGE"
   const [posTabMode, setPosTabMode] = useState("BILLING");
+  const [barcodeLookupModalOpen, setBarcodeLookupModalOpen] = useState(false);
 
   // Return & Exchange Tab Multi-Item Basket State
   const [retBarcode, setRetBarcode] = useState("");
@@ -2124,6 +2126,13 @@ tbody td{padding:6px 4px;vertical-align:top}
           >
             <FaSync className={posTabMode === "RETURN_EXCHANGE" ? "animate-spin" : ""} /> Return & Exchange Tab
           </button>
+          <button
+            type="button"
+            onClick={() => setBarcodeLookupModalOpen(true)}
+            className="px-4 py-2.5 rounded-xl font-bold text-sm flex items-center gap-2 bg-gradient-to-r from-purple-600 to-indigo-600 text-white hover:from-purple-700 hover:to-indigo-700 transition-all shadow-md shadow-indigo-200"
+          >
+            <FaBarcode className="text-base" /> Barcode Sales Lookup
+          </button>
         </div>
 
         <div className="flex items-center gap-4">
@@ -3971,6 +3980,12 @@ tbody td{padding:6px 4px;vertical-align:top}
           customerMobile={customer.contact}
         />
       )}
+
+      {/* Barcode Customer Search Modal */}
+      <BarcodeCustomerSearchModal
+        open={barcodeLookupModalOpen}
+        onClose={() => setBarcodeLookupModalOpen(false)}
+      />
     </div>
   );
 };

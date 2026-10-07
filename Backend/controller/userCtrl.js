@@ -2755,18 +2755,18 @@ const getDashboardStats = asyncHandler(async (req, res) => {
   // Gross sales for period = Order sales + POS exchange positive inflows
   const grossSalePeriod = totalSalePeriod + posExchangeInflowPeriod;
   // Net sales for period = Gross sales - cash/online refunds
-  const netSalePeriod = Math.max(0, grossSalePeriod - cashRefundsPeriod);
+  const netSalePeriod = grossSalePeriod - cashRefundsPeriod;
 
   // Direct sales paid in period = Net sales created in period minus unpaid Udhar created in period
-  const directSalesPaidPeriod = Math.max(0, netSalePeriod - udharCreatedPeriod);
+  const directSalesPaidPeriod = netSalePeriod - udharCreatedPeriod;
 
   // Total cash / money in hand in period = Direct sales collected in period + Pending Udhar collected in period
-  const totalHandPeriod = Math.max(0, directSalesPaidPeriod + udharCollectedPeriod);
+  const totalHandPeriod = directSalesPaidPeriod + udharCollectedPeriod;
 
   const mainStats = stats[0] || { totalRevenue: 0, totalOrders: 0, totalDiscount: 0, totalSubtotal: 0 };
   const baseRevenue = mainStats.totalRevenue || 0;
   mainStats.grossRevenue = baseRevenue + posExchangeInflowPeriod;
-  mainStats.totalRevenue = Math.max(0, baseRevenue + posExchangeInflowPeriod - cashRefundsPeriod);
+  mainStats.totalRevenue = baseRevenue + posExchangeInflowPeriod - cashRefundsPeriod;
 
   const financialSummary = {
     grossSalePeriod,
@@ -4304,8 +4304,18 @@ const processPosReturnExchange = asyncHandler(async (req, res) => {
         note: note || `Return & Exchange Udhar Balance`,
         status: "PENDING",
       });
-    } else {
+    } else if (paymentMethod === "CASH" || paymentMethod === "ONLINE") {
       extraAmountPaid = differentialAmount;
+      const customerNameStr = `${customer.firstname || ""} ${customer.lastname || ""}`.trim() || customer.mobile || "Valued Customer";
+      const exchangeTitles = processedExchangeItems.map(i => i.title).join(", ");
+      rojmelDoc = await createAutoEntry({
+        particulars: `POS Exchange Extra Cash Payment - ${customerNameStr} (${exchangeTitles})`,
+        type: "INCOME",
+        amount: differentialAmount,
+        paymentMethod: paymentMethod === "CASH" ? "Cash" : "Online",
+        category: "Exchanges",
+        referenceId: customer._id,
+      }).catch(err => console.error("Rojmel exchange auto-entry failed:", err));
     }
   } else if (differentialAmount < 0) {
     const returnCredit = Math.abs(differentialAmount);
@@ -4374,6 +4384,16 @@ const processPosReturnExchange = asyncHandler(async (req, res) => {
     } else if (paymentMethod === "CASH" || paymentMethod === "ONLINE") {
       settlementType = paymentMethod === "CASH" ? "CASH_REFUND" : "ONLINE_REFUND";
       extraAmountPaid = -returnCredit;
+      const customerNameStr = `${customer.firstname || ""} ${customer.lastname || ""}`.trim() || customer.mobile || "Valued Customer";
+      const returnTitles = processedReturnedItems.map(i => i.title).join(", ");
+      rojmelDoc = await createAutoEntry({
+        particulars: `POS Return Cash Refund - ${customerNameStr} (${returnTitles})`,
+        type: "EXPENSE",
+        amount: returnCredit,
+        paymentMethod: paymentMethod === "CASH" ? "Cash" : "Online",
+        category: "Returns",
+        referenceId: customer._id,
+      }).catch(err => console.error("Rojmel return auto-entry failed:", err));
     } else {
       settlementType = "COIN_CREDIT";
       coinsCredited = returnCredit;

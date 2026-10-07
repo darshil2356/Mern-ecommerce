@@ -40,6 +40,14 @@ const hashColor = (str = "") => {
   return palette[Math.abs(hash) % palette.length];
 };
 
+const formatCurrency = (val) => {
+  const num = Number(val || 0);
+  if (num < 0) {
+    return `-₹${Math.abs(num).toLocaleString("en-IN")}`;
+  }
+  return `₹${num.toLocaleString("en-IN")}`;
+};
+
 const StatCard = ({ title, value, subtitle, icon, gradient, shadowColor, trend, trendLabel, delay }) => (
   <div
     className="stat-card-pro"
@@ -814,7 +822,7 @@ const Dashboard = () => {
                 🛒 Total Sale {selectedFilter === FILTERS.TODAY ? "Today" : `(${selectedFilter})`}
               </div>
               <div style={{ fontSize: 22, fontWeight: 800, color: "#38bdf8", marginTop: 6 }}>
-                ₹{Number(dashboardStats?.financialSummary?.totalSalePeriod || dashboardStats?.todayFinancials?.totalSaleToday || 0).toLocaleString("en-IN")}
+                {formatCurrency(dashboardStats?.financialSummary?.totalSalePeriod || dashboardStats?.todayFinancials?.totalSaleToday || 0)}
               </div>
               <div style={{ fontSize: 11, color: "#64748b", marginTop: 4 }}>
                 {dashboardStats?.financialSummary?.cashRefundsPeriod > 0
@@ -830,7 +838,7 @@ const Dashboard = () => {
                 💵 Direct Sale (Paid)
               </div>
               <div style={{ fontSize: 22, fontWeight: 800, color: "#4ade80", marginTop: 6 }}>
-                ₹{Number(dashboardStats?.financialSummary?.directSalesPaidPeriod || dashboardStats?.todayFinancials?.directSalesPaidToday || 0).toLocaleString("en-IN")}
+                {formatCurrency(dashboardStats?.financialSummary?.directSalesPaidPeriod || dashboardStats?.todayFinancials?.directSalesPaidToday || 0)}
               </div>
               <div style={{ fontSize: 11, color: "#64748b", marginTop: 4 }}>
                 {dashboardStats?.financialSummary?.cashRefundsPeriod > 0
@@ -846,7 +854,7 @@ const Dashboard = () => {
                 📜 Udhar Created {selectedFilter === FILTERS.TODAY ? "Today" : ""}
               </div>
               <div style={{ fontSize: 22, fontWeight: 800, color: "#f87171", marginTop: 6 }}>
-                ₹{Number(dashboardStats?.financialSummary?.udharCreatedPeriod || dashboardStats?.todayFinancials?.udharCreatedToday || 0).toLocaleString("en-IN")}
+                {formatCurrency(dashboardStats?.financialSummary?.udharCreatedPeriod || dashboardStats?.todayFinancials?.udharCreatedToday || 0)}
               </div>
               <div style={{ fontSize: 11, color: "#64748b", marginTop: 4 }}>New credit balance created</div>
             </div>
@@ -858,7 +866,7 @@ const Dashboard = () => {
                 📥 Udhar Recovered {selectedFilter === FILTERS.TODAY ? "Today" : ""}
               </div>
               <div style={{ fontSize: 22, fontWeight: 800, color: "#fbbf24", marginTop: 6 }}>
-                ₹{Number(dashboardStats?.financialSummary?.udharCollectedPeriod || dashboardStats?.todayFinancials?.udharCollectedToday || 0).toLocaleString("en-IN")}
+                {formatCurrency(dashboardStats?.financialSummary?.udharCollectedPeriod || dashboardStats?.todayFinancials?.udharCollectedToday || 0)}
               </div>
               <div style={{ fontSize: 11, color: "#64748b", marginTop: 4 }}>Udhar payments collected</div>
             </div>
@@ -870,7 +878,7 @@ const Dashboard = () => {
                 💰 Total In Hand {selectedFilter === FILTERS.TODAY ? "Today" : ""}
               </div>
               <div style={{ fontSize: 24, fontWeight: 900, color: "#6ee7b7", marginTop: 6 }}>
-                ₹{Number(dashboardStats?.financialSummary?.totalHandPeriod || dashboardStats?.todayFinancials?.totalHandToday || 0).toLocaleString("en-IN")}
+                {formatCurrency(dashboardStats?.financialSummary?.totalHandPeriod || dashboardStats?.todayFinancials?.totalHandToday || 0)}
               </div>
               <div style={{ fontSize: 11, color: "#a7f3d0", marginTop: 4 }}>Direct Paid + Udhar Recovered</div>
             </div>
@@ -890,7 +898,7 @@ const Dashboard = () => {
       >
         <StatCard
           title="Total Revenue"
-          value={`₹${(displayStats.totalRevenue || 0).toLocaleString()}`}
+          value={formatCurrency(displayStats.totalRevenue || 0)}
           subtitle={
             dashboardStats?.financialSummary?.cashRefundsPeriod > 0
               ? `Gross ₹${Number(dashboardStats?.financialSummary?.grossSalePeriod || ((displayStats.totalRevenue || 0) + (dashboardStats.financialSummary.cashRefundsPeriod || 0))).toLocaleString("en-IN")} - Refund ₹${Number(dashboardStats.financialSummary.cashRefundsPeriod).toLocaleString("en-IN")}`

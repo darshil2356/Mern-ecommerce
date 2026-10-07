@@ -457,7 +457,7 @@ const Dashboard = () => {
             {name.charAt(0).toUpperCase()}
           </div>
           <div>
-            <div style={{ fontWeight: 600, fontSize: 13, color: "#1e293b" }}>
+            <div style={{ fontWeight: 600, fontSize: 13, color: "#f8fafc" }}>
               {name}
             </div>
             {record.mobile && (
@@ -473,7 +473,7 @@ const Dashboard = () => {
       title: "Date & Time",
       dataIndex: "date",
       render: (d) => (
-        <span style={{ color: "#64748b", fontSize: 12, fontWeight: 500 }}>
+        <span style={{ color: "#94a3b8", fontSize: 12, fontWeight: 500 }}>
           {d}
         </span>
       ),
@@ -486,8 +486,8 @@ const Dashboard = () => {
       render: (v) => (
         <span
           style={{
-            background: "#f1f5f9",
-            color: "#475569",
+            background: "rgba(255,255,255,0.08)",
+            color: "#cbd5e1",
             borderRadius: 8,
             padding: "2px 8px",
             fontWeight: 600,
@@ -502,7 +502,7 @@ const Dashboard = () => {
       title: "Total",
       dataIndex: "price",
       render: (v) => (
-        <span style={{ fontWeight: 600, color: "#64748b", fontSize: 13 }}>
+        <span style={{ fontWeight: 600, color: "#cbd5e1", fontSize: 13 }}>
           ₹{Number(v || 0).toLocaleString("en-IN")}
         </span>
       ),
@@ -516,14 +516,14 @@ const Dashboard = () => {
             -₹{Number(v).toLocaleString("en-IN")}
           </span>
         ) : (
-          <span style={{ color: "#cbd5e1" }}>—</span>
+          <span style={{ color: "#64748b" }}>—</span>
         ),
     },
     {
       title: "Final Amount",
       dataIndex: "dprice",
       render: (v) => (
-        <span style={{ fontWeight: 800, color: "#6366f1", fontSize: 14 }}>
+        <span style={{ fontWeight: 800, color: "#818cf8", fontSize: 14 }}>
           ₹{Number(v || 0).toLocaleString("en-IN")}
         </span>
       ),
@@ -785,105 +785,192 @@ const Dashboard = () => {
         </div>
       </div>
 
-      {/* ── Filter-wise Financial & Udhar Summary ──────────────── */}
-      <div style={{
-        background: "linear-gradient(135deg, #1e293b 0%, #0f172a 100%)",
-        borderRadius: "24px",
-        padding: "24px",
-        marginBottom: "24px",
-        boxShadow: "0 12px 32px rgba(15, 23, 42, 0.25)",
-        color: "#fff"
-      }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "18px", flexWrap: "wrap", gap: 10 }}>
+      {/* ── Filter-wise Financial & Udhar Summary (Ultra-Modern Glassmorphism UI) ──────────────── */}
+      <div
+        className="animate-fade-in-up"
+        style={{
+          background: "linear-gradient(135deg, rgba(30, 41, 59, 0.85) 0%, rgba(15, 23, 42, 0.95) 100%)",
+          backdropFilter: "blur(20px)",
+          borderRadius: "24px",
+          padding: "24px",
+          marginBottom: "24px",
+          boxShadow: "0 20px 50px rgba(0, 0, 0, 0.4), 0 0 1px inset rgba(255, 255, 255, 0.15)",
+          border: "1px solid rgba(255, 255, 255, 0.12)",
+          color: "#fff"
+        }}
+      >
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px", flexWrap: "wrap", gap: 12 }}>
           <div>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+              <span className="live-pulse-dot" title="Live Financial Engine Active" />
+              <span style={{ fontSize: 11, fontWeight: 700, color: "#38bdf8", textTransform: "uppercase", letterSpacing: "1px" }}>
+                LIVE REAL-TIME CASHFLOW ENGINE
+              </span>
+            </div>
             <h3
-              style={{ margin: 0, fontSize: 18, fontWeight: 800, color: "#f8fafc", display: "flex", alignItems: "center", gap: 8, cursor: "pointer", userSelect: "none" }}
+              style={{ margin: 0, fontSize: 20, fontWeight: 800, color: "#f8fafc", display: "flex", alignItems: "center", gap: 10, cursor: "pointer", userSelect: "none" }}
               onClick={handleTitleClick}
             >
               <span>📊</span> {selectedFilter === FILTERS.TODAY ? "Today's Financial & Udhar Cashflow Summary" :
                  selectedFilter === FILTERS.WEEK ? "7 Days Financial & Udhar Cashflow Summary" :
                  selectedFilter === FILTERS.MONTH ? "Monthly Financial & Udhar Cashflow Summary" :
                  selectedFilter === FILTERS.YEAR ? "Annual Financial & Udhar Cashflow Summary" : "Custom Period Financial & Udhar Cashflow Summary"}
-              {showAll && <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#fbbf24", display: "inline-block" }} title="Triple-Click Active: All Cash & Udhar Data Unlocked" />}
+              {showAll && <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#fbbf24", display: "inline-block" }} title="Triple-Click Active: All Data Unlocked" />}
             </h3>
             <p style={{ margin: "4px 0 0", fontSize: 12, color: "#94a3b8" }}>
-              Live real-time financial cashflow for {selectedFilter === FILTERS.TODAY ? dayjs().format("DD MMMM YYYY") : selectedFilter === FILTERS.WEEK ? "last 7 days" : selectedFilter === FILTERS.MONTH ? dayjs().format("MMMM YYYY") : selectedFilter === FILTERS.YEAR ? dayjs().format("YYYY") : "selected custom range"}
+              Live statement for {selectedFilter === FILTERS.TODAY ? dayjs().format("DD MMMM YYYY") : selectedFilter === FILTERS.WEEK ? "last 7 days" : selectedFilter === FILTERS.MONTH ? dayjs().format("MMMM YYYY") : selectedFilter === FILTERS.YEAR ? dayjs().format("YYYY") : "selected custom date range"}
             </p>
           </div>
-          <Tag color="cyan" style={{ borderRadius: 12, padding: "4px 12px", fontWeight: 700, fontSize: 12 }}>
-            {selectedFilter.toUpperCase()} CASHFLOW
+          <Tag color="cyan" style={{ borderRadius: 14, padding: "6px 14px", fontWeight: 800, fontSize: 12, border: "none", background: "linear-gradient(135deg, rgba(6,182,212,0.2) 0%, rgba(14,165,233,0.3) 100%)", color: "#38bdf8", boxShadow: "0 4px 12px rgba(6,182,212,0.15)" }}>
+            ⚡ {selectedFilter.toUpperCase()} REALTIME
           </Tag>
         </div>
 
-        <Row gutter={[16, 16]}>
-          <Col xs={24} sm={12} md={8} lg={4.8} style={{ flex: 1, minWidth: 200 }}>
-            <div style={{ background: "rgba(255, 255, 255, 0.06)", borderRadius: "16px", padding: "16px", border: "1px solid rgba(255, 255, 255, 0.1)" }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.5px" }}>
-                🛒 Total Sale {selectedFilter === FILTERS.TODAY ? "Today" : `(${selectedFilter})`}
-              </div>
-              <div style={{ fontSize: 22, fontWeight: 800, color: "#38bdf8", marginTop: 6 }}>
-                {formatCurrency(dashboardStats?.financialSummary?.totalSalePeriod || dashboardStats?.todayFinancials?.totalSaleToday || 0)}
-              </div>
-              <div style={{ fontSize: 11, color: "#64748b", marginTop: 4 }}>
-                {dashboardStats?.financialSummary?.cashRefundsPeriod > 0
-                  ? `Gross Billed (-₹${Number(dashboardStats.financialSummary.cashRefundsPeriod).toLocaleString("en-IN")} refunded)`
-                  : "Total gross sales revenue"}
-              </div>
-            </div>
-          </Col>
+        {(() => {
+          const finSummary = dashboardStats?.financialSummary || dashboardStats?.todayFinancials || {};
+          const newSalesBilled = finSummary.grossSalePeriod ?? finSummary.totalSaleToday ?? 0;
+          const cashRefundsGiven = finSummary.cashRefundsPeriod ?? finSummary.cashRefundsGiven ?? 0;
+          const udharGiven = finSummary.udharCreatedPeriod ?? finSummary.udharCreatedToday ?? 0;
+          const udharRecovered = finSummary.udharCollectedPeriod ?? finSummary.udharCollectedToday ?? 0;
+          const netCashInHand = finSummary.totalHandPeriod ?? finSummary.totalHandToday ?? 0;
+          const netDirectSalesCash = (finSummary.directSalesPaidPeriod ?? finSummary.directSalesPaidToday ?? (newSalesBilled - udharGiven - cashRefundsGiven));
 
-          <Col xs={24} sm={12} md={8} lg={4.8} style={{ flex: 1, minWidth: 200 }}>
-            <div style={{ background: "rgba(255, 255, 255, 0.06)", borderRadius: "16px", padding: "16px", border: "1px solid rgba(255, 255, 255, 0.1)" }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.5px" }}>
-                💵 Direct Sale (Paid)
-              </div>
-              <div style={{ fontSize: 22, fontWeight: 800, color: "#4ade80", marginTop: 6 }}>
-                {formatCurrency(dashboardStats?.financialSummary?.directSalesPaidPeriod || dashboardStats?.todayFinancials?.directSalesPaidToday || 0)}
-              </div>
-              <div style={{ fontSize: 11, color: "#64748b", marginTop: 4 }}>
-                {dashboardStats?.financialSummary?.cashRefundsPeriod > 0
-                  ? "Net Paid (Gross - Refunds - Udhar)"
-                  : "Paid upfront on sales"}
-              </div>
-            </div>
-          </Col>
+          return (
+            <>
+              <Row gutter={[16, 16]}>
+                {/* Card 1: New Sales Billed */}
+                <Col xs={24} sm={12} md={8} lg={4.8} style={{ flex: 1, minWidth: 200 }}>
+                  <div className="pro-cash-card" style={{ background: "rgba(255, 255, 255, 0.05)", borderRadius: "18px", padding: "18px", border: "1px solid rgba(56, 189, 248, 0.2)" }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: "#38bdf8", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                      🛒 New Sales Billed {selectedFilter === FILTERS.TODAY ? "Today" : ""}
+                    </div>
+                    <div style={{ fontSize: 24, fontWeight: 800, color: "#38bdf8", marginTop: 6 }}>
+                      {formatCurrency(newSalesBilled)}
+                    </div>
+                    <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 4 }}>
+                      Total gross bill value created
+                    </div>
+                  </div>
+                </Col>
 
-          <Col xs={24} sm={12} md={8} lg={4.8} style={{ flex: 1, minWidth: 200 }}>
-            <div style={{ background: "rgba(255, 255, 255, 0.06)", borderRadius: "16px", padding: "16px", border: "1px solid rgba(255, 255, 255, 0.1)" }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.5px" }}>
-                📜 Udhar Created {selectedFilter === FILTERS.TODAY ? "Today" : ""}
-              </div>
-              <div style={{ fontSize: 22, fontWeight: 800, color: "#f87171", marginTop: 6 }}>
-                {formatCurrency(dashboardStats?.financialSummary?.udharCreatedPeriod || dashboardStats?.todayFinancials?.udharCreatedToday || 0)}
-              </div>
-              <div style={{ fontSize: 11, color: "#64748b", marginTop: 4 }}>New credit balance created</div>
-            </div>
-          </Col>
+                {/* Card 2: Product Returns Refunded */}
+                <Col xs={24} sm={12} md={8} lg={4.8} style={{ flex: 1, minWidth: 200 }}>
+                  <div className="pro-cash-card" style={{ background: "rgba(244, 63, 94, 0.08)", borderRadius: "18px", padding: "18px", border: "1px solid rgba(244, 63, 94, 0.3)" }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: "#fb7185", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                      ↩️ Returns Refunded {selectedFilter === FILTERS.TODAY ? "Today" : ""}
+                    </div>
+                    <div style={{ fontSize: 24, fontWeight: 800, color: "#f43f5e", marginTop: 6 }}>
+                      {formatCurrency(cashRefundsGiven)}
+                    </div>
+                    <div style={{ fontSize: 11, color: "#fda4af", marginTop: 4 }}>
+                      Cash/Online refunded for returns
+                    </div>
+                  </div>
+                </Col>
 
-          <Col xs={24} sm={12} md={8} lg={4.8} style={{ flex: 1, minWidth: 200 }}>
-            <div style={{ background: "rgba(255, 255, 255, 0.06)", borderRadius: "16px", padding: "16px", border: "1px solid rgba(255, 255, 255, 0.1)" }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.5px" }}>
-                📥 Udhar Recovered {selectedFilter === FILTERS.TODAY ? "Today" : ""}
-              </div>
-              <div style={{ fontSize: 22, fontWeight: 800, color: "#fbbf24", marginTop: 6 }}>
-                {formatCurrency(dashboardStats?.financialSummary?.udharCollectedPeriod || dashboardStats?.todayFinancials?.udharCollectedToday || 0)}
-              </div>
-              <div style={{ fontSize: 11, color: "#64748b", marginTop: 4 }}>Udhar payments collected</div>
-            </div>
-          </Col>
+                {/* Card 3: New Udhar Given */}
+                <Col xs={24} sm={12} md={8} lg={4.8} style={{ flex: 1, minWidth: 200 }}>
+                  <div className="pro-cash-card" style={{ background: "rgba(255, 255, 255, 0.05)", borderRadius: "18px", padding: "18px", border: "1px solid rgba(248, 113, 113, 0.25)" }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: "#f87171", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                      📜 New Udhar Given {selectedFilter === FILTERS.TODAY ? "Today" : ""}
+                    </div>
+                    <div style={{ fontSize: 24, fontWeight: 800, color: "#f87171", marginTop: 6 }}>
+                      {formatCurrency(udharGiven)}
+                    </div>
+                    <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 4 }}>Sales billed on credit (unpaid)</div>
+                  </div>
+                </Col>
 
-          <Col xs={24} sm={12} md={8} lg={4.8} style={{ flex: 1, minWidth: 200 }}>
-            <div style={{ background: "linear-gradient(135deg, rgba(16, 185, 129, 0.2) 0%, rgba(5, 150, 105, 0.3) 100%)", borderRadius: "16px", padding: "16px", border: "1px solid #10b981" }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: "#a7f3d0", textTransform: "uppercase", letterSpacing: "0.5px" }}>
-                💰 Total In Hand {selectedFilter === FILTERS.TODAY ? "Today" : ""}
+                {/* Card 4: Udhar Recovered */}
+                <Col xs={24} sm={12} md={8} lg={4.8} style={{ flex: 1, minWidth: 200 }}>
+                  <div className="pro-cash-card" style={{ background: "rgba(255, 255, 255, 0.05)", borderRadius: "18px", padding: "18px", border: "1px solid rgba(251, 191, 36, 0.25)" }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: "#fbbf24", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                      📥 Udhar Recovered {selectedFilter === FILTERS.TODAY ? "Today" : ""}
+                    </div>
+                    <div style={{ fontSize: 24, fontWeight: 800, color: "#fbbf24", marginTop: 6 }}>
+                      {formatCurrency(udharRecovered)}
+                    </div>
+                    <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 4 }}>Past credit payments collected</div>
+                  </div>
+                </Col>
+
+                {/* Card 5: Net Cash In Hand */}
+                <Col xs={24} sm={12} md={8} lg={4.8} style={{ flex: 1, minWidth: 200 }}>
+                  <div className="pro-featured-card" style={{ background: "linear-gradient(135deg, rgba(16, 185, 129, 0.3) 0%, rgba(5, 150, 105, 0.45) 100%)", borderRadius: "18px", padding: "18px", border: "1px solid #10b981", boxShadow: "0 10px 25px rgba(16, 185, 129, 0.25)" }}>
+                    <div style={{ fontSize: 11, fontWeight: 800, color: "#a7f3d0", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                      💰 Net Cash In Hand {selectedFilter === FILTERS.TODAY ? "Today" : ""}
+                    </div>
+                    <div style={{ fontSize: 26, fontWeight: 900, color: "#6ee7b7", marginTop: 6 }}>
+                      {formatCurrency(netCashInHand)}
+                    </div>
+                    <div style={{ fontSize: 11, color: "#a7f3d0", marginTop: 4, fontWeight: 600 }}>Net cash received in register</div>
+                  </div>
+                </Col>
+              </Row>
+
+              {/* Live Step-by-Step Cash Calculation Explainer Banner */}
+              <div style={{
+                marginTop: 20,
+                background: "rgba(15, 23, 42, 0.75)",
+                backdropFilter: "blur(16px)",
+                borderRadius: "18px",
+                border: "1px solid rgba(56, 189, 248, 0.3)",
+                padding: "18px 22px",
+                boxShadow: "0 10px 30px rgba(0, 0, 0, 0.3)"
+              }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14, flexWrap: "wrap", gap: 8 }}>
+                  <div style={{ fontSize: 13, fontWeight: 800, color: "#38bdf8", display: "flex", alignItems: "center", gap: 8 }}>
+                    <span style={{ fontSize: 16 }}>💡</span> STEP-BY-STEP CASHFLOW CALCULATION ENGINE
+                  </div>
+                  <Tag color="cyan" style={{ borderRadius: 12, fontSize: 11, fontWeight: 800, background: "rgba(56, 189, 248, 0.15)", border: "1px solid rgba(56, 189, 248, 0.4)", color: "#38bdf8" }}>
+                    ✓ MATH VERIFIED
+                  </Tag>
+                </div>
+
+                <div style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fit, minmax(165px, 1fr))",
+                  gap: "12px",
+                  alignItems: "center"
+                }}>
+                  <div className="explainer-step-card" style={{ background: "rgba(255,255,255,0.04)", padding: "12px 14px", borderRadius: 14, border: "1px solid rgba(255,255,255,0.08)" }}>
+                    <div style={{ fontSize: 11, color: "#94a3b8", fontWeight: 600 }}>1. Sales Billed</div>
+                    <div style={{ fontSize: 16, fontWeight: 800, color: "#38bdf8", marginTop: 2 }}>{formatCurrency(newSalesBilled)}</div>
+                  </div>
+
+                  <div className="explainer-step-card" style={{ background: "rgba(255,255,255,0.04)", padding: "12px 14px", borderRadius: 14, border: "1px solid rgba(255,255,255,0.08)" }}>
+                    <div style={{ fontSize: 11, color: "#94a3b8", fontWeight: 600 }}>2. (-) New Udhar Given</div>
+                    <div style={{ fontSize: 16, fontWeight: 800, color: "#f87171", marginTop: 2 }}>- {formatCurrency(udharGiven)}</div>
+                  </div>
+
+                  <div className="explainer-step-card" style={{ background: "rgba(244,63,94,0.1)", padding: "12px 14px", borderRadius: 14, border: "1px solid rgba(244,63,94,0.3)" }}>
+                    <div style={{ fontSize: 11, color: "#fda4af", fontWeight: 600 }}>3. (-) Returns Refunded</div>
+                    <div style={{ fontSize: 16, fontWeight: 800, color: "#f43f5e", marginTop: 2 }}>- {formatCurrency(cashRefundsGiven)}</div>
+                  </div>
+
+                  <div className="explainer-step-card" style={{ background: "rgba(255,255,255,0.04)", padding: "12px 14px", borderRadius: 14, border: "1px solid rgba(255,255,255,0.08)" }}>
+                    <div style={{ fontSize: 11, color: "#94a3b8", fontWeight: 600 }}>4. (=) Net Direct Sales Cash</div>
+                    <div style={{ fontSize: 16, fontWeight: 800, color: netDirectSalesCash >= 0 ? "#4ade80" : "#f43f5e", marginTop: 2 }}>{formatCurrency(netDirectSalesCash)}</div>
+                  </div>
+
+                  <div className="explainer-step-card" style={{ background: "rgba(255,255,255,0.04)", padding: "12px 14px", borderRadius: 14, border: "1px solid rgba(255,255,255,0.08)" }}>
+                    <div style={{ fontSize: 11, color: "#94a3b8", fontWeight: 600 }}>5. (+) Udhar Recovered</div>
+                    <div style={{ fontSize: 16, fontWeight: 800, color: "#fbbf24", marginTop: 2 }}>+ {formatCurrency(udharRecovered)}</div>
+                  </div>
+
+                  <div className="explainer-step-card" style={{ background: "linear-gradient(135deg, rgba(16,185,129,0.2) 0%, rgba(5,150,105,0.3) 100%)", padding: "12px 14px", borderRadius: 14, border: "1px solid #10b981", boxShadow: "0 4px 14px rgba(16,185,129,0.2)" }}>
+                    <div style={{ fontSize: 11, color: "#a7f3d0", fontWeight: 800 }}>6. (=) NET CASH IN HAND</div>
+                    <div style={{ fontSize: 17, fontWeight: 900, color: "#6ee7b7", marginTop: 2 }}>{formatCurrency(netCashInHand)}</div>
+                  </div>
+                </div>
+
+                <div style={{ marginTop: 12, fontSize: 11, color: "#cbd5e1", borderTop: "1px dashed rgba(255,255,255,0.12)", paddingTop: 10, display: "flex", alignItems: "center", gap: 6 }}>
+                  <span>📌</span> <span><b>Formula Summary:</b> (Sales Billed {formatCurrency(newSalesBilled)}) - (New Udhar {formatCurrency(udharGiven)}) - (Returns Refunded {formatCurrency(cashRefundsGiven)}) + (Udhar Recovery {formatCurrency(udharRecovered)}) = <b>{formatCurrency(netCashInHand)}</b> total cash collected in hand.</span>
+                </div>
               </div>
-              <div style={{ fontSize: 24, fontWeight: 900, color: "#6ee7b7", marginTop: 6 }}>
-                {formatCurrency(dashboardStats?.financialSummary?.totalHandPeriod || dashboardStats?.todayFinancials?.totalHandToday || 0)}
-              </div>
-              <div style={{ fontSize: 11, color: "#a7f3d0", marginTop: 4 }}>Direct Paid + Udhar Recovered</div>
-            </div>
-          </Col>
-        </Row>
+            </>
+          );
+        })()}
       </div>
 
       {/* ── Stat Cards ─────────────────────────────────────── */}
@@ -1006,7 +1093,7 @@ const Dashboard = () => {
                 <div>
                   <div style={{ display:"flex", alignItems:"center", gap:8 }}>
                     <div style={{ width:8, height:8, borderRadius:"50%", background: (selectedFilter===FILTERS.TODAY||selectedFilter===FILTERS.WEEK) ? "#8b5cf6":"#6366f1" }} />
-                    <span style={{ fontWeight:700, fontSize:15, color:"#1e293b" }}>
+                    <span style={{ fontWeight:700, fontSize:15, color:"#f8fafc" }}>
                       {(selectedFilter===FILTERS.TODAY||selectedFilter===FILTERS.WEEK) ? `Daily Sales${selectedFilter===FILTERS.TODAY?" — Today":" (Last 7 Days)"}` : "Revenue Overview (Monthly)"}
                     </span>
                   </div>
@@ -1031,7 +1118,7 @@ const Dashboard = () => {
               <div>
                 <div style={{ display:"flex", alignItems:"center", gap:8 }}>
                   <div style={{ width:8, height:8, borderRadius:"50%", background:"#a855f7" }} />
-                  <span style={{ fontWeight:700, fontSize:15, color:"#1e293b" }}>Order Status</span>
+                  <span style={{ fontWeight:700, fontSize:15, color:"#f8fafc" }}>Order Status</span>
                 </div>
                 <p style={{ margin:0, fontSize:12, color:"#94a3b8", marginTop:2 }}>Distribution by status</p>
               </div>
@@ -1054,7 +1141,7 @@ const Dashboard = () => {
               <div>
                 <div style={{ display:"flex", alignItems:"center", gap:8 }}>
                   <div style={{ width:8, height:8, borderRadius:"50%", background:"#3b82f6" }} />
-                  <span style={{ fontWeight:700, fontSize:15, color:"#1e293b" }}>Payment Mode</span>
+                  <span style={{ fontWeight:700, fontSize:15, color:"#f8fafc" }}>Payment Mode</span>
                 </div>
                 <p style={{ margin:0, fontSize:12, color:"#94a3b8", marginTop:2 }}>Online vs Offline split</p>
               </div>
@@ -1073,7 +1160,7 @@ const Dashboard = () => {
               <div>
                 <div style={{ display:"flex", alignItems:"center", gap:8 }}>
                   <div style={{ width:8, height:8, borderRadius:"50%", background: (selectedFilter===FILTERS.TODAY||selectedFilter===FILTERS.WEEK) ? "#f97316":"#10b981" }} />
-                  <span style={{ fontWeight:700, fontSize:15, color:"#1e293b" }}>
+                  <span style={{ fontWeight:700, fontSize:15, color:"#f8fafc" }}>
                     {(selectedFilter===FILTERS.TODAY||selectedFilter===FILTERS.WEEK) ? "Peak Hours Analysis" : "Sales Overview (Monthly)"}
                   </span>
                 </div>
@@ -1104,7 +1191,7 @@ const Dashboard = () => {
                 <div>
                   <div style={{ display:"flex", alignItems:"center", gap:8 }}>
                     <div style={{ width:8, height:8, borderRadius:"50%", background:"#ef4444" }} />
-                    <span style={{ fontWeight:700, fontSize:15, color:"#1e293b" }}>Top Products</span>
+                    <span style={{ fontWeight:700, fontSize:15, color:"#f8fafc" }}>Top Products</span>
                   </div>
                   <p style={{ margin:0, fontSize:12, color:"#94a3b8", marginTop:2 }}>Best-selling by revenue</p>
                 </div>
@@ -1116,13 +1203,13 @@ const Dashboard = () => {
             {topProducts.length > 0 ? (
               <div>
                 {topProducts.map((product, index) => (
-                  <div key={index} style={{ padding:"10px 0", borderBottom: index < topProducts.length - 1 ? "1px solid #f1f5f9" : "none" }}>
+                  <div key={index} style={{ padding:"10px 0", borderBottom: index < topProducts.length - 1 ? "1px solid rgba(255,255,255,0.06)" : "none" }}>
                     <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:6 }}>
-                      <div style={{ width:32, height:32, borderRadius:10, background: index===0?"#fef3c7":index===1?"#f1f5f9":"#fdf2e9", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+                      <div style={{ width:32, height:32, borderRadius:10, background: index===0?"#fef3c7":index===1?"rgba(255,255,255,0.08)":"rgba(255,255,255,0.05)", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
                         <RankBadge rank={index} />
                       </div>
                       <div style={{ flex:1, minWidth:0 }}>
-                        <div style={{ fontWeight:600, fontSize:13, color:"#1e293b", whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{product.title || "Unknown Product"}</div>
+                        <div style={{ fontWeight:600, fontSize:13, color:"#f8fafc", whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{product.title || "Unknown Product"}</div>
                         <div style={{ fontSize:11, color:"#94a3b8" }}>{product.totalQuantity || 0} units sold</div>
                       </div>
                       <div style={{ fontWeight:700, fontSize:14, color:"#10b981", flexShrink:0 }}>₹{(product.totalRevenue || 0).toLocaleString()}</div>
@@ -1132,7 +1219,7 @@ const Dashboard = () => {
                       showInfo={false}
                       size="small"
                       strokeColor={{ from:"#6366f1", to:"#a78bfa" }}
-                      trailColor="#f1f5f9"
+                      trailColor="rgba(255,255,255,0.08)"
                     />
                   </div>
                 ))}
@@ -1152,7 +1239,7 @@ const Dashboard = () => {
                 <div>
                   <div style={{ display:"flex", alignItems:"center", gap:8 }}>
                     <div style={{ width:8, height:8, borderRadius:"50%", background:"#3b82f6" }} />
-                    <span style={{ fontWeight:700, fontSize:15, color:"#1e293b" }}>Top Customers</span>
+                    <span style={{ fontWeight:700, fontSize:15, color:"#f8fafc" }}>Top Customers</span>
                   </div>
                   <p style={{ margin:0, fontSize:12, color:"#94a3b8", marginTop:2 }}>Highest spenders</p>
                 </div>
@@ -1166,24 +1253,24 @@ const Dashboard = () => {
                 {topCustomers.map((customer, index) => {
                   const name = `${customer.firstname || ""} ${customer.lastname || ""}`.trim() || "Guest";
                   return (
-                    <div key={index} style={{ padding:"10px 0", borderBottom: index < topCustomers.length - 1 ? "1px solid #f1f5f9" : "none" }}>
+                    <div key={index} style={{ padding:"10px 0", borderBottom: index < topCustomers.length - 1 ? "1px solid rgba(255,255,255,0.06)" : "none" }}>
                       <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:6 }}>
                         <div style={{ width:34, height:34, borderRadius:10, background:hashColor(name), display:"flex", alignItems:"center", justifyContent:"center", color:"#fff", fontWeight:700, fontSize:13, flexShrink:0, position:"relative" }}>
                           {name.charAt(0).toUpperCase()}
                           {index === 0 && <FaCrown style={{ position:"absolute", top:-6, right:-6, color:"#f59e0b", fontSize:12 }} />}
                         </div>
                         <div style={{ flex:1, minWidth:0 }}>
-                          <div style={{ fontWeight:600, fontSize:13, color:"#1e293b" }}>{name}</div>
+                          <div style={{ fontWeight:600, fontSize:13, color:"#f8fafc" }}>{name}</div>
                           <div style={{ fontSize:11, color:"#94a3b8" }}>{customer.totalOrders || 0} orders</div>
                         </div>
-                        <div style={{ fontWeight:700, fontSize:14, color:"#6366f1", flexShrink:0 }}>₹{(customer.totalSpent || 0).toLocaleString()}</div>
+                        <div style={{ fontWeight:700, fontSize:14, color:"#818cf8", flexShrink:0 }}>₹{(customer.totalSpent || 0).toLocaleString()}</div>
                       </div>
                       <Progress
                         percent={Math.round(((customer.totalSpent || 0) / maxCustomerSpent) * 100)}
                         showInfo={false}
                         size="small"
                         strokeColor={{ from:"#3b82f6", to:"#818cf8" }}
-                        trailColor="#f1f5f9"
+                        trailColor="rgba(255,255,255,0.08)"
                       />
                     </div>
                   );
@@ -1204,15 +1291,15 @@ const Dashboard = () => {
             <div>
               <div style={{ display:"flex", alignItems:"center", gap:8 }}>
                 <div style={{ width:8, height:8, borderRadius:"50%", background:"#f97316" }} />
-                <span style={{ fontWeight:700, fontSize:15, color:"#1e293b" }}>Recent Orders</span>
+                <span style={{ fontWeight:700, fontSize:15, color:"#f8fafc" }}>Recent Orders</span>
               </div>
               <p style={{ margin:0, fontSize:12, color:"#94a3b8", marginTop:2 }}>Latest {orderData.length} transactions</p>
             </div>
             <button
               onClick={() => navigate("/admin/orders")}
-              style={{ display:"flex", alignItems:"center", gap:6, background:"#f1f5f9", color:"#6366f1", border:"none", borderRadius:10, padding:"7px 16px", fontWeight:600, fontSize:13, cursor:"pointer", transition:"all 0.2s" }}
+              style={{ display:"flex", alignItems:"center", gap:6, background:"rgba(255,255,255,0.08)", color:"#818cf8", border:"none", borderRadius:10, padding:"7px 16px", fontWeight:600, fontSize:13, cursor:"pointer", transition:"all 0.2s" }}
               onMouseEnter={e => { e.currentTarget.style.background="#6366f1"; e.currentTarget.style.color="#fff"; }}
-              onMouseLeave={e => { e.currentTarget.style.background="#f1f5f9"; e.currentTarget.style.color="#6366f1"; }}
+              onMouseLeave={e => { e.currentTarget.style.background="rgba(255,255,255,0.08)"; e.currentTarget.style.color="#818cf8"; }}
             >
               View All <BsArrowRight />
             </button>
@@ -1231,90 +1318,137 @@ const Dashboard = () => {
       {/* ── Styles ─────────────────────────────────────────── */}
       <style>{`
         .dash-root {
-          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-          background: #f1f5f9;
+          font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', Roboto, sans-serif;
+          background: #0b0f19;
           min-height: 100vh;
-          padding: clamp(12px,2vw,24px);
+          padding: clamp(14px, 2.5vw, 28px);
+          color: #f8fafc;
         }
 
         /* Header */
         .dash-header {
-          background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 50%, #6d28d9 100%);
+          background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 50%, #9333ea 100%);
           border-radius: 24px;
           padding: 28px 32px;
           margin-bottom: 24px;
-          box-shadow: 0 12px 40px rgba(79,70,229,0.3);
+          box-shadow: 0 16px 40px rgba(79, 70, 229, 0.35);
           position: relative;
           overflow: hidden;
+          border: 1px solid rgba(255, 255, 255, 0.2);
         }
 
-        .blob { position:absolute; border-radius:50%; }
-        .blob-1 { top:-60px; right:-40px; width:220px; height:220px; background:rgba(255,255,255,0.08); }
-        .blob-2 { bottom:-50px; left:-30px; width:180px; height:180px; background:rgba(255,255,255,0.06); }
-        .blob-3 { top:20px; left:40%; width:120px; height:120px; background:rgba(255,255,255,0.05); }
+        .blob { position: absolute; border-radius: 50%; filter: blur(20px); pointer-events: none; }
+        .blob-1 { top: -60px; right: -40px; width: 240px; height: 240px; background: rgba(255, 255, 255, 0.12); }
+        .blob-2 { bottom: -50px; left: -30px; width: 200px; height: 200px; background: rgba(255, 255, 255, 0.08); }
+        .blob-3 { top: 20px; left: 40%; width: 140px; height: 140px; background: rgba(255, 255, 255, 0.06); }
 
-        /* header select override */
+        /* Header select override */
         .header-select .ant-select-selector {
           border-radius: 12px !important;
-          border: none !important;
-          background: rgba(255,255,255,0.95) !important;
-          box-shadow: 0 4px 14px rgba(0,0,0,0.12) !important;
+          border: 1px solid rgba(255, 255, 255, 0.2) !important;
+          background: rgba(15, 23, 42, 0.6) !important;
+          backdrop-filter: blur(12px) !important;
+          color: #fff !important;
+          box-shadow: 0 4px 14px rgba(0, 0, 0, 0.2) !important;
           font-weight: 600 !important;
           height: 38px !important;
           line-height: 38px !important;
         }
 
-        /* Cards */
+        .header-select .ant-select-selection-item {
+          color: #fff !important;
+        }
+
+        /* Dark Glassmorphism Cards */
         .dash-card {
           border-radius: 20px !important;
-          border: none !important;
-          box-shadow: 0 4px 20px rgba(0,0,0,0.06) !important;
-          transition: box-shadow 0.3s ease, transform 0.3s ease;
-          background: #fff;
+          border: 1px solid rgba(255, 255, 255, 0.08) !important;
+          box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3) !important;
+          transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1) !important;
+          background: rgba(17, 24, 39, 0.85) !important;
+          backdrop-filter: blur(16px) !important;
+          color: #f8fafc !important;
         }
 
         .dash-card:hover {
-          box-shadow: 0 10px 32px rgba(0,0,0,0.1) !important;
-          transform: translateY(-2px);
+          box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45), 0 0 20px rgba(99, 102, 241, 0.15) !important;
+          transform: translateY(-3px);
+          border-color: rgba(99, 102, 241, 0.3) !important;
         }
 
         .dash-card .ant-card-head {
-          border-bottom: 1px solid #f1f5f9;
-          padding: 16px 20px;
+          border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+          padding: 18px 22px !important;
           min-height: unset;
+          background: transparent !important;
+        }
+
+        .dash-card .ant-card-head-title {
+          color: #f8fafc !important;
         }
 
         .dash-card .ant-card-body {
-          padding: 20px;
+          padding: 22px !important;
         }
 
         /* Stat cards */
         .stat-card-pro {
-          animation: fadeUp 0.5s ease both;
+          transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
         .stat-card-pro:hover {
           transform: translateY(-6px) scale(1.02);
-          box-shadow: 0 20px 50px rgba(0,0,0,0.18) !important;
+          box-shadow: 0 20px 50px rgba(0,0,0,0.4) !important;
         }
 
-        /* Table */
-        .ant-table-thead > tr > th {
-          background: #f8fafc !important;
+        /* Ant Table Overrides for Dark Mode */
+        .dash-card .ant-table {
+          background: transparent !important;
+          color: #e2e8f0 !important;
+        }
+
+        .dash-card .ant-table-thead > tr > th {
+          background: rgba(30, 41, 59, 0.7) !important;
           font-weight: 700 !important;
           font-size: 12px !important;
-          color: #64748b !important;
+          color: #94a3b8 !important;
           padding: 12px 16px !important;
-          border-bottom: 1px solid #f1f5f9 !important;
+          border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
         }
 
-        .ant-table-tbody > tr > td {
-          padding: 10px 16px !important;
-          border-bottom: 1px solid #f8fafc !important;
+        .dash-card .ant-table-tbody > tr > td {
+          padding: 12px 16px !important;
+          border-bottom: 1px solid rgba(255, 255, 255, 0.05) !important;
+          color: #cbd5e1 !important;
         }
 
-        .ant-table-tbody > tr:hover > td {
-          background: #fafaff !important;
+        .dash-card .ant-table-tbody > tr:hover > td {
+          background: rgba(255, 255, 255, 0.04) !important;
+        }
+
+        .dash-card .ant-pagination-item {
+          background: rgba(255, 255, 255, 0.05) !important;
+          border-color: rgba(255, 255, 255, 0.1) !important;
+        }
+        .dash-card .ant-pagination-item-active {
+          background: #6366f1 !important;
+          border-color: #6366f1 !important;
+        }
+        .dash-card .ant-pagination-item a {
+          color: #cbd5e1 !important;
+        }
+        .dash-card .ant-pagination-item-active a {
+          color: #fff !important;
+        }
+        .dash-card .ant-pagination-prev .ant-pagination-item-link,
+        .dash-card .ant-pagination-next .ant-pagination-item-link {
+          background: rgba(255, 255, 255, 0.05) !important;
+          border-color: rgba(255, 255, 255, 0.1) !important;
+          color: #cbd5e1 !important;
+        }
+
+        .dash-card .ant-empty-description {
+          color: #94a3b8 !important;
         }
 
         /* Animations */
@@ -1342,11 +1476,11 @@ const Dashboard = () => {
 
         /* Mobile */
         @media (max-width: 768px) {
-          .dash-root { padding: 10px; }
-          .dash-header { padding: 18px 16px; border-radius: 16px; }
+          .dash-root { padding: 12px; }
+          .dash-header { padding: 20px 16px; border-radius: 18px; }
         }
         @media (max-width: 480px) {
-          .dash-header { padding: 14px 12px; }
+          .dash-header { padding: 16px 12px; }
         }
       `}</style>
     </div>

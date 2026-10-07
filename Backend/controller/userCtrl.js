@@ -2778,6 +2778,12 @@ const getDashboardStats = asyncHandler(async (req, res) => {
     totalHandPeriod,
     cashRefundsPeriod,
     posExchangeInflowPeriod,
+    // Explicit clear human-readable properties
+    newSalesBilled: grossSalePeriod,
+    cashRefundsGiven: cashRefundsPeriod,
+    udharGiven: udharCreatedPeriod,
+    udharRecovered: udharCollectedPeriod,
+    netCashInHand: totalHandPeriod,
     // Backward compatibility aliases
     totalSaleToday: grossSalePeriod,
     netSaleToday: netSalePeriod,

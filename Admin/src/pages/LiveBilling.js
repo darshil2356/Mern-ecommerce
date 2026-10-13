@@ -650,6 +650,18 @@ const LiveBilling = () => {
     return Math.max(0, Math.round(base * 100) / 100);
   }, [grandTotal, totalTaxAmount, discountAmount, coinDiscountAmount, taxIncluded]);
 
+  const totalPurchaseCost = useMemo(() => {
+    return Object.values(cart).reduce((sum, item) => {
+      const cost = Number(item.purchasePrice ?? item.product?.purchasePrice) || 0;
+      return sum + (item.qty * cost);
+    }, 0);
+  }, [cart]);
+
+  const totalProfit = useMemo(() => {
+    const netRevenue = taxIncluded ? payableAmount : (payableAmount - totalTaxAmount);
+    return Math.round((netRevenue - totalPurchaseCost) * 100) / 100;
+  }, [payableAmount, totalTaxAmount, taxIncluded, totalPurchaseCost]);
+
   // The amount coins are calculated on = final payable (after ALL discounts)
   const coinBaseAmount = payableAmount;
 
@@ -777,11 +789,13 @@ const LiveBilling = () => {
             name: product.title,
             price: product.price,
             mrp: Number(product.mrp) || product.price,
+            purchasePrice: Number(product.purchasePrice) || 0,
             qty: 1,
             size: product.size || null, // Store size info
             color: product.color || null, // Store color info
             isSizeSpecific: product.isSizeSpecific || false,
             pkey: product.pkey || "",
+            product: product,
           },
         };
       });
@@ -955,11 +969,13 @@ const LiveBilling = () => {
                 name: product.title,
                 price: product.price,
                 mrp: Number(product.mrp) || product.price,
+                purchasePrice: Number(product.purchasePrice) || 0,
                 qty: 1,
                 size: product.size || null,
                 color: product.color || null,
                 isSizeSpecific: product.isSizeSpecific || false,
                 pkey: product.pkey || "",
+                product: product,
               },
             };
           });
@@ -1414,6 +1430,7 @@ const LiveBilling = () => {
       }
 
       const itemMrp = Number(values.mrp) || price;
+      const purchasePrice = Number(values.purchasePrice) || 0;
 
       return {
         ...prev,
@@ -1421,6 +1438,7 @@ const LiveBilling = () => {
           name: values.name.trim(),
           price,
           mrp: itemMrp > price ? itemMrp : price,
+          purchasePrice,
           qty,
           size: null,
           color: null,
@@ -3365,9 +3383,19 @@ tbody td{padding:6px 4px;vertical-align:top}
               </div>
 
               {/* Payable Amount */}
-              <div className="bg-amber-500 rounded-xl p-4 text-center">
-                <p className="text-amber-100 text-sm mb-1">Payable Amount</p>
+              <div className="bg-amber-500 rounded-xl p-4 text-center shadow-lg relative overflow-hidden">
+                <div className="flex justify-between items-center text-amber-100 text-xs px-1 mb-1">
+                  <span>Total MRP: ₹{totalMrp.toFixed(2)}</span>
+                  <span className="bg-amber-600/60 px-2 py-0.5 rounded text-[11px] font-mono font-bold text-amber-50" title="Dynamic Total Profit">
+                    p: {totalProfit.toFixed(0)}
+                  </span>
+                </div>
+                <p className="text-amber-100 text-sm mb-0.5">Payable Amount</p>
                 <p className="text-4xl font-bold text-white">₹{payableAmount.toFixed(2)}</p>
+                <div className="mt-1.5 pt-1.5 border-t border-amber-400/40 text-[11px] text-amber-100 font-medium flex justify-between items-center px-1">
+                  <span>Total MRP: ₹{totalMrp.toFixed(2)}</span>
+                  <span>Payable: ₹{payableAmount.toFixed(2)}</span>
+                </div>
               </div>
 
               {/* Total Savings Badge */}
@@ -3794,6 +3822,12 @@ tbody td{padding:6px 4px;vertical-align:top}
             label={<span className="text-gray-600 text-sm font-medium">MRP (₹) <span className="text-gray-400 font-normal">(optional)</span></span>}
           >
             <Input type="number" min={0.01} step={0.01} placeholder="e.g. 799.00 (leave blank if same as price)" size="large" className="rounded-xl" />
+          </Form.Item>
+          <Form.Item
+            name="purchasePrice"
+            label={<span className="text-gray-600 text-sm font-medium">Purchase / Cost Price (₹) <span className="text-gray-400 font-normal">(optional)</span></span>}
+          >
+            <Input type="number" min={0} step={0.01} placeholder="e.g. 250.00 (used for profit calculation)" size="large" className="rounded-xl" />
           </Form.Item>
           <Form.Item
             name="qty"

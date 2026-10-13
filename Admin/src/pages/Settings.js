@@ -4,10 +4,11 @@ import {
   FaBuilding, FaEnvelope, FaStore, FaPhone,
   FaMagic, FaSave, FaQuoteRight, FaPercentage, FaTruck,
   FaRss, FaSyncAlt, FaExternalLinkAlt, FaCopy, FaLock, FaUnlockAlt,
-  FaShieldAlt, FaBullhorn, FaImage, FaGoogle,
+  FaShieldAlt, FaBullhorn, FaImage, FaGoogle, FaCheckCircle,
 } from "react-icons/fa";
 import axios from "axios";
 import api from "../utils/axiosconfig";
+import Swal from "sweetalert2";
 import { base_url } from "../utils/baseUrl";
 
 const BACKEND_ROOT  = (process.env.REACT_APP_API_URL || "").replace(/\/api\/?$/, "");
@@ -34,6 +35,40 @@ const LOCK_SECTIONS = [
 
 const LOCK_DEFAULTS = Object.fromEntries(LOCK_SECTIONS.map(s => [s.key, false]));
 
+const getTimeoutMs = (timeoutStr = "5m") => {
+  switch (timeoutStr) {
+    case "0m": return 0;
+    case "5m": return 5 * 60 * 1000;
+    case "15m": return 15 * 60 * 1000;
+    case "30m": return 30 * 60 * 1000;
+    case "1h": return 60 * 60 * 1000;
+    case "6h": return 6 * 60 * 60 * 1000;
+    case "12h": return 12 * 60 * 60 * 1000;
+    case "1d": return 24 * 60 * 60 * 1000;
+    case "3d": return 3 * 24 * 60 * 60 * 1000;
+    case "7d": return 7 * 24 * 60 * 60 * 1000;
+    case "30d": return 30 * 24 * 60 * 60 * 1000;
+    case "session": return Infinity;
+    default: return 5 * 60 * 1000;
+  }
+};
+
+const isGroupUnlocked = (group, unlockedMap, timeoutStr = "5m") => {
+  if (!group || !unlockedMap) return false;
+  
+  const timeoutMs = getTimeoutMs(timeoutStr);
+  if (timeoutMs === 0) return false;
+
+  const unlockedAt = unlockedMap.__global__ || unlockedMap[group];
+  if (!unlockedAt) return false;
+  if (typeof unlockedAt === "boolean") return unlockedAt;
+  
+  if (timeoutMs === Infinity) return true;
+  
+  const elapsed = Date.now() - Number(unlockedAt);
+  return elapsed >= 0 && elapsed < timeoutMs;
+};
+
 // ─── Password Gate ────────────────────────────────────────────────────────────
 const PasswordGate = ({ onUnlock }) => {
   const [input, setInput]     = useState("");
@@ -46,9 +81,16 @@ const PasswordGate = ({ onUnlock }) => {
     setError("");
     try {
       await axios.post(`${base_url}user/verify-pos-lock`, { password: input }, { headers: { Authorization: `Bearer ${JSON.parse(localStorage.getItem("user") || "{}").token || ""}` } });
-      const currentUnlocked = JSON.parse(sessionStorage.getItem("admin_unlocked_groups") || "{}");
-      currentUnlocked.settings = true;
+      const now = Date.now();
+      const currentUnlocked = {
+        ...JSON.parse(sessionStorage.getItem("admin_unlocked_groups") || "{}"),
+        ...JSON.parse(localStorage.getItem("admin_unlocked_groups") || "{}"),
+        __global__: now,
+        settings: now,
+      };
       sessionStorage.setItem("admin_unlocked_groups", JSON.stringify(currentUnlocked));
+      localStorage.setItem("admin_unlocked_groups", JSON.stringify(currentUnlocked));
+      window.dispatchEvent(new CustomEvent("admin_lock_config_updated"));
       onUnlock();
     } catch {
       setError("Wrong password. Try again.");
@@ -180,10 +222,13 @@ const Settings = () => {
   useEffect(() => {
     const init = async () => {
       try {
-        const res = await api.get(`${base_url}user/settings`);
+        const res = await api.get(`${base_url}user/settings?_t=${Date.now()}`);
         const data = res.data;
-        const unlockedStorage = JSON.parse(sessionStorage.getItem("admin_unlocked_groups") || "{}");
-        if (data.lockSettings && data.posLockPasswordSet && !unlockedStorage.settings) {
+        const sessionMap = JSON.parse(sessionStorage.getItem("admin_unlocked_groups") || "{}");
+        const localMap = JSON.parse(localStorage.getItem("admin_unlocked_groups") || "{}");
+        const unlockedStorage = { ...localMap, ...sessionMap };
+        const isSettingsUnlocked = isGroupUnlocked("settings", unlockedStorage, data.posLockTimeout || "5m");
+        if (data.lockSettings && data.posLockPasswordSet && !isSettingsUnlocked) {
           // Gate needed — cache data for after unlock
           cachedSettings.current = data;
           setGateRequired(true);
@@ -295,19 +340,168 @@ const Settings = () => {
         ...locks,
         ...(newPassword && { posLockPassword: newPassword }),
       };
-      await api.put(`${base_url}user/settings`, payload);
+      const res = await api.put(`${base_url}user/settings`, payload);
       if (values.gstin !== undefined) {
         await api.put(`${base_url}user/gstin`, { gstin: values.gstin });
       }
-      if (newPassword) setPasswordSet(true);
+
+      const d = res.data || {};
+      const updatedLocks = Object.fromEntries(LOCK_SECTIONS.map(s => [s.key, !!d[s.key]]));
+      setLocks(updatedLocks);
+      const isPwSet = d.posLockPasswordSet !== undefined ? !!d.posLockPasswordSet : (newPassword ? true : passwordSet);
+      setPasswordSet(isPwSet);
+      if (d.posLockTimeout) setPosLockTimeout(d.posLockTimeout);
       setNewPassword("");
       setConfirmPassword("");
-      message.success("Settings saved successfully!");
+
+      // Clean up sessionStorage for sections where lock is now removed
+      try {
+        const stored = JSON.parse(sessionStorage.getItem("admin_unlocked_groups") || "{}");
+        if (!isPwSet || !Object.values(updatedLocks).some(Boolean)) {
+          sessionStorage.removeItem("admin_unlocked_groups");
+        } else {
+          const groupKeyMap = {
+            lockDashboard: "dashboard",
+            lockLiveBilling: "live-billing",
+            lockCustomers: "customers",
+            lockOrders: "orders",
+            lockCatalog: "catalog",
+            lockAnalytics: "analytics",
+            lockRewards: "rewards",
+            lockMarketing: "marketing",
+            lockPurchase: "purchase",
+            lockRojmel: "rojmel",
+            lockUdhar: "udhar",
+            lockStaff: "staff",
+            lockReviews: "reviews",
+            lockEnquiries: "enquiries",
+            lockSettings: "settings",
+          };
+          Object.entries(groupKeyMap).forEach(([lockKey, groupKey]) => {
+            if (!updatedLocks[lockKey]) {
+              delete stored[groupKey];
+            }
+          });
+          sessionStorage.setItem("admin_unlocked_groups", JSON.stringify(stored));
+        }
+      } catch (err) {
+        console.error(err);
+      }
+
+      // Broadcast update to MainLayout immediately
+      const lockedGroupsMap = {
+        dashboard:      !!updatedLocks.lockDashboard,
+        "live-billing": !!updatedLocks.lockLiveBilling,
+        customers:      !!updatedLocks.lockCustomers,
+        orders:         !!updatedLocks.lockOrders,
+        catalog:        !!updatedLocks.lockCatalog,
+        analytics:      !!updatedLocks.lockAnalytics,
+        rewards:        !!updatedLocks.lockRewards,
+        marketing:      !!updatedLocks.lockMarketing,
+        purchase:       !!updatedLocks.lockPurchase,
+        rojmel:         !!updatedLocks.lockRojmel,
+        udhar:          !!updatedLocks.lockUdhar,
+        staff:          !!updatedLocks.lockStaff,
+        reviews:        !!updatedLocks.lockReviews,
+        enquiries:      !!updatedLocks.lockEnquiries,
+        settings:       !!updatedLocks.lockSettings,
+      };
+
+      window.dispatchEvent(new CustomEvent("admin_lock_config_updated", {
+        detail: {
+          lockedGroups: lockedGroupsMap,
+          passwordSet: isPwSet,
+          posLockTimeout: d.posLockTimeout || posLockTimeout,
+        }
+      }));
+      localStorage.setItem("admin_lock_updated_at", String(Date.now()));
+
+      message.success("Settings saved successfully! Lock configurations updated.");
     } catch {
       message.error("Failed to save settings");
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleRemovePassword = async () => {
+    Swal.fire({
+      title: "Remove Lock Password?",
+      text: "This will remove the password and turn off locks on all sections.",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#ef4444",
+      cancelButtonColor: "#6b7280",
+      confirmButtonText: "Yes, remove password",
+      cancelButtonText: "Cancel",
+    }).then(async (result) => {
+      if (result.isConfirmed) {
+        try {
+          setSaving(true);
+          const emptyLocks = Object.fromEntries(LOCK_SECTIONS.map(s => [s.key, false]));
+          await api.put(`${base_url}user/settings`, {
+            clearPosLockPassword: true,
+            posLockPassword: "",
+            ...emptyLocks,
+          });
+          setLocks(emptyLocks);
+          setPasswordSet(false);
+          setNewPassword("");
+          setConfirmPassword("");
+          sessionStorage.removeItem("admin_unlocked_groups");
+          localStorage.removeItem("admin_unlocked_groups");
+
+          const emptyLockedGroups = {
+            dashboard: false,
+            "live-billing": false,
+            customers: false,
+            orders: false,
+            catalog: false,
+            analytics: false,
+            rewards: false,
+            marketing: false,
+            purchase: false,
+            rojmel: false,
+            udhar: false,
+            staff: false,
+            reviews: false,
+            enquiries: false,
+            settings: false,
+          };
+
+          window.dispatchEvent(new CustomEvent("admin_lock_config_updated", {
+            detail: {
+              lockedGroups: emptyLockedGroups,
+              passwordSet: false,
+              posLockTimeout: "5m",
+            }
+          }));
+          localStorage.setItem("admin_lock_updated_at", String(Date.now()));
+
+          Swal.fire({
+            title: "Password Removed!",
+            text: "Lock password and all section locks have been removed successfully.",
+            icon: "success",
+            timer: 2000,
+            showConfirmButton: false,
+          });
+        } catch {
+          message.error("Failed to remove password");
+        } finally {
+          setSaving(false);
+        }
+      }
+    });
+  };
+
+  const handleUnlockAllSections = () => {
+    setLocks(Object.fromEntries(LOCK_SECTIONS.map(s => [s.key, false])));
+    message.info("All sections set to Open. Click 'Save Settings' to apply.");
+  };
+
+  const handleLockAllSections = () => {
+    setLocks(Object.fromEntries(LOCK_SECTIONS.map(s => [s.key, true])));
+    message.info("All sections set to Locked. Click 'Save Settings' to apply.");
   };
 
   const refreshFeed = async () => {
@@ -480,44 +674,107 @@ const Settings = () => {
               className="mb-6 shadow-sm"
               title={<span className="flex items-center gap-2"><FaShieldAlt className="text-indigo-600" /> Lock Management</span>}
             >
+              {/* Status Header & Quick Actions */}
+              <div className={`p-4 rounded-xl border mb-5 flex flex-wrap items-center justify-between gap-3 ${
+                passwordSet ? "bg-indigo-50/70 border-indigo-200" : "bg-amber-50 border-amber-200"
+              }`}>
+                <div className="flex items-center gap-2.5">
+                  <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${passwordSet ? "bg-indigo-600 text-white" : "bg-amber-500 text-white"}`}>
+                    {passwordSet ? <FaLock className="text-sm" /> : <FaUnlockAlt className="text-sm" />}
+                  </div>
+                  <div>
+                    <p className="font-bold text-gray-800 text-sm leading-tight flex items-center gap-2">
+                      {passwordSet ? "Password Protection is Active" : "No Password Set Yet"}
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                        passwordSet ? "bg-emerald-100 text-emerald-800 border border-emerald-300" : "bg-amber-100 text-amber-800 border border-amber-300"
+                      }`}>
+                        {passwordSet ? "Active" : "Disabled"}
+                      </span>
+                    </p>
+                    <p className="text-xs text-gray-600 leading-tight mt-0.5">
+                      {passwordSet
+                        ? `${Object.values(locks).filter(Boolean).length} of ${LOCK_SECTIONS.length} sections locked. Change toggles below and save.`
+                        : "Set a password below and select areas to protect them."}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Button size="small" onClick={handleUnlockAllSections} className="text-xs">
+                    Turn Off All Locks
+                  </Button>
+                  <Button size="small" onClick={handleLockAllSections} className="text-xs">
+                    Lock All Sections
+                  </Button>
+                  {passwordSet && (
+                    <Button size="small" danger onClick={handleRemovePassword} className="text-xs">
+                      Remove Password
+                    </Button>
+                  )}
+                </div>
+              </div>
+
               <p className="text-sm font-medium text-gray-700 mb-3">Choose which areas to protect with a password:</p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
-                {LOCK_SECTIONS.map(sec => (
-                  <div
-                    key={sec.key}
-                    className={`flex items-center justify-between p-3 rounded-xl border-2 transition-all ${
-                      locks[sec.key] ? "border-indigo-400 bg-indigo-50" : "border-gray-200 bg-gray-50"
-                    }`}
-                  >
-                    <div className="flex items-center gap-2">
-                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${locks[sec.key] ? "bg-indigo-600" : "bg-gray-300"}`}>
-                        <FaLock className="text-white text-xs" />
+                {LOCK_SECTIONS.map(sec => {
+                  const isLocked = !!locks[sec.key];
+                  return (
+                    <div
+                      key={sec.key}
+                      className={`flex items-center justify-between p-3.5 rounded-xl border-2 transition-all ${
+                        isLocked ? "border-indigo-400 bg-indigo-50/70" : "border-gray-200 bg-gray-50/60"
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 transition-colors ${
+                          isLocked ? "bg-indigo-600 text-white shadow-xs" : "bg-gray-200 text-gray-400"
+                        }`}>
+                          {isLocked ? <FaLock className="text-xs" /> : <FaUnlockAlt className="text-xs" />}
+                        </div>
+                        <div>
+                          <p className="font-semibold text-gray-800 text-sm leading-tight flex items-center gap-1.5">
+                            {sec.label}
+                            {isLocked ? (
+                              <span className="text-[10px] bg-indigo-100 text-indigo-700 font-bold px-1.5 py-0.5 rounded">Locked</span>
+                            ) : (
+                              <span className="text-[10px] bg-gray-100 text-gray-500 font-normal px-1.5 py-0.5 rounded">Open</span>
+                            )}
+                          </p>
+                          <p className="text-xs text-gray-500 leading-tight mt-0.5">{sec.desc}</p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="font-semibold text-gray-800 text-sm leading-tight">{sec.label}</p>
-                        <p className="text-xs text-gray-500 leading-tight">{sec.desc}</p>
-                      </div>
+                      <Switch
+                        checked={isLocked}
+                        onChange={v => setLocks(prev => ({ ...prev, [sec.key]: v }))}
+                        checkedChildren="Locked"
+                        unCheckedChildren="Open"
+                      />
                     </div>
-                    <Switch
-                      checked={locks[sec.key]}
-                      onChange={v => setLocks(prev => ({ ...prev, [sec.key]: v }))}
-                      checkedChildren="Locked"
-                      unCheckedChildren="Open"
-                    />
-                  </div>
-                ))}
+                  );
+                })}
               </div>
 
               {/* Password setup */}
               <div className="p-4 bg-gray-50 rounded-xl border border-gray-200">
-                <p className="font-medium text-gray-800 mb-1 flex items-center gap-2">
-                  <FaLock className="text-indigo-500" />
-                  {passwordSet ? "Change Lock Password" : "Set Lock Password"}
-                </p>
+                <div className="flex items-center justify-between mb-2">
+                  <p className="font-medium text-gray-800 flex items-center gap-2">
+                    <FaLock className="text-indigo-500" />
+                    {passwordSet ? "Change Lock Password" : "Set Lock Password"}
+                  </p>
+                  {passwordSet && (
+                    <button
+                      type="button"
+                      onClick={handleRemovePassword}
+                      className="text-xs text-red-600 hover:text-red-700 font-semibold underline"
+                    >
+                      Remove Password
+                    </button>
+                  )}
+                </div>
                 <p className="text-xs text-gray-500 mb-4">
                   {passwordSet
-                    ? "Leave blank to keep existing password. Fill both fields to change it."
-                    : "Set a password to activate the locks above."}
+                    ? "Leave blank to keep existing password. Fill both fields below to update it."
+                    : "Set a password to activate protection on the selected sections above."}
                 </p>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
@@ -554,12 +811,15 @@ const Settings = () => {
                 </p>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                   {[
-                    { value: "5m",       label: "5 Minutes (Default)" },
-                    { value: "15m",      label: "15 Minutes" },
-                    { value: "30m",      label: "30 Minutes" },
-                    { value: "1h",       label: "1 Hour" },
-                    { value: "0m",       label: "Immediate (Every Page)" },
                     { value: "session",  label: "Browser Session" },
+                    { value: "30d",      label: "30 Days" },
+                    { value: "7d",       label: "7 Days" },
+                    { value: "1d",       label: "1 Day" },
+                    { value: "1h",       label: "1 Hour" },
+                    { value: "30m",      label: "30 Minutes" },
+                    { value: "15m",      label: "15 Minutes" },
+                    { value: "5m",       label: "5 Minutes (Default)" },
+                    { value: "0m",       label: "Immediate (Every Page)" },
                   ].map(opt => (
                     <div
                       key={opt.value}
@@ -579,7 +839,7 @@ const Settings = () => {
               <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
                 <p className="text-xs text-amber-800 leading-relaxed">
                   <strong>How it works:</strong> Toggle ON the areas you want to protect. Set a password and save.
-                  Staff will see a password screen when accessing locked areas. The unlock automatically expires after your chosen timeout (e.g. 5 minutes).
+                  Once you enter the password, all protected areas remain unlocked across the entire panel for your chosen timeout (e.g. <strong>Browser Session</strong> or <strong>30 Days</strong>). You will not be asked again on every page until the timeout expires or you click "Lock All".
                 </p>
               </div>
 

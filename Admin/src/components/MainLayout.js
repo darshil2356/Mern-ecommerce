@@ -23,7 +23,7 @@ import { BiCategoryAlt } from "react-icons/bi";
 import { Layout, Menu, theme, Drawer } from "antd";
 import axios from "axios";
 import { base_url } from "../utils/baseUrl";
-import { config, cachedGet } from "../utils/axiosconfig";
+import api, { config, cachedGet } from "../utils/axiosconfig";
 
 const { Header, Sider, Content } = Layout;
 
@@ -184,22 +184,41 @@ const getTimeoutMs = (timeoutStr = "5m") => {
     case "15m": return 15 * 60 * 1000;
     case "30m": return 30 * 60 * 1000;
     case "1h": return 60 * 60 * 1000;
+    case "6h": return 6 * 60 * 60 * 1000;
+    case "12h": return 12 * 60 * 60 * 1000;
+    case "1d": return 24 * 60 * 60 * 1000;
+    case "3d": return 3 * 24 * 60 * 60 * 1000;
+    case "7d": return 7 * 24 * 60 * 60 * 1000;
+    case "30d": return 30 * 24 * 60 * 60 * 1000;
     case "session": return Infinity;
     default: return 5 * 60 * 1000;
   }
 };
 
-const isGroupUnlocked = (group, unlockedMap, timeoutStr) => {
-  if (!group || !unlockedMap || !unlockedMap[group]) return false;
-  const unlockedAt = unlockedMap[group];
-  if (typeof unlockedAt === "boolean") return unlockedAt;
+const isGroupUnlocked = (group, unlockedMap, timeoutStr = "5m") => {
+  if (!group || !unlockedMap) return false;
   
   const timeoutMs = getTimeoutMs(timeoutStr);
-  if (timeoutMs === Infinity) return true;
   if (timeoutMs === 0) return false;
+
+  const unlockedAt = unlockedMap.__global__ || unlockedMap[group];
+  if (!unlockedAt) return false;
+  if (typeof unlockedAt === "boolean") return unlockedAt;
+  
+  if (timeoutMs === Infinity) return true;
   
   const elapsed = Date.now() - Number(unlockedAt);
-  return elapsed < timeoutMs;
+  return elapsed >= 0 && elapsed < timeoutMs;
+};
+
+const getStoredUnlockedMap = () => {
+  try {
+    const sessionMap = JSON.parse(sessionStorage.getItem("admin_unlocked_groups") || "{}");
+    const localMap = JSON.parse(localStorage.getItem("admin_unlocked_groups") || "{}");
+    return { ...localMap, ...sessionMap };
+  } catch {
+    return {};
+  }
 };
 
 // ─── Main Layout ──────────────────────────────────────────────────────────────
@@ -211,13 +230,7 @@ const MainLayout = () => {
 
   // Lock system
   const [lockedGroups, setLockedGroups]     = useState({});   // { groupKey: true } — which groups are locked
-  const [unlockedGroups, setUnlockedGroups] = useState(() => {
-    try {
-      return JSON.parse(sessionStorage.getItem("admin_unlocked_groups") || "{}");
-    } catch {
-      return {};
-    }
-  });
+  const [unlockedGroups, setUnlockedGroups] = useState(getStoredUnlockedMap);
   const [groupLabels, setGroupLabels]       = useState({});   // { groupKey: "Display Name" }
   const [activeOverlay, setActiveOverlay]   = useState(null); // groupKey currently showing overlay
   const [passwordSet, setPasswordSet]       = useState(false);
@@ -228,54 +241,90 @@ const MainLayout = () => {
   const location  = useLocation();
   const vendorsVisible = useSelector(s => s.purchase?.vendorsVisible ?? false);
 
-  // Fetch lock config on mount
+  // Fetch lock config
+  const fetchLockConfig = useCallback(async () => {
+    try {
+      const res = await api.get(`${base_url}user/settings?_t=${Date.now()}`);
+      const d = res.data;
+      const isPwSet = !!d.posLockPasswordSet;
+      setPasswordSet(isPwSet);
+      setPosLockTimeout(d.posLockTimeout || "5m");
+      setLockedGroups({
+        dashboard:      !!d.lockDashboard,
+        "live-billing": !!d.lockLiveBilling,
+        customers:      !!d.lockCustomers,
+        orders:         !!d.lockOrders,
+        catalog:        !!d.lockCatalog,
+        analytics:      !!d.lockAnalytics,
+        rewards:        !!d.lockRewards,
+        marketing:      !!d.lockMarketing,
+        purchase:       !!d.lockPurchase,
+        rojmel:         !!d.lockRojmel,
+        udhar:          !!d.lockUdhar,
+        staff:          !!d.lockStaff,
+        reviews:        !!d.lockReviews,
+        enquiries:      !!d.lockEnquiries,
+        settings:       !!d.lockSettings,
+      });
+      setGroupLabels({
+        dashboard:      "Dashboard",
+        "live-billing": "POS Billing",
+        customers:      "Customers",
+        orders:         "Orders",
+        catalog:        "Catalog",
+        analytics:      "Analytics",
+        rewards:        "Rewards",
+        marketing:      "Marketing",
+        purchase:       "Purchase",
+        rojmel:         "Rojmel",
+        udhar:          "Udhar Khata",
+        staff:          "Staff Management",
+        reviews:        "Reviews",
+        enquiries:      "Enquiries",
+        settings:       "Settings",
+      });
+    } catch {
+      // silently fail — no lock applied
+    }
+  }, []);
+
+  // Fetch on mount and listen to immediate updates from Settings
   useEffect(() => {
-    const fetchLockConfig = async () => {
-      try {
-        const res = await cachedGet(`${base_url}user/settings`);
-        const d = res.data;
-        setPasswordSet(!!d.posLockPasswordSet);
-        setPosLockTimeout(d.posLockTimeout || "5m");
-        setLockedGroups({
-          dashboard:      !!d.lockDashboard,
-          "live-billing": !!d.lockLiveBilling,
-          customers:      !!d.lockCustomers,
-          orders:         !!d.lockOrders,
-          catalog:        !!d.lockCatalog,
-          analytics:      !!d.lockAnalytics,
-          rewards:        !!d.lockRewards,
-          marketing:      !!d.lockMarketing,
-          purchase:       !!d.lockPurchase,
-          rojmel:         !!d.lockRojmel,
-          udhar:          !!d.lockUdhar,
-          staff:          !!d.lockStaff,
-          reviews:        !!d.lockReviews,
-          enquiries:      !!d.lockEnquiries,
-          settings:       !!d.lockSettings,
-        });
-        setGroupLabels({
-          dashboard:      "Dashboard",
-          "live-billing": "POS Billing",
-          customers:      "Customers",
-          orders:         "Orders",
-          catalog:        "Catalog",
-          analytics:      "Analytics",
-          rewards:        "Rewards",
-          marketing:      "Marketing",
-          purchase:       "Purchase",
-          rojmel:         "Rojmel",
-          udhar:          "Udhar Khata",
-          staff:          "Staff Management",
-          reviews:        "Reviews",
-          enquiries:      "Enquiries",
-          settings:       "Settings",
-        });
-      } catch {
-        // silently fail — no lock applied
+    fetchLockConfig();
+
+    const handleLockConfigUpdate = (e) => {
+      if (e?.detail) {
+        if (e.detail.lockedGroups) {
+          setLockedGroups(e.detail.lockedGroups);
+        }
+        if (e.detail.passwordSet !== undefined) {
+          setPasswordSet(e.detail.passwordSet);
+        }
+        if (e.detail.posLockTimeout) {
+          setPosLockTimeout(e.detail.posLockTimeout);
+        }
+      } else {
+        fetchLockConfig();
+      }
+      setUnlockedGroups(getStoredUnlockedMap());
+    };
+
+    const handleStorageChange = (e) => {
+      if (e.key === "admin_lock_updated_at") {
+        fetchLockConfig();
+      }
+      if (e.key === "admin_unlocked_groups") {
+        setUnlockedGroups(getStoredUnlockedMap());
       }
     };
-    fetchLockConfig();
-  }, []);
+
+    window.addEventListener("admin_lock_config_updated", handleLockConfigUpdate);
+    window.addEventListener("storage", handleStorageChange);
+    return () => {
+      window.removeEventListener("admin_lock_config_updated", handleLockConfigUpdate);
+      window.removeEventListener("storage", handleStorageChange);
+    };
+  }, [fetchLockConfig]);
 
   // Check lock on every route change
   useEffect(() => {
@@ -290,9 +339,10 @@ const MainLayout = () => {
     setSelectedKeys([routeKey]);
 
     const group = getRouteGroup(path);
+    const isGroupActive = Boolean(group && lockedGroups[group] && passwordSet);
     const unlocked = isGroupUnlocked(group, unlockedGroups, posLockTimeout);
 
-    if (group && lockedGroups[group] && !unlocked && passwordSet) {
+    if (isGroupActive && !unlocked) {
       setActiveOverlay(group);
     } else {
       setActiveOverlay(null);
@@ -314,16 +364,27 @@ const MainLayout = () => {
   }, [location.pathname, lockedGroups, unlockedGroups, passwordSet, posLockTimeout]);
 
   const handleUnlock = useCallback((group) => {
+    const now = Date.now();
     setUnlockedGroups(prev => {
-      const updated = { ...prev, [group]: Date.now() };
+      const updated = {
+        ...prev,
+        __global__: now,
+        ...(group ? { [group]: now } : {}),
+      };
+      // Once unlocked with password, unlock all protected areas for this session/duration
+      Object.keys(lockedGroups).forEach(k => {
+        if (lockedGroups[k]) updated[k] = now;
+      });
       sessionStorage.setItem("admin_unlocked_groups", JSON.stringify(updated));
+      localStorage.setItem("admin_unlocked_groups", JSON.stringify(updated));
       return updated;
     });
     setActiveOverlay(null);
-  }, []);
+  }, [lockedGroups]);
 
   const handleLockAll = useCallback(() => {
     sessionStorage.removeItem("admin_unlocked_groups");
+    localStorage.removeItem("admin_unlocked_groups");
     setUnlockedGroups({});
     setActiveOverlay(null);
   }, []);
@@ -348,16 +409,21 @@ const MainLayout = () => {
     }
   }, [navigate, isMobile]);
 
+  // Lock icon ONLY shows when the section is actively locked.
+  // When unlocked or when lock is removed in settings, NO icon is shown.
   const renderItemLabel = (label, groupKey) => {
     if (!passwordSet || !groupKey || !lockedGroups[groupKey]) {
       return label;
     }
     const isUnlocked = isGroupUnlocked(groupKey, unlockedGroups, posLockTimeout);
+    if (isUnlocked) {
+      return label;
+    }
     return (
       <span className="flex items-center justify-between w-full pr-2">
         <span>{label}</span>
-        <span className={`text-xs ${isUnlocked ? "text-emerald-400" : "text-amber-400"}`} title={isUnlocked ? "Unlocked" : "Password Protected"}>
-          {isUnlocked ? "🔓" : "🔒"}
+        <span className="text-xs text-amber-400 font-normal ml-1" title="Password Protected">
+          🔒
         </span>
       </span>
     );
@@ -487,7 +553,7 @@ const MainLayout = () => {
           </div>
           <div className="header-right">
             <div className="header-action-btns flex items-center gap-2">
-              {passwordSet && Object.keys(unlockedGroups).length > 0 && (
+              {passwordSet && Object.values(lockedGroups).some(Boolean) && (unlockedGroups.__global__ || Object.keys(unlockedGroups).some(g => lockedGroups[g] && isGroupUnlocked(g, unlockedGroups, posLockTimeout))) && (
                 <button
                   onClick={handleLockAll}
                   className="px-3 py-1 text-xs font-semibold text-red-600 bg-red-50 hover:bg-red-100 border border-red-200 rounded-lg flex items-center gap-1.5 transition-all shadow-xs"

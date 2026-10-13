@@ -2903,6 +2903,7 @@ const getProductByBarcode = asyncHandler(async (req, res) => {
     title: product.title,
     price: product.price,
     mrp: product.mrp || product.price,
+    purchasePrice: Number(product.purchasePrice) || 0,
     // If size-specific, return size quantity; otherwise return main quantity
     quantity: sizeInfo ? sizeInfo.quantity : product.quantity,
     barcode: barcode,
@@ -3108,6 +3109,7 @@ const getSettings = asyncHandler(async (req, res) => {
     const user = await User.findById(_id).select(
       "gstin email storeName storeTagline storeAddress storePhone storeEmail storeWhatsapp storeOpeningHours googleMapsUrl googleBusinessProfileUrl instagramUrl facebookUrl youtubeUrl storeLogo storeFavicon socialShareImage googleReviewUrl googleReviewRequestMessage homepageMetaTitle homepageMetaDescription heroBannerImage heroBannerTitle heroBannerSubtext heroBannerCta promoBannerImage promoBannerLink homepageSectionsOrder homepageHiddenSections storeFaqsJson cgst sgst igst storeState taxIncluded onlinePaymentDestination shippingCharge upiIdA upiIdB requireOtpForSignup posLockEnabled posLockPassword lockDashboard lockCustomers lockOrders lockCatalog lockAnalytics lockRewards lockMarketing lockPurchase lockRojmel lockUdhar lockReviews lockEnquiries lockSettings lockLiveBilling lockStaff posLockTimeout jwtExpiresIn"
     );
+    res.set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
     res.json({
       gstin: user.gstin || "",
       email: user.email || "",
@@ -3282,7 +3284,7 @@ const updateSettings = asyncHandler(async (req, res) => {
     heroBannerImage, heroBannerTitle, heroBannerSubtext, heroBannerCta,
     promoBannerImage, promoBannerLink, homepageSectionsOrder, homepageHiddenSections, storeFaqsJson,
     onlinePaymentDestination, shippingCharge, upiIdA, upiIdB,
-    requireOtpForSignup, posLockPassword,
+    requireOtpForSignup, posLockPassword, clearPosLockPassword,
     lockDashboard, lockCustomers, lockOrders, lockCatalog, lockAnalytics, lockRewards,
     lockMarketing, lockPurchase, lockRojmel, lockUdhar, lockReviews,
     lockEnquiries, lockSettings, lockLiveBilling, lockStaff, posLockTimeout, jwtExpiresIn,
@@ -3329,7 +3331,10 @@ const updateSettings = asyncHandler(async (req, res) => {
       ...(upiIdA !== undefined && { upiIdA: upiIdA || "" }),
       ...(upiIdB !== undefined && { upiIdB: upiIdB || "" }),
       ...(requireOtpForSignup !== undefined && { requireOtpForSignup: Boolean(requireOtpForSignup) }),
-      ...(posLockPassword     !== undefined && posLockPassword !== "" && { posLockPassword }),
+      ...(clearPosLockPassword === true || posLockPassword === null
+        ? { posLockPassword: "" }
+        : (posLockPassword !== undefined && posLockPassword !== "" ? { posLockPassword } : {})
+      ),
       ...(lockDashboard   !== undefined && { lockDashboard:   Boolean(lockDashboard) }),
       ...(lockCustomers   !== undefined && { lockCustomers:   Boolean(lockCustomers) }),
       ...(lockOrders      !== undefined && { lockOrders:      Boolean(lockOrders) }),
@@ -3351,6 +3356,7 @@ const updateSettings = asyncHandler(async (req, res) => {
     { new: true }
   );
 
+  res.set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
   res.json({
     success: true,
     cgst: updatedUser.cgst,
@@ -3386,6 +3392,24 @@ const updateSettings = asyncHandler(async (req, res) => {
     homepageSectionsOrder: updatedUser.homepageSectionsOrder,
     homepageHiddenSections: updatedUser.homepageHiddenSections,
     storeFaqsJson: updatedUser.storeFaqsJson,
+    posLockPasswordSet: !!(updatedUser.posLockPassword),
+    lockDashboard:   updatedUser.lockDashboard   === true,
+    lockCustomers:   updatedUser.lockCustomers   === true,
+    lockOrders:      updatedUser.lockOrders      === true,
+    lockCatalog:     updatedUser.lockCatalog     === true,
+    lockAnalytics:   updatedUser.lockAnalytics   === true,
+    lockRewards:     updatedUser.lockRewards     === true,
+    lockMarketing:   updatedUser.lockMarketing   === true,
+    lockPurchase:    updatedUser.lockPurchase    === true,
+    lockRojmel:      updatedUser.lockRojmel      === true,
+    lockUdhar:       updatedUser.lockUdhar       === true,
+    lockReviews:     updatedUser.lockReviews     === true,
+    lockEnquiries:   updatedUser.lockEnquiries   === true,
+    lockSettings:    updatedUser.lockSettings    === true,
+    lockLiveBilling: updatedUser.lockLiveBilling === true,
+    lockStaff:       updatedUser.lockStaff       === true,
+    posLockTimeout:  updatedUser.posLockTimeout  || "5m",
+    jwtExpiresIn:    updatedUser.jwtExpiresIn    || "1d",
   });
 });
 

@@ -37,6 +37,7 @@ const ROUTE_GROUP = {
   "order":              "orders",
   "live-billing":       "live-billing",
   "list-product":       "catalog",
+  "stock-calculation":  "catalog",
   "stock-alerts":       "catalog",
   "stock-audit":        "catalog",
   "product":            "catalog",
@@ -479,6 +480,11 @@ const MainLayout = () => {
       children: [
         { key: "list-product",   icon: <AiOutlineShoppingCart />, label: "Products" },
         {
+          key: "stock-calculation",
+          icon: <span style={{ fontSize: "14px" }}>🧮</span>,
+          label: "Stock Calculation (6-Month)",
+        },
+        {
           key: "stock-alerts",
           icon: <FaShieldAlt style={{ color: "#ef4444" }} />,
           label: unreviewedAlerts > 0 ? `Stock Alerts (${unreviewedAlerts}) 🚨` : "Stock Fraud Alerts 🛡️",
@@ -608,6 +614,13 @@ const MainLayout = () => {
                   <span>Lock All</span>
                 </button>
               )}
+              <Link
+                to="/admin/stock-calculation"
+                className="action-btn"
+                title="6-Month Store Stock Calculation & Physical Audit"
+              >
+                <span style={{ fontSize: "16px" }}>🧮</span>
+              </Link>
               <Link
                 to="/admin/stock-alerts"
                 className="action-btn notification-btn"

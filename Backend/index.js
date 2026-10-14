@@ -45,6 +45,7 @@ const vendorRouter = require("./routes/vendorRoute");
 const purchaseRouter = require("./routes/purchaseRoute");
 const wholesaleRouter = require("./routes/wholesaleRoute");
 const staffRouter = require("./routes/staffRoute");
+const stockAuditRouter = require("./routes/stockAuditRoute");
 
 // Socket.io setup
 const http = require("http");
@@ -120,6 +121,7 @@ const whatsappRouter = require("./routes/whatsappRoute");
 
 app.use("/api/whatsapp", whatsappRouter);
 app.use("/api/staff", staffRouter);
+app.use("/api/stock-audit", stockAuditRouter);
 app.use("/", feedRouter); // /feed.xml  /feed.json  /feed/refresh
 
 app.get("/ppt", (req, res) => {

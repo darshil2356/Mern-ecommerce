@@ -505,6 +505,12 @@ const StockAuditAlerts = () => {
         </div>
 
         <div className="flex items-center gap-2">
+          <Link
+            to="/admin/stock-calculation"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 text-indigo-700 font-semibold rounded-lg hover:bg-indigo-100 border border-indigo-200 text-xs transition"
+          >
+            <span className="text-sm">🧮</span> 6-Month Stock Calculation
+          </Link>
           <Button
             icon={<FiRefreshCw />}
             onClick={() => {

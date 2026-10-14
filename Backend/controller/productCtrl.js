@@ -3,6 +3,7 @@ const Product = require("../models/productModel");
 const User = require("../models/userModel");
 const Offer = require("../models/offerModel");
 const Category = require("../models/prodcategoryModel");
+const StockLog = require("../models/stockLogModel");
 const asyncHandler = require("express-async-handler");
 const slugify = require("slugify");
 const validateMongoDbId = require("../utils/validateMongodbId");
@@ -268,6 +269,12 @@ const updateProduct = asyncHandler(async (req, res) => {
   const { id } = req.params;
   validateMongoDbId(id);
 
+  const existingProduct = await Product.findById(id).populate("color").populate("variants.color");
+  if (!existingProduct) {
+    res.status(404);
+    throw new Error("Product not found");
+  }
+
   if (req.body.title) {
     req.body.slug = slugify(req.body.title);
   }
@@ -289,7 +296,7 @@ const updateProduct = asyncHandler(async (req, res) => {
   const hasSizeStock = Object.prototype.hasOwnProperty.call(req.body, "sizeStock");
   const hasVariants = Object.prototype.hasOwnProperty.call(req.body, "variants");
 
-  if (hasVariants ) {
+  if (hasVariants) {
     const updatedVariants = [];
     const incomingVariants = Array.isArray(req.body.variants) ? req.body.variants : [];
 
@@ -373,7 +380,220 @@ const updateProduct = asyncHandler(async (req, res) => {
       (sum, item) => sum + (item.quantity || 0),
       0
     );
+  } else if (req.body.quantity !== undefined) {
+    safeBody.quantity = Math.max(0, Number(req.body.quantity) || 0);
   }
+
+  // Detailed stock reduction detection across variants, sizes, and quantity
+  const reducedItems = [];
+  const oldVariants = Array.isArray(existingProduct.variants) ? existingProduct.variants : [];
+  const newVariants = Array.isArray(safeBody.variants) ? safeBody.variants : [];
+
+  const oldSizeStock = Array.isArray(existingProduct.sizeStock) ? existingProduct.sizeStock : [];
+  const newSizeStock = Array.isArray(safeBody.sizeStock) ? safeBody.sizeStock : [];
+
+  if (oldVariants.length > 0) {
+    oldVariants.forEach((oldV) => {
+      const oldColorId = String(oldV.color?._id || oldV.color || "");
+      const colorTitle = oldV.color?.title || oldV.color?.name || "Color";
+      const matchingNewV = newVariants.find(
+        (nv) => String(nv.color?._id || nv.color || "") === oldColorId
+      );
+
+      const oldSizes = Array.isArray(oldV.sizeStock) ? oldV.sizeStock : [];
+      oldSizes.forEach((oldS) => {
+        const oldQty = Math.max(0, Number(oldS.quantity) || 0);
+        let newQty = 0;
+        if (matchingNewV) {
+          const matchingNewSize = (matchingNewV.sizeStock || []).find(
+            (ns) => String(ns.size || "").trim().toLowerCase() === String(oldS.size || "").trim().toLowerCase()
+          );
+          if (matchingNewSize) {
+            newQty = Math.max(0, Number(matchingNewSize.quantity) || 0);
+          }
+        }
+
+        if (newQty < oldQty) {
+          const diff = oldQty - newQty;
+          reducedItems.push({
+            color: colorTitle,
+            size: oldS.size || "",
+            barcode: oldS.barcode || "",
+            oldStock: oldQty,
+            newStock: newQty,
+            reducedUnits: diff,
+          });
+        }
+      });
+    });
+  } else if (oldSizeStock.length > 0) {
+    const singleColorName = existingProduct.color?.title || existingProduct.color?.name || "";
+    oldSizeStock.forEach((oldS) => {
+      const oldQty = Math.max(0, Number(oldS.quantity) || 0);
+      let newQty = 0;
+      if (newVariants.length > 0) {
+        newQty = newVariants.reduce((sum, v) => {
+          const found = (v.sizeStock || []).find(
+            (ns) => String(ns.size || "").trim().toLowerCase() === String(oldS.size || "").trim().toLowerCase()
+          );
+          return sum + (found ? Math.max(0, Number(found.quantity) || 0) : 0);
+        }, 0);
+      } else {
+        const matchingNewSize = newSizeStock.find(
+          (ns) => String(ns.size || "").trim().toLowerCase() === String(oldS.size || "").trim().toLowerCase()
+        );
+        newQty = matchingNewSize ? Math.max(0, Number(matchingNewSize.quantity) || 0) : 0;
+      }
+
+      if (newQty < oldQty) {
+        const diff = oldQty - newQty;
+        reducedItems.push({
+          color: singleColorName,
+          size: oldS.size || "",
+          barcode: oldS.barcode || "",
+          oldStock: oldQty,
+          newStock: newQty,
+          reducedUnits: diff,
+        });
+      }
+    });
+  } else {
+    const oldQty = Math.max(0, Number(existingProduct.quantity) || 0);
+    const newQty = Math.max(0, Number(safeBody.quantity) || 0);
+    if (newQty < oldQty) {
+      reducedItems.push({
+        color: existingProduct.color?.title || existingProduct.color?.name || "",
+        size: "Standard",
+        barcode: "",
+        oldStock: oldQty,
+        newStock: newQty,
+        reducedUnits: oldQty - newQty,
+      });
+    }
+  }
+
+  // Also check total quantity
+  const oldTotal = Math.max(0, Number(existingProduct.quantity) || 0);
+  const newTotal = safeBody.quantity !== undefined ? safeBody.quantity : oldTotal;
+  if (reducedItems.length === 0 && newTotal < oldTotal) {
+    reducedItems.push({
+      color: existingProduct.color?.title || existingProduct.color?.name || "",
+      size: "Total",
+      barcode: "",
+      oldStock: oldTotal,
+      newStock: newTotal,
+      reducedUnits: oldTotal - newTotal,
+    });
+  }
+
+  // If frontend passed detailed client-side detected reductions, use them if available
+  const incomingClientItems = Array.isArray(req.body.reductionItems) && req.body.reductionItems.length > 0
+    ? req.body.reductionItems
+    : null;
+
+  const isReduced = reducedItems.length > 0 || (incomingClientItems && incomingClientItems.length > 0);
+
+  if (isReduced) {
+    const reason = req.body.reductionReason || req.body.reason;
+    if (!reason || !reason.trim()) {
+      res.status(400);
+      throw new Error(
+        "Fraud Prevention Security Check: Stock quantity is being manually reduced for this product. A mandatory reason must be provided before saving."
+      );
+    }
+
+    const itemsToLog = (incomingClientItems && incomingClientItems.length > 0)
+      ? incomingClientItems
+      : reducedItems;
+
+    const totalReduced = itemsToLog.reduce((sum, item) => sum + (Number(item.reducedUnits) || 0), 0) || Math.max(0, oldTotal - newTotal);
+    const cashRisk = totalReduced * (existingProduct.price || 0);
+    const staffName =
+      req.body.staffName ||
+      (req.user ? `${req.user.firstname} ${req.user.lastname || ""}`.trim() : "Staff");
+
+    const performer = req.user
+      ? {
+          userId: req.user._id,
+          name: `${req.user.firstname} ${req.user.lastname || ""}`.trim(),
+          email: req.user.email || "",
+          mobile: req.user.mobile || "",
+          role: req.user.role || "",
+        }
+      : undefined;
+
+    // Create StockLog entry recording the reduction and items breakdown
+    await StockLog.create({
+      productId: id,
+      productTitle: existingProduct.title,
+      productImage: existingProduct.images?.[0]?.url || "",
+      barcode: existingProduct.barcode || "",
+      sku: existingProduct.sku || "",
+      category: existingProduct.category || "",
+      brand: existingProduct.brand || "",
+      changeType: "MANUAL_REDUCE",
+      previousStock: oldTotal,
+      newStock: newTotal,
+      diffQuantity: -totalReduced,
+      variantDetails: {
+        color: itemsToLog[0]?.color || "",
+        size: itemsToLog[0]?.size || "",
+        barcode: itemsToLog[0]?.barcode || existingProduct.barcode || "",
+      },
+      itemsBreakdown: itemsToLog,
+      unitPrice: existingProduct.price || 0,
+      unitPurchasePrice: existingProduct.purchasePrice || 0,
+      potentialLossAmount: cashRisk,
+      reason: reason.trim(),
+      notes: (req.body.reductionNotes || req.body.notes || "").trim(),
+      staffName: staffName,
+      performedBy: performer,
+      auditStatus: "PENDING_REVIEW",
+    });
+  } else if (newTotal > oldTotal) {
+    const staffName =
+      req.body.staffName ||
+      (req.user ? `${req.user.firstname} ${req.user.lastname || ""}`.trim() : "Staff");
+    const performer = req.user
+      ? {
+          userId: req.user._id,
+          name: `${req.user.firstname} ${req.user.lastname || ""}`.trim(),
+          email: req.user.email || "",
+          mobile: req.user.mobile || "",
+          role: req.user.role || "",
+        }
+      : undefined;
+
+    await StockLog.create({
+      productId: id,
+      productTitle: existingProduct.title,
+      productImage: existingProduct.images?.[0]?.url || "",
+      barcode: existingProduct.barcode || "",
+      sku: existingProduct.sku || "",
+      category: existingProduct.category || "",
+      brand: existingProduct.brand || "",
+      changeType: "MANUAL_ADD",
+      previousStock: oldTotal,
+      newStock: newTotal,
+      diffQuantity: newTotal - oldTotal,
+      unitPrice: existingProduct.price || 0,
+      unitPurchasePrice: existingProduct.purchasePrice || 0,
+      potentialLossAmount: 0,
+      reason: req.body.reductionReason || req.body.reason || "Manual Stock Restock / Increase",
+      notes: (req.body.reductionNotes || req.body.notes || "").trim(),
+      staffName: staffName,
+      performedBy: performer,
+      auditStatus: "VERIFIED_GENUINE",
+    });
+  }
+
+  // Clean up non-product audit fields from safeBody before updating Product model
+  delete safeBody.reductionReason;
+  delete safeBody.reductionNotes;
+  delete safeBody.staffName;
+  delete safeBody.reductionItems;
+  delete safeBody.reason;
+  delete safeBody.notes;
 
   const updatedProduct = await Product.findByIdAndUpdate(
     id,
@@ -882,6 +1102,288 @@ const toggleReelLike = asyncHandler(async (req, res) => {
   res.json({ liked: !alreadyLiked, reelLikes: Math.max(0, updated.reelLikes) });
 });
 
+// ─── STOCK ADJUSTMENT & FRAUD AUDIT LOGS ─────────────────────────────────────────
+const adjustProductStock = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  validateMongoDbId(id);
+
+  const product = await Product.findById(id);
+  if (!product) {
+    res.status(404);
+    throw new Error("Product not found");
+  }
+
+  const {
+    newQuantity,
+    sizeStock,
+    variants,
+    variantColor,
+    size,
+    reason,
+    notes,
+    staffName,
+  } = req.body;
+
+  const prevStock = product.quantity !== undefined ? product.quantity : 0;
+  let targetStock = prevStock;
+
+  if (variants && Array.isArray(variants)) {
+    product.variants = variants;
+    targetStock = variants.reduce(
+      (sum, v) => sum + (v.sizeStock || []).reduce((s, i) => s + (Number(i.quantity) || 0), 0),
+      0
+    );
+  } else if (sizeStock && Array.isArray(sizeStock)) {
+    product.sizeStock = sizeStock;
+    targetStock = sizeStock.reduce((s, i) => s + (Number(i.quantity) || 0), 0);
+  } else if (newQuantity !== undefined) {
+    targetStock = Math.max(0, Number(newQuantity) || 0);
+  }
+
+  const diff = targetStock - prevStock;
+
+  // Strict Fraud Prevention: Reason is mandatory if stock decreases!
+  if (diff < 0) {
+    if (!reason || !reason.trim()) {
+      res.status(400);
+      throw new Error("Fraud Prevention Security Check: Reason is mandatory to reduce stock quantity.");
+    }
+  }
+
+  product.quantity = targetStock;
+  await product.save();
+
+  const performer = req.user
+    ? {
+        userId: req.user._id,
+        name: `${req.user.firstname} ${req.user.lastname || ""}`.trim(),
+        email: req.user.email || "",
+        mobile: req.user.mobile || "",
+        role: req.user.role || "",
+      }
+    : undefined;
+
+  const actualStaff =
+    staffName || (req.user ? `${req.user.firstname} ${req.user.lastname || ""}`.trim() : "Staff");
+
+  const log = await StockLog.create({
+    productId: product._id,
+    productTitle: product.title,
+    productImage: product.images?.[0]?.url || "",
+    barcode: product.barcode || "",
+    sku: product.sku || "",
+    category: product.category || "",
+    brand: product.brand || "",
+    changeType: diff < 0 ? "MANUAL_REDUCE" : "MANUAL_ADD",
+    previousStock: prevStock,
+    newStock: targetStock,
+    diffQuantity: diff,
+    variantDetails: {
+      color: variantColor || "",
+      size: size || "",
+      barcode: "",
+    },
+    unitPrice: product.price || 0,
+    unitPurchasePrice: product.purchasePrice || 0,
+    potentialLossAmount: diff < 0 ? Math.abs(diff) * (product.price || 0) : 0,
+    reason: reason || (diff < 0 ? "Manual Reduction" : "Manual Restock"),
+    notes: (notes || "").trim(),
+    staffName: actualStaff,
+    performedBy: performer,
+    auditStatus: diff < 0 ? "PENDING_REVIEW" : "VERIFIED_GENUINE",
+  });
+
+  res.json({
+    success: true,
+    message: diff < 0 ? "Stock reduced and fraud audit log recorded." : "Stock updated successfully.",
+    product,
+    log,
+  });
+});
+
+const getAllStockLogs = asyncHandler(async (req, res) => {
+  const {
+    changeType,
+    auditStatus,
+    reason,
+    staffName,
+    search,
+    startDate,
+    endDate,
+    page = 1,
+    limit = 50,
+  } = req.query;
+
+  const filter = {};
+
+  if (changeType) {
+    filter.changeType = changeType;
+  }
+  if (auditStatus) {
+    filter.auditStatus = auditStatus;
+  }
+  if (reason) {
+    filter.reason = { $regex: reason, $options: "i" };
+  }
+  if (staffName) {
+    filter.staffName = { $regex: staffName, $options: "i" };
+  }
+  if (search) {
+    filter.$or = [
+      { productTitle: { $regex: search, $options: "i" } },
+      { barcode: { $regex: search, $options: "i" } },
+      { sku: { $regex: search, $options: "i" } },
+      { staffName: { $regex: search, $options: "i" } },
+      { reason: { $regex: search, $options: "i" } },
+      { notes: { $regex: search, $options: "i" } },
+    ];
+  }
+
+  if (startDate || endDate) {
+    filter.createdAt = {};
+    if (startDate) {
+      filter.createdAt.$gte = new Date(startDate);
+    }
+    if (endDate) {
+      const eDate = new Date(endDate);
+      eDate.setHours(23, 59, 59, 999);
+      filter.createdAt.$lte = eDate;
+    }
+  }
+
+  const skip = (Number(page) - 1) * Number(limit);
+  const total = await StockLog.countDocuments(filter);
+  const logs = await StockLog.find(filter)
+    .sort({ createdAt: -1 })
+    .skip(skip)
+    .limit(Number(limit));
+
+  res.json({
+    logs,
+    total,
+    page: Number(page),
+    totalPages: Math.ceil(total / Number(limit)),
+  });
+});
+
+const getStockLogsSummary = asyncHandler(async (req, res) => {
+  if (req.query.countOnly === "true") {
+    const pendingReviewsCount = await StockLog.countDocuments({
+      changeType: "MANUAL_REDUCE",
+      auditStatus: "PENDING_REVIEW",
+    });
+    return res.json({ pendingReviewsCount });
+  }
+
+  const now = new Date();
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+  const [
+    totalReductionsCount,
+    pendingReviewsCount,
+    suspectedFraudCount,
+    todayReductionsCount,
+    unitsAgg,
+    staffStats,
+    recentAlerts,
+  ] = await Promise.all([
+    StockLog.countDocuments({ changeType: "MANUAL_REDUCE" }),
+    StockLog.countDocuments({ changeType: "MANUAL_REDUCE", auditStatus: "PENDING_REVIEW" }),
+    StockLog.countDocuments({ auditStatus: "SUSPECTED_FRAUD" }),
+    StockLog.countDocuments({ changeType: "MANUAL_REDUCE", createdAt: { $gte: startOfToday } }),
+    StockLog.aggregate([
+      { $match: { changeType: "MANUAL_REDUCE" } },
+      {
+        $group: {
+          _id: null,
+          totalUnitsReduced: { $sum: { $abs: "$diffQuantity" } },
+          totalPotentialLoss: { $sum: "$potentialLossAmount" },
+        },
+      },
+    ]),
+    StockLog.aggregate([
+      { $match: { changeType: "MANUAL_REDUCE" } },
+      {
+        $group: {
+          _id: "$staffName",
+          reductionsCount: { $sum: 1 },
+          unitsReduced: { $sum: { $abs: "$diffQuantity" } },
+          totalValue: { $sum: "$potentialLossAmount" },
+        },
+      },
+      { $sort: { totalValue: -1 } },
+      { $limit: 10 },
+    ]),
+    StockLog.find({ changeType: "MANUAL_REDUCE" })
+      .sort({ createdAt: -1 })
+      .limit(10),
+  ]);
+
+  res.json({
+    totalReductionsCount,
+    pendingReviewsCount,
+    suspectedFraudCount,
+    todayReductionsCount,
+    totalUnitsReduced: unitsAgg[0]?.totalUnitsReduced || 0,
+    totalPotentialLoss: unitsAgg[0]?.totalPotentialLoss || 0,
+    staffStats,
+    recentAlerts,
+  });
+});
+
+const getProductStockLogs = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  validateMongoDbId(id);
+
+  const logs = await StockLog.find({ productId: id })
+    .sort({ createdAt: -1 })
+    .limit(100);
+
+  res.json(logs);
+});
+
+const updateStockLogAudit = asyncHandler(async (req, res) => {
+  const { logId } = req.params;
+  validateMongoDbId(logId);
+
+  const { auditStatus, investigationNotes } = req.body;
+
+  const validStatuses = ["PENDING_REVIEW", "VERIFIED_GENUINE", "SUSPECTED_FRAUD"];
+  if (auditStatus && !validStatuses.includes(auditStatus)) {
+    res.status(400);
+    throw new Error("Invalid audit status");
+  }
+
+  const reviewer = req.user
+    ? {
+        userId: req.user._id,
+        name: `${req.user.firstname} ${req.user.lastname || ""}`.trim(),
+        at: new Date(),
+      }
+    : undefined;
+
+  const updatedLog = await StockLog.findByIdAndUpdate(
+    logId,
+    {
+      ...(auditStatus ? { auditStatus } : {}),
+      ...(investigationNotes !== undefined ? { investigationNotes } : {}),
+      ...(reviewer ? { reviewedBy: reviewer } : {}),
+    },
+    { new: true }
+  );
+
+  if (!updatedLog) {
+    res.status(404);
+    throw new Error("Stock log not found");
+  }
+
+  res.json({
+    success: true,
+    message: "Audit status updated successfully",
+    log: updatedLog,
+  });
+});
+
 module.exports = {
   createProduct,
   getaProduct,
@@ -895,4 +1397,9 @@ module.exports = {
   deleteReview,
   getReels,
   toggleReelLike,
+  adjustProductStock,
+  getAllStockLogs,
+  getStockLogsSummary,
+  getProductStockLogs,
+  updateStockLogAudit,
 };

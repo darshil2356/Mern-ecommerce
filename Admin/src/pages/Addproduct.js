@@ -21,6 +21,9 @@ import { MdPrint, MdInventory, MdCategory, MdColorLens, MdAttachMoney } from "re
 import BarcodeModal from "../components/BarcodeModal";
 import AIProductGenerator from "../components/AIProductGenerator";
 import QuickAddModal from "../components/QuickAddModal";
+import StockReductionReasonModal from "../components/StockReductionReasonModal";
+import ProductStockLogsModal from "../components/ProductStockLogsModal";
+import { FiShield } from "react-icons/fi";
 
 import {
   uploadImg,
@@ -185,15 +188,183 @@ const Addproduct = () => {
   } = newProduct;
 
   const videoState = useSelector((state) => state?.upload?.videos);
+  const initialSnapshotRef = useRef(null);
+  const [stockReductionModalOpen, setStockReductionModalOpen] = useState(false);
+  const [pendingPayload, setPendingPayload] = useState(null);
+  const [detectedReductions, setDetectedReductions] = useState([]);
+  const [productLogsModalOpen, setProductLogsModalOpen] = useState(false);
+
+  useEffect(() => {
+    if (getProductId && (newProduct?.productName || newProduct?.title) && !initialSnapshotRef.current) {
+      const topColorId = String(newProduct.productColors?._id || newProduct.productColors || newProduct.color?._id || newProduct.color || "");
+      const topColorMatch = (colorState || []).find((c) => String(c._id) === topColorId);
+      const topColorTitle = newProduct.productColors?.title || newProduct.color?.title || topColorMatch?.title || topColorMatch?.name || "";
+
+      initialSnapshotRef.current = {
+        quantity: Number(newProduct.productQuantity ?? newProduct.quantity ?? 0),
+        color: topColorId,
+        colorTitle: topColorTitle,
+        sizeStock: Array.isArray(newProduct.sizeStock)
+          ? newProduct.sizeStock.map((s) => ({
+              size: s.size,
+              quantity: Number(s.quantity || 0),
+              barcode: s.barcode,
+            }))
+          : [],
+        variants: Array.isArray(newProduct.variants)
+          ? newProduct.variants.map((v) => {
+              const cId = String(v.color?._id || v.color || "");
+              const cMatch = (colorState || []).find((c) => String(c._id) === cId);
+              return {
+                color: cId,
+                colorTitle: v.color?.title || v.color?.name || cMatch?.title || cMatch?.name || "",
+                sizeStock: (v.sizeStock || []).map((s) => ({
+                  size: s.size,
+                  quantity: Number(s.quantity || 0),
+                  barcode: s.barcode,
+                })),
+              };
+            })
+          : [],
+      };
+    }
+  }, [newProduct, getProductId, colorState]);
 
   useEffect(() => {
     if (getProductId !== undefined) {
+      initialSnapshotRef.current = null;
       dispatch(resetState());
       dispatch(getAProduct(getProductId));
     } else {
+      initialSnapshotRef.current = null;
       dispatch(resetState());
     }
-  }, [getProductId]);
+  }, [getProductId, dispatch]);
+
+  const detectStockReductions = (initialSnapshot, newPayload, colorsList = []) => {
+    if (!initialSnapshot) return { totalReduced: 0, items: [] };
+
+    const getColorName = (colorIdOrObj, defaultTitle = "") => {
+      if (defaultTitle && defaultTitle !== "Color") return defaultTitle;
+      const id = String(colorIdOrObj?._id || colorIdOrObj || "");
+      const found = colorsList.find((c) => String(c._id) === id);
+      if (found) return found.title || found.name || found.hex || "Color";
+      if (typeof colorIdOrObj === "object" && (colorIdOrObj?.title || colorIdOrObj?.name)) {
+        return colorIdOrObj.title || colorIdOrObj.name;
+      }
+      return defaultTitle || "Color";
+    };
+
+    const items = [];
+    let totalReduced = 0;
+
+    const oldVariants = Array.isArray(initialSnapshot.variants) ? initialSnapshot.variants : [];
+    const newVariants = Array.isArray(newPayload.variants) ? newPayload.variants : [];
+
+    const oldSizeStock = Array.isArray(initialSnapshot.sizeStock) ? initialSnapshot.sizeStock : [];
+    const newSizeStock = Array.isArray(newPayload.sizeStock) ? newPayload.sizeStock : [];
+
+    if (oldVariants.length > 0) {
+      oldVariants.forEach((oldV) => {
+        const oldColorId = String(oldV.color?._id || oldV.color || "");
+        const colorTitle = getColorName(oldV.color, oldV.colorTitle);
+        const matchingNewV = newVariants.find(
+          (nv) => String(nv.color?._id || nv.color || "") === oldColorId
+        );
+
+        const oldSizes = Array.isArray(oldV.sizeStock) ? oldV.sizeStock : [];
+        oldSizes.forEach((oldS) => {
+          const oldQty = Math.max(0, Number(oldS.quantity) || 0);
+          let newQty = 0;
+          if (matchingNewV) {
+            const matchingNewSize = (matchingNewV.sizeStock || []).find(
+              (ns) => String(ns.size || "").trim().toLowerCase() === String(oldS.size || "").trim().toLowerCase()
+            );
+            if (matchingNewSize) {
+              newQty = Math.max(0, Number(matchingNewSize.quantity) || 0);
+            }
+          }
+
+          if (newQty < oldQty) {
+            const diff = oldQty - newQty;
+            totalReduced += diff;
+            items.push({
+              color: colorTitle,
+              size: oldS.size || "",
+              barcode: oldS.barcode || "",
+              oldStock: oldQty,
+              newStock: newQty,
+              reducedUnits: diff,
+            });
+          }
+        });
+      });
+    } else if (oldSizeStock.length > 0) {
+      const singleColorName = getColorName(initialSnapshot.color, initialSnapshot.colorTitle) || "";
+      oldSizeStock.forEach((oldS) => {
+        const oldQty = Math.max(0, Number(oldS.quantity) || 0);
+        let newQty = 0;
+        if (newVariants.length > 0) {
+          newQty = newVariants.reduce((sum, v) => {
+            const found = (v.sizeStock || []).find(
+              (ns) => String(ns.size || "").trim().toLowerCase() === String(oldS.size || "").trim().toLowerCase()
+            );
+            return sum + (found ? Math.max(0, Number(found.quantity) || 0) : 0);
+          }, 0);
+        } else {
+          const matchingNewSize = newSizeStock.find(
+            (ns) => String(ns.size || "").trim().toLowerCase() === String(oldS.size || "").trim().toLowerCase()
+          );
+          newQty = matchingNewSize ? Math.max(0, Number(matchingNewSize.quantity) || 0) : 0;
+        }
+
+        if (newQty < oldQty) {
+          const diff = oldQty - newQty;
+          totalReduced += diff;
+          items.push({
+            color: singleColorName,
+            size: oldS.size || "",
+            barcode: oldS.barcode || "",
+            oldStock: oldQty,
+            newStock: newQty,
+            reducedUnits: diff,
+          });
+        }
+      });
+    } else {
+      const oldQty = Math.max(0, Number(initialSnapshot.quantity) || 0);
+      const newQty = Math.max(0, Number(newPayload.quantity) || 0);
+      if (newQty < oldQty) {
+        const diff = oldQty - newQty;
+        totalReduced += diff;
+        items.push({
+          color: getColorName(initialSnapshot.color, initialSnapshot.colorTitle) || "",
+          size: "Standard",
+          barcode: "",
+          oldStock: oldQty,
+          newStock: newQty,
+          reducedUnits: diff,
+        });
+      }
+    }
+
+    const oldTotal = Math.max(0, Number(initialSnapshot.quantity) || 0);
+    const newTotal = Math.max(0, Number(newPayload.quantity) || 0);
+    if (items.length === 0 && newTotal < oldTotal) {
+      const diff = oldTotal - newTotal;
+      totalReduced = diff;
+      items.push({
+        color: getColorName(initialSnapshot.color, initialSnapshot.colorTitle) || "",
+        size: "Total",
+        barcode: "",
+        oldStock: oldTotal,
+        newStock: newTotal,
+        reducedUnits: diff,
+      });
+    }
+
+    return { totalReduced, items };
+  };
 
   const coloropt = [];
   colorState.forEach((i) => {
@@ -333,6 +504,22 @@ const Addproduct = () => {
 
       try {
         if (getProductId) {
+          if (initialSnapshotRef.current && !values.reductionReason) {
+            const { totalReduced, items } = detectStockReductions(
+              initialSnapshotRef.current,
+              payload,
+              colorState
+            );
+
+            if (totalReduced > 0 || items.length > 0) {
+              // Intercept submit and require fraud prevention reason
+              setPendingPayload(payload);
+              setDetectedReductions(items);
+              setStockReductionModalOpen(true);
+              return;
+            }
+          }
+
           await dispatch(
             updateAProduct({ id: getProductId, productData: payload }),
           ).unwrap();
@@ -357,6 +544,32 @@ const Addproduct = () => {
       }
     },
   });
+
+  const handleStockReductionConfirm = async ({ reason, notes, staffName, reductionItems }) => {
+    if (!pendingPayload) return;
+    const finalPayload = {
+      ...pendingPayload,
+      reductionReason: reason,
+      reductionNotes: notes,
+      staffName: staffName,
+      reductionItems: reductionItems || detectedReductions,
+    };
+    try {
+      await dispatch(
+        updateAProduct({ id: getProductId, productData: finalPayload }),
+      ).unwrap();
+      toast.success("Product Updated & Stock Reduction Logged Successfully!");
+      window.dispatchEvent(new CustomEvent("stock_alerts_changed"));
+      setStockReductionModalOpen(false);
+      navigate("/admin/list-product");
+    } catch (err) {
+      const msg =
+        err?.response?.data?.message ||
+        err?.message ||
+        "Something went wrong";
+      toast.error(msg);
+    }
+  };
 
   const handleColors = (e) => {
     setColor(e);
@@ -532,6 +745,24 @@ const Addproduct = () => {
                 }
               }}
             />
+            {getProductId && (
+              <Button
+                onClick={() => setProductLogsModalOpen(true)}
+                style={{
+                  height: "40px",
+                  borderRadius: "8px",
+                  fontWeight: 600,
+                  color: "#722ed1",
+                  borderColor: "#d3adf7",
+                  backgroundColor: "#f9f0ff",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                }}
+              >
+                <FiShield /> Stock Logs
+              </Button>
+            )}
             <Button
               onClick={() => navigate("/admin/list-product")}
               style={{
@@ -1555,6 +1786,31 @@ const Addproduct = () => {
           size: selectedBarcodeTitle?.split(" - ").slice(-1)[0] || "",
         }}
       />
+
+      {getProductId && (
+        <>
+          <StockReductionReasonModal
+            open={stockReductionModalOpen}
+            onClose={() => setStockReductionModalOpen(false)}
+            onSubmit={handleStockReductionConfirm}
+            product={{
+              title: formik.values.title || productName,
+              images: formik.values.images || productImages,
+              price: formik.values.price || productPrice,
+              barcode: newProduct?.barcode || "",
+            }}
+            oldStock={initialSnapshotRef.current?.quantity || 0}
+            newStock={pendingPayload?.quantity || 0}
+            reducedItems={detectedReductions}
+            loading={isLoading}
+          />
+          <ProductStockLogsModal
+            open={productLogsModalOpen}
+            onClose={() => setProductLogsModalOpen(false)}
+            product={{ _id: getProductId, title: formik.values.title || productName }}
+          />
+        </>
+      )}
 
       <style>{`
         .dropzone-hover:hover {

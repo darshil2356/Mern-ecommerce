@@ -13,7 +13,8 @@ import SizeBarcodesList from "../components/SizeBarcodesList";
 import { getReadableColorName, getColorSwatch } from "../utils/colorDisplay";
 import JsBarcode from "jsbarcode";
 import { MdInventory, MdOutlineInventory2, MdTrendingUp, MdShoppingBag } from "react-icons/md";
-import { FiPackage, FiAlertTriangle, FiTag, FiLayers, FiDownload, FiClock, FiGlobe, FiEyeOff } from "react-icons/fi";
+import { FiPackage, FiAlertTriangle, FiTag, FiLayers, FiDownload, FiClock, FiGlobe, FiEyeOff, FiShield } from "react-icons/fi";
+import ProductStockLogsModal from "../components/ProductStockLogsModal";
 
 const Productlist = () => {
   const [open, setOpen] = useState(false);
@@ -34,6 +35,8 @@ const Productlist = () => {
   const [sizeBarcodesModalOpen, setSizeBarcodesModalOpen] = useState(false);
   const [productSizeBarcodes, setProductSizeBarcodes] = useState([]);
   const [selectedRecord, setSelectedRecord] = useState(null);
+  const [stockLogsModalOpen, setStockLogsModalOpen] = useState(false);
+  const [stockSelectedProduct, setStockSelectedProduct] = useState(null);
 
   const dispatch = useDispatch();
 
@@ -313,7 +316,19 @@ const Productlist = () => {
               <div style={{ width: 6, height: 6, borderRadius: "50%", backgroundColor: status.color }} />
               <span style={{ color: status.color, fontWeight: 600, fontSize: 12 }}>{status.text}</span>
             </div>
-            <span style={{ fontSize: 12, color: "#6b7280", paddingLeft: 2 }}>{total} units</span>
+            <span style={{ fontSize: 12, color: "#6b7280", paddingLeft: 2, fontWeight: 600 }}>{total} units</span>
+            <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 2 }}>
+              <button
+                onClick={() => {
+                  setStockSelectedProduct(record);
+                  setStockLogsModalOpen(true);
+                }}
+                className="text-[11px] font-semibold text-purple-600 hover:text-purple-700 bg-purple-50 hover:bg-purple-100 px-2 py-0.5 rounded border border-purple-200 transition-colors cursor-pointer"
+                title="View Stock Audit Logs & Reduction History"
+              >
+                📋 Logs
+              </button>
+            </div>
           </div>
         );
       },
@@ -519,6 +534,11 @@ const Productlist = () => {
             <button onClick={exportCSV} style={{ background: "rgba(255,255,255,0.2)", color: "#fff", border: "1px solid rgba(255,255,255,0.4)", borderRadius: 10, padding: "9px 16px", fontWeight: 600, fontSize: 13, cursor: "pointer", display: "flex", alignItems: "center", gap: 6, whiteSpace: "nowrap" }}>
               <FiDownload size={15} /> Export CSV
             </button>
+            <Link to="/admin/stock-alerts">
+              <button style={{ background: "rgba(239, 68, 68, 0.3)", color: "#fff", border: "1px solid rgba(255, 255, 255, 0.4)", borderRadius: 10, padding: "9px 16px", fontWeight: 600, fontSize: 13, cursor: "pointer", display: "flex", alignItems: "center", gap: 6, whiteSpace: "nowrap" }}>
+                <FiShield size={15} /> Fraud Alerts
+              </button>
+            </Link>
             <Link to="/admin/product">
               <button style={{ background: "#fff", color: "#667eea", border: "none", borderRadius: 10, padding: "9px 20px", fontWeight: 700, fontSize: 14, cursor: "pointer", boxShadow: "0 2px 8px rgba(0,0,0,0.1)", whiteSpace: "nowrap" }}>
                 + Add Product
@@ -661,6 +681,12 @@ const Productlist = () => {
           productData={{ title: selectedTitle, color: selectedRecord?.color, price: selectedRecord?.price, mrp: selectedRecord?.mrp }}
         />
       </Modal>
+
+      <ProductStockLogsModal
+        open={stockLogsModalOpen}
+        onClose={() => setStockLogsModalOpen(false)}
+        product={stockSelectedProduct}
+      />
     </div>
   );
 };

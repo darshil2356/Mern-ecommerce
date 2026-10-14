@@ -16,7 +16,7 @@ import {
   FaClipboardList, FaBloggerB, FaChartLine, FaBox, FaUsers, FaTags,
   FaFileAlt, FaCube, FaLink, FaMagic, FaCoins, FaEye, FaChartBar,
   FaRocket, FaBook, FaRuler, FaHandshake, FaShoppingBasket, FaStore,
-  FaLock, FaUnlockAlt, FaWhatsapp,
+  FaLock, FaUnlockAlt, FaWhatsapp, FaShieldAlt,
 } from "react-icons/fa";
 import { SiBrandfolder } from "react-icons/si";
 import { BiCategoryAlt } from "react-icons/bi";
@@ -24,6 +24,7 @@ import { Layout, Menu, theme, Drawer } from "antd";
 import axios from "axios";
 import { base_url } from "../utils/baseUrl";
 import api, { config, cachedGet } from "../utils/axiosconfig";
+import productService from "../features/product/productService";
 
 const { Header, Sider, Content } = Layout;
 
@@ -36,6 +37,8 @@ const ROUTE_GROUP = {
   "order":              "orders",
   "live-billing":       "live-billing",
   "list-product":       "catalog",
+  "stock-alerts":       "catalog",
+  "stock-audit":        "catalog",
   "product":            "catalog",
   "add-product":        "catalog",
   "list-bundle":        "catalog",
@@ -235,11 +238,48 @@ const MainLayout = () => {
   const [activeOverlay, setActiveOverlay]   = useState(null); // groupKey currently showing overlay
   const [passwordSet, setPasswordSet]       = useState(false);
   const [posLockTimeout, setPosLockTimeout] = useState("5m");
+  const [unreviewedAlerts, setUnreviewedAlerts] = useState(0);
 
   const { token: { colorBgContainer } } = theme.useToken();
   const navigate  = useNavigate();
   const location  = useLocation();
   const vendorsVisible = useSelector(s => s.purchase?.vendorsVisible ?? false);
+
+  useEffect(() => {
+    // Check once on mount only if user is logged in
+    const user = localStorage.getItem("user");
+    if (!user) return;
+
+    let isMounted = true;
+    productService.getStockLogsSummary({ countOnly: true })
+      .then((res) => {
+        if (isMounted && res?.pendingReviewsCount !== undefined) {
+          setUnreviewedAlerts(res.pendingReviewsCount);
+        }
+      })
+      .catch(() => {});
+
+    // Listen to real-time events when stock alerts change without any background polling loop
+    const handleAlertsChanged = (e) => {
+      if (typeof e?.detail === "number") {
+        setUnreviewedAlerts(e.detail);
+      } else {
+        productService.getStockLogsSummary({ countOnly: true })
+          .then((res) => {
+            if (isMounted && res?.pendingReviewsCount !== undefined) {
+              setUnreviewedAlerts(res.pendingReviewsCount);
+            }
+          })
+          .catch(() => {});
+      }
+    };
+
+    window.addEventListener("stock_alerts_changed", handleAlertsChanged);
+    return () => {
+      isMounted = false;
+      window.removeEventListener("stock_alerts_changed", handleAlertsChanged);
+    };
+  }, []);
 
   // Fetch lock config
   const fetchLockConfig = useCallback(async () => {
@@ -438,6 +478,11 @@ const MainLayout = () => {
       key: "Catalog", icon: <FaBox />, label: renderItemLabel("Catalog", "catalog"),
       children: [
         { key: "list-product",   icon: <AiOutlineShoppingCart />, label: "Products" },
+        {
+          key: "stock-alerts",
+          icon: <FaShieldAlt style={{ color: "#ef4444" }} />,
+          label: unreviewedAlerts > 0 ? `Stock Alerts (${unreviewedAlerts}) 🚨` : "Stock Fraud Alerts 🛡️",
+        },
         { key: "list-bundle",    icon: <FaCube />,                label: "Bundles" },
         { key: "list-brand",     icon: <SiBrandfolder />,         label: "Brands" },
         { key: "list-category",  icon: <BiCategoryAlt />,         label: "Categories" },
@@ -563,10 +608,16 @@ const MainLayout = () => {
                   <span>Lock All</span>
                 </button>
               )}
-              <button className="action-btn notification-btn">
+              <Link
+                to="/admin/stock-alerts"
+                className="action-btn notification-btn"
+                title={unreviewedAlerts > 0 ? `${unreviewedAlerts} Unreviewed Manual Stock Reductions!` : "Stock Fraud Alerts"}
+              >
                 <IoIosNotifications className="fs-5" />
-                <span className="notification-badge">3</span>
-              </button>
+                {unreviewedAlerts > 0 && (
+                  <span className="notification-badge bg-red-600 animate-pulse">{unreviewedAlerts}</span>
+                )}
+              </Link>
               <Link to="/admin/settings" className="action-btn">
                 <AiOutlineSetting className="fs-5" />
               </Link>

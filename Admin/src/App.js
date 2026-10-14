@@ -54,6 +54,7 @@ import WholesaleRojmal from "./pages/WholesaleRojmal";
 import RojmelDashboard from "./pages/RojmelDashboard";
 import StaffManagement from "./pages/StaffManagement";
 import WhatsAppMarketing from "./pages/WhatsAppMarketing";
+import StockAuditAlerts from "./pages/StockAuditAlerts";
 
 function App() {
   return (
@@ -97,6 +98,8 @@ function App() {
           <Route path="list-brand" element={<Brandlist />} />
           <Route path="list-size" element={<Sizelist />} />
           <Route path="list-product" element={<Productlist />} />
+          <Route path="stock-alerts" element={<StockAuditAlerts />} />
+          <Route path="stock-audit" element={<StockAuditAlerts />} />
           <Route path="product" element={<Addproduct />} />
           <Route path="product/:id" element={<Addproduct />} />
           <Route path="live-billing" element={<LiveBilling />} />

@@ -32,12 +32,42 @@ const deleteproduct = async (id) => {
   return response.data;
 };
 
+const adjustStock = async ({ id, data }) => {
+  const response = await api.post(`product/adjust-stock/${id}`, data);
+  return response.data;
+};
+
+const getStockLogs = async (params = {}) => {
+  const response = await api.get("product/stock-logs", { params });
+  return response.data;
+};
+
+const getStockLogsSummary = async (params = {}) => {
+  const response = await api.get("product/stock-logs/summary", { params });
+  return response.data;
+};
+
+const getProductStockLogs = async (id) => {
+  const response = await api.get(`product/${id}/stock-logs`);
+  return response.data;
+};
+
+const updateStockLogAudit = async ({ logId, data }) => {
+  const response = await api.put(`product/stock-logs/${logId}/audit`, data);
+  return response.data;
+};
+
 const productService = {
   getProducts,
   createProduct,
   deleteproduct,
   updateProduct,
   getProduct,
+  adjustStock,
+  getStockLogs,
+  getStockLogsSummary,
+  getProductStockLogs,
+  updateStockLogAudit,
 };
 
 export default productService;

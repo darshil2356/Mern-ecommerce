@@ -19,6 +19,135 @@ const fmt = (n) =>
 const fmtDate = (d) =>
   d ? new Date(d).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "-";
 
+/**
+ * Build Client-side Vendor Payment Receipt WhatsApp message
+ */
+const buildClientVendorPaymentMessage = ({
+  vendorName,
+  firmName,
+  billNo,
+  billDate,
+  paymentDate,
+  amountPaid,
+  paymentMode,
+  referenceNo,
+  discountAmount = 0,
+  grAmount = 0,
+  grNote = "",
+  totalSettlement,
+  billTotal,
+  billBalanceDue,
+  billStatus,
+  overallVendorBalance,
+  storeName = "Yashoda Fashion",
+}) => {
+  const nameStr = firmName ? `${firmName} (${vendorName || "Vendor"})` : (vendorName || "Vendor");
+  const dateFormatted = paymentDate
+    ? new Date(paymentDate).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })
+    : new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+  const purchaseDateFormatted = billDate
+    ? new Date(billDate).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })
+    : "";
+
+  const isCleared = billStatus === "PAID" || Number(billBalanceDue || 0) <= 0.01;
+  const statusStr = isCleared ? "Fully Cleared & Settled 🎉" : "Partially Cleared ⏳";
+
+  const lines = [
+    `🛍️ *${storeName}* 🛍️`,
+    `*Vendor Payment Receipt / Voucher*`,
+    ``,
+    `Hello *${nameStr}*,`,
+    `We have processed payment towards your purchase bill. Here are the payment settlement details:`,
+    ``,
+    `📋 *Bill Details:*`,
+    `• *Bill No:* ${billNo ? `#${billNo}` : "Purchase Bill"}`,
+  ];
+
+  if (purchaseDateFormatted) {
+    lines.push(`• *Purchase / Bill Date:* ${purchaseDateFormatted}`);
+  }
+
+  if (billTotal !== undefined && billTotal !== null && Number(billTotal) > 0) {
+    lines.push(`• *Bill Total:* ₹${Number(billTotal || 0).toLocaleString("en-IN")}`);
+  }
+
+  lines.push(`• *Bill Status:* ${statusStr}`);
+  lines.push(``);
+  lines.push(`💵 *Payment & Settlement Details:*`);
+  lines.push(`• *Payment Date:* ${dateFormatted}`);
+  lines.push(`• *Payment Mode:* ${paymentMode || "Cash"}`);
+
+  if (referenceNo) {
+    lines.push(`• *Ref / UTR / Cheque No:* ${referenceNo}`);
+  }
+
+  lines.push(`• *Amount Paid:* ₹${Number(amountPaid || 0).toLocaleString("en-IN")}`);
+
+  if (Number(discountAmount) > 0) {
+    lines.push(`• *Discount / Kasur:* ₹${Number(discountAmount).toLocaleString("en-IN")}`);
+  }
+
+  if (Number(grAmount) > 0) {
+    lines.push(`• *Goods Return (GR):* ₹${Number(grAmount).toLocaleString("en-IN")}${grNote ? ` (${grNote})` : ""}`);
+  }
+
+  if (Number(totalSettlement) > Number(amountPaid)) {
+    lines.push(`• *Total Settlement Deduction:* ₹${Number(totalSettlement).toLocaleString("en-IN")}`);
+  }
+
+  lines.push(``);
+
+  if (isCleared) {
+    lines.push(`✅ *Purchase Bill #${billNo || ""}${purchaseDateFormatted ? ` (Dated: ${purchaseDateFormatted})` : ""} is now Fully Cleared & Settled!*`);
+  } else {
+    lines.push(`⚠️ *Remaining Due for this Bill:* ₹${Number(billBalanceDue || 0).toLocaleString("en-IN")}`);
+  }
+
+  if (overallVendorBalance !== undefined && overallVendorBalance !== null) {
+    lines.push(`📊 *Total Ledger Balance Due:* ₹${Number(overallVendorBalance || 0).toLocaleString("en-IN")}`);
+  }
+
+  lines.push(``);
+  lines.push(`Thank you for your business and partnership! 🙏`);
+  lines.push(`📞 Contact: 9909895645`);
+
+  return lines.join("\n");
+};
+
+/**
+ * Build Client-side Consolidated Vendor Statement WhatsApp message
+ */
+const buildClientVendorStatementMessage = ({
+  vendorName,
+  firmName,
+  summary,
+  storeName = "Yashoda Fashion",
+}) => {
+  const nameStr = firmName ? `${firmName} (${vendorName || "Vendor"})` : (vendorName || "Vendor");
+  const totPurchases = Number(summary?.totalPurchases || 0);
+  const totPaid = Number(summary?.totalPaid || 0);
+  const balDue = Number(summary?.balanceDue || 0);
+
+  const lines = [
+    `🛍️ *${storeName}* 🛍️`,
+    `*Vendor Ledger Account Statement*`,
+    ``,
+    `Hello *${nameStr}*,`,
+    `Here is the latest financial ledger summary of your account with us:`,
+    ``,
+    `📊 *Ledger Summary:*`,
+    `• *Total Purchases:* ₹${totPurchases.toLocaleString("en-IN")}`,
+    `• *Total Paid / Settled:* ₹${totPaid.toLocaleString("en-IN")}`,
+    `• *Current Balance Due:* ₹${balDue.toLocaleString("en-IN")} ${balDue > 0 ? "⚠️ (Due)" : "✅ (Fully Clear)"}`,
+    ``,
+    `Thank you for your continued business and partnership! 🙏`,
+    `📞 Contact: 9909895645`,
+  ];
+
+  return lines.join("\n");
+};
+
+
 const STATES = [
   "Gujarat","Maharashtra","Rajasthan","Madhya Pradesh","Uttar Pradesh","Delhi","Karnataka",
   "Tamil Nadu","West Bengal","Punjab","Haryana","Bihar","Odisha","Telangana","Andhra Pradesh","Other",
@@ -55,7 +184,7 @@ export default function Vendors() {
   const [activeTab, setActiveTab] = useState("info");
   const [ledgerModal, setLedgerModal] = useState(null);
   const [ledgerDates, setLedgerDates] = useState({ startDate: "", endDate: "" });
-  const [ledgerPayModal, setLedgerPayModal] = useState(null); // { purchaseId, billNo }
+  const [ledgerPayModal, setLedgerPayModal] = useState(null); // { purchaseId, billNo, totalAmount, balanceDue, billDate }
   const EMPTY_LEDGER_PAY_FORM = {
     amount: "",
     discountType: "NONE",
@@ -71,6 +200,17 @@ export default function Vendors() {
 
   const [ledgerPayForm, setLedgerPayForm] = useState(EMPTY_LEDGER_PAY_FORM);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
+
+  // WhatsApp Prompt State
+  const [whatsappPrompt, setWhatsappPrompt] = useState({
+    open: false,
+    title: "",
+    vendorName: "",
+    vendorPhone: "",
+    whatsappUrl: "",
+    messageText: "",
+    whatsappSent: false,
+  });
 
   const load = useCallback(() => {
     dispatch(fetchVendors({ search, status: statusFilter }));
@@ -180,13 +320,136 @@ export default function Vendors() {
 
     if (res.meta.requestStatus === "fulfilled") {
       toast.success("Payment & settlement recorded!");
+      const payload = res.payload;
+      const vendor = vendorLedger?.vendor;
+
+      const billNo = ledgerPayModal.billNo || payload?.billNo || "";
+      const effectiveDiscAmt = discAmt || (ledgerPayForm.discountType === "PERCENTAGE" && ledgerPayModal.totalAmount ? (ledgerPayModal.totalAmount * discVal) / 100 : (ledgerPayForm.discountType === "FLAT" ? discVal : 0));
+      const totalSettlement = paidAmt + effectiveDiscAmt + grAmt;
+      const remBillDue = Math.max(0, (ledgerPayModal.balanceDue !== undefined ? ledgerPayModal.balanceDue : ledgerPayModal.totalAmount || 0) - totalSettlement);
+
+      let msg = payload?.whatsappMessage;
+      let url = payload?.whatsappUrl;
+      const sent = payload?.whatsappSent || false;
+
+      if (!msg) {
+        msg = buildClientVendorPaymentMessage({
+          vendorName: vendor?.name || "Vendor",
+          firmName: vendor?.firmName || "",
+          billNo: billNo,
+          billDate: ledgerPayModal.billDate,
+          paymentDate: ledgerPayForm.date,
+          amountPaid: paidAmt,
+          paymentMode: ledgerPayForm.mode,
+          referenceNo: ledgerPayForm.referenceNo,
+          discountAmount: effectiveDiscAmt,
+          grAmount: grAmt,
+          grNote: ledgerPayForm.grNote,
+          totalSettlement: totalSettlement > 0 ? totalSettlement : paidAmt,
+          billTotal: ledgerPayModal.totalAmount,
+          billBalanceDue: remBillDue,
+          billStatus: remBillDue <= 0.01 ? "PAID" : "PARTIAL",
+          overallVendorBalance: vendorLedger?.summary?.balanceDue !== undefined ? Math.max(0, vendorLedger.summary.balanceDue - totalSettlement) : undefined,
+        });
+      }
+
+      const targetPhone = payload?.vendorPhone || vendor?.phone || "";
+      if (!url && targetPhone) {
+        const clean = targetPhone.replace(/\D/g, "");
+        const intlPhone = clean.length === 10 ? `91${clean}` : clean;
+        url = `https://api.whatsapp.com/send?phone=${intlPhone}&text=${encodeURIComponent(msg)}`;
+      }
+
       setLedgerPayModal(null);
       setLedgerPayForm(EMPTY_LEDGER_PAY_FORM);
+
+      // Open WhatsApp Dispatch / Confirmation prompt
+      setWhatsappPrompt({
+        open: true,
+        title: `Payment Receipt — Bill #${billNo || "Purchase"}`,
+        vendorName: vendor?.name || "Vendor",
+        vendorPhone: targetPhone,
+        whatsappUrl: url || "",
+        messageText: msg,
+        whatsappSent: sent,
+      });
+
       dispatch(fetchVendorLedger({ id: ledgerModal, ...ledgerDates }));
       load();
     } else {
       toast.error(res.payload || "Payment failed");
     }
+  };
+
+  /* ── Send WhatsApp for an individual ledger payment entry ── */
+  const handleSendPaymentWhatsapp = (entry) => {
+    const vendor = vendorLedger?.vendor;
+    const phone = vendor?.phone || "";
+    const clean = phone.replace(/\D/g, "");
+    const intlPhone = clean.length === 10 ? `91${clean}` : clean;
+
+    const amountPaid = entry.amount || entry.credit || 0;
+    const effectiveDiscAmt = entry.discountAmount || 0;
+    const grAmt = entry.grAmount || 0;
+    const totalSettlement = amountPaid + effectiveDiscAmt + grAmt;
+    const remDue = entry.billBalanceDue !== undefined ? entry.billBalanceDue : (entry.balance !== undefined ? entry.balance : 0);
+
+    const msg = buildClientVendorPaymentMessage({
+      vendorName: vendor?.name || "Vendor",
+      firmName: vendor?.firmName || "",
+      billNo: entry.billNo,
+      billDate: entry.billDate,
+      paymentDate: entry.date,
+      amountPaid: amountPaid,
+      paymentMode: entry.paymentMode || (entry.description?.includes("Cash") ? "Cash" : entry.description?.includes("Online") ? "Online" : "Payment"),
+      referenceNo: entry.referenceNo || "",
+      discountAmount: effectiveDiscAmt,
+      grAmount: grAmt,
+      grNote: entry.grNote || "",
+      totalSettlement: totalSettlement > 0 ? totalSettlement : amountPaid,
+      billTotal: entry.billTotal,
+      billBalanceDue: remDue,
+      billStatus: entry.billStatus || (remDue <= 0.01 ? "PAID" : "PARTIAL"),
+      overallVendorBalance: vendorLedger?.summary?.balanceDue,
+    });
+
+    const url = intlPhone ? `https://api.whatsapp.com/send?phone=${intlPhone}&text=${encodeURIComponent(msg)}` : "";
+
+    setWhatsappPrompt({
+      open: true,
+      title: `Payment Receipt — Bill #${entry.billNo || "Purchase"}`,
+      vendorName: vendor?.name || "Vendor",
+      vendorPhone: phone,
+      whatsappUrl: url,
+      messageText: msg,
+      whatsappSent: false,
+    });
+  };
+
+  /* ── Send Complete Vendor Ledger Account Statement via WhatsApp ── */
+  const handleSendStatementWhatsapp = () => {
+    const vendor = vendorLedger?.vendor;
+    const phone = vendor?.phone || "";
+    const clean = phone.replace(/\D/g, "");
+    const intlPhone = clean.length === 10 ? `91${clean}` : clean;
+
+    const msg = buildClientVendorStatementMessage({
+      vendorName: vendor?.name || "Vendor",
+      firmName: vendor?.firmName || "",
+      summary: vendorLedger?.summary || {},
+    });
+
+    const url = intlPhone ? `https://api.whatsapp.com/send?phone=${intlPhone}&text=${encodeURIComponent(msg)}` : "";
+
+    setWhatsappPrompt({
+      open: true,
+      title: `Ledger Statement — ${vendor?.name || "Vendor"}`,
+      vendorName: vendor?.name || "Vendor",
+      vendorPhone: phone,
+      whatsappUrl: url,
+      messageText: msg,
+      whatsappSent: false,
+    });
   };
 
   const StatusBadge = ({ status }) => {
@@ -498,7 +761,14 @@ export default function Vendors() {
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
                 <div>
                   <h3 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>{vendorLedger?.vendor?.name} — Ledger</h3>
-                  {vendorLedger?.vendor?.firmName && <p style={{ margin: 0, fontSize: 13, color: "#6b7280" }}>{vendorLedger.vendor.firmName}</p>}
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 4, flexWrap: "wrap" }}>
+                    {vendorLedger?.vendor?.firmName && <span style={{ fontSize: 13, color: "#6b7280" }}>{vendorLedger.vendor.firmName}</span>}
+                    {vendorLedger?.vendor?.phone && (
+                      <span style={{ fontSize: 12, background: "#f0fdf4", color: "#166534", border: "1px solid #bbf7d0", padding: "2px 8px", borderRadius: 12, fontWeight: 600, display: "inline-flex", alignItems: "center", gap: 4 }}>
+                        📞 {vendorLedger.vendor.phone}
+                      </span>
+                    )}
+                  </div>
                 </div>
                 <button onClick={closeLedger} style={{ background: "none", border: "none", fontSize: 22, cursor: "pointer", color: "#6b7280" }}>✕</button>
               </div>
@@ -543,7 +813,7 @@ export default function Vendors() {
                           <th style={{ padding: "10px 12px", textAlign: "right", fontSize: 12, color: "#ef4444", fontWeight: 600 }}>Debit (Due)</th>
                           <th style={{ padding: "10px 12px", textAlign: "right", fontSize: 12, color: "#22c55e", fontWeight: 600 }}>Credit (Paid)</th>
                           <th style={{ padding: "10px 12px", textAlign: "right", fontSize: 12, color: "#6b7280", fontWeight: 600 }}>Balance</th>
-                          <th style={{ width: 60 }}></th>
+                          <th style={{ width: 105, textAlign: "center", fontSize: 12, color: "#6b7280", fontWeight: 600 }}>Action</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -565,9 +835,61 @@ export default function Vendors() {
                               <td style={{ padding: "10px 8px", textAlign: "center" }}>
                                 {e.type === "BILL" && e.status !== "PAID" && (
                                   <button
-                                    onClick={() => { setLedgerPayModal({ purchaseId: e.purchaseId, billNo: e.billNo }); setLedgerPayForm(EMPTY_LEDGER_PAY_FORM); }}
-                                    style={{ padding: "3px 8px", background: "#f0fdf4", color: "#15803d", border: "1px solid #bbf7d0", borderRadius: 5, cursor: "pointer", fontSize: 11, fontWeight: 600 }}
+                                    onClick={() => {
+                                      setLedgerPayModal({
+                                        purchaseId: e.purchaseId,
+                                        billNo: e.billNo,
+                                        totalAmount: e.debit,
+                                        balanceDue: e.balanceDue !== undefined ? e.balanceDue : e.balance,
+                                        billDate: e.date,
+                                      });
+                                      setLedgerPayForm(EMPTY_LEDGER_PAY_FORM);
+                                    }}
+                                    style={{ padding: "4px 10px", background: "#f0fdf4", color: "#15803d", border: "1px solid #bbf7d0", borderRadius: 6, cursor: "pointer", fontSize: 11, fontWeight: 700 }}
                                   >Pay</button>
+                                )}
+                                {e.type === "PAYMENT" && (
+                                  <button
+                                    onClick={() => handleSendPaymentWhatsapp(e)}
+                                    title="Send WhatsApp payment receipt to vendor"
+                                    style={{
+                                      padding: "4px 8px",
+                                      background: "#25D366",
+                                      color: "#fff",
+                                      border: "none",
+                                      borderRadius: 6,
+                                      cursor: "pointer",
+                                      fontSize: 11,
+                                      fontWeight: 700,
+                                      display: "inline-flex",
+                                      alignItems: "center",
+                                      gap: 3,
+                                      boxShadow: "0 1px 2px rgba(0,0,0,0.1)",
+                                    }}
+                                  >
+                                    💬 WhatsApp
+                                  </button>
+                                )}
+                                {(e.type === "DISCOUNT" || e.type === "GR") && (
+                                  <button
+                                    onClick={() => handleSendPaymentWhatsapp(e)}
+                                    title="Share details on WhatsApp"
+                                    style={{
+                                      padding: "3px 6px",
+                                      background: "#f0fdf4",
+                                      color: "#166534",
+                                      border: "1px solid #86efac",
+                                      borderRadius: 5,
+                                      cursor: "pointer",
+                                      fontSize: 10,
+                                      fontWeight: 600,
+                                      display: "inline-flex",
+                                      alignItems: "center",
+                                      gap: 2,
+                                    }}
+                                  >
+                                    💬 Share
+                                  </button>
                                 )}
                               </td>
                             </tr>
@@ -577,7 +899,26 @@ export default function Vendors() {
                     </table>
                   )}
                 </div>
-                <div style={{ padding: "16px 24px", borderTop: "1px solid #f3f4f6", display: "flex", gap: 12, justifyContent: "flex-end" }}>
+                <div style={{ padding: "16px 24px", borderTop: "1px solid #f3f4f6", display: "flex", gap: 12, justifyContent: "flex-end", flexWrap: "wrap" }}>
+                  <button
+                    onClick={handleSendStatementWhatsapp}
+                    style={{
+                      padding: "10px 18px",
+                      background: "#25D366",
+                      color: "#fff",
+                      border: "none",
+                      borderRadius: 8,
+                      cursor: "pointer",
+                      fontWeight: 700,
+                      fontSize: 13,
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 6,
+                      boxShadow: "0 2px 4px rgba(37,211,102,0.2)",
+                    }}
+                  >
+                    💬 Send Statement via WhatsApp
+                  </button>
                   <button onClick={() => { closeLedger(); navigate(`/admin/add-purchase?vendor=${ledgerModal}`); }} style={{ padding: "10px 20px", background: "#6366f1", color: "#fff", border: "none", borderRadius: 8, cursor: "pointer", fontWeight: 600, fontSize: 14 }}>+ Add Bill</button>
                   <button onClick={() => window.print()} style={{ padding: "10px 20px", background: "#f3f4f6", border: "1px solid #d1d5db", borderRadius: 8, cursor: "pointer", fontWeight: 600, fontSize: 14 }}>Print Ledger</button>
                 </div>
@@ -763,6 +1104,191 @@ export default function Vendors() {
             <div style={{ display: "flex", gap: 12, justifyContent: "center" }}>
               <button onClick={() => setDeleteConfirm(null)} style={{ padding: "10px 24px", background: "#f3f4f6", border: "1px solid #d1d5db", borderRadius: 8, cursor: "pointer", fontWeight: 600 }}>Cancel</button>
               <button onClick={() => handleDelete(deleteConfirm._id)} style={{ padding: "10px 24px", background: "#ef4444", color: "#fff", border: "none", borderRadius: 8, cursor: "pointer", fontWeight: 600 }}>Delete</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── WhatsApp Receipt & Statement Modal ── */}
+      {whatsappPrompt.open && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.55)",
+            zIndex: 1004,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 16,
+          }}
+          onClick={() => setWhatsappPrompt(p => ({ ...p, open: false }))}
+        >
+          <div
+            style={{
+              background: "#fff",
+              borderRadius: 16,
+              padding: 24,
+              maxWidth: 520,
+              width: "100%",
+              maxHeight: "90vh",
+              overflow: "auto",
+              boxShadow: "0 25px 60px rgba(0,0,0,0.3)",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
+              <div>
+                <h3 style={{ margin: "0 0 4px", fontSize: 18, fontWeight: 700, color: "#15803d", display: "flex", alignItems: "center", gap: 8 }}>
+                  <span style={{ fontSize: 22 }}>📱</span> {whatsappPrompt.title || "Vendor Payment Receipt"}
+                </h3>
+                <p style={{ margin: 0, fontSize: 13, color: "#6b7280" }}>
+                  Vendor: <strong>{whatsappPrompt.vendorName}</strong>
+                </p>
+              </div>
+              <button
+                onClick={() => setWhatsappPrompt(p => ({ ...p, open: false }))}
+                style={{ background: "none", border: "none", fontSize: 22, cursor: "pointer", color: "#6b7280" }}
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Status indicator */}
+            <div style={{ marginBottom: 14 }}>
+              {whatsappPrompt.whatsappSent ? (
+                <div style={{ padding: "10px 14px", background: "#f0fdf4", border: "1px solid #86efac", borderRadius: 10, color: "#166534", fontWeight: 700, fontSize: 13 }}>
+                  ✅ Automatically dispatched to vendor via WhatsApp Cloud API!
+                </div>
+              ) : (
+                <div style={{ padding: "10px 14px", background: "#fefce8", border: "1px solid #fde047", borderRadius: 10, color: "#854d0e", fontWeight: 600, fontSize: 13 }}>
+                  💡 Send WhatsApp payment receipt to <strong>{whatsappPrompt.vendorName}</strong>
+                </div>
+              )}
+            </div>
+
+            {/* Vendor WhatsApp Phone Number Input */}
+            <div style={{ marginBottom: 14 }}>
+              <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "#374151", marginBottom: 4 }}>
+                Vendor WhatsApp Number
+              </label>
+              <div style={{ display: "flex", gap: 8 }}>
+                <input
+                  type="text"
+                  value={whatsappPrompt.vendorPhone}
+                  onChange={(e) => {
+                    const newPhone = e.target.value;
+                    const clean = newPhone.replace(/\D/g, "");
+                    const intlPhone = clean.length === 10 ? `91${clean}` : clean;
+                    const newUrl = intlPhone ? `https://api.whatsapp.com/send?phone=${intlPhone}&text=${encodeURIComponent(whatsappPrompt.messageText)}` : "";
+                    setWhatsappPrompt(p => ({ ...p, vendorPhone: newPhone, whatsappUrl: newUrl }));
+                  }}
+                  placeholder="e.g. 9876543210 (10 digits)"
+                  style={{
+                    flex: 1,
+                    padding: "8px 12px",
+                    borderRadius: 8,
+                    border: "1px solid #d1d5db",
+                    fontSize: 14,
+                    fontWeight: 600,
+                  }}
+                />
+              </div>
+              {!whatsappPrompt.vendorPhone && (
+                <span style={{ fontSize: 11, color: "#ef4444", marginTop: 4, display: "block" }}>
+                  ⚠️ Enter vendor phone number to open WhatsApp
+                </span>
+              )}
+            </div>
+
+            {/* Message Preview Box */}
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                <span style={{ fontSize: 12, fontWeight: 700, color: "#6b7280" }}>Message Preview:</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigator.clipboard.writeText(whatsappPrompt.messageText);
+                    toast.success("Receipt message copied to clipboard!");
+                  }}
+                  style={{ background: "none", border: "none", color: "#6366f1", fontSize: 12, cursor: "pointer", fontWeight: 600 }}
+                >
+                  📋 Copy Message
+                </button>
+              </div>
+              <div
+                style={{
+                  background: "#f8fafc",
+                  padding: 14,
+                  borderRadius: 10,
+                  fontSize: 12,
+                  fontFamily: "monospace",
+                  whiteSpace: "pre-wrap",
+                  color: "#1e293b",
+                  maxHeight: 180,
+                  overflowY: "auto",
+                  border: "1px solid #cbd5e1",
+                  lineHeight: 1.55,
+                }}
+              >
+                {whatsappPrompt.messageText}
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div style={{ display: "flex", gap: 10 }}>
+              <button
+                type="button"
+                onClick={() => {
+                  let targetUrl = whatsappPrompt.whatsappUrl;
+                  if (!targetUrl && whatsappPrompt.vendorPhone) {
+                    const clean = whatsappPrompt.vendorPhone.replace(/\D/g, "");
+                    const intl = clean.length === 10 ? `91${clean}` : clean;
+                    targetUrl = `https://api.whatsapp.com/send?phone=${intl}&text=${encodeURIComponent(whatsappPrompt.messageText)}`;
+                  }
+                  if (!targetUrl) {
+                    toast.warn("Please enter a WhatsApp phone number first");
+                    return;
+                  }
+                  window.open(targetUrl, "_blank");
+                  setWhatsappPrompt(p => ({ ...p, open: false }));
+                }}
+                style={{
+                  flex: 2,
+                  padding: "12px",
+                  background: "#25D366",
+                  color: "#fff",
+                  border: "none",
+                  borderRadius: 8,
+                  cursor: "pointer",
+                  fontWeight: 700,
+                  fontSize: 14,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 8,
+                  boxShadow: "0 2px 6px rgba(37,211,102,0.3)",
+                }}
+              >
+                💬 Open WhatsApp Now
+              </button>
+              <button
+                type="button"
+                onClick={() => setWhatsappPrompt(p => ({ ...p, open: false }))}
+                style={{
+                  flex: 1,
+                  padding: "12px",
+                  background: "#f3f4f6",
+                  border: "1px solid #d1d5db",
+                  borderRadius: 8,
+                  cursor: "pointer",
+                  fontWeight: 600,
+                  fontSize: 14,
+                }}
+              >
+                Close
+              </button>
             </div>
           </div>
         </div>

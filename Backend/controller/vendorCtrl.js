@@ -137,6 +137,7 @@ const getVendorLedger = asyncHandler(async (req, res) => {
       billNo: p.billNo,
       purchaseId: p._id,
       status: p.status,
+      balanceDue: p.balanceDue,
     });
 
     // Payment / Settlement entries
@@ -151,8 +152,18 @@ const getVendorLedger = asyncHandler(async (req, res) => {
           credit: pay.amount,
           balance,
           billNo: p.billNo,
+          billDate: p.billDate,
           purchaseId: p._id,
           paymentMode: pay.mode,
+          amount: pay.amount,
+          referenceNo: pay.referenceNo || "",
+          note: pay.note || "",
+          discountAmount: pay.discountAmount || 0,
+          grAmount: pay.grAmount || 0,
+          grNote: pay.grNote || "",
+          billTotal: p.totalAmount,
+          billBalanceDue: p.balanceDue,
+          billStatus: p.status,
         });
       }
 
@@ -167,7 +178,12 @@ const getVendorLedger = asyncHandler(async (req, res) => {
           credit: pay.discountAmount,
           balance,
           billNo: p.billNo,
+          billDate: p.billDate,
           purchaseId: p._id,
+          discountAmount: pay.discountAmount,
+          billTotal: p.totalAmount,
+          billBalanceDue: p.balanceDue,
+          billStatus: p.status,
         });
       }
 
@@ -181,7 +197,13 @@ const getVendorLedger = asyncHandler(async (req, res) => {
           credit: pay.grAmount,
           balance,
           billNo: p.billNo,
+          billDate: p.billDate,
           purchaseId: p._id,
+          grAmount: pay.grAmount,
+          grNote: pay.grNote || "",
+          billTotal: p.totalAmount,
+          billBalanceDue: p.balanceDue,
+          billStatus: p.status,
         });
       }
     });

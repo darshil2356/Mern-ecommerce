@@ -171,6 +171,156 @@ const generateWhatsAppUrl = ({ phone, messageText }) => {
 };
 
 /**
+ * Build Vendor Payment Receipt WhatsApp message text
+ */
+const buildVendorPaymentMessage = ({
+  vendorName,
+  firmName,
+  billNo,
+  billDate,
+  paymentDate,
+  amountPaid,
+  paymentMode,
+  referenceNo,
+  discountAmount = 0,
+  grAmount = 0,
+  grNote = "",
+  totalSettlement,
+  billTotal,
+  billBalanceDue,
+  billStatus,
+  overallVendorBalance,
+  storeName = "Yashoda Fashion",
+  storePhone = "",
+}) => {
+  const nameStr = firmName ? `${firmName} (${vendorName || "Vendor"})` : (vendorName || "Vendor");
+  const dateFormatted = paymentDate
+    ? new Date(paymentDate).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })
+    : new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+  const purchaseDateFormatted = billDate
+    ? new Date(billDate).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })
+    : "";
+
+  const isCleared = billStatus === "PAID" || Number(billBalanceDue || 0) <= 0.01;
+  const statusStr = isCleared ? "Fully Cleared & Settled 🎉" : "Partially Cleared ⏳";
+
+  const lines = [
+    `🛍️ *${storeName}* 🛍️`,
+    `*Vendor Payment Receipt / Voucher*`,
+    ``,
+    `Hello *${nameStr}*,`,
+    `We have processed payment towards your purchase bill. Here are the payment settlement details:`,
+    ``,
+    `📋 *Bill Details:*`,
+    `• *Bill No:* ${billNo ? `#${billNo}` : "Purchase Bill"}`,
+  ];
+
+  if (purchaseDateFormatted) {
+    lines.push(`• *Purchase / Bill Date:* ${purchaseDateFormatted}`);
+  }
+
+  if (billTotal !== undefined && billTotal !== null && Number(billTotal) > 0) {
+    lines.push(`• *Bill Total:* ₹${Number(billTotal || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`);
+  }
+
+  lines.push(`• *Bill Status:* ${statusStr}`);
+  lines.push(``);
+  lines.push(`💵 *Payment & Settlement Details:*`);
+  lines.push(`• *Payment Date:* ${dateFormatted}`);
+  lines.push(`• *Payment Mode:* ${paymentMode || "Cash"}`);
+
+  if (referenceNo) {
+    lines.push(`• *Ref / UTR / Cheque No:* ${referenceNo}`);
+  }
+
+  lines.push(`• *Amount Paid:* ₹${Number(amountPaid || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`);
+
+  if (Number(discountAmount) > 0) {
+    lines.push(`• *Discount / Kasur:* ₹${Number(discountAmount).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`);
+  }
+
+  if (Number(grAmount) > 0) {
+    lines.push(`• *Goods Return (GR):* ₹${Number(grAmount).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}${grNote ? ` (${grNote})` : ""}`);
+  }
+
+  if (Number(totalSettlement) > Number(amountPaid)) {
+    lines.push(`• *Total Settlement Deduction:* ₹${Number(totalSettlement).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`);
+  }
+
+  lines.push(``);
+
+  if (isCleared) {
+    lines.push(`✅ *Purchase Bill #${billNo || ""}${purchaseDateFormatted ? ` (Dated: ${purchaseDateFormatted})` : ""} is now Fully Cleared & Settled!*`);
+  } else {
+    lines.push(`⚠️ *Remaining Due for this Bill:* ₹${Number(billBalanceDue || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`);
+  }
+
+  if (overallVendorBalance !== undefined && overallVendorBalance !== null) {
+    lines.push(`📊 *Total Ledger Balance Due:* ₹${Number(overallVendorBalance || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`);
+  }
+
+  lines.push(``);
+  lines.push(`Thank you for your business and partnership! 🙏`);
+  if (storePhone) {
+    lines.push(`📞 Contact: ${storePhone}`);
+  }
+
+  return lines.join("\n");
+};
+
+/**
+ * Build Consolidated Vendor Ledger Statement WhatsApp message text
+ */
+const buildVendorStatementMessage = ({
+  vendorName,
+  firmName,
+  summary,
+  storeName = "Yashoda Fashion",
+  storePhone = "",
+}) => {
+  const nameStr = firmName ? `${firmName} (${vendorName || "Vendor"})` : (vendorName || "Vendor");
+  const totPurchases = Number(summary?.totalPurchases || 0);
+  const totPaid = Number(summary?.totalPaid || 0);
+  const balDue = Number(summary?.balanceDue || 0);
+
+  const lines = [
+    `🛍️ *${storeName}* 🛍️`,
+    `*Vendor Ledger Account Statement*`,
+    ``,
+    `Hello *${nameStr}*,`,
+    `Here is the current account statement of your ledger with us:`,
+    ``,
+    `📊 *Ledger Summary:*`,
+    `• *Total Purchases:* ₹${totPurchases.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+    `• *Total Paid / Settled:* ₹${totPaid.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+    `• *Current Balance Due:* ₹${balDue.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${balDue > 0 ? "⚠️ (Due)" : "✅ (Fully Clear)"}`,
+    ``,
+    `Thank you for your continued business and partnership! 🙏`,
+  ];
+
+  if (storePhone) {
+    lines.push(`📞 Contact: ${storePhone}`);
+  }
+
+  return lines.join("\n");
+};
+
+/**
+ * Helper to fetch store contact details from admin user
+ */
+const getStoreContact = async () => {
+  try {
+    const adminUser = await User.findOne({ role: "admin" }).select("storeName storePhone storeWhatsapp");
+    return {
+      storeName: adminUser?.storeName || "Yashoda Fashion",
+      storePhone: adminUser?.storeWhatsapp || adminUser?.storePhone || "",
+    };
+  } catch (e) {
+    return { storeName: "Yashoda Fashion", storePhone: "" };
+  }
+};
+
+/**
  * Helper to fetch store name from admin user
  */
 const getStoreName = async () => {
@@ -187,8 +337,12 @@ module.exports = {
   buildUdharPurchaseMessage,
   buildUdharPaymentMessage,
   buildConsolidatedUdharMessage,
+  buildVendorPaymentMessage,
+  buildVendorStatementMessage,
   sendMetaWhatsAppCloudApi,
   generateWhatsAppUrl,
   getStoreName,
+  getStoreContact,
 };
+
 

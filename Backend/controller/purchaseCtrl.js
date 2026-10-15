@@ -1,7 +1,15 @@
 const Purchase = require("../models/purchaseModel");
 const Vendor = require("../models/vendorModel");
+const User = require("../models/userModel");
 const asyncHandler = require("express-async-handler");
 const validateMongoDbId = require("../utils/validateMongodbId");
+const {
+  buildVendorPaymentMessage,
+  generateWhatsAppUrl,
+  sendMetaWhatsAppCloudApi,
+  getStoreContact,
+} = require("../utils/whatsappHelper");
+
 
 // Recalculate item totals
 function calcItem(item, gstType, taxIncluded) {
@@ -302,9 +310,58 @@ const recordPayment = asyncHandler(async (req, res) => {
   purchase.grAmount = (purchase.grAmount || 0) + +grAmt.toFixed(2);
 
   await purchase.save();
-  await purchase.populate("vendor", "name firmName phone city");
+  await purchase.populate("vendor", "name firmName phone city openingBalance");
 
-  res.json(purchase);
+  // Calculate overall vendor balance
+  let overallVendorBalance = undefined;
+  if (purchase.vendor) {
+    const allVendorPurchases = await Purchase.find({ vendor: purchase.vendor._id });
+    const vendorBillsDue = allVendorPurchases.reduce((acc, p) => acc + (p.balanceDue || 0), 0);
+    overallVendorBalance = (purchase.vendor.openingBalance || 0) + vendorBillsDue;
+  }
+
+  // Get Store Contact Details
+  const { storeName, storePhone } = await getStoreContact();
+
+  const totalSettlement = paidAmt + +discAmt.toFixed(2) + +grAmt.toFixed(2);
+
+  const whatsappMessage = buildVendorPaymentMessage({
+    vendorName: purchase.vendor?.name,
+    firmName: purchase.vendor?.firmName,
+    billNo: purchase.billNo,
+    billDate: purchase.billDate,
+    paymentDate: date || new Date(),
+    amountPaid: paidAmt,
+    paymentMode: newPayment.mode,
+    referenceNo,
+    discountAmount: +discAmt.toFixed(2),
+    grAmount: +grAmt.toFixed(2),
+    grNote,
+    totalSettlement,
+    billTotal: purchase.totalAmount,
+    billBalanceDue: purchase.balanceDue,
+    billStatus: purchase.status,
+    overallVendorBalance,
+    storeName,
+    storePhone,
+  });
+
+  const vendorPhone = purchase.vendor?.phone;
+  const whatsappUrl = generateWhatsAppUrl({ phone: vendorPhone, messageText: whatsappMessage });
+
+  let whatsappSent = false;
+  if (vendorPhone) {
+    const apiResult = await sendMetaWhatsAppCloudApi({ phone: vendorPhone, messageText: whatsappMessage });
+    whatsappSent = apiResult.success;
+  }
+
+  const resData = purchase.toObject();
+  resData.whatsappMessage = whatsappMessage;
+  resData.whatsappUrl = whatsappUrl;
+  resData.whatsappSent = whatsappSent;
+  resData.vendorPhone = vendorPhone || "";
+
+  res.json(resData);
 });
 
 const getPurchaseSummary = asyncHandler(async (req, res) => {

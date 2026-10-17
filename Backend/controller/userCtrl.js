@@ -9,7 +9,7 @@ const ReturnExchange = require("../models/returnExchangeModel");
 const Rojmel = require("../models/rojmelModel");
 const uniqid = require("uniqid");
 const { notifyUser } = require("./notificationCtrl");
-const { createAutoEntry } = require("./rojmelCtrl");
+const { createAutoEntry, recalculateBalances } = require("./rojmelCtrl");
 const { ORDER_STATUS_EVENT_MAP } = require("../config/notificationConfig");
 
 const asyncHandler = require("express-async-handler");
@@ -4583,6 +4583,130 @@ const getReturnExchangesList = asyncHandler(async (req, res) => {
   }
 });
 
+// Delete Return & Exchange Record and completely reverse all its inventory, rojmel, udhar, and coins
+const deleteReturnExchange = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+
+  const returnDoc = await ReturnExchange.findById(id);
+  if (!returnDoc) {
+    return res.status(404).json({ success: false, message: "Return/Exchange record not found" });
+  }
+
+  // 1. Reverse Returned Items inventory
+  // When return was created:
+  // - RESELLABLE: Product.findByIdAndUpdate(productId, { $inc: { quantity: qty } })
+  // - DAMAGED: Product.findByIdAndUpdate(productId, { $inc: { damagedQuantity: qty } })
+  // So on delete: decrement the returned stock
+  const retItems = Array.isArray(returnDoc.returnedItems) && returnDoc.returnedItems.length > 0
+    ? returnDoc.returnedItems
+    : (returnDoc.returnedItem?.product ? [returnDoc.returnedItem] : []);
+
+  for (const item of retItems) {
+    const prodId = item.product?._id || item.product;
+    if (!prodId) continue;
+    const qty = Math.max(1, Number(item.quantity) || 1);
+    const qcStatus = item.qcStatus === "DAMAGED" ? "DAMAGED" : "RESELLABLE";
+
+    if (qcStatus === "RESELLABLE") {
+      await Product.findByIdAndUpdate(prodId, { $inc: { quantity: -qty } });
+    } else {
+      await Product.findByIdAndUpdate(prodId, { $inc: { damagedQuantity: -qty } });
+    }
+  }
+
+  // 2. Reverse Exchange Items inventory
+  // When exchange was created:
+  // - Product.findByIdAndUpdate(productId, { $inc: { quantity: -qty } })
+  // So on delete: increment the exchange item stock back
+  const exItems = Array.isArray(returnDoc.exchangeItems) && returnDoc.exchangeItems.length > 0
+    ? returnDoc.exchangeItems
+    : (returnDoc.exchangeItem?.product ? [returnDoc.exchangeItem] : []);
+
+  for (const item of exItems) {
+    const prodId = item.product?._id || item.product;
+    if (!prodId) continue;
+    const qty = Math.max(1, Number(item.quantity) || 1);
+    await Product.findByIdAndUpdate(prodId, { $inc: { quantity: qty } });
+  }
+
+  // 3. Reverse Rojmel Ledger Entry
+  if (returnDoc.rojmelEntry) {
+    const rojEntry = await Rojmel.findByIdAndDelete(returnDoc.rojmelEntry);
+    if (rojEntry) {
+      await recalculateBalances(rojEntry.date || new Date());
+    }
+  } else if (returnDoc.returnId) {
+    // Fallback: check if an auto Rojmel entry exists mentioning this returnId
+    const fallbackEntry = await Rojmel.findOne({
+      particulars: new RegExp(returnDoc.returnId, "i"),
+    });
+    if (fallbackEntry) {
+      await Rojmel.findByIdAndDelete(fallbackEntry._id);
+      await recalculateBalances(fallbackEntry.date || new Date());
+    }
+  }
+
+  // 4. Reverse Udhar Record
+  const Udhar = require("../models/udharModel");
+  if (returnDoc.udharEntry) {
+    if (returnDoc.settlementType === "EXTRA_PAYMENT") {
+      await Udhar.findByIdAndDelete(returnDoc.udharEntry);
+    } else if (returnDoc.settlementType === "UDHAR_ADJUST") {
+      const udh = await Udhar.findById(returnDoc.udharEntry);
+      if (udh && Array.isArray(udh.payments)) {
+        const payIdx = udh.payments.findIndex((p) => p.isReturnAdjustment);
+        if (payIdx !== -1) {
+          const removedAmt = udh.payments[payIdx].amount || 0;
+          udh.payments.splice(payIdx, 1);
+          udh.paidAmount = Math.max(0, (udh.paidAmount || 0) - removedAmt);
+          await udh.save();
+        }
+      }
+    }
+  }
+
+  // 5. Reverse Customer Coins
+  if (returnDoc.customer) {
+    const customer = await User.findById(returnDoc.customer);
+    if (customer) {
+      let coinsChanged = false;
+      if (returnDoc.coinsCredited > 0) {
+        customer.coins = Math.max(0, (customer.coins || 0) - returnDoc.coinsCredited);
+        appendCoinTransaction(customer, {
+          type: "debit",
+          coins: returnDoc.coinsCredited,
+          reason: `Reversal of deleted return/exchange (${returnDoc.returnId})`,
+          source: "return_reversal",
+          description: `Deleted Return/Exchange #${returnDoc.returnId}: Deducted ${returnDoc.coinsCredited} coins`,
+        });
+        coinsChanged = true;
+      }
+      if (returnDoc.coinsDebited > 0) {
+        customer.coins = (customer.coins || 0) + returnDoc.coinsDebited;
+        appendCoinTransaction(customer, {
+          type: "credit",
+          coins: returnDoc.coinsDebited,
+          reason: `Reversal of deleted exchange (${returnDoc.returnId})`,
+          source: "exchange_reversal",
+          description: `Deleted Exchange #${returnDoc.returnId}: Refunded ${returnDoc.coinsDebited} coins`,
+        });
+        coinsChanged = true;
+      }
+      if (coinsChanged) {
+        await customer.save();
+      }
+    }
+  }
+
+  // 6. Delete the ReturnExchange document
+  await ReturnExchange.findByIdAndDelete(returnDoc._id);
+
+  return res.json({
+    success: true,
+    message: `Return & Exchange record #${returnDoc.returnId} deleted successfully. Product stock, Rojmel ledger, and customer balances reversed.`,
+  });
+});
+
 // Verify if customer actually purchased the product being returned + calculate purchase recency
 const verifyCustomerReturnProduct = asyncHandler(async (req, res) => {
   const { customerId, barcode, productId } = req.body;
@@ -4892,6 +5016,7 @@ module.exports = {
   manualDeductCoins,
   manualAddCoins,
   getReturnExchangesList,
+  deleteReturnExchange,
   getCustomersByProductBarcode,
 };
 

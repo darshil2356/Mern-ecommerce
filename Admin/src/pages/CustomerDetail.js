@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Table, Tag, Button, Spin, Tooltip, Tabs, Modal, Form, InputNumber, Input, message, Space } from "antd";
+import { Table, Tag, Button, Spin, Tooltip, Tabs, Modal, Form, InputNumber, Input, message, Space, Popconfirm } from "antd";
 import { useDispatch, useSelector } from "react-redux";
 import { useLocation, useNavigate, Link } from "react-router-dom";
 import {
@@ -10,10 +10,13 @@ import {
   FaUser, FaEnvelope, FaPhone, FaMapMarkerAlt, FaCalendarAlt,
   FaIdCard, FaShoppingBag, FaCoins, FaGift, FaChartLine,
   FaArrowUp, FaArrowDown, FaTag, FaUsers, FaMinusCircle,
-  FaSync, FaExchangeAlt, FaPrint, FaWhatsapp,
+  FaSync, FaExchangeAlt, FaPrint, FaWhatsapp, FaTrash,
 } from "react-icons/fa";
 import { getCustomerDetails, deductCoins, addCoins } from "../features/customers/customerSlice";
 import { printReturnExchangeReceipt } from "../utils/printReturnReceipt";
+import axios from "axios";
+import { base_url } from "../utils/baseUrl";
+import { config } from "../utils/axiosconfig";
 
 const statusConfig = {
   Ordered: { color: "default", bg: "#f5f5f5", text: "#595959" },
@@ -71,10 +74,29 @@ const CustomerDetail = () => {
   const [addModal, setAddModal] = useState(false);
   const [addLoading, setAddLoading] = useState(false);
   const [addForm] = Form.useForm();
+  const [deletingReturnId, setDeletingReturnId] = useState(null);
 
   useEffect(() => {
     if (customerId) dispatch(getCustomerDetails(customerId));
   }, [dispatch, customerId]);
+
+  const handleDeleteReturnExchange = async (recordId, returnId) => {
+    try {
+      setDeletingReturnId(recordId);
+      const res = await axios.delete(`${base_url}user/pos/return-exchange/${recordId}`, config);
+      if (res.data && res.data.success) {
+        message.success(res.data.message || `Return/Exchange #${returnId} deleted successfully`);
+        dispatch(getCustomerDetails(customerId));
+      } else {
+        message.error(res.data?.message || "Failed to delete return/exchange record");
+      }
+    } catch (err) {
+      console.error("Error deleting return exchange:", err);
+      message.error(err.response?.data?.message || "Failed to delete return/exchange record");
+    } finally {
+      setDeletingReturnId(null);
+    }
+  };
 
   const handleDeductCoins = async (values) => {
     setDeductLoading(true);
@@ -363,6 +385,28 @@ const CustomerDetail = () => {
               />
             </Tooltip>
           )}
+          <Tooltip title="Delete Return/Exchange Record">
+            <Popconfirm
+              title="Delete Return/Exchange Record?"
+              description={
+                <div style={{ maxWidth: 260 }}>
+                  Delete <b>#{r.returnId}</b>? This reverses product inventory, Rojmel ledger, and customer coins.
+                </div>
+              }
+              onConfirm={() => handleDeleteReturnExchange(r._id, r.returnId)}
+              okText="Yes, Delete"
+              cancelText="Cancel"
+              okButtonProps={{ danger: true, loading: deletingReturnId === r._id }}
+            >
+              <Button
+                size="small"
+                danger
+                loading={deletingReturnId === r._id}
+                icon={<FaTrash size={11} />}
+                className="bg-red-50 hover:bg-red-100 text-red-600 border-0 rounded-lg flex items-center justify-center cursor-pointer"
+              />
+            </Popconfirm>
+          </Tooltip>
         </Space>
       ),
     },

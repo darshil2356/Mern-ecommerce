@@ -2,7 +2,7 @@ import React, { useEffect, useState, useMemo } from "react";
 import {
   Card, Row, Col, Tag, Button, Divider, Descriptions, Timeline,
   Space, Alert, Typography, Progress, Avatar, List, Table,
-  Badge, Steps, Statistic, Modal, Input, message
+  Badge, Steps, Statistic, Modal, Input, message, Popconfirm
 } from "antd";
 import { useDispatch, useSelector } from "react-redux";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
@@ -12,7 +12,7 @@ import {
   ExclamationCircleOutlined, PhoneOutlined, MailOutlined, GlobalOutlined,
   PrinterOutlined, RocketOutlined, EnvironmentOutlined, DollarOutlined,
   ThunderboltOutlined, GiftOutlined, StarOutlined, SyncOutlined,
-  ShoppingOutlined, CloseCircleOutlined, StopOutlined
+  ShoppingOutlined, CloseCircleOutlined, StopOutlined, DeleteOutlined
 } from "@ant-design/icons";
 import { getaOrder, adminCancelAOrder } from "../features/auth/authSlice";
 import dayjs from "dayjs";
@@ -537,6 +537,26 @@ tbody td{padding:12px 14px;font-size:13px;vertical-align:top}
   }, [rawSingleOrder, orderId]);
 
   const returnExchanges = useSelector((state) => state?.auth?.singleorder?.returnExchanges || []);
+  const [deletingReturnId, setDeletingReturnId] = useState(null);
+
+  const handleDeleteReturnExchange = async (recordId, returnId) => {
+    try {
+      setDeletingReturnId(recordId);
+      const res = await axios.delete(`${base_url}user/pos/return-exchange/${recordId}`, config);
+      if (res.data && res.data.success) {
+        message.success(res.data.message || `Return/Exchange #${returnId} deleted successfully`);
+        dispatch(getaOrder(orderId));
+      } else {
+        message.error(res.data?.message || "Failed to delete return/exchange record");
+      }
+    } catch (err) {
+      console.error("Error deleting return exchange:", err);
+      message.error(err.response?.data?.message || "Failed to delete return/exchange record");
+    } finally {
+      setDeletingReturnId(null);
+    }
+  };
+
   console.log("Order State:", orderState);
 
   if (!orderState) {
@@ -1692,14 +1712,40 @@ tbody td{padding:12px 14px;font-size:13px;vertical-align:top}
                 key: "action",
                 align: "center",
                 render: (_, r) => (
-                  <Button
-                    size="small"
-                    icon={<PrinterOutlined />}
-                    onClick={() => printReturnExchangeReceipt(r, orderState?.user)}
-                    style={{ borderRadius: 8, borderColor: "#cbd5e1" }}
-                  >
-                    Print Return Receipt
-                  </Button>
+                  <Space size="small">
+                    <Button
+                      size="small"
+                      icon={<PrinterOutlined />}
+                      onClick={() => printReturnExchangeReceipt(r, orderState?.user)}
+                      style={{ borderRadius: 8, borderColor: "#cbd5e1" }}
+                    >
+                      Print
+                    </Button>
+                    <Popconfirm
+                      title="Delete Return/Exchange Record?"
+                      description={
+                        <div style={{ maxWidth: 280 }}>
+                          Are you sure you want to delete <b>#{r.returnId}</b>?
+                          <br />
+                          This will automatically reverse product inventory, Rojmel cash/online entries, and customer coins.
+                        </div>
+                      }
+                      onConfirm={() => handleDeleteReturnExchange(r._id, r.returnId)}
+                      okText="Yes, Delete"
+                      cancelText="Cancel"
+                      okButtonProps={{ danger: true, loading: deletingReturnId === r._id }}
+                    >
+                      <Button
+                        size="small"
+                        danger
+                        icon={<DeleteOutlined />}
+                        loading={deletingReturnId === r._id}
+                        style={{ borderRadius: 8 }}
+                      >
+                        Delete
+                      </Button>
+                    </Popconfirm>
+                  </Space>
                 )
               }
             ]}

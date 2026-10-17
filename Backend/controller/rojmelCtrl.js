@@ -205,4 +205,4 @@ const createAutoEntry = async ({ particulars, type, amount, paymentMethod, refer
   });
 };
 
-module.exports = { addEntry, getTodayEntries, getByDate, getSummary, deleteEntry, createAutoEntry };
+module.exports = { addEntry, getTodayEntries, getByDate, getSummary, deleteEntry, createAutoEntry, recalculateBalances };

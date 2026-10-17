@@ -41,6 +41,7 @@ const {
   createOfflineOrder,
   processPosReturnExchange,
   getReturnExchangesList,
+  deleteReturnExchange,
   verifyCustomerReturnProduct,
   getCustomerOffer,
   updateCustomerOffer,
@@ -79,6 +80,12 @@ router.get(
   authMiddleware,
   isAdmin,
   getReturnExchangesList
+);
+router.delete(
+  "/pos/return-exchange/:id",
+  authMiddleware,
+  isAdmin,
+  deleteReturnExchange
 );
 router.post(
   "/pos/verify-return-product",

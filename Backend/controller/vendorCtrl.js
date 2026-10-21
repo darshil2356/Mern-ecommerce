@@ -21,8 +21,38 @@ const updateVendor = asyncHandler(async (req, res) => {
 const deleteVendor = asyncHandler(async (req, res) => {
   const { id } = req.params;
   validateMongoDbId(id);
-  const vendor = await Vendor.findByIdAndDelete(id);
-  res.json(vendor);
+
+  const vendor = await Vendor.findById(id);
+  if (!vendor) {
+    res.status(404);
+    throw new Error("Vendor not found");
+  }
+
+  // 1. Strict Check: Check if vendor has remaining payment / balance due
+  const unpaidPurchases = await Purchase.find({
+    vendor: id,
+    balanceDue: { $gt: 0 },
+  });
+
+  if (unpaidPurchases.length > 0) {
+    const totalDue = unpaidPurchases.reduce((acc, p) => acc + (p.balanceDue || 0), 0);
+    res.status(400);
+    throw new Error(
+      `Cannot delete vendor "${vendor.firmName || vendor.name}": Outstanding payment of ₹${totalDue.toLocaleString("en-IN")} is still remaining across ${unpaidPurchases.length} bill(s). Please clear all dues before deleting.`
+    );
+  }
+
+  // 2. Strict Check: Check if any purchase bills exist for this vendor
+  const billsCount = await Purchase.countDocuments({ vendor: id });
+  if (billsCount > 0) {
+    res.status(400);
+    throw new Error(
+      `Cannot delete vendor "${vendor.firmName || vendor.name}": ${billsCount} purchase bill(s) are linked to this vendor. To protect financial ledger history, mark the vendor as 'INACTIVE' instead of deleting.`
+    );
+  }
+
+  const deleted = await Vendor.findByIdAndDelete(id);
+  res.json({ success: true, message: "Vendor deleted successfully", vendor: deleted });
 });
 
 const getVendor = asyncHandler(async (req, res) => {
@@ -229,6 +259,10 @@ const getVendorDashboardStats = asyncHandler(async (req, res) => {
   const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
   thirtyDaysAgo.setHours(0, 0, 0, 0);
 
+  // Fetch valid existing vendor IDs to keep dashboard 100% consistent with vendor list
+  const existingVendors = await Vendor.find({}, "_id");
+  const validVendorIds = existingVendors.map((v) => v._id);
+
   const [
     vendorCounts,
     purchaseTotals,
@@ -250,6 +284,7 @@ const getVendorDashboardStats = asyncHandler(async (req, res) => {
 
     // 2. Purchase Grand Totals & Bill Statuses
     Purchase.aggregate([
+      { $match: { vendor: { $in: validVendorIds } } },
       {
         $group: {
           _id: null,
@@ -268,6 +303,7 @@ const getVendorDashboardStats = asyncHandler(async (req, res) => {
 
     // 3. Overdue (30+ Days) Bills with balanceDue > 0
     Purchase.find({
+      vendor: { $in: validVendorIds },
       balanceDue: { $gt: 0 },
       billDate: { $lte: thirtyDaysAgo },
     })

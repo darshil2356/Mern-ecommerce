@@ -268,9 +268,17 @@ export default function Vendors() {
   };
 
   const handleDelete = async (id) => {
+    if (deleteConfirm?.totalDue > 0) {
+      toast.error(`Cannot delete: Outstanding payment of ${fmt(deleteConfirm.totalDue)} is still remaining.`);
+      return;
+    }
+    if (deleteConfirm?.billCount > 0) {
+      toast.error(`Cannot delete: ${deleteConfirm.billCount} purchase bills are linked to this vendor. Mark as Inactive instead.`);
+      return;
+    }
     const res = await dispatch(deleteVendor(id));
     if (res.meta.requestStatus === "fulfilled") {
-      toast.success("Vendor deleted");
+      toast.success("Vendor deleted successfully");
       setDeleteConfirm(null);
       load();
     } else {
@@ -604,11 +612,33 @@ export default function Vendors() {
                     </td>
                     <td style={{ padding: "12px 16px" }}><StatusBadge status={v.status} /></td>
                     <td style={{ padding: "12px 16px" }}>
-                      <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
                         <button onClick={() => openLedger(v._id)} style={{ padding: "4px 10px", background: "#eff6ff", color: "#1d4ed8", border: "1px solid #bfdbfe", borderRadius: 6, cursor: "pointer", fontSize: 12 }}>Ledger</button>
                         <button onClick={() => navigate(`/admin/add-purchase?vendor=${v._id}`)} style={{ padding: "4px 10px", background: "#f0fdf4", color: "#15803d", border: "1px solid #bbf7d0", borderRadius: 6, cursor: "pointer", fontSize: 12 }}>+ Bill</button>
                         <button onClick={() => openEdit(v)} style={{ padding: "4px 10px", background: "#fffbeb", color: "#b45309", border: "1px solid #fde68a", borderRadius: 6, cursor: "pointer", fontSize: 12 }}>Edit</button>
-                        <button onClick={() => setDeleteConfirm(v)} style={{ padding: "4px 10px", background: "#fef2f2", color: "#dc2626", border: "1px solid #fecaca", borderRadius: 6, cursor: "pointer", fontSize: 12 }}>Delete</button>
+                        <button
+                          disabled={v.totalDue > 0 || v.billCount > 0}
+                          onClick={() => setDeleteConfirm(v)}
+                          title={
+                            v.totalDue > 0
+                              ? `Cannot delete: Outstanding balance of ${fmt(v.totalDue)} is still remaining`
+                              : v.billCount > 0
+                              ? `Cannot delete: ${v.billCount} purchase bills are linked`
+                              : "Delete Vendor"
+                          }
+                          style={{
+                            padding: "4px 10px",
+                            background: (v.totalDue > 0 || v.billCount > 0) ? "#f1f5f9" : "#fef2f2",
+                            color: (v.totalDue > 0 || v.billCount > 0) ? "#94a3b8" : "#dc2626",
+                            border: `1px solid ${(v.totalDue > 0 || v.billCount > 0) ? "#e2e8f0" : "#fecaca"}`,
+                            borderRadius: 6,
+                            cursor: (v.totalDue > 0 || v.billCount > 0) ? "not-allowed" : "pointer",
+                            fontSize: 12,
+                            opacity: (v.totalDue > 0 || v.billCount > 0) ? 0.65 : 1,
+                          }}
+                        >
+                          Delete
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -1095,15 +1125,65 @@ export default function Vendors() {
       {/* Delete Confirmation */}
       {deleteConfirm && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 1002, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
-          <div style={{ background: "#fff", borderRadius: 16, padding: 32, maxWidth: 400, width: "100%", textAlign: "center" }}>
-            <div style={{ fontSize: 48, marginBottom: 12 }}>⚠️</div>
-            <h3 style={{ margin: "0 0 8px", fontSize: 18 }}>Delete Vendor?</h3>
-            <p style={{ color: "#6b7280", marginBottom: 24 }}>
-              Are you sure you want to delete <strong>{deleteConfirm.name}</strong>? Purchase history will remain.
+          <div style={{ background: "#fff", borderRadius: 16, padding: 32, maxWidth: 440, width: "100%", textAlign: "center" }}>
+            <div style={{ fontSize: 48, marginBottom: 12 }}>
+              {deleteConfirm.totalDue > 0 ? "🚫" : "⚠️"}
+            </div>
+            <h3 style={{ margin: "0 0 8px", fontSize: 18, color: deleteConfirm.totalDue > 0 ? "#dc2626" : "#1e293b" }}>
+              {deleteConfirm.totalDue > 0 ? "Deletion Blocked: Payment Due" : "Delete Vendor?"}
+            </h3>
+            <p style={{ color: "#6b7280", marginBottom: 16, fontSize: 14 }}>
+              Vendor: <strong>{deleteConfirm.firmName ? `${deleteConfirm.firmName} (${deleteConfirm.name})` : deleteConfirm.name}</strong>
             </p>
+
+            {deleteConfirm.totalDue > 0 ? (
+              <div style={{ background: "#fef2f2", border: "1px solid #fca5a5", borderRadius: 10, padding: 14, marginBottom: 20, textAlign: "left" }}>
+                <div style={{ color: "#b91c1c", fontWeight: 700, fontSize: 13, marginBottom: 4, display: "flex", alignItems: "center", gap: 6 }}>
+                  <span>⚠️</span> Outstanding Payment Remaining
+                </div>
+                <div style={{ color: "#7f1d1d", fontSize: 13, lineHeight: 1.5 }}>
+                  This vendor has an unpaid balance of <strong style={{ color: "#dc2626" }}>{fmt(deleteConfirm.totalDue)}</strong> across {deleteConfirm.billCount || 1} bill(s).
+                  <br />
+                  <strong>You cannot delete a vendor while payments are pending.</strong> Please clear and settle all bills first.
+                </div>
+              </div>
+            ) : deleteConfirm.billCount > 0 ? (
+              <div style={{ background: "#fffbeb", border: "1px solid #fcd34d", borderRadius: 10, padding: 14, marginBottom: 20, textAlign: "left" }}>
+                <div style={{ color: "#b45309", fontWeight: 700, fontSize: 13, marginBottom: 4, display: "flex", alignItems: "center", gap: 6 }}>
+                  <span>📋</span> Purchase Bills History Linked
+                </div>
+                <div style={{ color: "#92400e", fontSize: 13, lineHeight: 1.5 }}>
+                  This vendor is linked to <strong>{deleteConfirm.billCount} purchase bill(s)</strong>. To keep financial accounting and ledger intact, change their status to <strong>INACTIVE</strong> instead of deleting.
+                </div>
+              </div>
+            ) : (
+              <p style={{ color: "#4b5563", marginBottom: 20, fontSize: 13 }}>
+                Are you sure you want to permanently delete this vendor? This action cannot be undone.
+              </p>
+            )}
+
             <div style={{ display: "flex", gap: 12, justifyContent: "center" }}>
-              <button onClick={() => setDeleteConfirm(null)} style={{ padding: "10px 24px", background: "#f3f4f6", border: "1px solid #d1d5db", borderRadius: 8, cursor: "pointer", fontWeight: 600 }}>Cancel</button>
-              <button onClick={() => handleDelete(deleteConfirm._id)} style={{ padding: "10px 24px", background: "#ef4444", color: "#fff", border: "none", borderRadius: 8, cursor: "pointer", fontWeight: 600 }}>Delete</button>
+              <button
+                onClick={() => setDeleteConfirm(null)}
+                style={{ padding: "10px 24px", background: "#f3f4f6", border: "1px solid #d1d5db", borderRadius: 8, cursor: "pointer", fontWeight: 600 }}
+              >
+                Cancel
+              </button>
+              <button
+                disabled={deleteConfirm.totalDue > 0 || deleteConfirm.billCount > 0}
+                onClick={() => handleDelete(deleteConfirm._id)}
+                style={{
+                  padding: "10px 24px",
+                  background: (deleteConfirm.totalDue > 0 || deleteConfirm.billCount > 0) ? "#e2e8f0" : "#ef4444",
+                  color: (deleteConfirm.totalDue > 0 || deleteConfirm.billCount > 0) ? "#94a3b8" : "#fff",
+                  border: "none",
+                  borderRadius: 8,
+                  cursor: (deleteConfirm.totalDue > 0 || deleteConfirm.billCount > 0) ? "not-allowed" : "pointer",
+                  fontWeight: 600,
+                }}
+              >
+                {deleteConfirm.totalDue > 0 ? "Cannot Delete (Due Pending)" : deleteConfirm.billCount > 0 ? "Cannot Delete (Bills Exist)" : "Delete"}
+              </button>
             </div>
           </div>
         </div>

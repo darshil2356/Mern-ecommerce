@@ -53,6 +53,7 @@ import PurchaseList from "./pages/PurchaseList";
 import WholesaleRojmal from "./pages/WholesaleRojmal";
 import RojmelDashboard from "./pages/RojmelDashboard";
 import StaffManagement from "./pages/StaffManagement";
+import StaffIncentiveDashboard from "./pages/StaffIncentiveDashboard";
 import WhatsAppMarketing from "./pages/WhatsAppMarketing";
 import StockAuditAlerts from "./pages/StockAuditAlerts";
 import StockCalculation from "./pages/StockCalculation";
@@ -134,6 +135,7 @@ function App() {
           <Route path="wholesale-rojmal" element={<WholesaleRojmal />} />
           <Route path="rojmel-dashboard" element={<RojmelDashboard />} />
           <Route path="staff" element={<StaffManagement />} />
+          <Route path="staff-incentives" element={<StaffIncentiveDashboard />} />
         </Route>
       </Routes>
     </Router>

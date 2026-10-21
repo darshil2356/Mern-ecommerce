@@ -16,7 +16,7 @@ import {
   FaClipboardList, FaBloggerB, FaChartLine, FaBox, FaUsers, FaTags,
   FaFileAlt, FaCube, FaLink, FaMagic, FaCoins, FaEye, FaChartBar,
   FaRocket, FaBook, FaRuler, FaHandshake, FaShoppingBasket, FaStore,
-  FaLock, FaUnlockAlt, FaWhatsapp, FaShieldAlt,
+  FaLock, FaUnlockAlt, FaWhatsapp, FaShieldAlt, FaAward,
 } from "react-icons/fa";
 import { SiBrandfolder } from "react-icons/si";
 import { BiCategoryAlt } from "react-icons/bi";
@@ -82,6 +82,7 @@ const ROUTE_GROUP = {
   "wholesale-rojmal":   "rojmel",
   "udhar":              "udhar",
   "staff":              "staff",
+  "staff-incentives":   "staff",
   "reviews":            "reviews",
   "enquiries":          "enquiries",
   "product-inquiries":  "enquiries",
@@ -539,7 +540,15 @@ const MainLayout = () => {
     { key: "rojmel-dashboard", icon: <FaChartBar />,      label: renderItemLabel("Financial Master", "rojmel") },
     { key: "wholesale-rojmal", icon: <FaStore />,         label: renderItemLabel("Wholesale Rojmal", "rojmel") },
     { key: "udhar",            icon: <FaHandshake />,     label: renderItemLabel("Udhar Khata", "udhar") },
-    { key: "staff",            icon: <FaUsers />,         label: renderItemLabel("Staff Management", "staff") },
+    {
+      key: "staff-module",
+      icon: <FaUsers />,
+      label: renderItemLabel("Staff & Incentive", "staff"),
+      children: [
+        { key: "staff",            icon: <FaUsers />, label: "Staff Management" },
+        { key: "staff-incentives", icon: <FaAward />, label: "Staff Incentives" },
+      ],
+    },
     { key: "reviews",          icon: <AiFillStar />,      label: renderItemLabel("Reviews", "reviews") },
     { key: "enquiries",        icon: <AiOutlineFileText />,label: renderItemLabel("Enquiries", "enquiries") },
     { key: "product-inquiries",icon: <AiOutlineFileText />,label: renderItemLabel("Stock Inquiries", "enquiries") },

@@ -4,6 +4,7 @@ const Product = require("../models/productModel");
 const Cart = require("../models/cartModel");
 const Coupon = require("../models/couponModel");
 const Order = require("../models/orderModel");
+const Staff = require("../models/staffModel");
 const Color = require("../models/colorModel");
 const ReturnExchange = require("../models/returnExchangeModel");
 const Rojmel = require("../models/rojmelModel");
@@ -252,7 +253,27 @@ const deductStockFromProduct = async (product, item) => {
 
 const createOfflineOrder = asyncHandler(async (req, res) => {
 
-  const { items, paymentMethod, paymentDestination: reqPaymentDestination, customer, discount, offerDiscount: offerDiscountAmt, coinsUsed, coinAmount, gstBreakdown, amountPaid, paymentNote, sendReferrerCoins, sendBuyerCoins } = req.body;
+  const {
+    items,
+    paymentMethod,
+    paymentDestination: reqPaymentDestination,
+    customer,
+    discount,
+    offerDiscount: offerDiscountAmt,
+    coinsUsed,
+    coinAmount,
+    gstBreakdown,
+    amountPaid,
+    paymentNote,
+    sendReferrerCoins,
+    sendBuyerCoins,
+    sellerStaff,
+    sellerStaffName,
+    billedByStaff,
+    billedByStaffName,
+    incentiveRate: reqIncentiveRate,
+    incentiveAmount: reqIncentiveAmount,
+  } = req.body;
 
   if (!items || items.length === 0) {
     res.status(400);
@@ -412,6 +433,41 @@ const createOfflineOrder = asyncHandler(async (req, res) => {
     : 0;
   const totalPriceAfterDiscount = totalPrice + gstTotal - discountAmount - coinDiscountAmount;
 
+  // Staff attribution & incentive calculation
+  let finalSellerStaff = sellerStaff || null;
+  let finalSellerStaffName = (sellerStaffName || "").trim();
+  let finalBilledByStaff = billedByStaff || null;
+  let finalBilledByStaffName = (billedByStaffName || "").trim();
+  let calculatedIncentiveRate = Number(reqIncentiveRate) || 0;
+
+  if (finalSellerStaff) {
+    try {
+      const staffDoc = await Staff.findById(finalSellerStaff);
+      if (staffDoc) {
+        if (!finalSellerStaffName) finalSellerStaffName = staffDoc.name;
+        if (reqIncentiveRate === undefined || reqIncentiveRate === null || reqIncentiveRate === "") {
+          calculatedIncentiveRate = Number(staffDoc.incentivePercentage) || 0;
+        }
+      }
+    } catch (_) {}
+  }
+
+  if (finalBilledByStaff && !finalBilledByStaffName) {
+    try {
+      const bStaff = await Staff.findById(finalBilledByStaff);
+      if (bStaff) finalBilledByStaffName = bStaff.name;
+    } catch (_) {}
+  }
+
+  let finalIncentiveAmount = 0;
+  if (reqIncentiveAmount !== undefined && reqIncentiveAmount !== null && !isNaN(Number(reqIncentiveAmount)) && reqIncentiveAmount !== "") {
+    finalIncentiveAmount = Math.max(0, Number(reqIncentiveAmount));
+  } else if (calculatedIncentiveRate > 0) {
+    // Base for incentive is the net payable amount of the sale
+    const saleBase = totalPriceAfterDiscount > 0 ? totalPriceAfterDiscount : totalPrice;
+    finalIncentiveAmount = Math.round(((saleBase * calculatedIncentiveRate) / 100) * 100) / 100;
+  }
+
   // Step 3: Create order FIRST
   const order = await Order.create({
     user: customerId || undefined,
@@ -439,6 +495,13 @@ const createOfflineOrder = asyncHandler(async (req, res) => {
     mode: "OFFLINE",
     paymentDestination: paymentMethod === "CASH" ? "CASH" : (reqPaymentDestination || "CURRENT_ACCOUNT"),
     statusHistory: [{ status: "Delivered", date: new Date() }],
+    sellerStaff: finalSellerStaff,
+    sellerStaffName: finalSellerStaffName,
+    billedByStaff: finalBilledByStaff,
+    billedByStaffName: finalBilledByStaffName,
+    incentiveRate: calculatedIncentiveRate,
+    incentiveAmount: finalIncentiveAmount,
+    incentiveStatus: "PENDING",
     // Snapshot the spin-wheel offer that was consumed so it can be restored on cancellation
     offerApplied: offerDiscountAmount > 0 && actualCustomer
       ? { offerDiscount: actualCustomer.offerDiscount || 0, offerType: actualCustomer.offerType || "" }

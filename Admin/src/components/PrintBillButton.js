@@ -31,6 +31,8 @@ const PrintBillButton = ({
   upiIdA = "",
   upiIdB = "",
   ac = "S",
+  sellerStaffName = "",
+  billedByStaffName = "",
 }) => {
   const printBill = async () => {
     if (!cart || !Object.keys(cart).length) {
@@ -162,6 +164,12 @@ tbody td{padding:6px 4px;vertical-align:top}
   <div class="cust-block">
     <div class="cust-name">${customer.name || "Walk-in Customer"}</div>
     ${customer.mobile ? `<div style="font-size:11px;color:#555">${customer.mobile}</div>` : ""}
+    ${sellerStaffName || billedByStaffName ? `
+      <div style="font-size:10px;color:#555;margin-top:4px;padding-top:4px;border-top:1px dashed #ddd;display:flex;justify-content:space-between">
+        ${sellerStaffName ? `<span>Sales: <strong>${sellerStaffName}</strong></span>` : "<span></span>"}
+        ${billedByStaffName ? `<span>Billed By: <strong>${billedByStaffName}</strong></span>` : "<span></span>"}
+      </div>
+    ` : ""}
   </div>
 
   <hr class="divider">

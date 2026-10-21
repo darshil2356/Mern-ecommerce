@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
+import { Link } from "react-router-dom";
 import { toast } from "react-toastify";
 import api from "../utils/axiosconfig";
 import {
@@ -21,6 +22,7 @@ import {
   FaClipboardList,
   FaCalendarCheck,
   FaCalendarDay,
+  FaAward,
 } from "react-icons/fa";
 
 const fmt = (n) =>
@@ -85,6 +87,7 @@ export default function StaffManagement() {
     status: "ACTIVE",
     salaryType: "MONTHLY",
     baseSalary: "",
+    incentivePercentage: "0",
     aadharNumber: "",
     emergencyName: "",
     emergencyRelation: "",
@@ -375,6 +378,7 @@ export default function StaffManagement() {
       status: "ACTIVE",
       salaryType: "MONTHLY",
       baseSalary: "",
+      incentivePercentage: "0",
       aadharNumber: "",
       emergencyName: "",
       emergencyRelation: "",
@@ -401,7 +405,8 @@ export default function StaffManagement() {
       terminationDate: st.terminationDate ? st.terminationDate.split("T")[0] : "",
       status: st.status || "ACTIVE",
       salaryType: st.salaryType || "MONTHLY",
-      baseSalary: st.baseSalary || "",
+      baseSalary: st.baseSalary !== undefined ? String(st.baseSalary) : "",
+      incentivePercentage: st.incentivePercentage !== undefined ? String(st.incentivePercentage) : "0",
       aadharNumber: st.aadharNumber || "",
       emergencyName: st.emergencyContact?.name || "",
       emergencyRelation: st.emergencyContact?.relation || "",
@@ -437,6 +442,7 @@ export default function StaffManagement() {
       status: staffForm.status,
       salaryType: staffForm.salaryType,
       baseSalary: Number(staffForm.baseSalary) || 0,
+      incentivePercentage: Math.max(0, Math.min(100, Number(staffForm.incentivePercentage) || 0)),
       aadharNumber: staffForm.aadharNumber,
       emergencyContact: {
         name: staffForm.emergencyName,
@@ -745,12 +751,20 @@ const openPaySalaryModal = (st) => {
             Manage staff profiles, joining records, monthly salary payouts, advance loans, and bank details.
           </p>
         </div>
-        <button
-          onClick={openAddStaffModal}
-          className="flex items-center justify-center gap-2 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl shadow-md transition-all text-sm"
-        >
-          <FaUserPlus /> Add New Staff
-        </button>
+        <div className="flex items-center gap-3">
+          <Link
+            to="/admin/staff-incentives"
+            className="flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-semibold rounded-xl shadow-md transition-all text-sm"
+          >
+            <FaAward className="text-base" /> Staff Incentives & Sales
+          </Link>
+          <button
+            onClick={openAddStaffModal}
+            className="flex items-center justify-center gap-2 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl shadow-md transition-all text-sm"
+          >
+            <FaUserPlus /> Add New Staff
+          </button>
+        </div>
       </div>
 
       {/* Main Page Navigation Tabs */}
@@ -888,6 +902,7 @@ const openPaySalaryModal = (st) => {
                 <th className="p-4">Designation & Role</th>
                 <th className="p-4">Joining Date</th>
                 <th className="p-4">Base Salary</th>
+                <th className="p-4 text-center">Incentive %</th>
                 <th className="p-4">Advance Pending</th>
                 <th className="p-4">Status</th>
                 <th className="p-4 text-center">Actions</th>
@@ -896,7 +911,7 @@ const openPaySalaryModal = (st) => {
             <tbody className="divide-y divide-slate-100 text-sm">
               {loading ? (
                 <tr>
-                  <td colSpan="7" className="p-8 text-center text-slate-500">
+                  <td colSpan="8" className="p-8 text-center text-slate-500">
                     <div className="flex flex-col items-center justify-center gap-2">
                       <div className="animate-spin rounded-full h-7 w-7 border-b-2 border-indigo-600"></div>
                       <span>Loading staff records...</span>
@@ -905,7 +920,7 @@ const openPaySalaryModal = (st) => {
                 </tr>
               ) : staffList.length === 0 ? (
                 <tr>
-                  <td colSpan="7" className="p-8 text-center text-slate-500">
+                  <td colSpan="8" className="p-8 text-center text-slate-500">
                     No staff records found matching criteria.
                   </td>
                 </tr>
@@ -945,6 +960,12 @@ const openPaySalaryModal = (st) => {
                       <td className="p-4 font-bold text-slate-800">
                         {fmt(st.baseSalary)}{" "}
                         <span className="text-[10px] font-normal text-slate-400">/{st.salaryType.toLowerCase()}</span>
+                      </td>
+
+                      <td className="p-4 text-center">
+                        <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${Number(st.incentivePercentage) > 0 ? "bg-amber-100 text-amber-800 border border-amber-300" : "bg-slate-100 text-slate-500"}`}>
+                          {st.incentivePercentage || 0}%
+                        </span>
                       </td>
 
                       <td className="p-4">
@@ -1512,12 +1533,19 @@ const openPaySalaryModal = (st) => {
                     <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3 flex items-center gap-1.5">
                       <FaBuilding className="text-indigo-500" /> Bank & Salary Payout Setup
                     </h4>
-                    <div className="grid grid-cols-2 gap-4 text-sm mb-4">
+                    <div className="grid grid-cols-3 gap-4 text-sm mb-4">
                       <div>
                         <p className="text-xs text-slate-500">Salary Contract</p>
                         <p className="font-bold text-indigo-700 text-base">
                           {fmt(selectedStaff.baseSalary)}{" "}
                           <span className="text-xs font-normal text-slate-500">/{selectedStaff.salaryType.toLowerCase()}</span>
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-slate-500">Sales Incentive</p>
+                        <p className="font-bold text-amber-700 text-base">
+                          {selectedStaff.incentivePercentage || 0}%
+                          <span className="text-xs font-normal text-slate-500 ml-1">/sale</span>
                         </p>
                       </div>
                       <div>
@@ -1831,6 +1859,27 @@ const openPaySalaryModal = (st) => {
                     onChange={(e) => setStaffForm({ ...staffForm, baseSalary: e.target.value })}
                     className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1 flex items-center justify-between">
+                    <span>Sales Incentive (%)</span>
+                    <span className="text-[10px] text-amber-600 font-normal">Per-Bill Commission</span>
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      min="0"
+                      max="100"
+                      step="0.1"
+                      placeholder="e.g. 5"
+                      value={staffForm.incentivePercentage}
+                      onChange={(e) => setStaffForm({ ...staffForm, incentivePercentage: e.target.value })}
+                      className="w-full px-3.5 py-2 pr-8 bg-amber-50/50 border border-amber-200 rounded-xl text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                    />
+                    <span className="absolute right-3 top-2.5 text-xs text-amber-600 font-bold">%</span>
+                  </div>
+                  <p className="text-[10px] text-slate-400 mt-0.5">e.g. 5% commission on total selling amount billed</p>
                 </div>
 
                 <div>

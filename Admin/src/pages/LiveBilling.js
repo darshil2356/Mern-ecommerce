@@ -29,7 +29,8 @@ import {
   FaExchangeAlt,
   FaArrowRight,
   FaBoxOpen,
-  FaUndo
+  FaUndo,
+  FaAward,
 } from "react-icons/fa";
 import SpinWheel from "../components/SpinWheel";
 import PrintBillButton from "../components/PrintBillButton";
@@ -39,6 +40,12 @@ import BarcodeCustomerSearchModal from "../components/BarcodeCustomerSearchModal
 const LiveBilling = () => {
   const [buffer, setBuffer] = useState("");
   const [cart, setCart] = useState({});
+
+  // Staff attribution & incentive state
+  const [staffList, setStaffList] = useState([]);
+  const [selectedSellerStaff, setSelectedSellerStaff] = useState("");
+  const [selectedBilledByStaff, setSelectedBilledByStaff] = useState("");
+  const [customIncentiveRate, setCustomIncentiveRate] = useState("");
 
   // Tab mode: "BILLING" | "RETURN_EXCHANGE"
   const [posTabMode, setPosTabMode] = useState("BILLING");
@@ -715,6 +722,54 @@ const LiveBilling = () => {
     };
   }, []);
 
+  // Fetch active staff list for seller attribution and POS operator accountability
+  useEffect(() => {
+    const fetchStaffMembers = async () => {
+      try {
+        const res = await axios.get(`${base_url}staff?status=ACTIVE`, config);
+        if (res.data?.data) {
+          setStaffList(res.data.data);
+        }
+      } catch (err) {
+        console.error("Failed to fetch staff list for POS:", err);
+      }
+    };
+    fetchStaffMembers();
+  }, []);
+
+  const handleSellerStaffChange = (staffId) => {
+    setSelectedSellerStaff(staffId);
+    if (!staffId) {
+      setCustomIncentiveRate("");
+      return;
+    }
+    const found = staffList.find((s) => s._id === staffId);
+    if (found) {
+      setCustomIncentiveRate(found.incentivePercentage !== undefined ? String(found.incentivePercentage) : "0");
+    }
+  };
+
+  const sellerStaffObj = useMemo(() => {
+    return staffList.find((s) => s._id === selectedSellerStaff) || null;
+  }, [staffList, selectedSellerStaff]);
+
+  const billedByStaffObj = useMemo(() => {
+    return staffList.find((s) => s._id === selectedBilledByStaff) || null;
+  }, [staffList, selectedBilledByStaff]);
+
+  const activeIncentivePercent = useMemo(() => {
+    if (!selectedSellerStaff) return 0;
+    if (customIncentiveRate !== "" && !isNaN(Number(customIncentiveRate))) {
+      return Math.max(0, Number(customIncentiveRate));
+    }
+    return Number(sellerStaffObj?.incentivePercentage) || 0;
+  }, [selectedSellerStaff, customIncentiveRate, sellerStaffObj]);
+
+  const calculatedIncentiveAmt = useMemo(() => {
+    if (!activeIncentivePercent || activeIncentivePercent <= 0 || payableAmount <= 0) return 0;
+    return Math.round(((payableAmount * activeIncentivePercent) / 100) * 100) / 100;
+  }, [activeIncentivePercent, payableAmount]);
+
   /* =========================
      BARCODE HANDLER
      ========================= */
@@ -1306,7 +1361,18 @@ const LiveBilling = () => {
       return;
     }
 
-    // 3. Online payment requires UPI ID
+    // 3. Billed By (Counter Operator) is REQUIRED
+    if (!selectedBilledByStaff) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Billed By Required',
+        text: 'Please select who is creating this bill (Billed By / Counter Operator).',
+        confirmButtonColor: '#d4af37',
+      });
+      return;
+    }
+
+    // 4. Online payment requires UPI ID
     if (paymentMethod === 'ONLINE' && !upiIdA && !upiIdB) {
       Swal.fire({
         icon: 'warning',
@@ -1686,6 +1752,17 @@ const LiveBilling = () => {
       return;
     }
 
+    // Billed By (Counter Operator) is REQUIRED
+    if (!selectedBilledByStaff) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Billed By Required',
+        text: 'Please select who is creating this bill (Billed By / Counter Operator).',
+        confirmButtonColor: '#d4af37',
+      });
+      return;
+    }
+
     const items = Object.entries(cart).map(([barcode, data]) => ({
       barcode,
       quantity: data.qty,
@@ -1731,6 +1808,12 @@ const LiveBilling = () => {
           sendBuyerCoins,
           amountPaid: parsedAmountPaid,
           paymentNote: paymentNote || "",
+          sellerStaff: selectedSellerStaff || null,
+          sellerStaffName: sellerStaffObj?.name || "",
+          billedByStaff: selectedBilledByStaff || null,
+          billedByStaffName: billedByStaffObj?.name || "",
+          incentiveRate: activeIncentivePercent,
+          incentiveAmount: calculatedIncentiveAmt,
           gstBreakdown: {
             cgst: cgstAmount,
             sgst: sgstAmount,
@@ -1869,6 +1952,8 @@ const LiveBilling = () => {
       setQrDataUrl(""); // Reset QR
       setAmountPaid(""); // Reset payment received
       setPaymentNote("");
+      setSelectedSellerStaff("");
+      setCustomIncentiveRate("");
     } catch (err) {
       console.error("Failed to complete sale:", err);
       Swal.fire({
@@ -3457,6 +3542,8 @@ tbody td{padding:6px 4px;vertical-align:top}
                   upiIdA={upiIdA}
                   upiIdB={upiIdB}
                   ac={ac}
+                  sellerStaffName={sellerStaffObj?.name || ""}
+                  billedByStaffName={billedByStaffObj?.name || ""}
                 />
                 
                 {/* Payment Method + Received Panel */}
@@ -3592,6 +3679,99 @@ tbody td{padding:6px 4px;vertical-align:top}
                   </div>
                 </div>
 
+                {/* Staff & Incentive Attribution Card */}
+                <div className="bg-white/10 backdrop-blur-md rounded-xl p-3 border border-white/20 space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-amber-300 uppercase tracking-wider flex items-center gap-1.5">
+                      <FaAward className="text-amber-400" /> Sales & Billing Attribution
+                    </span>
+                    {calculatedIncentiveAmt > 0 && (
+                      <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-emerald-500/30 text-emerald-300 border border-emerald-400/30">
+                        Incentive: ₹{calculatedIncentiveAmt.toFixed(2)} ({activeIncentivePercent}%)
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-2.5">
+                    {/* Billed By (Counter Operator) - REQUIRED */}
+                    <div>
+                      <label className="block text-[11px] font-bold text-white mb-1 flex items-center justify-between">
+                        <span className="flex items-center gap-1">
+                          <span>🖥️ Billed By (Counter Operator)</span>
+                          <span className="text-red-400 font-extrabold text-sm">*</span>
+                        </span>
+                        <span className="text-[10px] font-bold text-amber-300 bg-amber-500/20 px-2 py-0.5 rounded border border-amber-400/40">
+                          Required
+                        </span>
+                      </label>
+                      <select
+                        value={selectedBilledByStaff}
+                        onChange={(e) => setSelectedBilledByStaff(e.target.value)}
+                        className={`w-full px-2.5 py-2 bg-slate-900/95 border rounded-lg text-white text-xs outline-none focus:border-amber-400 font-medium transition-all ${
+                          !selectedBilledByStaff
+                            ? "border-amber-400/80 shadow-[0_0_8px_rgba(251,191,36,0.25)]"
+                            : "border-emerald-400/50"
+                        }`}
+                      >
+                        <option value="">-- Select Staff Creating This Bill * --</option>
+                        {staffList.map((st) => (
+                          <option key={st._id} value={st._id}>
+                            {st.name} ({st.designation})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Seller Person (Sales Staff) - OPTIONAL */}
+                    <div className="pt-1 border-t border-white/10">
+                      <label className="block text-[11px] font-semibold text-white/90 mb-1 flex items-center justify-between">
+                        <span>👤 Seller Person (Sales Staff)</span>
+                        <span className="text-[10px] text-white/50 font-normal">Optional</span>
+                      </label>
+                      <select
+                        value={selectedSellerStaff}
+                        onChange={(e) => handleSellerStaffChange(e.target.value)}
+                        className="w-full px-2.5 py-2 bg-slate-900/90 border border-white/25 rounded-lg text-white text-xs outline-none focus:border-amber-400 font-medium"
+                      >
+                        <option value="">-- None / Walk-in (No Sales Commission) --</option>
+                        {staffList.map((st) => (
+                          <option key={st._id} value={st._id}>
+                            {st.name} ({st.designation}{st.incentivePercentage > 0 ? ` · ${st.incentivePercentage}% inc.` : ""})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {selectedSellerStaff && (
+                      <div className="flex items-center gap-2 bg-white/5 p-2 rounded-lg border border-white/15">
+                        <div className="flex-1">
+                          <label className="block text-[10px] text-white/70 mb-0.5">
+                            Incentive Rate (%)
+                          </label>
+                          <input
+                            type="number"
+                            min="0"
+                            max="100"
+                            step="0.1"
+                            value={customIncentiveRate}
+                            onChange={(e) => setCustomIncentiveRate(e.target.value)}
+                            className="w-full px-2 py-1 bg-white/10 border border-white/20 rounded-md text-white text-xs outline-none focus:border-amber-400 font-bold"
+                            placeholder="%"
+                          />
+                        </div>
+                        <div className="flex-1">
+                          <label className="block text-[10px] text-white/70 mb-0.5">
+                            Calculated Incentive
+                          </label>
+                          <div className="px-2 py-1 bg-emerald-500/20 border border-emerald-400/30 rounded-md text-emerald-300 text-xs font-bold">
+                            ₹{calculatedIncentiveAmt.toFixed(2)}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
                 {/* Inline warnings */}
                 {Object.keys(cart).length > 0 && !customer.name.trim() && (
                   <div className="flex items-center gap-2 bg-red-500/20 border border-red-400/40 rounded-xl px-3 py-2.5">
@@ -3599,9 +3779,15 @@ tbody td{padding:6px 4px;vertical-align:top}
                   </div>
                 )}
 
+                {Object.keys(cart).length > 0 && !selectedBilledByStaff && (
+                  <div className="flex items-center gap-2 bg-amber-500/20 border border-amber-400/40 rounded-xl px-3 py-2.5">
+                    <span className="text-amber-300 text-sm font-semibold">⚠️ Please select who is creating this bill (Billed By)</span>
+                  </div>
+                )}
+
                 <button
                   onClick={handleCompleteSale}
-                  disabled={!Object.keys(cart).length || !customer.name?.trim() || isProcessingSale}
+                  disabled={!Object.keys(cart).length || !customer.name?.trim() || !selectedBilledByStaff || isProcessingSale}
                   className="w-full py-4 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 rounded-xl font-bold flex items-center justify-center gap-2 transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isProcessingSale ? (

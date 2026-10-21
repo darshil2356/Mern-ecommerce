@@ -14,6 +14,8 @@ const {
   saveDailyAttendance,
   getMonthlyAttendanceSummary,
   getStaffAttendanceHistory,
+  getStaffIncentiveReport,
+  markIncentivesPaid,
 } = require("../controller/staffCtrl");
 const { authMiddleware, isAdmin } = require("../middlewares/authMiddleware");
 
@@ -21,6 +23,10 @@ const { authMiddleware, isAdmin } = require("../middlewares/authMiddleware");
 router.get("/attendance/day", authMiddleware, isAdmin, getDailyAttendance);
 router.get("/attendance/monthly-summary", authMiddleware, isAdmin, getMonthlyAttendanceSummary);
 router.post("/attendance/save", authMiddleware, isAdmin, saveDailyAttendance);
+
+// Incentive Analytics & Payout routes (MUST be placed before /:id parameter routes)
+router.get("/incentives/report", authMiddleware, isAdmin, getStaffIncentiveReport);
+router.post("/incentives/payout", authMiddleware, isAdmin, markIncentivesPaid);
 
 router.post("/", authMiddleware, isAdmin, createStaff);
 router.get("/", authMiddleware, isAdmin, getAllStaff);

@@ -405,6 +405,8 @@ tbody td{padding:14px 14px;font-size:13px;color:#333}
       <div style="font-size:13px;font-weight:700;color:#131921;margin-top:3px">${order.paymentDestination === "CASH" ? "💵 Cash on Delivery" : order.paymentDestination === "OTHER_ACCOUNT" ? "🏦 Online (Other)" : "💳 Online Payment"}</div>
     </div>
     ${order.paymentInfo?.razorpayPaymentId ? `<div><div style="font-size:10px;font-weight:700;color:#565959;text-transform:uppercase;letter-spacing:1px">Transaction ID</div><div style="font-size:11px;font-weight:700;color:#131921;font-family:monospace;margin-top:3px">${order.paymentInfo.razorpayPaymentId}</div></div>` : ""}
+    ${order.sellerStaffName ? `<div><div style="font-size:10px;font-weight:700;color:#565959;text-transform:uppercase;letter-spacing:1px">Sales Person</div><div style="font-size:13px;font-weight:700;color:#d97706;margin-top:3px">${order.sellerStaffName}</div></div>` : ""}
+    ${order.billedByStaffName ? `<div><div style="font-size:10px;font-weight:700;color:#565959;text-transform:uppercase;letter-spacing:1px">Billed By</div><div style="font-size:13px;font-weight:700;color:#131921;margin-top:3px">${order.billedByStaffName}</div></div>` : ""}
     ${order.trackingId && order.trackingId !== '—' ? `<div><div style="font-size:10px;font-weight:700;color:#565959;text-transform:uppercase;letter-spacing:1px">Tracking</div><div style="font-size:13px;font-weight:700;color:#131921;margin-top:3px">${order.trackingId}${order.courierName && order.courierName !== '—' ? ' · '+order.courierName : ''}</div></div>` : ""}
   </div>
 
@@ -445,6 +447,9 @@ tbody td{padding:14px 14px;font-size:13px;color:#333}
       trackingId: order?.trackingId || "—",
       trackingUrl: order?.trackingUrl || null,
       isLocked: LOCKED_STATUSES.includes(order?.orderStatus),
+      sellerStaffName: order?.sellerStaffName || "",
+      billedByStaffName: order?.billedByStaffName || "",
+      incentiveAmount: order?.incentiveAmount || 0,
       rawOrder: order,
     }));
   }, [orderState]);
@@ -508,6 +513,12 @@ tbody td{padding:14px 14px;font-size:13px;color:#333}
             <div style={{ fontWeight: 700, color: "#0f172a", fontSize: 13 }}>#{r.orderId.slice(-8).toUpperCase()}</div>
             <div style={{ color: "#64748b", fontSize: 12, marginTop: 2 }}><UserOutlined style={{ marginRight: 4 }} />{r.name} &bull; {r.items} item{r.items !== 1 ? "s" : ""}</div>
             <div style={{ color: "#94a3b8", fontSize: 11, marginTop: 2 }}>📅 {r.date}</div>
+            {r.sellerStaffName && (
+              <div style={{ color: "#d97706", fontSize: 11, marginTop: 2, fontWeight: 600 }}>
+                👤 Sold by: {r.sellerStaffName}
+                {r.billedByStaffName && <span style={{ color: "#64748b", fontWeight: 400, marginLeft: 4 }}>• Billed: {r.billedByStaffName}</span>}
+              </div>
+            )}
           </div>
         </div>
       ),

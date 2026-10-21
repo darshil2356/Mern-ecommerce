@@ -247,11 +247,56 @@ paymentInfo: {
         date:   { type: Date, default: Date.now },
       },
     ],
+
+    // ── Staff Incentive & Billing Accountability ─────────────────────────
+    sellerStaff: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Staff",
+      default: null,
+    },
+    sellerStaffName: {
+      type: String,
+      default: "",
+    },
+    billedByStaff: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Staff",
+      default: null,
+    },
+    billedByStaffName: {
+      type: String,
+      default: "",
+    },
+    incentiveRate: {
+      type: Number,
+      default: 0,
+    },
+    incentiveAmount: {
+      type: Number,
+      default: 0,
+    },
+    incentiveStatus: {
+      type: String,
+      enum: ["PENDING", "PAID"],
+      default: "PENDING",
+    },
+    incentivePaidAt: {
+      type: Date,
+      default: null,
+    },
+    incentivePaymentNote: {
+      type: String,
+      default: "",
+    },
   },
   {
     timestamps: true,
   }
 );
+
+orderSchema.index({ sellerStaff: 1, createdAt: -1 });
+orderSchema.index({ billedByStaff: 1, createdAt: -1 });
+orderSchema.index({ incentiveStatus: 1 });
 
 //Export the model
 module.exports = mongoose.model("Order", orderSchema);

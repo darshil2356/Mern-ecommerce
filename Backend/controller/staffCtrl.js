@@ -1,5 +1,7 @@
 const Staff = require("../models/staffModel");
 const Attendance = require("../models/attendanceModel");
+const Order = require("../models/orderModel");
+const User = require("../models/userModel");
 const asyncHandler = require("express-async-handler");
 
 // @desc    Create new staff member
@@ -19,6 +21,7 @@ const createStaff = asyncHandler(async (req, res) => {
     status,
     salaryType,
     baseSalary,
+    incentivePercentage,
     bankDetails,
     notes,
   } = req.body;
@@ -41,6 +44,7 @@ const createStaff = asyncHandler(async (req, res) => {
     status: status || "ACTIVE",
     salaryType: salaryType || "MONTHLY",
     baseSalary: Number(baseSalary) || 0,
+    incentivePercentage: Math.max(0, Math.min(100, Number(incentivePercentage) || 0)),
     bankDetails: bankDetails || {},
     notes: notes || "",
   });
@@ -609,6 +613,270 @@ const getStaffAttendanceHistory = asyncHandler(async (req, res) => {
   });
 });
 
+// @desc    Get Staff Incentive Analytics & Detailed Report
+// @route   GET /api/staff/incentives/report
+// @access  Private/Admin
+const getStaffIncentiveReport = asyncHandler(async (req, res) => {
+  const {
+    staffId,
+    billedById,
+    startDate,
+    endDate,
+    monthYear,
+    incentiveStatus,
+    search,
+  } = req.query;
+
+  // Build filter query for orders
+  const query = {
+    orderStatus: { $ne: "Cancelled" },
+    $or: [
+      { sellerStaff: { $ne: null } },
+      { sellerStaffName: { $exists: true, $ne: "" } },
+      { incentiveAmount: { $gt: 0 } },
+    ],
+  };
+
+  // Date filters
+  if (startDate || endDate) {
+    query.createdAt = {};
+    if (startDate) {
+      const s = new Date(startDate);
+      s.setHours(0, 0, 0, 0);
+      query.createdAt.$gte = s;
+    }
+    if (endDate) {
+      const e = new Date(endDate);
+      e.setHours(23, 59, 59, 999);
+      query.createdAt.$lte = e;
+    }
+  } else if (monthYear) {
+    const [year, month] = monthYear.split("-").map(Number);
+    if (year && month) {
+      const s = new Date(year, month - 1, 1, 0, 0, 0, 0);
+      const e = new Date(year, month, 0, 23, 59, 59, 999);
+      query.createdAt = { $gte: s, $lte: e };
+    }
+  }
+
+  if (staffId && staffId !== "ALL") {
+    query.sellerStaff = staffId;
+  }
+
+  if (billedById && billedById !== "ALL") {
+    query.billedByStaff = billedById;
+  }
+
+  if (incentiveStatus && incentiveStatus !== "ALL") {
+    query.incentiveStatus = incentiveStatus;
+  }
+
+  // Fetch orders matching query
+  let orders = await Order.find(query)
+    .populate("user", "firstname lastname mobile email address")
+    .populate("sellerStaff", "name phone designation baseSalary incentivePercentage")
+    .populate("billedByStaff", "name phone designation")
+    .sort({ createdAt: -1 });
+
+  // Optional search filtering (on customer name, mobile, orderId, staff name)
+  if (search && search.trim()) {
+    const q = search.trim().toLowerCase();
+    orders = orders.filter((o) => {
+      const custName = `${o.user?.firstname || ""} ${o.user?.lastname || ""} ${o.shippingInfo?.firstname || ""} ${o.shippingInfo?.lastname || ""}`.toLowerCase();
+      const custMobile = `${o.user?.mobile || ""} ${o.shippingInfo?.phone || ""}`.toLowerCase();
+      const orderIdStr = String(o._id || "").toLowerCase();
+      const sellerStr = `${o.sellerStaff?.name || ""} ${o.sellerStaffName || ""}`.toLowerCase();
+      const billedByStr = `${o.billedByStaff?.name || ""} ${o.billedByStaffName || ""}`.toLowerCase();
+      return (
+        custName.includes(q) ||
+        custMobile.includes(q) ||
+        orderIdStr.includes(q) ||
+        sellerStr.includes(q) ||
+        billedByStr.includes(q)
+      );
+    });
+  }
+
+  // Fetch all active staff to compile comprehensive staff performance overview
+  const allStaff = await Staff.find({}).sort({ name: 1 });
+
+  // Compile summary stats
+  let totalOrdersCount = orders.length;
+  let totalSalesVolume = 0;
+  let totalIncentiveEarned = 0;
+  let totalIncentivePending = 0;
+  let totalIncentivePaid = 0;
+
+  // Staff aggregation map
+  const staffStatsMap = {};
+  allStaff.forEach((st) => {
+    staffStatsMap[st._id.toString()] = {
+      staffId: st._id,
+      name: st.name,
+      phone: st.phone,
+      designation: st.designation,
+      status: st.status,
+      baseSalary: st.baseSalary || 0,
+      incentivePercentage: st.incentivePercentage || 0,
+      ordersCount: 0,
+      salesVolume: 0,
+      incentiveEarned: 0,
+      incentivePending: 0,
+      incentivePaid: 0,
+    };
+  });
+
+  orders.forEach((o) => {
+    const saleAmt = o.totalPriceAfterDiscount > 0 ? o.totalPriceAfterDiscount : o.totalPrice;
+    const incAmt = o.incentiveAmount || 0;
+
+    totalSalesVolume += saleAmt;
+    totalIncentiveEarned += incAmt;
+
+    if (o.incentiveStatus === "PAID") {
+      totalIncentivePaid += incAmt;
+    } else {
+      totalIncentivePending += incAmt;
+    }
+
+    const sellerKey = o.sellerStaff?._id?.toString() || (o.sellerStaff ? o.sellerStaff.toString() : null);
+    if (sellerKey && staffStatsMap[sellerKey]) {
+      staffStatsMap[sellerKey].ordersCount += 1;
+      staffStatsMap[sellerKey].salesVolume += saleAmt;
+      staffStatsMap[sellerKey].incentiveEarned += incAmt;
+      if (o.incentiveStatus === "PAID") {
+        staffStatsMap[sellerKey].incentivePaid += incAmt;
+      } else {
+        staffStatsMap[sellerKey].incentivePending += incAmt;
+      }
+    } else if (o.sellerStaffName) {
+      const pseudoKey = `name_${o.sellerStaffName}`;
+      if (!staffStatsMap[pseudoKey]) {
+        staffStatsMap[pseudoKey] = {
+          staffId: pseudoKey,
+          name: o.sellerStaffName,
+          phone: "—",
+          designation: "Sales Staff",
+          status: "ACTIVE",
+          baseSalary: 0,
+          incentivePercentage: o.incentiveRate || 0,
+          ordersCount: 0,
+          salesVolume: 0,
+          incentiveEarned: 0,
+          incentivePending: 0,
+          incentivePaid: 0,
+        };
+      }
+      staffStatsMap[pseudoKey].ordersCount += 1;
+      staffStatsMap[pseudoKey].salesVolume += saleAmt;
+      staffStatsMap[pseudoKey].incentiveEarned += incAmt;
+      if (o.incentiveStatus === "PAID") {
+        staffStatsMap[pseudoKey].incentivePaid += incAmt;
+      } else {
+        staffStatsMap[pseudoKey].incentivePending += incAmt;
+      }
+    }
+  });
+
+  const staffSummaryList = Object.values(staffStatsMap)
+    .filter((s) => (staffId && staffId !== "ALL" ? s.staffId.toString() === staffId : true))
+    .sort((a, b) => b.salesVolume - a.salesVolume);
+
+  res.status(200).json({
+    success: true,
+    stats: {
+      totalOrdersCount,
+      totalSalesVolume: Math.round(totalSalesVolume * 100) / 100,
+      totalIncentiveEarned: Math.round(totalIncentiveEarned * 100) / 100,
+      totalIncentivePending: Math.round(totalIncentivePending * 100) / 100,
+      totalIncentivePaid: Math.round(totalIncentivePaid * 100) / 100,
+      averageIncentiveRate:
+        totalSalesVolume > 0
+          ? Math.round((totalIncentiveEarned / totalSalesVolume) * 10000) / 100
+          : 0,
+    },
+    staffSummary: staffSummaryList,
+    orders: orders.map((o) => ({
+      _id: o._id,
+      createdAt: o.createdAt,
+      orderStatus: o.orderStatus,
+      totalPrice: o.totalPrice,
+      totalPriceAfterDiscount: o.totalPriceAfterDiscount,
+      discountAmount: o.discountAmount || 0,
+      paymentMethod: o.paymentInfo?.razorpayOrderId?.includes("ONLINE") ? "ONLINE" : "CASH",
+      customer: {
+        name: o.user ? `${o.user.firstname || ""} ${o.user.lastname || ""}`.trim() : (o.shippingInfo ? `${o.shippingInfo.firstname || ""} ${o.shippingInfo.lastname || ""}`.trim() : "Walk-in Customer"),
+        phone: o.user?.mobile || o.shippingInfo?.phone || "—",
+        address: o.user?.address || o.shippingInfo?.address || "",
+      },
+      sellerStaff: o.sellerStaff
+        ? {
+            _id: o.sellerStaff._id,
+            name: o.sellerStaff.name,
+            phone: o.sellerStaff.phone,
+            designation: o.sellerStaff.designation,
+          }
+        : null,
+      sellerStaffName: o.sellerStaffName || o.sellerStaff?.name || "Unassigned",
+      billedByStaff: o.billedByStaff
+        ? {
+            _id: o.billedByStaff._id,
+            name: o.billedByStaff.name,
+            phone: o.billedByStaff.phone,
+            designation: o.billedByStaff.designation,
+          }
+        : null,
+      billedByStaffName: o.billedByStaffName || o.billedByStaff?.name || "Counter Admin",
+      incentiveRate: o.incentiveRate || 0,
+      incentiveAmount: o.incentiveAmount || 0,
+      incentiveStatus: o.incentiveStatus || "PENDING",
+      incentivePaidAt: o.incentivePaidAt,
+      incentivePaymentNote: o.incentivePaymentNote || "",
+      itemsCount: Array.isArray(o.orderItems) ? o.orderItems.length : 0,
+    })),
+  });
+});
+
+// @desc    Mark incentives as Paid for specific orders or staff/month
+// @route   POST /api/staff/incentives/payout
+// @access  Private/Admin
+const markIncentivesPaid = asyncHandler(async (req, res) => {
+  const { orderIds, staffId, monthYear, paymentNote } = req.body;
+
+  let query = {};
+  if (Array.isArray(orderIds) && orderIds.length > 0) {
+    query._id = { $in: orderIds };
+  } else if (staffId) {
+    query.sellerStaff = staffId;
+    query.incentiveStatus = "PENDING";
+    if (monthYear) {
+      const [year, month] = monthYear.split("-").map(Number);
+      if (year && month) {
+        const s = new Date(year, month - 1, 1, 0, 0, 0, 0);
+        const e = new Date(year, month, 0, 23, 59, 59, 999);
+        query.createdAt = { $gte: s, $lte: e };
+      }
+    }
+  } else {
+    res.status(400);
+    throw new Error("Please specify orderIds or staffId to mark as paid");
+  }
+
+  const result = await Order.updateMany(query, {
+    $set: {
+      incentiveStatus: "PAID",
+      incentivePaidAt: new Date(),
+      incentivePaymentNote: paymentNote || "Incentive payout settled",
+    },
+  });
+
+  res.status(200).json({
+    success: true,
+    message: `Successfully marked ${result.modifiedCount || 0} bill(s) as Paid`,
+    modifiedCount: result.modifiedCount,
+  });
+});
+
 module.exports = {
   createStaff,
   getAllStaff,
@@ -623,5 +891,7 @@ module.exports = {
   saveDailyAttendance,
   getMonthlyAttendanceSummary,
   getStaffAttendanceHistory,
+  getStaffIncentiveReport,
+  markIncentivesPaid,
 };
 

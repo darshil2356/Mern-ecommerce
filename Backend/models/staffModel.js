@@ -55,6 +55,7 @@ const staffSchema = new mongoose.Schema(
       default: "MONTHLY",
     },
     baseSalary: { type: Number, required: true, default: 0 },
+    incentivePercentage: { type: Number, default: 0, min: 0, max: 100 },
 
     bankDetails: {
       accountNo: { type: String, default: "" },

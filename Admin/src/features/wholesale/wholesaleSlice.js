@@ -138,7 +138,7 @@ const wholesaleSlice = createSlice({
   initialState: {
     customers: [],
     bills: [],
-    billSummary: { totalAmount: 0, totalPaid: 0, totalDue: 0 },
+    billSummary: { totalAmount: 0, totalPaid: 0, totalGR: 0, totalDiscount: 0, totalDue: 0 },
     pagination: { total: 0, page: 1, limit: 20, pages: 1 },
     ledger: null,
     monthlyReport: null,

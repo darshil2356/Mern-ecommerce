@@ -19,14 +19,15 @@ const getAllCustomers = asyncHandler(async (req, res) => {
 
   const customers = await WholesaleCustomer.find(filter).sort({ name: 1 });
 
-  // Attach total sales, paid, due per customer
+  // Attach total sales, paid, GR, due per customer
   const enriched = await Promise.all(
     customers.map(async (c) => {
       const bills = await WholesaleBill.find({ customer: c._id });
       const totalSales = bills.reduce((s, b) => s + b.totalAmount, 0);
       const totalPaid = bills.reduce((s, b) => s + b.paidAmount, 0);
+      const totalGR = bills.reduce((s, b) => s + (b.grAmount || 0), 0);
       const totalDue = bills.reduce((s, b) => s + b.balanceDue, 0) + (c.openingBalance || 0);
-      return { ...c.toObject(), totalSales, totalPaid, totalDue, billCount: bills.length };
+      return { ...c.toObject(), totalSales, totalPaid, totalGR, totalDue, billCount: bills.length };
     })
   );
 
@@ -99,15 +100,15 @@ const getAllBills = asyncHandler(async (req, res) => {
 
   const totalSales = await WholesaleBill.aggregate([
     { $match: filter },
-    { $group: { _id: null, totalAmount: { $sum: "$totalAmount" }, totalPaid: { $sum: "$paidAmount" }, totalDue: { $sum: "$balanceDue" } } },
+    { $group: { _id: null, totalAmount: { $sum: "$totalAmount" }, totalPaid: { $sum: "$paidAmount" }, totalGR: { $sum: "$grAmount" }, totalDiscount: { $sum: "$discountAmount" }, totalDue: { $sum: "$balanceDue" } } },
   ]);
-  const agg = totalSales[0] || { totalAmount: 0, totalPaid: 0, totalDue: 0 };
+  const agg = totalSales[0] || { totalAmount: 0, totalPaid: 0, totalGR: 0, totalDiscount: 0, totalDue: 0 };
 
   res.json({
     success: true,
     data: bills,
     pagination: { total, page: Number(page), limit: Number(limit), pages: Math.ceil(total / Number(limit)) },
-    summary: { totalAmount: agg.totalAmount, totalPaid: agg.totalPaid, totalDue: agg.totalDue },
+    summary: { totalAmount: agg.totalAmount, totalPaid: agg.totalPaid, totalGR: agg.totalGR, totalDiscount: agg.totalDiscount || 0, totalDue: agg.totalDue },
   });
 });
 
@@ -128,17 +129,27 @@ const createBill = asyncHandler(async (req, res) => {
   }
 
   const payments = [];
-  if (initialPayment && (initialPayment.cashAmount > 0 || initialPayment.onlineAmount > 0)) {
-    const total = (Number(initialPayment.cashAmount) || 0) + (Number(initialPayment.onlineAmount) || 0);
-    payments.push({
-      date: initialPayment.date || new Date(),
-      cashAmount: Number(initialPayment.cashAmount) || 0,
-      onlineAmount: Number(initialPayment.onlineAmount) || 0,
-      totalAmount: total,
-      onlineMode: initialPayment.onlineMode || "",
-      onlineRef: initialPayment.onlineRef || "",
-      note: initialPayment.note || "",
-    });
+  if (initialPayment) {
+    const cash = Number(initialPayment.cashAmount) || 0;
+    const online = Number(initialPayment.onlineAmount) || 0;
+    const gr = Number(initialPayment.grAmount) || 0;
+    const discount = Number(initialPayment.discountAmount) || 0;
+    const total = cash + online + gr + discount;
+    if (total > 0) {
+      payments.push({
+        date: initialPayment.date || new Date(),
+        cashAmount: cash,
+        onlineAmount: online,
+        grAmount: gr,
+        grNote: initialPayment.grNote || "",
+        discountAmount: discount,
+        discountNote: initialPayment.discountNote || "",
+        totalAmount: total,
+        onlineMode: initialPayment.onlineMode || "",
+        onlineRef: initialPayment.onlineRef || "",
+        note: initialPayment.note || "",
+      });
+    }
   }
 
   const bill = await WholesaleBill.create({
@@ -162,9 +173,10 @@ const updateBill = asyncHandler(async (req, res) => {
 
   const { billNo, billDate, description, totalAmount, note } = req.body;
 
-  if (totalAmount !== undefined && Number(totalAmount) < bill.paidAmount) {
+  const totalSettled = (bill.paidAmount || 0) + (bill.grAmount || 0) + (bill.discountAmount || 0);
+  if (totalAmount !== undefined && Number(totalAmount) < totalSettled) {
     res.status(400);
-    throw new Error(`Cannot set total ₹${totalAmount} below already paid ₹${bill.paidAmount}`);
+    throw new Error(`Cannot set total ₹${totalAmount} below already settled ₹${totalSettled}`);
   }
 
   if (billNo !== undefined) bill.billNo = billNo;
@@ -187,15 +199,17 @@ const deleteBill = asyncHandler(async (req, res) => {
 
 // POST /api/wholesale/bills/:id/payment
 const addPayment = asyncHandler(async (req, res) => {
-  const { cashAmount, onlineAmount, onlineMode, onlineRef, date, note } = req.body;
+  const { cashAmount, onlineAmount, onlineMode, onlineRef, grAmount, grNote, discountAmount, discountNote, date, note } = req.body;
 
   const cash = Number(cashAmount) || 0;
   const online = Number(onlineAmount) || 0;
-  const total = cash + online;
+  const gr = Number(grAmount) || 0;
+  const discount = Number(discountAmount) || 0;
+  const total = cash + online + gr + discount;
 
   if (total <= 0) {
     res.status(400);
-    throw new Error("Payment amount must be greater than 0");
+    throw new Error("Payment, GR, or Discount/Round-off amount must be greater than 0");
   }
 
   const bill = await WholesaleBill.findById(req.params.id);
@@ -208,13 +222,17 @@ const addPayment = asyncHandler(async (req, res) => {
 
   if (total > bill.balanceDue) {
     res.status(400);
-    throw new Error(`Payment ₹${total} exceeds balance due ₹${bill.balanceDue}`);
+    throw new Error(`Total settlement ₹${total} exceeds balance due ₹${bill.balanceDue}`);
   }
 
   bill.payments.push({
     date: date || new Date(),
     cashAmount: cash,
     onlineAmount: online,
+    grAmount: gr,
+    grNote: grNote || "",
+    discountAmount: discount,
+    discountNote: discountNote || "",
     totalAmount: total,
     onlineMode: onlineMode || "",
     onlineRef: onlineRef || "",
@@ -244,13 +262,15 @@ const getCustomerLedger = asyncHandler(async (req, res) => {
   const customer = await WholesaleCustomer.findById(req.params.id);
   if (!customer) { res.status(404); throw new Error("Customer not found"); }
 
-  const bills = await WholesaleBill.find({ customer: req.params.id }).sort({ billDate: 1 });
+  const bills = await WholesaleBill.find({ customer: req.params.id }).populate("customer", "name firmName phone city").sort({ billDate: 1 });
 
   const totalSales = bills.reduce((s, b) => s + b.totalAmount, 0);
   const totalPaid = bills.reduce((s, b) => s + b.paidAmount, 0);
+  const totalGR = bills.reduce((s, b) => s + (b.grAmount || 0), 0);
+  const totalDiscount = bills.reduce((s, b) => s + (b.discountAmount || 0), 0);
   const totalDue = bills.reduce((s, b) => s + b.balanceDue, 0) + (customer.openingBalance || 0);
 
-  // Build flat ledger entries (bill + each payment)
+  // Build flat ledger entries (bill + each payment / GR / Discount)
   const entries = [];
   if (customer.openingBalance > 0) {
     entries.push({
@@ -272,22 +292,59 @@ const getCustomerLedger = asyncHandler(async (req, res) => {
       credit: 0,
       billId: bill._id,
       status: bill.status,
+      balanceDue: bill.balanceDue,
+      paidAmount: bill.paidAmount,
+      grAmount: bill.grAmount,
+      discountAmount: bill.discountAmount,
+      bill: bill, // Pass populated bill object so ledger can open payment directly
     });
     for (const p of bill.payments) {
-      entries.push({
-        type: "PAYMENT",
-        date: p.date,
-        billNo: bill.billNo,
-        description: `Payment (Cash: ₹${p.cashAmount}, Online: ₹${p.onlineAmount})${p.onlineRef ? " Ref: " + p.onlineRef : ""}`,
-        debit: 0,
-        credit: p.totalAmount,
-        cashAmount: p.cashAmount,
-        onlineAmount: p.onlineAmount,
-        onlineMode: p.onlineMode,
-        onlineRef: p.onlineRef,
-        paymentId: p._id,
-        billId: bill._id,
-      });
+      const cashOnline = (p.cashAmount || 0) + (p.onlineAmount || 0);
+      if (cashOnline > 0 || (!p.grAmount && !p.discountAmount && p.totalAmount > 0)) {
+        const amt = cashOnline > 0 ? cashOnline : p.totalAmount;
+        entries.push({
+          type: "PAYMENT",
+          date: p.date,
+          billNo: bill.billNo,
+          description: `Payment (${p.cashAmount > 0 ? "Cash: ₹" + p.cashAmount : ""}${p.cashAmount > 0 && p.onlineAmount > 0 ? ", " : ""}${p.onlineAmount > 0 ? "Online: ₹" + p.onlineAmount : ""})${p.onlineRef ? " Ref: " + p.onlineRef : ""}${p.note ? " - " + p.note : ""}`,
+          debit: 0,
+          credit: amt,
+          cashAmount: p.cashAmount || 0,
+          onlineAmount: p.onlineAmount || 0,
+          onlineMode: p.onlineMode,
+          onlineRef: p.onlineRef,
+          paymentId: p._id,
+          billId: bill._id,
+        });
+      }
+      if (p.grAmount > 0) {
+        entries.push({
+          type: "GR",
+          date: p.date,
+          billNo: bill.billNo,
+          description: `Goods Return (GR)${p.grNote ? ": " + p.grNote : ""}${p.note ? " - " + p.note : ""}`,
+          debit: 0,
+          credit: p.grAmount,
+          grAmount: p.grAmount,
+          grNote: p.grNote,
+          paymentId: p._id,
+          billId: bill._id,
+        });
+      }
+      if (p.discountAmount > 0) {
+        entries.push({
+          type: "DISCOUNT",
+          date: p.date,
+          billNo: bill.billNo,
+          description: `Round Off / Kasar / Maff${p.discountNote ? ": " + p.discountNote : ""}${p.note ? " - " + p.note : ""}`,
+          debit: 0,
+          credit: p.discountAmount,
+          discountAmount: p.discountAmount,
+          discountNote: p.discountNote,
+          paymentId: p._id,
+          billId: bill._id,
+        });
+      }
     }
   }
 
@@ -302,7 +359,7 @@ const getCustomerLedger = asyncHandler(async (req, res) => {
     customer,
     bills,
     entries,
-    summary: { totalSales, totalPaid, totalDue, openingBalance: customer.openingBalance || 0 },
+    summary: { totalSales, totalPaid, totalGR, totalDiscount, totalDue, openingBalance: customer.openingBalance || 0 },
   });
 });
 
@@ -349,9 +406,9 @@ const getDashboard = asyncHandler(async (req, res) => {
   ]);
 
   const agg = await WholesaleBill.aggregate([
-    { $group: { _id: null, totalSales: { $sum: "$totalAmount" }, totalPaid: { $sum: "$paidAmount" }, totalDue: { $sum: "$balanceDue" } } },
+    { $group: { _id: null, totalSales: { $sum: "$totalAmount" }, totalPaid: { $sum: "$paidAmount" }, totalGR: { $sum: "$grAmount" }, totalDiscount: { $sum: "$discountAmount" }, totalDue: { $sum: "$balanceDue" } } },
   ]);
-  const totals = agg[0] || { totalSales: 0, totalPaid: 0, totalDue: 0 };
+  const totals = agg[0] || { totalSales: 0, totalPaid: 0, totalGR: 0, totalDiscount: 0, totalDue: 0 };
 
   // Status breakdown
   const statusAgg = await WholesaleBill.aggregate([
@@ -370,6 +427,8 @@ const getDashboard = asyncHandler(async (req, res) => {
       _id: { year: { $year: "$billDate" }, month: { $month: "$billDate" } },
       sales: { $sum: "$totalAmount" },
       paid: { $sum: "$paidAmount" },
+      gr: { $sum: "$grAmount" },
+      discount: { $sum: "$discountAmount" },
       due: { $sum: "$balanceDue" },
       count: { $sum: 1 },
     }},
@@ -378,7 +437,7 @@ const getDashboard = asyncHandler(async (req, res) => {
 
   // Top 5 customers by due
   const topCustomers = await WholesaleBill.aggregate([
-    { $group: { _id: "$customer", totalDue: { $sum: "$balanceDue" }, totalSales: { $sum: "$totalAmount" }, totalPaid: { $sum: "$paidAmount" }, billCount: { $sum: 1 } } },
+    { $group: { _id: "$customer", totalDue: { $sum: "$balanceDue" }, totalSales: { $sum: "$totalAmount" }, totalPaid: { $sum: "$paidAmount" }, totalGR: { $sum: "$grAmount" }, billCount: { $sum: 1 } } },
     { $sort: { totalDue: -1 } },
     { $limit: 5 },
     { $lookup: { from: "wholesalecustomers", localField: "_id", foreignField: "_id", as: "customer" } },
@@ -388,9 +447,9 @@ const getDashboard = asyncHandler(async (req, res) => {
   // Payment mode breakdown
   const payModeAgg = await WholesaleBill.aggregate([
     { $unwind: "$payments" },
-    { $group: { _id: null, totalCash: { $sum: "$payments.cashAmount" }, totalOnline: { $sum: "$payments.onlineAmount" } } },
+    { $group: { _id: null, totalCash: { $sum: "$payments.cashAmount" }, totalOnline: { $sum: "$payments.onlineAmount" }, totalGR: { $sum: "$payments.grAmount" }, totalDiscount: { $sum: "$payments.discountAmount" } } },
   ]);
-  const payModes = payModeAgg[0] || { totalCash: 0, totalOnline: 0 };
+  const payModes = payModeAgg[0] || { totalCash: 0, totalOnline: 0, totalGR: 0, totalDiscount: 0 };
 
   // Online mode breakdown (UPI vs Bank etc)
   const onlineModeAgg = await WholesaleBill.aggregate([
@@ -460,8 +519,12 @@ const getMonthlyReport = asyncHandler(async (req, res) => {
           customer: bill.customer.name,
           billDate: bill.billDate,
           totalBillAmount: bill.totalAmount,
-          cashAmount: payment.cashAmount,
-          onlineAmount: payment.onlineAmount,
+          cashAmount: payment.cashAmount || 0,
+          onlineAmount: payment.onlineAmount || 0,
+          grAmount: payment.grAmount || 0,
+          grNote: payment.grNote || "",
+          discountAmount: payment.discountAmount || 0,
+          discountNote: payment.discountNote || "",
           totalAmount: payment.totalAmount,
           onlineMode: payment.onlineMode,
           onlineRef: payment.onlineRef,
@@ -476,23 +539,38 @@ const getMonthlyReport = asyncHandler(async (req, res) => {
   const paymentsFromCurrentMonthBills = paymentsReceivedThisMonth.filter((p) => p.isCurrentMonth);
   const paymentsFromPreviousMonthBills = paymentsReceivedThisMonth.filter((p) => !p.isCurrentMonth);
 
-  const totalPaymentsReceived = paymentsReceivedThisMonth.reduce((sum, p) => sum + p.totalAmount, 0);
+  // Current month bills payments breakdown
+  const currentMonthCash = paymentsFromCurrentMonthBills.reduce((sum, p) => sum + (p.cashAmount || 0), 0);
+  const currentMonthOnline = paymentsFromCurrentMonthBills.reduce((sum, p) => sum + (p.onlineAmount || 0), 0);
+  const currentMonthMoneyCollected = currentMonthCash + currentMonthOnline;
+  const currentMonthGRAmount = paymentsFromCurrentMonthBills.reduce((sum, p) => sum + (p.grAmount || 0), 0);
   const totalFromCurrentMonth = paymentsFromCurrentMonthBills.reduce((sum, p) => sum + p.totalAmount, 0);
+
+  // Previous month bills payments breakdown (separating actual money vs Goods Return)
+  const prevMonthCash = paymentsFromPreviousMonthBills.reduce((sum, p) => sum + (p.cashAmount || 0), 0);
+  const prevMonthOnline = paymentsFromPreviousMonthBills.reduce((sum, p) => sum + (p.onlineAmount || 0), 0);
+  const prevMonthMoneyCollected = prevMonthCash + prevMonthOnline;
+  const prevMonthGRAmount = paymentsFromPreviousMonthBills.reduce((sum, p) => sum + (p.grAmount || 0), 0);
   const totalFromPreviousMonth = paymentsFromPreviousMonthBills.reduce((sum, p) => sum + p.totalAmount, 0);
+
+  // Overall totals received this month
+  const totalCashCollected = currentMonthCash + prevMonthCash;
+  const totalOnlineCollected = currentMonthOnline + prevMonthOnline;
+  const totalMoneyCollected = currentMonthMoneyCollected + prevMonthMoneyCollected;
+  const totalGRAmount = currentMonthGRAmount + prevMonthGRAmount;
+  const totalPaymentsReceived = totalFromCurrentMonth + totalFromPreviousMonth;
 
   // Calculate pending bills for this month
   const pendingBills = billsThisMonth.filter((b) => b.balanceDue > 0);
   const totalPendingThisMonth = pendingBills.reduce((sum, b) => sum + b.balanceDue, 0);
-
-  // Calculate vendor payout logic (what we owe vendors)
-  // Example: If we sold 1,00,000 but only collected 50,000, we might owe vendor the difference
-  const vendorDueThisMonth = totalSalesThisMonth - totalFromCurrentMonth;
 
   // Month summary
   const monthName = new Date(Number(year), Number(month) - 1).toLocaleString("default", {
     month: "long",
     year: "numeric",
   });
+
+  const analysisMessage = `Sold ₹${totalSalesThisMonth.toLocaleString()} in ${monthName}. Collected ₹${currentMonthMoneyCollected.toLocaleString()} in cash/online from current month bills${currentMonthGRAmount > 0 ? ` (+ ₹${currentMonthGRAmount.toLocaleString()} settled via GR)` : ""}. Received ₹${prevMonthMoneyCollected.toLocaleString()} cash/online from previous month bills${prevMonthGRAmount > 0 ? ` and ₹${prevMonthGRAmount.toLocaleString()} via Goods Return (GR) (Total settlement: ₹${totalFromPreviousMonth.toLocaleString()})` : ""}. ${totalPendingThisMonth > 0 ? `Remaining uncollected for this month: ₹${totalPendingThisMonth.toLocaleString()}.` : `All bills for ${monthName} are fully settled.`}`;
 
   res.json({
     success: true,
@@ -507,14 +585,23 @@ const getMonthlyReport = asyncHandler(async (req, res) => {
         customer: b.customer.name,
         totalAmount: b.totalAmount,
         paidAmount: b.paidAmount,
+        grAmount: b.grAmount || 0,
         balanceDue: b.balanceDue,
         status: b.status,
       })),
     },
     payments: {
       totalReceived: totalPaymentsReceived,
+      totalMoneyCollected,
+      totalCashCollected,
+      totalOnlineCollected,
+      totalGR: totalGRAmount,
       fromCurrentMonthBills: totalFromCurrentMonth,
+      currentMonthMoneyCollected,
+      currentMonthGRAmount,
       fromPreviousMonthBills: totalFromPreviousMonth,
+      prevMonthMoneyCollected,
+      prevMonthGRAmount,
       detailedTransactions: paymentsReceivedThisMonth,
     },
     pending: {
@@ -524,17 +611,21 @@ const getMonthlyReport = asyncHandler(async (req, res) => {
         billNo: b.billNo,
         amount: b.totalAmount,
         paid: b.paidAmount,
+        grAmount: b.grAmount || 0,
         due: b.balanceDue,
       })),
     },
     reconciliation: {
       totalSold: totalSalesThisMonth,
-      totalCollected: totalFromCurrentMonth,
-      shortfall: vendorDueThisMonth, // Money we haven't collected yet but sold
-      collectionRate: totalSalesThisMonth > 0 ? ((totalFromCurrentMonth / totalSalesThisMonth) * 100).toFixed(2) + "%" : "0%",
+      totalCollected: currentMonthMoneyCollected,
+      totalGR: currentMonthGRAmount,
+      totalSettled: totalFromCurrentMonth,
+      shortfall: totalPendingThisMonth,
+      collectionRate: totalSalesThisMonth > 0 ? ((currentMonthMoneyCollected / totalSalesThisMonth) * 100).toFixed(2) + "%" : "0%",
+      settlementRate: totalSalesThisMonth > 0 ? ((totalFromCurrentMonth / totalSalesThisMonth) * 100).toFixed(2) + "%" : "0%",
     },
     analysis: {
-      message: `Sold ₹${totalSalesThisMonth.toLocaleString()} in ${monthName}. Collected ₹${totalFromCurrentMonth.toLocaleString()} from current month sales. Also received ₹${totalFromPreviousMonth.toLocaleString()} from previous month sales. Shortfall: ₹${vendorDueThisMonth.toLocaleString()}`,
+      message: analysisMessage,
     },
   });
 });

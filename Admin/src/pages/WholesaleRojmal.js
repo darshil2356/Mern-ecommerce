@@ -33,8 +33,8 @@ const STATUS_LABEL = { PENDING: "Baki", PARTIAL: "Partial", PAID: "Paid" };
 const PIE_COLORS = { PENDING: "#ef4444", PARTIAL: "#f59e0b", PAID: "#22c55e" };
 
 const EMPTY_CUSTOMER = { name: "", firmName: "", phone: "", altPhone: "", city: "", gstin: "", openingBalance: "", note: "" };
-const EMPTY_BILL = { billNo: "", billDate: today(), customer: "", description: "", totalAmount: "", note: "", initCash: "", initOnline: "", initOnlineMode: "", initOnlineRef: "", initNote: "" };
-const EMPTY_PAY  = { cashAmount: "", onlineAmount: "", onlineMode: "", onlineRef: "", date: today(), note: "" };
+const EMPTY_BILL = { billNo: "", billDate: today(), customer: "", description: "", totalAmount: "", note: "", initCash: "", initOnline: "", initOnlineMode: "", initOnlineRef: "", initGrAmount: "", initGrNote: "", initDiscountAmount: "", initDiscountNote: "", initNote: "" };
+const EMPTY_PAY  = { cashAmount: "", onlineAmount: "", onlineMode: "", onlineRef: "", grAmount: "", grNote: "", discountAmount: "", discountNote: "", date: today(), note: "" };
 
 // ─── StatCard ─────────────────────────────────────────────────────────────────
 
@@ -177,12 +177,18 @@ function CustomerSearchSelect({ customers, value, onChange, placeholder = "Selec
   );
 }
 
-// ─── Mixed Payment Fields ─────────────────────────────────────────────────────
+// ─── Mixed Payment, GR & Round-off/Maff Fields ─────────────────────────────────
 
-function MixedPaymentFields({ form, onChange, label = "Payment" }) {
+function MixedPaymentFields({ form, onChange, label = "Payment", balanceDue = 0 }) {
   const cash = Number(form.cashAmount) || 0;
   const online = Number(form.onlineAmount) || 0;
-  const total = cash + online;
+  const gr = Number(form.grAmount) || 0;
+  const discount = Number(form.discountAmount) || 0;
+  const total = cash + online + gr + discount;
+
+  // Auto round-off calculation: difference needed to completely settle the bill
+  const paymentsSoFar = cash + online + gr;
+  const diffNeeded = balanceDue > 0 ? Math.max(0, balanceDue - paymentsSoFar) : 0;
 
   return (
     <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 10, padding: 16, marginBottom: 14 }}>
@@ -212,17 +218,95 @@ function MixedPaymentFields({ form, onChange, label = "Payment" }) {
         </Row2>
       )}
       <Row2>
-        <Field label="Payment Date">
+        <Field label="Goods Return / GR Amount (₹)">
+          <input style={{ ...inputStyle, borderColor: gr > 0 ? "#f59e0b" : "#d1d5db" }} type="number" min="0" placeholder="0" value={form.grAmount || ""} onChange={(e) => onChange({ ...form, grAmount: e.target.value })} />
+        </Field>
+        <Field label="GR Note / Returned Item Details">
+          <input style={inputStyle} placeholder="Items returned, quantity, reason…" value={form.grNote || ""} onChange={(e) => onChange({ ...form, grNote: e.target.value })} />
+        </Field>
+      </Row2>
+      <Row2>
+        <Field label="Round Off / Kasar / Maff (₹)">
+          <input
+            style={{ ...inputStyle, borderColor: discount > 0 ? "#8b5cf6" : "#d1d5db" }}
+            type="number"
+            min="0"
+            placeholder="0 (e.g. 40)"
+            value={form.discountAmount || ""}
+            onChange={(e) => onChange({ ...form, discountAmount: e.target.value })}
+          />
+          {balanceDue > 0 && diffNeeded > 0 && diffNeeded !== discount && (
+            <div style={{ marginTop: 5 }}>
+              <button
+                type="button"
+                style={{
+                  background: "#f5f3ff",
+                  color: "#6d28d9",
+                  border: "1px dashed #a78bfa",
+                  borderRadius: 6,
+                  padding: "4px 10px",
+                  fontSize: 11,
+                  fontWeight: 600,
+                  cursor: "pointer",
+                }}
+                onClick={() =>
+                  onChange({
+                    ...form,
+                    discountAmount: String(diffNeeded),
+                    discountNote: form.discountNote || `₹${diffNeeded} round off maff`,
+                  })
+                }
+              >
+                ⚡ Set ₹{diffNeeded} Maff (Clear Bill to ₹0)
+              </button>
+            </div>
+          )}
+        </Field>
+        <Field label="Round Off / Maff Note">
+          <input
+            style={inputStyle}
+            placeholder="e.g. 40rs maff, round figure, kasar…"
+            value={form.discountNote || ""}
+            onChange={(e) => onChange({ ...form, discountNote: e.target.value })}
+          />
+        </Field>
+      </Row2>
+      <Row2>
+        <Field label="Payment / Settlement Date">
           <input style={inputStyle} type="date" value={form.date} onChange={(e) => onChange({ ...form, date: e.target.value })} />
         </Field>
         <Field label="Note (optional)">
-          <input style={inputStyle} placeholder="advance / partial…" value={form.note} onChange={(e) => onChange({ ...form, note: e.target.value })} />
+          <input style={inputStyle} placeholder="advance / partial / settlement…" value={form.note} onChange={(e) => onChange({ ...form, note: e.target.value })} />
         </Field>
       </Row2>
       {total > 0 && (
-        <div style={{ padding: "8px 12px", background: "#eff6ff", borderRadius: 7, fontSize: 13, color: "#1d4ed8", fontWeight: 600 }}>
-          Total: {fmt(total)}
-          {cash > 0 && online > 0 && <span style={{ fontWeight: 400, color: "#64748b" }}> (Cash {fmt(cash)} + Online {fmt(online)})</span>}
+        <div style={{ padding: "10px 14px", background: "#eff6ff", borderRadius: 8, fontSize: 13, color: "#1d4ed8", fontWeight: 600 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 6 }}>
+            <span>
+              Total Settlement: {fmt(total)}
+              {(cash > 0 || online > 0 || gr > 0 || discount > 0) && (
+                <span style={{ fontWeight: 400, color: "#64748b", marginLeft: 6 }}>
+                  {"("}
+                  {[
+                    cash > 0 && `Cash: ${fmt(cash)}`,
+                    online > 0 && `Online: ${fmt(online)}`,
+                    gr > 0 && `GR: ${fmt(gr)}`,
+                    discount > 0 && `Round Off/Maff: ${fmt(discount)}`,
+                  ].filter(Boolean).join(" + ")}
+                  {")"}
+                </span>
+              )}
+            </span>
+            {balanceDue > 0 && (
+              <span style={{ fontSize: 12, fontWeight: 700 }}>
+                {total >= balanceDue ? (
+                  <span style={{ color: "#16a34a", background: "#dcfce7", padding: "3px 10px", borderRadius: 12 }}>✓ Will be Fully PAID</span>
+                ) : (
+                  <span style={{ color: "#dc2626" }}>Remaining: {fmt(balanceDue - total)}</span>
+                )}
+              </span>
+            )}
+          </div>
         </div>
       )}
     </div>
@@ -472,21 +556,38 @@ export default function WholesaleRojmal() {
   // ─── Bill actions ─────────────────────────────────────────────────────────
 
   const handleCreateBill = async () => {
-    const { billNo, billDate, customer, description, totalAmount, note, initCash, initOnline, initOnlineMode, initOnlineRef, initNote } = billForm;
+    const { billNo, billDate, customer, description, totalAmount, note, initCash, initOnline, initOnlineMode, initOnlineRef, initGrAmount, initGrNote, initDiscountAmount, initDiscountNote, initNote } = billForm;
     if (!billNo.trim() || !customer || !totalAmount) { toast.warn("Bill No, Customer, and Amount are required"); return; }
     const cash = Number(initCash) || 0;
     const online = Number(initOnline) || 0;
+    const gr = Number(initGrAmount) || 0;
+    const discount = Number(initDiscountAmount) || 0;
     const payload = {
       billNo: billNo.trim(), billDate, customer, description, totalAmount: Number(totalAmount), note,
-      ...(cash + online > 0 ? { initialPayment: { cashAmount: cash, onlineAmount: online, onlineMode: initOnlineMode, onlineRef: initOnlineRef, note: initNote, date: billDate } } : {}),
+      ...(cash + online + gr + discount > 0 ? {
+        initialPayment: {
+          cashAmount: cash,
+          onlineAmount: online,
+          onlineMode: initOnlineMode,
+          onlineRef: initOnlineRef,
+          grAmount: gr,
+          grNote: initGrNote,
+          discountAmount: discount,
+          discountNote: initDiscountNote,
+          note: initNote,
+          date: billDate,
+        }
+      } : {}),
     };
     const res = await dispatch(createBill(payload));
     if (!res.error) {
       toast.success("Bill created");
       setBillForm({ ...EMPTY_BILL, billDate: today() });
       setTab("bills");
+      loadBills();
       loadCustomers();
       loadDashboard();
+      if (ledgerCustId) dispatch(fetchCustomerLedger(ledgerCustId));
     }
   };
 
@@ -498,13 +599,13 @@ export default function WholesaleRojmal() {
   const handleUpdateBill = async () => {
     if (!editBillForm.billNo.trim() || !editBillForm.totalAmount) { toast.warn("Bill No and Amount are required"); return; }
     const res = await dispatch(updateBill({ id: editBillModal._id, ...editBillForm, totalAmount: Number(editBillForm.totalAmount) }));
-    if (!res.error) { toast.success("Bill updated"); setEditBillModal(null); }
+    if (!res.error) { toast.success("Bill updated"); setEditBillModal(null); loadBills(); }
   };
 
   const handleDeleteBill = async (b) => {
     if (!window.confirm(`Delete bill #${b.billNo}?`)) return;
     const res = await dispatch(deleteBill(b._id));
-    if (!res.error) { toast.success("Bill deleted"); loadCustomers(); loadDashboard(); }
+    if (!res.error) { toast.success("Bill deleted"); loadBills(); loadCustomers(); loadDashboard(); }
   };
 
   // ─── Payment actions ──────────────────────────────────────────────────────
@@ -514,9 +615,23 @@ export default function WholesaleRojmal() {
   const handleAddPayment = async () => {
     const cash = Number(payForm.cashAmount) || 0;
     const online = Number(payForm.onlineAmount) || 0;
-    if (cash + online <= 0) { toast.warn("Enter at least one payment amount"); return; }
+    const gr = Number(payForm.grAmount) || 0;
+    const discount = Number(payForm.discountAmount) || 0;
+    const total = cash + online + gr + discount;
+    if (total <= 0) { toast.warn("Enter Cash, Online, GR, or Round Off / Maff amount"); return; }
+    if (total > payModal.balanceDue) { toast.error(`Settlement ₹${total} exceeds balance due ₹${payModal.balanceDue}`); return; }
     const res = await dispatch(addPayment({ billId: payModal._id, ...payForm }));
-    if (!res.error) { toast.success(`Payment ${fmt(cash + online)} recorded`); setPayModal(null); loadCustomers(); loadDashboard(); loadAlerts(); }
+    if (!res.error) {
+      toast.success(`Settlement ${fmt(total)} recorded`);
+      setPayModal(null);
+      loadBills();
+      loadCustomers();
+      loadDashboard();
+      loadAlerts();
+      if (ledgerCustId) {
+        dispatch(fetchCustomerLedger(ledgerCustId));
+      }
+    }
   };
 
   const handleDeletePayment = async (bill, payment) => {
@@ -571,6 +686,7 @@ export default function WholesaleRojmal() {
     name: `${MONTH_NAMES[m._id.month - 1]} ${m._id.year}`,
     Sales: m.sales,
     Received: m.paid,
+    Return: m.gr || 0,
     Due: m.due,
     Bills: m.count,
   }));
@@ -587,17 +703,20 @@ export default function WholesaleRojmal() {
     Due: c.totalDue,
     Sales: c.totalSales,
     Paid: c.totalPaid,
+    Return: c.totalGR || 0,
   })).reverse();
 
   const payModeData = (() => {
     const pm = dashboard?.paymentModes || {};
     const cash = pm.totalCash || 0;
     const online = pm.totalOnline || 0;
-    if (!cash && !online) return [];
-    return [
-      { name: "Cash", value: cash, color: "#22c55e" },
-      { name: "Online", value: online, color: "#3b82f6" },
-    ];
+    const gr = pm.totalGR || 0;
+    if (!cash && !online && !gr) return [];
+    const res = [];
+    if (cash) res.push({ name: "Cash", value: cash, color: "#22c55e" });
+    if (online) res.push({ name: "Online", value: online, color: "#3b82f6" });
+    if (gr) res.push({ name: "GR Return", value: gr, color: "#f59e0b" });
+    return res;
   })();
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -643,6 +762,7 @@ export default function WholesaleRojmal() {
                 <StatCard label="Total Bills"      value={dashboard.stats.totalBills}       icon="📋" color="#0ea5e9" bg="#f0f9ff" />
                 <StatCard label="Total Sales"      value={fmt(dashboard.stats.totalSales)}  icon="💰" color="#1d4ed8" bg="#eff6ff" />
                 <StatCard label="Total Received"   value={fmt(dashboard.stats.totalPaid)}   icon="✅" color="#16a34a" bg="#f0fdf4" />
+                <StatCard label="Total GR (Return)" value={fmt(dashboard.stats.totalGR || 0)} icon="🔄" color="#d97706" bg="#fffbeb" />
                 <StatCard label="Total Due (Baki)" value={fmt(dashboard.stats.totalDue)}    icon="⚠️" color="#dc2626" bg="#fef2f2"
                   sub={dashboard.stats.totalDue > 0 ? "Needs collection" : "All clear!"} />
               </div>
@@ -664,6 +784,7 @@ export default function WholesaleRojmal() {
                         <Legend wrapperStyle={{ fontSize: 12 }} />
                         <Bar dataKey="Sales"    fill="#3b82f6" radius={[4, 4, 0, 0]} name="Sales" />
                         <Bar dataKey="Received" fill="#22c55e" radius={[4, 4, 0, 0]} name="Received" />
+                        <Bar dataKey="Return"   fill="#f59e0b" radius={[4, 4, 0, 0]} name="GR Return" />
                         <Bar dataKey="Due"      fill="#f87171" radius={[4, 4, 0, 0]} name="Due" />
                       </BarChart>
                     </ResponsiveContainer>
@@ -939,9 +1060,17 @@ export default function WholesaleRojmal() {
               {/* Summary Cards */}
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 14, marginBottom: 24 }}>
                 <StatCard label="💰 Total Sales This Month" value={fmt(monthlyReport.sales.totalSalesThisMonth)} color="#1d4ed8" bg="#eff6ff" icon="📊" />
-                <StatCard label="✅ Collected From This Month" value={fmt(monthlyReport.payments.fromCurrentMonthBills)} color="#16a34a" bg="#f0fdf4" icon="💵" />
-                <StatCard label="🔄 From Previous Months" value={fmt(monthlyReport.payments.fromPreviousMonthBills)} color="#8b5cf6" bg="#faf5ff" icon="⏮" />
-                <StatCard label="⚠️ Money Not Yet Collected" value={fmt(monthlyReport.reconciliation.shortfall)} color="#dc2626" bg="#fef2f2" icon="📌" />
+                <StatCard label="✅ Collected (This Month Bills)" value={fmt(monthlyReport.payments.currentMonthMoneyCollected ?? monthlyReport.payments.fromCurrentMonthBills)} color="#16a34a" bg="#f0fdf4" icon="💵" />
+                <StatCard 
+                  label="🔄 From Previous Months (Cash/Online)" 
+                  value={fmt(monthlyReport.payments.prevMonthMoneyCollected ?? monthlyReport.payments.fromPreviousMonthBills)} 
+                  sub={monthlyReport.payments.prevMonthGRAmount > 0 ? `+ ${fmt(monthlyReport.payments.prevMonthGRAmount)} GR (Total ${fmt(monthlyReport.payments.fromPreviousMonthBills)})` : undefined}
+                  color="#8b5cf6" 
+                  bg="#faf5ff" 
+                  icon="⏮" 
+                />
+                <StatCard label="📦 Total GR (Goods Return)" value={fmt(monthlyReport.payments.totalGR || 0)} color="#d97706" bg="#fffbeb" icon="🔄" />
+                <StatCard label="⚠️ Uncollected / Due This Month" value={fmt(monthlyReport.pending.totalPending)} color="#dc2626" bg="#fef2f2" icon="📌" />
               </div>
 
               {/* Key Metrics */}
@@ -979,7 +1108,7 @@ export default function WholesaleRojmal() {
               {/* Payments Received - Breakdown */}
               {monthlyReport.payments.detailedTransactions.length > 0 && (
                 <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 12, padding: 20, marginBottom: 24 }}>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: "#1e293b", marginBottom: 14 }}>📥 Payments Received This Month</div>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: "#1e293b", marginBottom: 14 }}>📥 Payments & GR Received This Month</div>
                   <div style={{ overflowX: "auto" }}>
                     <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
                       <thead>
@@ -990,7 +1119,8 @@ export default function WholesaleRojmal() {
                           <th style={{ padding: "10px", textAlign: "left", fontWeight: 600, borderBottom: "1px solid #e2e8f0", color: "#475569" }}>Payment Date</th>
                           <th style={{ padding: "10px", textAlign: "right", fontWeight: 600, borderBottom: "1px solid #e2e8f0", color: "#475569" }}>Cash</th>
                           <th style={{ padding: "10px", textAlign: "right", fontWeight: 600, borderBottom: "1px solid #e2e8f0", color: "#475569" }}>Online</th>
-                          <th style={{ padding: "10px", textAlign: "right", fontWeight: 600, borderBottom: "1px solid #e2e8f0", color: "#475569" }}>Total</th>
+                          <th style={{ padding: "10px", textAlign: "right", fontWeight: 600, borderBottom: "1px solid #e2e8f0", color: "#d97706" }}>GR (Return)</th>
+                          <th style={{ padding: "10px", textAlign: "right", fontWeight: 600, borderBottom: "1px solid #e2e8f0", color: "#1d4ed8" }}>Total Settled</th>
                           <th style={{ padding: "10px", textAlign: "center", fontWeight: 600, borderBottom: "1px solid #e2e8f0", color: "#475569" }}>Period</th>
                         </tr>
                       </thead>
@@ -1001,8 +1131,16 @@ export default function WholesaleRojmal() {
                             <td style={{ padding: "10px", color: "#1e293b" }}>{p.customer}</td>
                             <td style={{ padding: "10px", color: "#64748b", whiteSpace: "nowrap" }}>{fmtDate(p.billDate)}</td>
                             <td style={{ padding: "10px", color: "#64748b", whiteSpace: "nowrap" }}>{fmtDate(p.date)}</td>
-                            <td style={{ padding: "10px", textAlign: "right", color: "#16a34a", fontWeight: 600 }}>{fmt(p.cashAmount)}</td>
-                            <td style={{ padding: "10px", textAlign: "right", color: "#0ea5e9", fontWeight: 600 }}>{fmt(p.onlineAmount)}</td>
+                            <td style={{ padding: "10px", textAlign: "right", color: "#16a34a", fontWeight: 600 }}>{p.cashAmount > 0 ? fmt(p.cashAmount) : "-"}</td>
+                            <td style={{ padding: "10px", textAlign: "right", color: "#0ea5e9", fontWeight: 600 }}>{p.onlineAmount > 0 ? fmt(p.onlineAmount) : "-"}</td>
+                            <td style={{ padding: "10px", textAlign: "right", color: "#d97706", fontWeight: 600 }}>
+                              {p.grAmount > 0 ? (
+                                <div>
+                                  <span>{fmt(p.grAmount)}</span>
+                                  {p.grNote && <div style={{ fontSize: 11, color: "#92400e", fontWeight: 400 }}>{p.grNote}</div>}
+                                </div>
+                              ) : "-"}
+                            </td>
                             <td style={{ padding: "10px", textAlign: "right", color: "#1d4ed8", fontWeight: 700 }}>{fmt(p.totalAmount)}</td>
                             <td style={{ padding: "10px", textAlign: "center" }}>
                               <span style={{ background: p.isCurrentMonth ? "#f0fdf4" : "#fff3cd", color: p.isCurrentMonth ? "#16a34a" : "#997404", padding: "2px 8px", borderRadius: 4, fontSize: 11, fontWeight: 600 }}>
@@ -1030,6 +1168,7 @@ export default function WholesaleRojmal() {
                           <th style={{ padding: "10px", textAlign: "left", fontWeight: 600, borderBottom: "1px solid #e2e8f0", color: "#475569" }}>Customer</th>
                           <th style={{ padding: "10px", textAlign: "right", fontWeight: 600, borderBottom: "1px solid #e2e8f0", color: "#475569" }}>Amount</th>
                           <th style={{ padding: "10px", textAlign: "right", fontWeight: 600, borderBottom: "1px solid #e2e8f0", color: "#475569" }}>Paid</th>
+                          <th style={{ padding: "10px", textAlign: "right", fontWeight: 600, borderBottom: "1px solid #e2e8f0", color: "#d97706" }}>GR</th>
                           <th style={{ padding: "10px", textAlign: "right", fontWeight: 600, borderBottom: "1px solid #e2e8f0", color: "#475569" }}>Due</th>
                           <th style={{ padding: "10px", textAlign: "center", fontWeight: 600, borderBottom: "1px solid #e2e8f0", color: "#475569" }}>Status</th>
                         </tr>
@@ -1042,6 +1181,7 @@ export default function WholesaleRojmal() {
                             <td style={{ padding: "10px", color: "#1e293b" }}>{b.customer}</td>
                             <td style={{ padding: "10px", textAlign: "right", color: "#1d4ed8", fontWeight: 600 }}>{fmt(b.totalAmount)}</td>
                             <td style={{ padding: "10px", textAlign: "right", color: "#16a34a", fontWeight: 600 }}>{fmt(b.paidAmount)}</td>
+                            <td style={{ padding: "10px", textAlign: "right", color: "#d97706", fontWeight: 600 }}>{b.grAmount > 0 ? fmt(b.grAmount) : "-"}</td>
                             <td style={{ padding: "10px", textAlign: "right", color: "#dc2626", fontWeight: 600 }}>{fmt(b.balanceDue)}</td>
                             <td style={{ padding: "10px", textAlign: "center" }}>
                               <span style={{
@@ -1094,7 +1234,7 @@ export default function WholesaleRojmal() {
               <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14 }}>
                 <thead>
                   <tr style={{ background: "#f8fafc" }}>
-                    {["#", "Name / Firm", "Phone", "City", "Total Sales", "Total Paid", "Balance Due", "Bills", "Action"].map((h) => (
+                    {["#", "Name / Firm", "Phone", "City", "Total Sales", "Total Paid", "Total GR", "Balance Due", "Bills", "Action"].map((h) => (
                       <th key={h} style={{ padding: "10px 12px", textAlign: "left", fontWeight: 700, color: "#475569", borderBottom: "2px solid #e2e8f0", whiteSpace: "nowrap" }}>{h}</th>
                     ))}
                   </tr>
@@ -1115,6 +1255,7 @@ export default function WholesaleRojmal() {
                       <td style={{ padding: "10px 12px", color: "#475569" }}>{c.city || "-"}</td>
                       <td style={{ padding: "10px 12px", fontWeight: 600, color: "#1d4ed8" }}>{fmt(c.totalSales)}</td>
                       <td style={{ padding: "10px 12px", fontWeight: 600, color: "#16a34a" }}>{fmt(c.totalPaid)}</td>
+                      <td style={{ padding: "10px 12px", fontWeight: 600, color: c.totalGR > 0 ? "#d97706" : "#94a3b8" }}>{c.totalGR > 0 ? fmt(c.totalGR) : "-"}</td>
                       <td style={{ padding: "10px 12px" }}>
                         <span style={{ fontWeight: 700, color: c.totalDue > 0 ? "#dc2626" : "#16a34a" }}>{fmt(c.totalDue)}</span>
                       </td>
@@ -1173,19 +1314,26 @@ export default function WholesaleRojmal() {
             <input style={inputStyle} placeholder="Any note" value={billForm.note} onChange={(e) => setBillForm({ ...billForm, note: e.target.value })} />
           </Field>
 
-          <div style={{ marginBottom: 6, fontSize: 13, fontWeight: 700, color: "#334155" }}>Initial Payment (if received at billing time)</div>
+          <div style={{ marginBottom: 6, fontSize: 13, fontWeight: 700, color: "#334155" }}>Initial Payment / Goods Return / Round-off (if received at billing time)</div>
           <MixedPaymentFields
-            label="Payment at Billing Time"
-            form={{ cashAmount: billForm.initCash, onlineAmount: billForm.initOnline, onlineMode: billForm.initOnlineMode, onlineRef: billForm.initOnlineRef, date: billForm.billDate, note: billForm.initNote }}
-            onChange={(f) => setBillForm({ ...billForm, initCash: f.cashAmount, initOnline: f.onlineAmount, initOnlineMode: f.onlineMode, initOnlineRef: f.onlineRef, initNote: f.note })}
+            label="Payment / GR / Round-off at Billing Time"
+            balanceDue={Number(billForm.totalAmount) || 0}
+            form={{ cashAmount: billForm.initCash, onlineAmount: billForm.initOnline, onlineMode: billForm.initOnlineMode, onlineRef: billForm.initOnlineRef, grAmount: billForm.initGrAmount, grNote: billForm.initGrNote, discountAmount: billForm.initDiscountAmount, discountNote: billForm.initDiscountNote, date: billForm.billDate, note: billForm.initNote }}
+            onChange={(f) => setBillForm({ ...billForm, initCash: f.cashAmount, initOnline: f.onlineAmount, initOnlineMode: f.onlineMode, initOnlineRef: f.onlineRef, initGrAmount: f.grAmount, initGrNote: f.grNote, initDiscountAmount: f.discountAmount, initDiscountNote: f.discountNote, initNote: f.note })}
           />
 
           {billForm.totalAmount && (
             <div style={{ background: "#f0fdf4", border: "1px solid #86efac", borderRadius: 10, padding: 14, marginBottom: 16, fontSize: 14 }}>
               <div style={{ display: "flex", gap: 24, flexWrap: "wrap" }}>
                 <span>Bill Total: <strong>{fmt(Number(billForm.totalAmount) || 0)}</strong></span>
-                <span>Paid Now: <strong style={{ color: "#16a34a" }}>{fmt((Number(billForm.initCash) || 0) + (Number(billForm.initOnline) || 0))}</strong></span>
-                <span>Balance Due: <strong style={{ color: "#dc2626" }}>{fmt((Number(billForm.totalAmount) || 0) - (Number(billForm.initCash) || 0) - (Number(billForm.initOnline) || 0))}</strong></span>
+                <span>Paid (Cash+Online): <strong style={{ color: "#16a34a" }}>{fmt((Number(billForm.initCash) || 0) + (Number(billForm.initOnline) || 0))}</strong></span>
+                {(Number(billForm.initGrAmount) || 0) > 0 && (
+                  <span>Goods Return (GR): <strong style={{ color: "#d97706" }}>{fmt(Number(billForm.initGrAmount) || 0)}</strong></span>
+                )}
+                {(Number(billForm.initDiscountAmount) || 0) > 0 && (
+                  <span>Round Off (Maff): <strong style={{ color: "#8b5cf6" }}>{fmt(Number(billForm.initDiscountAmount) || 0)}</strong></span>
+                )}
+                <span>Balance Due: <strong style={{ color: "#dc2626" }}>{fmt(Math.max(0, (Number(billForm.totalAmount) || 0) - (Number(billForm.initCash) || 0) - (Number(billForm.initOnline) || 0) - (Number(billForm.initGrAmount) || 0) - (Number(billForm.initDiscountAmount) || 0)))}</strong></span>
               </div>
             </div>
           )}
@@ -1203,10 +1351,12 @@ export default function WholesaleRojmal() {
         <div>
           {/* Summary */}
           <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 20 }}>
-            <StatCard label="Total Sales"      value={fmt(billSummary.totalAmount)} color="#1d4ed8" bg="#eff6ff" />
-            <StatCard label="Total Received"   value={fmt(billSummary.totalPaid)}   color="#16a34a" bg="#f0fdf4" />
-            <StatCard label="Total Due (Baki)" value={fmt(billSummary.totalDue)}    color="#dc2626" bg="#fef2f2" />
-            <StatCard label="Bills Showing"    value={pagination.total}             color="#64748b" bg="#f8fafc" />
+            <StatCard label="Total Sales"          value={fmt(billSummary.totalAmount)} color="#1d4ed8" bg="#eff6ff" />
+            <StatCard label="Total Received"       value={fmt(billSummary.totalPaid)}   color="#16a34a" bg="#f0fdf4" />
+            <StatCard label="Total GR (Return)"    value={fmt(billSummary.totalGR || 0)} color="#d97706" bg="#fffbeb" />
+            <StatCard label="Total Kasar / Maff"   value={fmt(billSummary.totalDiscount || 0)} color="#8b5cf6" bg="#f5f3ff" />
+            <StatCard label="Total Due (Baki)"     value={fmt(billSummary.totalDue)}    color="#dc2626" bg="#fef2f2" />
+            <StatCard label="Bills Showing"        value={pagination.total}              color="#64748b" bg="#f8fafc" />
           </div>
 
           {/* Filters */}
@@ -1291,6 +1441,18 @@ export default function WholesaleRojmal() {
                           <div style={{ fontSize: 10, color: "#94a3b8" }}>Paid</div>
                           <div style={{ fontWeight: 700, color: "#16a34a", fontSize: 14 }}>{fmt(b.paidAmount)}</div>
                         </div>
+                        {b.grAmount > 0 && (
+                          <div style={{ textAlign: "right", minWidth: 80 }}>
+                            <div style={{ fontSize: 10, color: "#94a3b8" }}>GR (Return)</div>
+                            <div style={{ fontWeight: 700, color: "#d97706", fontSize: 14 }}>{fmt(b.grAmount)}</div>
+                          </div>
+                        )}
+                        {b.discountAmount > 0 && (
+                          <div style={{ textAlign: "right", minWidth: 80 }}>
+                            <div style={{ fontSize: 10, color: "#94a3b8" }}>Kasar/Maff</div>
+                            <div style={{ fontWeight: 700, color: "#8b5cf6", fontSize: 14 }}>{fmt(b.discountAmount)}</div>
+                          </div>
+                        )}
                         <div style={{ textAlign: "right", minWidth: 80 }}>
                           <div style={{ fontSize: 10, color: "#94a3b8" }}>Baki</div>
                           <div style={{ fontWeight: 700, color: b.balanceDue > 0 ? "#dc2626" : "#16a34a", fontSize: 14 }}>{fmt(b.balanceDue)}</div>
@@ -1303,10 +1465,22 @@ export default function WholesaleRojmal() {
                       {isExpanded && (
                         <div style={{ borderTop: "1px solid #f1f5f9", padding: "14px 16px", background: "#fafafa" }}>
                           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, flexWrap: "wrap", gap: 8 }}>
-                            <div style={{ fontWeight: 700, fontSize: 13, color: "#475569" }}>Payment History ({b.payments.length})</div>
+                            <div style={{ fontWeight: 700, fontSize: 13, color: "#475569" }}>
+                              Payment & GR History ({b.payments.length})
+                              {b.grAmount > 0 && (
+                                <span style={{ marginLeft: 8, background: "#fef3c7", color: "#92400e", border: "1px solid #fde68a", padding: "2px 8px", borderRadius: 12, fontSize: 11 }}>
+                                  Total GR: {fmt(b.grAmount)}
+                                </span>
+                              )}
+                              {b.discountAmount > 0 && (
+                                <span style={{ marginLeft: 8, background: "#f3e8ff", color: "#7e22ce", border: "1px solid #d8b4fe", padding: "2px 8px", borderRadius: 12, fontSize: 11 }}>
+                                  Round Off/Maff: {fmt(b.discountAmount)}
+                                </span>
+                              )}
+                            </div>
                             <div style={{ display: "flex", gap: 7, flexWrap: "wrap" }}>
                               {b.status !== "PAID" && (
-                                <button style={{ ...btn("#16a34a"), padding: "5px 12px", fontSize: 12 }} onClick={(e) => { e.stopPropagation(); openPayModal(b); }}>+ Payment</button>
+                                <button style={{ ...btn("#16a34a"), padding: "5px 12px", fontSize: 12 }} onClick={(e) => { e.stopPropagation(); openPayModal(b); }}>+ Payment / GR / Maff</button>
                               )}
                               <button style={{ ...btn("#f59e0b"), padding: "5px 12px", fontSize: 12 }} onClick={(e) => { e.stopPropagation(); openEditBill(b); }}>✏️ Edit Bill</button>
                               <button style={{ ...btn("#ef4444"), padding: "5px 12px", fontSize: 12 }} onClick={(e) => { e.stopPropagation(); handleDeleteBill(b); }}>🗑 Delete</button>
@@ -1319,7 +1493,7 @@ export default function WholesaleRojmal() {
                               <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
                                 <thead>
                                   <tr style={{ background: "#f1f5f9" }}>
-                                    {["Date", "Cash", "Online", "Mode / Ref", "Total", "Note", ""].map((h) => (
+                                    {["Date", "Cash", "Online", "GR (Return)", "Round Off (Maff)", "Mode / Ref", "Settlement", "Note", ""].map((h) => (
                                       <th key={h} style={{ padding: "6px 10px", textAlign: "left", fontWeight: 600, color: "#475569", borderBottom: "1px solid #e2e8f0", whiteSpace: "nowrap" }}>{h}</th>
                                     ))}
                                   </tr>
@@ -1330,6 +1504,22 @@ export default function WholesaleRojmal() {
                                       <td style={{ padding: "6px 10px", whiteSpace: "nowrap" }}>{fmtDate(p.date)}</td>
                                       <td style={{ padding: "6px 10px", color: "#16a34a", fontWeight: 600 }}>{p.cashAmount > 0 ? fmt(p.cashAmount) : "-"}</td>
                                       <td style={{ padding: "6px 10px", color: "#0ea5e9", fontWeight: 600 }}>{p.onlineAmount > 0 ? fmt(p.onlineAmount) : "-"}</td>
+                                      <td style={{ padding: "6px 10px", color: "#d97706", fontWeight: 600 }}>
+                                        {p.grAmount > 0 ? (
+                                          <div>
+                                            <span>{fmt(p.grAmount)}</span>
+                                            {p.grNote && <div style={{ fontSize: 11, color: "#92400e", fontWeight: 400 }}>{p.grNote}</div>}
+                                          </div>
+                                        ) : "-"}
+                                      </td>
+                                      <td style={{ padding: "6px 10px", color: "#8b5cf6", fontWeight: 600 }}>
+                                        {p.discountAmount > 0 ? (
+                                          <div>
+                                            <span>{fmt(p.discountAmount)}</span>
+                                            {p.discountNote && <div style={{ fontSize: 11, color: "#6b21a8", fontWeight: 400 }}>{p.discountNote}</div>}
+                                          </div>
+                                        ) : "-"}
+                                      </td>
                                       <td style={{ padding: "6px 10px", color: "#64748b" }}>
                                         {p.onlineMode || ""}{p.onlineRef ? <span style={{ display: "block", fontSize: 11, color: "#94a3b8" }}>#{p.onlineRef}</span> : ""}
                                         {!p.onlineMode && !p.onlineRef && "-"}
@@ -1393,16 +1583,55 @@ export default function WholesaleRojmal() {
                   <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
                     <StatCard label="Total Sales" value={fmt(ledger.summary.totalSales)} color="#1d4ed8" bg="#fff" />
                     <StatCard label="Total Paid"  value={fmt(ledger.summary.totalPaid)}  color="#16a34a" bg="#fff" />
+                    <StatCard label="Total GR"    value={fmt(ledger.summary.totalGR || 0)} color="#d97706" bg="#fff" />
+                    <StatCard label="Round Off / Kasar" value={fmt(ledger.summary.totalDiscount || 0)} color="#8b5cf6" bg="#fff" />
                     <StatCard label="Balance Due" value={fmt(ledger.summary.totalDue)} color={ledger.summary.totalDue > 0 ? "#dc2626" : "#16a34a"} bg="#fff" />
                   </div>
                 </div>
+
+                {ledger.summary.totalDue > 0 && ledger.bills && (
+                  (() => {
+                    const unpaidBills = ledger.bills.filter((b) => b.status !== "PAID");
+                    if (unpaidBills.length > 0) {
+                      return (
+                        <div style={{ marginTop: 14, paddingTop: 12, borderTop: "1px solid #bfdbfe", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
+                          <div style={{ fontSize: 13, color: "#1e3a8a", fontWeight: 600 }}>
+                            ⚠️ {unpaidBills.length} unpaid bill{unpaidBills.length > 1 ? "s" : ""} pending settlement:
+                          </div>
+                          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                            {unpaidBills.map((ub) => (
+                              <button
+                                key={ub._id}
+                                style={{
+                                  background: "#16a34a",
+                                  color: "#fff",
+                                  border: "none",
+                                  borderRadius: 7,
+                                  padding: "6px 14px",
+                                  fontSize: 12,
+                                  fontWeight: 700,
+                                  cursor: "pointer",
+                                  boxShadow: "0 2px 4px #0002",
+                                }}
+                                onClick={() => openPayModal({ ...ub, customer: ub.customer || ledger.customer })}
+                              >
+                                💳 Pay Bill #{ub.billNo} (Due: {fmt(ub.balanceDue)})
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    }
+                    return null;
+                  })()
+                )}
               </div>
 
               <div style={{ overflowX: "auto", border: "1px solid #e2e8f0", borderRadius: 12 }}>
                 <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14 }}>
                   <thead>
                     <tr style={{ background: "#1e293b" }}>
-                      {["Date", "Type", "Bill No", "Description", "Debit (Sale)", "Credit (Paid)", "Balance"].map((h) => (
+                      {["Date", "Type", "Bill No", "Description", "Debit (Sale)", "Credit (Paid/GR/Maff)", "Balance", "Action"].map((h) => (
                         <th key={h} style={{ padding: "11px 14px", textAlign: "left", color: "#f8fafc", fontWeight: 700, whiteSpace: "nowrap" }}>{h}</th>
                       ))}
                     </tr>
@@ -1419,14 +1648,74 @@ export default function WholesaleRojmal() {
                               <div style={{ marginTop: 2 }}><PayPill cash={e.cashAmount || 0} online={e.onlineAmount || 0} mode={e.onlineMode} /></div>
                             </span>
                           )}
+                          {e.type === "GR" && (
+                            <span style={{ background: "#fef3c7", color: "#92400e", border: "1px solid #fde68a", borderRadius: 20, padding: "2px 10px", fontSize: 11, fontWeight: 700 }}>
+                              GR (RETURN)
+                            </span>
+                          )}
+                          {e.type === "DISCOUNT" && (
+                            <span style={{ background: "#f3e8ff", color: "#7e22ce", border: "1px solid #d8b4fe", borderRadius: 20, padding: "2px 10px", fontSize: 11, fontWeight: 700 }}>
+                              ROUND OFF / MAFF
+                            </span>
+                          )}
                           {e.type === "OPENING" && <span style={{ background: "#fef9c3", color: "#854d0e", borderRadius: 20, padding: "2px 10px", fontSize: 11, fontWeight: 700 }}>OPENING</span>}
                         </td>
                         <td style={{ padding: "9px 14px", color: "#64748b", fontWeight: 600 }}>{e.billNo || "-"}</td>
-                        <td style={{ padding: "9px 14px", color: "#334155" }}>{e.description}{e.onlineRef && <div style={{ fontSize: 11, color: "#94a3b8" }}>Ref: {e.onlineRef}</div>}</td>
+                        <td style={{ padding: "9px 14px", color: "#334155" }}>
+                          {e.description}
+                          {e.onlineRef && <div style={{ fontSize: 11, color: "#94a3b8" }}>Ref: {e.onlineRef}</div>}
+                          {e.type === "BILL" && e.status !== "PAID" && (
+                            <div style={{ fontSize: 11, color: "#dc2626", fontWeight: 600, marginTop: 2 }}>
+                              Pending Due: {fmt(e.balanceDue || (e.debit - (e.paidAmount || 0) - (e.grAmount || 0) - (e.discountAmount || 0)))}
+                            </div>
+                          )}
+                        </td>
                         <td style={{ padding: "9px 14px", fontWeight: 700, color: e.debit > 0 ? "#dc2626" : "#94a3b8" }}>{e.debit > 0 ? fmt(e.debit) : "-"}</td>
                         <td style={{ padding: "9px 14px", fontWeight: 700, color: e.credit > 0 ? "#16a34a" : "#94a3b8" }}>{e.credit > 0 ? fmt(e.credit) : "-"}</td>
                         <td style={{ padding: "9px 14px", fontWeight: 700, color: e.runningBalance > 0 ? "#dc2626" : "#16a34a" }}>
                           {fmt(Math.abs(e.runningBalance))}{e.runningBalance > 0 ? " Dr" : " Cr"}
+                        </td>
+                        <td style={{ padding: "9px 14px", whiteSpace: "nowrap" }}>
+                          {e.type === "BILL" ? (
+                            e.status !== "PAID" && (e.balanceDue > 0 || (e.bill && e.bill.balanceDue > 0)) ? (
+                              <button
+                                style={{
+                                  background: "#16a34a",
+                                  color: "#fff",
+                                  border: "none",
+                                  borderRadius: 6,
+                                  padding: "5px 12px",
+                                  fontSize: 12,
+                                  fontWeight: 700,
+                                  cursor: "pointer",
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  gap: 5,
+                                  boxShadow: "0 1px 2px #0002"
+                                }}
+                                onClick={() => {
+                                  const targetBill = e.bill || (ledger.bills && ledger.bills.find((b) => b._id === e.billId)) || {
+                                    _id: e.billId,
+                                    billNo: e.billNo,
+                                    customer: ledger.customer,
+                                    totalAmount: e.debit,
+                                    paidAmount: e.paidAmount || 0,
+                                    grAmount: e.grAmount || 0,
+                                    discountAmount: e.discountAmount || 0,
+                                    balanceDue: e.balanceDue || (e.debit - (e.paidAmount || 0) - (e.grAmount || 0) - (e.discountAmount || 0)),
+                                    status: e.status
+                                  };
+                                  openPayModal(targetBill);
+                                }}
+                              >
+                                💳 Pay / Settle
+                              </button>
+                            ) : (
+                              <span style={{ color: "#16a34a", fontSize: 12, fontWeight: 700 }}>✓ Settled</span>
+                            )
+                          ) : (
+                            <span style={{ color: "#cbd5e1" }}>—</span>
+                          )}
                         </td>
                       </tr>
                     ))}
@@ -1439,6 +1728,7 @@ export default function WholesaleRojmal() {
                       <td style={{ padding: "10px 14px", color: ledger.summary.totalDue > 0 ? "#fca5a5" : "#86efac", fontWeight: 700 }}>
                         {fmt(ledger.summary.totalDue)} {ledger.summary.totalDue > 0 ? "Due" : "Clear"}
                       </td>
+                      <td style={{ padding: "10px 14px" }}></td>
                     </tr>
                   </tfoot>
                 </table>
@@ -1533,29 +1823,40 @@ export default function WholesaleRojmal() {
         </Modal>
       )}
 
-      {/* Add Payment Modal */}
+      {/* Add Payment / GR / Round-off Modal */}
       {payModal && (
-        <Modal title={`Add Payment — Bill #${payModal.billNo}`} onClose={() => setPayModal(null)}>
+        <Modal title={`Add Payment / GR / Round-off — Bill #${payModal.billNo}`} onClose={() => setPayModal(null)}>
           <div style={{ background: "#f8fafc", borderRadius: 8, padding: 12, marginBottom: 14, fontSize: 13 }}>
             <div style={{ fontWeight: 600, color: "#1e293b", marginBottom: 4 }}>
               {payModal.customer?.name}{payModal.customer?.firmName ? ` (${payModal.customer.firmName})` : ""}
             </div>
             <div style={{ display: "flex", gap: 18, flexWrap: "wrap" }}>
-              <span>Bill: <strong>{fmt(payModal.totalAmount)}</strong></span>
+              <span>Bill Total: <strong>{fmt(payModal.totalAmount)}</strong></span>
               <span>Paid: <strong style={{ color: "#16a34a" }}>{fmt(payModal.paidAmount)}</strong></span>
-              <span>Remaining: <strong style={{ color: "#dc2626" }}>{fmt(payModal.balanceDue)}</strong></span>
+              {payModal.grAmount > 0 && (
+                <span>GR (Return): <strong style={{ color: "#d97706" }}>{fmt(payModal.grAmount)}</strong></span>
+              )}
+              {payModal.discountAmount > 0 && (
+                <span>Round Off (Maff): <strong style={{ color: "#8b5cf6" }}>{fmt(payModal.discountAmount)}</strong></span>
+              )}
+              <span>Remaining Baki: <strong style={{ color: "#dc2626" }}>{fmt(payModal.balanceDue)}</strong></span>
             </div>
           </div>
 
-          <MixedPaymentFields label="Enter Payment Received" form={payForm} onChange={setPayForm} />
+          <MixedPaymentFields
+            label="Enter Payment Received / Goods Return / Round-off (Maff)"
+            balanceDue={payModal.balanceDue}
+            form={payForm}
+            onChange={setPayForm}
+          />
 
-          <div style={{ background: "#fffbeb", border: "1px solid #fcd34d", borderRadius: 8, padding: 10, marginBottom: 14, fontSize: 12 }}>
-            💡 Mixed payment: Cash ₹500 + UPI ₹1,000 = ₹1,500 total — enter both together in one shot.
+          <div style={{ background: "#f5f3ff", border: "1px solid #ddd6fe", borderRadius: 8, padding: 10, marginBottom: 14, fontSize: 12, color: "#5b21b6" }}>
+            💡 <strong>Round Figure / Maff flow:</strong> If retailer pays ₹10,500 on a ₹10,540 bill, type <strong>10500</strong> in Cash and click <strong>"Set ₹40 Maff"</strong>. The ₹40 waiver will be recorded and the bill will be fully cleared (PAID).
           </div>
 
           <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
             <button style={btn("#64748b")} onClick={() => setPayModal(null)}>Cancel</button>
-            <button style={btn("#16a34a")} onClick={handleAddPayment} disabled={actionLoading}>{actionLoading ? "Saving…" : "✅ Record Payment"}</button>
+            <button style={btn("#16a34a")} onClick={handleAddPayment} disabled={actionLoading}>{actionLoading ? "Saving…" : "✅ Record Settlement"}</button>
           </div>
         </Modal>
       )}

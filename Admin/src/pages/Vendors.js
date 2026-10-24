@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
@@ -184,6 +184,7 @@ export default function Vendors() {
   const [activeTab, setActiveTab] = useState("info");
   const [ledgerModal, setLedgerModal] = useState(null);
   const [ledgerDates, setLedgerDates] = useState({ startDate: "", endDate: "" });
+  const [ledgerSortOrder, setLedgerSortOrder] = useState("desc"); // "desc" = last entry first (newest, default), "asc" = last entry last (oldest)
   const [ledgerPayModal, setLedgerPayModal] = useState(null); // { purchaseId, billNo, totalAmount, balanceDue, billDate }
   const EMPTY_LEDGER_PAY_FORM = {
     amount: "",
@@ -288,9 +289,18 @@ export default function Vendors() {
 
   const openLedger = (vendorId) => {
     setLedgerModal(vendorId);
+    setLedgerSortOrder("desc"); // Default to showing last entry first
     setLedgerDates({ startDate: "", endDate: "" });
     dispatch(fetchVendorLedger({ id: vendorId }));
   };
+
+  const displayedLedgerEntries = useMemo(() => {
+    if (!vendorLedger?.entries) return [];
+    if (ledgerSortOrder === "desc") {
+      return [...vendorLedger.entries].reverse();
+    }
+    return vendorLedger.entries;
+  }, [vendorLedger?.entries, ledgerSortOrder]);
 
   const applyLedgerDates = () => {
     if (ledgerModal) dispatch(fetchVendorLedger({ id: ledgerModal, ...ledgerDates }));
@@ -802,17 +812,46 @@ export default function Vendors() {
                 </div>
                 <button onClick={closeLedger} style={{ background: "none", border: "none", fontSize: 22, cursor: "pointer", color: "#6b7280" }}>✕</button>
               </div>
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-                <input type="date" value={ledgerDates.startDate} onChange={e => setLedgerDates(d => ({ ...d, startDate: e.target.value }))}
-                  style={{ padding: "6px 10px", borderRadius: 7, border: "1px solid #d1d5db", fontSize: 13 }} />
-                <span style={{ color: "#9ca3af", fontSize: 13 }}>to</span>
-                <input type="date" value={ledgerDates.endDate} onChange={e => setLedgerDates(d => ({ ...d, endDate: e.target.value }))}
-                  style={{ padding: "6px 10px", borderRadius: 7, border: "1px solid #d1d5db", fontSize: 13 }} />
-                <button onClick={applyLedgerDates} style={{ padding: "6px 14px", background: "#6366f1", color: "#fff", border: "none", borderRadius: 7, cursor: "pointer", fontSize: 13, fontWeight: 600 }}>Filter</button>
-                {(ledgerDates.startDate || ledgerDates.endDate) && (
-                  <button onClick={() => { setLedgerDates({ startDate: "", endDate: "" }); dispatch(fetchVendorLedger({ id: ledgerModal })); }}
-                    style={{ padding: "6px 12px", background: "#fef2f2", color: "#dc2626", border: "1px solid #fecaca", borderRadius: 7, cursor: "pointer", fontSize: 13 }}>Clear</button>
-                )}
+              <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center", justifyContent: "space-between" }}>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                  <input type="date" value={ledgerDates.startDate} onChange={e => setLedgerDates(d => ({ ...d, startDate: e.target.value }))}
+                    style={{ padding: "6px 10px", borderRadius: 7, border: "1px solid #d1d5db", fontSize: 13 }} />
+                  <span style={{ color: "#9ca3af", fontSize: 13 }}>to</span>
+                  <input type="date" value={ledgerDates.endDate} onChange={e => setLedgerDates(d => ({ ...d, endDate: e.target.value }))}
+                    style={{ padding: "6px 10px", borderRadius: 7, border: "1px solid #d1d5db", fontSize: 13 }} />
+                  <button onClick={applyLedgerDates} style={{ padding: "6px 14px", background: "#6366f1", color: "#fff", border: "none", borderRadius: 7, cursor: "pointer", fontSize: 13, fontWeight: 600 }}>Filter</button>
+                  {(ledgerDates.startDate || ledgerDates.endDate) && (
+                    <button onClick={() => { setLedgerDates({ startDate: "", endDate: "" }); dispatch(fetchVendorLedger({ id: ledgerModal })); }}
+                      style={{ padding: "6px 12px", background: "#fef2f2", color: "#dc2626", border: "1px solid #fecaca", borderRadius: 7, cursor: "pointer", fontSize: 13 }}>Clear</button>
+                  )}
+                </div>
+
+                {/* Sort Order Toggle Button */}
+                <button
+                  type="button"
+                  onClick={() => setLedgerSortOrder(prev => (prev === "desc" ? "asc" : "desc"))}
+                  style={{
+                    padding: "6px 14px",
+                    background: ledgerSortOrder === "desc" ? "#4f46e5" : "#f8fafc",
+                    color: ledgerSortOrder === "desc" ? "#fff" : "#1e293b",
+                    border: `1px solid ${ledgerSortOrder === "desc" ? "#4338ca" : "#cbd5e1"}`,
+                    borderRadius: 8,
+                    cursor: "pointer",
+                    fontSize: 13,
+                    fontWeight: 600,
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 6,
+                    boxShadow: ledgerSortOrder === "desc" ? "0 2px 5px rgba(79, 70, 229, 0.25)" : "0 1px 2px rgba(0,0,0,0.05)",
+                    transition: "all 0.15s ease",
+                  }}
+                  title={ledgerSortOrder === "desc" ? "Currently showing last entry first (Newest). Click to show last entry last (Oldest)." : "Currently showing oldest first. Click to show last entry first (Newest)."}
+                >
+                  <span>{ledgerSortOrder === "desc" ? "⬇️ Last Entry First" : "⬆️ Last Entry Last"}</span>
+                  <span style={{ fontSize: 11, background: ledgerSortOrder === "desc" ? "rgba(255,255,255,0.25)" : "#e2e8f0", color: ledgerSortOrder === "desc" ? "#fff" : "#475569", padding: "1px 6px", borderRadius: 10 }}>
+                    {ledgerSortOrder === "desc" ? "Default" : "Oldest"}
+                  </span>
+                </button>
               </div>
             </div>
             {loading && !vendorLedger ? (
@@ -835,19 +874,47 @@ export default function Vendors() {
                   {vendorLedger.entries.length === 0 ? (
                     <div style={{ textAlign: "center", padding: 40, color: "#9ca3af" }}>No transactions yet</div>
                   ) : (
-                    <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 16 }}>
-                      <thead>
-                        <tr style={{ background: "#f9fafb" }}>
-                          <th style={{ padding: "10px 12px", textAlign: "left", fontSize: 12, color: "#6b7280", fontWeight: 600 }}>Date</th>
-                          <th style={{ padding: "10px 12px", textAlign: "left", fontSize: 12, color: "#6b7280", fontWeight: 600 }}>Particulars</th>
-                          <th style={{ padding: "10px 12px", textAlign: "right", fontSize: 12, color: "#ef4444", fontWeight: 600 }}>Debit (Due)</th>
-                          <th style={{ padding: "10px 12px", textAlign: "right", fontSize: 12, color: "#22c55e", fontWeight: 600 }}>Credit (Paid)</th>
-                          <th style={{ padding: "10px 12px", textAlign: "right", fontSize: 12, color: "#6b7280", fontWeight: 600 }}>Balance</th>
-                          <th style={{ width: 105, textAlign: "center", fontSize: 12, color: "#6b7280", fontWeight: 600 }}>Action</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {vendorLedger.entries.map((e, i) => {
+                    <>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 14, marginBottom: 8, flexWrap: "wrap", gap: 8 }}>
+                        <span style={{ fontSize: 12, color: "#64748b", fontWeight: 600 }}>
+                          Showing {vendorLedger.entries.length} entries · Order: <strong style={{ color: ledgerSortOrder === "desc" ? "#4f46e5" : "#0f172a" }}>{ledgerSortOrder === "desc" ? "Last Entry First (Newest to Oldest)" : "Last Entry Last (Oldest to Newest)"}</strong>
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setLedgerSortOrder(prev => (prev === "desc" ? "asc" : "desc"))}
+                          style={{
+                            background: "none",
+                            border: "none",
+                            color: "#4f46e5",
+                            fontSize: 12,
+                            fontWeight: 600,
+                            cursor: "pointer",
+                            textDecoration: "underline",
+                            padding: 0,
+                          }}
+                        >
+                          Switch to {ledgerSortOrder === "desc" ? "Last Entry Last (Oldest First) ⬆️" : "Last Entry First (Newest First) ⬇️"}
+                        </button>
+                      </div>
+                      <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 4 }}>
+                        <thead>
+                          <tr style={{ background: "#f9fafb" }}>
+                            <th
+                              onClick={() => setLedgerSortOrder(prev => (prev === "desc" ? "asc" : "desc"))}
+                              style={{ padding: "10px 12px", textAlign: "left", fontSize: 12, color: "#4f46e5", fontWeight: 700, cursor: "pointer", userSelect: "none" }}
+                              title="Click to toggle sort order"
+                            >
+                              Date {ledgerSortOrder === "desc" ? "▼ (Newest)" : "▲ (Oldest)"}
+                            </th>
+                            <th style={{ padding: "10px 12px", textAlign: "left", fontSize: 12, color: "#6b7280", fontWeight: 600 }}>Particulars</th>
+                            <th style={{ padding: "10px 12px", textAlign: "right", fontSize: 12, color: "#ef4444", fontWeight: 600 }}>Debit (Due)</th>
+                            <th style={{ padding: "10px 12px", textAlign: "right", fontSize: 12, color: "#22c55e", fontWeight: 600 }}>Credit (Paid)</th>
+                            <th style={{ padding: "10px 12px", textAlign: "right", fontSize: 12, color: "#6b7280", fontWeight: 600 }}>Balance</th>
+                            <th style={{ width: 105, textAlign: "center", fontSize: 12, color: "#6b7280", fontWeight: 600 }}>Action</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {displayedLedgerEntries.map((e, i) => {
                           const bg = e.type === "PAYMENT" ? "#f0fdf4" : e.type === "DISCOUNT" ? "#fffbeb" : e.type === "GR" ? "#ecfdf5" : e.type === "OPENING" ? "#fefce8" : "#fff";
                           return (
                             <tr key={i} style={{ borderBottom: "1px solid #f3f4f6", background: bg }}>
@@ -927,6 +994,7 @@ export default function Vendors() {
                         })}
                       </tbody>
                     </table>
+                    </>
                   )}
                 </div>
                 <div style={{ padding: "16px 24px", borderTop: "1px solid #f3f4f6", display: "flex", gap: 12, justifyContent: "flex-end", flexWrap: "wrap" }}>

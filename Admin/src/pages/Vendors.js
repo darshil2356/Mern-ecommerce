@@ -1,6 +1,7 @@
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
+import { message } from "antd";
 import { toast } from "react-toastify";
 import {
   fetchVendors,
@@ -10,6 +11,7 @@ import {
   fetchVendorLedger,
   clearVendorLedger,
   recordPurchasePayment,
+  toggleVendorsVisible,
 } from "../features/purchase/purchaseSlice";
 import VendorStockAnalyticsModal from "../components/VendorStockAnalyticsModal";
 
@@ -164,7 +166,30 @@ const EMPTY_FORM = {
 export default function Vendors() {
   const dispatch = useDispatch();
   const navigate = useNavigate();
-  const { vendors, vendorLedger, loading } = useSelector((s) => s.purchase);
+  const { vendors, vendorLedger, loading, vendorsVisible } = useSelector((s) => s.purchase);
+
+  // Triple-click title = lock Vendors & return to purchase list
+  const titleClickRef = useRef(0);
+  const titleTimerRef = useRef(null);
+  const handleTitleClick = () => {
+    titleClickRef.current += 1;
+    clearTimeout(titleTimerRef.current);
+    titleTimerRef.current = setTimeout(() => {
+      titleClickRef.current = 0;
+    }, 600);
+    if (titleClickRef.current >= 3) {
+      titleClickRef.current = 0;
+      dispatch(toggleVendorsVisible());
+      message.info("🔒 GST Bills Only · Vendors Hidden");
+      navigate("/admin/purchase-list");
+    }
+  };
+
+  useEffect(() => {
+    if (!vendorsVisible) {
+      navigate("/admin/purchase-list");
+    }
+  }, [vendorsVisible, navigate]);
 
   // All vendors shown — GST/Non-GST distinction is at bill level, not vendor level
   const displayedVendors = vendors;
@@ -491,8 +516,16 @@ export default function Vendors() {
       {/* Header */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24, flexWrap: "wrap", gap: 12 }}>
         <div>
-          <h2 style={{ margin: 0, fontSize: 22, fontWeight: 700 }}>
+          <h2
+            onClick={handleTitleClick}
+            style={{ margin: 0, fontSize: 22, fontWeight: 700, cursor: "pointer", userSelect: "none", display: "inline-flex", alignItems: "center", gap: 8 }}
+            title="Triple-click to lock Vendors"
+          >
             Vepari (Vendors)
+            <span
+              style={{ display: "inline-block", width: 8, height: 8, borderRadius: "50%", background: "#f59e0b", verticalAlign: "middle" }}
+              title="Unlocked"
+            />
           </h2>
           <p style={{ margin: 0, color: "#6b7280", fontSize: 14 }}>
             All vendors — GST & Non-GST bills tracked per bill

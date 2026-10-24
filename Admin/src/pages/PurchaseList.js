@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
+import { message } from "antd";
 import { toast } from "react-toastify";
 import {
   fetchPurchases,
@@ -34,21 +35,27 @@ export default function PurchaseList() {
   const navigate = useNavigate();
   const { purchases, total, totals, vendors, summary, loading, vendorsVisible } = useSelector(s => s.purchase);
 
-  // Default: GST bills only
-  const [showAll, setShowAll] = useState(false);
+  // Sync showAll with vendorsVisible from Redux (persisted in localStorage)
+  const showAll = Boolean(vendorsVisible);
 
-  // Triple-click title = toggle Vendors section visibility in sidebar
+  // Triple-click title = toggle Non-GST bills & Vendor section visibility (same as Dashboard / Orders)
   const titleClickRef = useRef(0);
   const titleTimerRef = useRef(null);
   const handleTitleClick = () => {
     titleClickRef.current += 1;
     clearTimeout(titleTimerRef.current);
-    titleTimerRef.current = setTimeout(() => { titleClickRef.current = 0; }, 600);
+    titleTimerRef.current = setTimeout(() => {
+      titleClickRef.current = 0;
+    }, 600);
     if (titleClickRef.current >= 3) {
       titleClickRef.current = 0;
+      const nextVisible = !vendorsVisible;
       dispatch(toggleVendorsVisible());
-      setShowAll(prev => !prev);
-      toast.info(vendorsVisible ? "Vendors hidden · GST only" : "Vendors unlocked · All bills", { autoClose: 1500 });
+      if (nextVisible) {
+        message.success("🔓 Triple Click: Non-GST Bills & Vendor Dashboard Unlocked");
+      } else {
+        message.info("🔒 GST Bills Only · Vendor Dashboard Hidden");
+      }
     }
   };
 
@@ -84,7 +91,7 @@ export default function PurchaseList() {
     if (!showAll) params.onlyGST = "true";
     else params.onlyGST = "false";
     dispatch(fetchPurchases(params));
-  }, [dispatch, filters.status, filters.vendor, filters.startDate, filters.endDate, filters.billNo, activeTab, showAll]);
+  }, [dispatch, filters, activeTab, showAll]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -166,13 +173,14 @@ export default function PurchaseList() {
         <div>
           <h2
             onClick={handleTitleClick}
-            style={{ margin: 0, fontSize: 22, fontWeight: 700, cursor: "default", userSelect: "none", display: "inline-flex", alignItems: "center", gap: 8 }}
+            style={{ margin: 0, fontSize: 22, fontWeight: 700, cursor: "pointer", userSelect: "none", display: "inline-flex", alignItems: "center", gap: 8 }}
+            title="Triple-click to toggle Non-GST bills & Vendor Dashboard"
           >
             Purchase Bills
-            {vendorsVisible && (
+            {showAll && (
               <span
                 style={{ display: "inline-block", width: 8, height: 8, borderRadius: "50%", background: "#f59e0b", verticalAlign: "middle" }}
-                title="Vendors section unlocked"
+                title="Showing all bills (Non-GST & Vendors unlocked)"
               />
             )}
           </h2>
@@ -180,14 +188,24 @@ export default function PurchaseList() {
             {showAll ? "Showing all bills (GST + Non-GST)" : "Showing GST bills only"}
           </p>
         </div>
-        <div style={{ display: "flex", gap: 10 }}>
-          {vendorsVisible && (
-            <button onClick={() => navigate("/admin/vendors")} style={{
-              padding: "10px 16px", background: "#f3f4f6", border: "1px solid #d1d5db",
-              borderRadius: 8, cursor: "pointer", fontWeight: 600, fontSize: 14, color: "#374151",
-            }}>
-              🏪 Vendors
-            </button>
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+          {showAll && (
+            <>
+              <button onClick={() => navigate("/admin/vendor-dashboard")} style={{
+                padding: "10px 16px", background: "#f3f4f6", border: "1px solid #d1d5db",
+                borderRadius: 8, cursor: "pointer", fontWeight: 600, fontSize: 14, color: "#374151",
+                display: "flex", alignItems: "center", gap: 6,
+              }}>
+                📊 Vendor Dashboard
+              </button>
+              <button onClick={() => navigate("/admin/vendors")} style={{
+                padding: "10px 16px", background: "#f3f4f6", border: "1px solid #d1d5db",
+                borderRadius: 8, cursor: "pointer", fontWeight: 600, fontSize: 14, color: "#374151",
+                display: "flex", alignItems: "center", gap: 6,
+              }}>
+                🏪 Vendors
+              </button>
+            </>
           )}
           <button onClick={() => navigate("/admin/add-purchase")} style={{
             padding: "10px 20px", background: "#6366f1", color: "#fff", border: "none",

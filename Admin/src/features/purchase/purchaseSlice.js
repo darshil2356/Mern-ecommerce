@@ -141,7 +141,11 @@ const purchaseSlice = createSlice({
     clearVendorAnalysis: (state) => { state.vendorAnalysis = null; },
     toggleVendorsVisible: (state) => {
       state.vendorsVisible = !state.vendorsVisible;
-      localStorage.setItem("vendorsVisible", state.vendorsVisible);
+      localStorage.setItem("vendorsVisible", String(state.vendorsVisible));
+    },
+    setVendorsVisible: (state, action) => {
+      state.vendorsVisible = Boolean(action.payload);
+      localStorage.setItem("vendorsVisible", String(state.vendorsVisible));
     },
   },
   extraReducers: (builder) => {
@@ -250,5 +254,5 @@ const purchaseSlice = createSlice({
   },
 });
 
-export const { clearCurrentPurchase, clearVendorLedger, clearVendorAnalysis, toggleVendorsVisible } = purchaseSlice.actions;
+export const { clearCurrentPurchase, clearVendorLedger, clearVendorAnalysis, toggleVendorsVisible, setVendorsVisible } = purchaseSlice.actions;
 export default purchaseSlice.reducer;

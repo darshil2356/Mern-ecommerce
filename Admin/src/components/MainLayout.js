@@ -530,7 +530,7 @@ const MainLayout = () => {
     {
       key: "purchase-module", icon: <FaShoppingBasket />, label: renderItemLabel("Purchase", "purchase"),
       children: [
-        { key: "vendor-dashboard", icon: <FaChartBar />,     label: "Vendor Dashboard" },
+        ...(vendorsVisible ? [{ key: "vendor-dashboard", icon: <FaChartBar />, label: "Vendor Dashboard" }] : []),
         { key: "purchase-list", icon: <FaFileAlt />,       label: "Purchase Bills" },
         { key: "add-purchase",  icon: <FaShoppingBasket />,label: "Add Bill" },
         ...(vendorsVisible ? [{ key: "vendors", icon: <FaStore />, label: "Vendors (Vepari)" }] : []),

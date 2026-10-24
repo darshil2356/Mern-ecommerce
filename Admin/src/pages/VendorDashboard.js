@@ -1,9 +1,10 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { useDispatch } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
+import { message } from "antd";
 import { toast } from "react-toastify";
 import api from "../utils/axiosconfig";
-import { recordPurchasePayment } from "../features/purchase/purchaseSlice";
+import { recordPurchasePayment, toggleVendorsVisible } from "../features/purchase/purchaseSlice";
 import VendorStockAnalyticsModal from "../components/VendorStockAnalyticsModal";
 
 const fmt = (n) =>
@@ -15,6 +16,30 @@ const fmtDate = (d) =>
 export default function VendorDashboard() {
   const navigate = useNavigate();
   const dispatch = useDispatch();
+  const vendorsVisible = useSelector((s) => s.purchase?.vendorsVisible ?? false);
+
+  // Triple-click title = lock Vendor Dashboard & return to purchase list
+  const titleClickRef = useRef(0);
+  const titleTimerRef = useRef(null);
+  const handleTitleClick = () => {
+    titleClickRef.current += 1;
+    clearTimeout(titleTimerRef.current);
+    titleTimerRef.current = setTimeout(() => {
+      titleClickRef.current = 0;
+    }, 600);
+    if (titleClickRef.current >= 3) {
+      titleClickRef.current = 0;
+      dispatch(toggleVendorsVisible());
+      message.info("🔒 GST Bills Only · Vendor Dashboard Hidden");
+      navigate("/admin/purchase-list");
+    }
+  };
+
+  useEffect(() => {
+    if (!vendorsVisible) {
+      navigate("/admin/purchase-list");
+    }
+  }, [vendorsVisible, navigate]);
 
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState(null);
@@ -127,8 +152,16 @@ export default function VendorDashboard() {
         }}
       >
         <div>
-          <h2 style={{ margin: 0, fontSize: 24, fontWeight: 800, color: "#1e293b", display: "flex", alignItems: "center", gap: 10 }}>
+          <h2
+            onClick={handleTitleClick}
+            style={{ margin: 0, fontSize: 24, fontWeight: 800, color: "#1e293b", display: "flex", alignItems: "center", gap: 10, cursor: "pointer", userSelect: "none" }}
+            title="Triple-click to lock Vendor Dashboard"
+          >
             <span>🏪</span> Vendor Dashboard (Vepari Calculations)
+            <span
+              style={{ display: "inline-block", width: 8, height: 8, borderRadius: "50%", background: "#f59e0b", verticalAlign: "middle" }}
+              title="Unlocked"
+            />
           </h2>
           <p style={{ margin: "4px 0 0", color: "#64748b", fontSize: 14 }}>
             Complete vendor financial analysis, GST calculations, and 30-day payment due tracking.

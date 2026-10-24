@@ -3,6 +3,7 @@ const router = express.Router();
 const {
   addUdhar,
   recordPayment,
+  maffUdhar,
   getAll,
   getOne,
   deleteUdhar,
@@ -16,6 +17,7 @@ router.post("/add", authMiddleware, isAdmin, addUdhar);
 router.post("/send-customer-reminder", authMiddleware, isAdmin, sendCustomerReminder);
 router.post("/send-all-reminders", authMiddleware, isAdmin, sendAllCustomerReminders);
 router.post("/:id/pay", authMiddleware, isAdmin, recordPayment);
+router.post("/:id/maff", authMiddleware, isAdmin, maffUdhar);
 router.put("/:id/toggle-hide", authMiddleware, isAdmin, toggleHideUdhar);
 router.get("/", authMiddleware, isAdmin, getAll);
 router.get("/:id", authMiddleware, isAdmin, getOne);

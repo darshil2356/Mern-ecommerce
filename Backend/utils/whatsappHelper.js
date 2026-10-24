@@ -50,6 +50,38 @@ Thank you for your prompt payment!`;
 };
 
 /**
+ * Build Udhar Maff / Waive Off WhatsApp message text
+ */
+const buildUdharMaffMessage = ({
+  personName,
+  totalAmount,
+  paidAmount,
+  maffAmount,
+  maffReason,
+  remainingAmount,
+  storeName = "Yashoda Fashion",
+}) => {
+  const remStr =
+    remainingAmount <= 0.01
+      ? "🎉 *બાકી રકમ (Remaining Due):* ₹0 (સંપૂર્ણ હિસાબ પૂર્ણ - Cleared)"
+      : `⚠️ *નવી બાકી રકમ (Remaining Due):* ₹${Number(remainingAmount || 0).toFixed(2)}`;
+
+  return `🛍️ *${storeName}* 🛍️
+*ઉધાર બાકી રકમ માફી પહોંચ / Udhar Waived (Maaf)* 🙏
+
+નમસ્તે *${personName || "ગ્રાહક મિત્ર"}*,
+આપના ઉધાર ખાતામાં બાકી રકમ માફ (Waived Off) કરવામાં આવેલ છે:
+
+💵 *કુલ બિલ (Total Bill):* ₹${Number(totalAmount || 0).toFixed(2)}
+✅ *જમા થયેલ (Paid):* ₹${Number(paidAmount || 0).toFixed(2)}
+🎁 *માફ કરેલ રકમ (Maaf Amount):* ₹${Number(maffAmount || 0).toFixed(2)}
+📝 *માફીનું કારણ (Reason):* ${maffReason || "દુકાનદાર તરફથી કસર / માફી"}
+${remStr}
+
+અમારી દુકાને ખરીદી કરવા બદલ આપનો ખૂબ ખૂબ આભાર! 🙏❤️`;
+};
+
+/**
  * Build Consolidated Udhar Reminder WhatsApp message text in Gujarati (ગુજરાતી)
  */
 const buildConsolidatedUdharMessage = ({
@@ -336,6 +368,7 @@ module.exports = {
   formatPhoneNumber,
   buildUdharPurchaseMessage,
   buildUdharPaymentMessage,
+  buildUdharMaffMessage,
   buildConsolidatedUdharMessage,
   buildVendorPaymentMessage,
   buildVendorStatementMessage,

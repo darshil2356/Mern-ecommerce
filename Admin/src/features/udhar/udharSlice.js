@@ -28,6 +28,15 @@ export const recordUdharPayment = createAsyncThunk("udhar/pay", async ({ id, amo
   }
 });
 
+export const maffUdhar = createAsyncThunk("udhar/maff", async ({ id, amount, reason }, { rejectWithValue }) => {
+  try {
+    const { data } = await api.post(`/udhar/${id}/maff`, { amount, reason });
+    return data;
+  } catch (err) {
+    return rejectWithValue(err.response?.data?.message || err.message);
+  }
+});
+
 export const toggleHideUdhar = createAsyncThunk("udhar/toggleHide", async (id, { rejectWithValue }) => {
   try {
     const { data } = await api.put(`/udhar/${id}/toggle-hide`);
@@ -98,6 +107,14 @@ const udharSlice = createSlice({
         if (idx !== -1) state.records[idx] = payload.data;
       })
       .addCase(recordUdharPayment.rejected, rejected)
+
+      .addCase(maffUdhar.pending, pending)
+      .addCase(maffUdhar.fulfilled, (state, { payload }) => {
+        state.loading = false;
+        const idx = state.records.findIndex(r => r._id === payload.data._id);
+        if (idx !== -1) state.records[idx] = payload.data;
+      })
+      .addCase(maffUdhar.rejected, rejected)
 
       .addCase(toggleHideUdhar.pending, pending)
       .addCase(toggleHideUdhar.fulfilled, (state, { payload }) => {

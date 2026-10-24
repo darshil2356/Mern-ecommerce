@@ -6,6 +6,8 @@ const paymentSchema = new mongoose.Schema({
   note: { type: String, default: "" },
   isReturnAdjustment: { type: Boolean, default: false },
   isInitialPayment: { type: Boolean, default: false },
+  isMaff: { type: Boolean, default: false },
+  maffReason: { type: String, default: "" },
 });
 
 const udharSchema = new mongoose.Schema(
@@ -24,6 +26,9 @@ const udharSchema = new mongoose.Schema(
 
     totalAmount: { type: Number, required: true },
     paidAmount: { type: Number, default: 0 },
+    maffAmount: { type: Number, default: 0 },
+    maffReason: { type: String, default: "" },
+    isMaff: { type: Boolean, default: false },
     payments: [paymentSchema],
 
     dueDate: { type: Date, default: null },
@@ -38,10 +43,11 @@ const udharSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// Auto-update status based on paidAmount
+// Auto-update status based on paidAmount + maffAmount
 udharSchema.pre("save", function (next) {
-  if (this.paidAmount >= this.totalAmount) this.status = "CLEARED";
-  else if (this.paidAmount > 0) this.status = "PARTIAL";
+  const settled = Number(this.paidAmount || 0) + Number(this.maffAmount || 0);
+  if (settled >= Number(this.totalAmount || 0)) this.status = "CLEARED";
+  else if (settled > 0) this.status = "PARTIAL";
   else this.status = "PENDING";
   next();
 });

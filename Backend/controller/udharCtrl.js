@@ -3,6 +3,7 @@ const asyncHandler = require("express-async-handler");
 const {
   buildUdharPurchaseMessage,
   buildUdharPaymentMessage,
+  buildUdharMaffMessage,
   buildConsolidatedUdharMessage,
   sendMetaWhatsAppCloudApi,
   generateWhatsAppUrl,
@@ -113,7 +114,12 @@ const recordPayment = asyncHandler(async (req, res) => {
   }
 
   const paying = Number(amount);
-  const remainingBefore = udhar.totalAmount - udhar.paidAmount;
+  const remainingBefore = Math.max(0, udhar.totalAmount - (Number(udhar.paidAmount || 0) + Number(udhar.maffAmount || 0)));
+
+  if (remainingBefore <= 0.01) {
+    res.status(400);
+    throw new Error("This udhar is already cleared");
+  }
 
   if (paying > remainingBefore) {
     res.status(400);
@@ -124,7 +130,7 @@ const recordPayment = asyncHandler(async (req, res) => {
   udhar.payments.push({ amount: paying, note: note || "" });
   await udhar.save();
 
-  const remainingAfter = Math.max(0, udhar.totalAmount - udhar.paidAmount);
+  const remainingAfter = Math.max(0, udhar.totalAmount - (udhar.paidAmount + Number(udhar.maffAmount || 0)));
 
   // Generate WhatsApp confirmation message
   const storeName = await getStoreName();
@@ -147,6 +153,112 @@ const recordPayment = asyncHandler(async (req, res) => {
 
   res.json({
     success: true,
+    data: udhar,
+    whatsappMessage,
+    whatsappUrl,
+    whatsappSent,
+  });
+});
+
+// POST /udhar/:id/maff  — waive off (maff) remaining balance with mandatory reason
+const maffUdhar = asyncHandler(async (req, res) => {
+  const { amount, reason } = req.body;
+
+  if (!reason || !reason.trim()) {
+    res.status(400);
+    throw new Error("Reason for Maaf (waiver) is required");
+  }
+
+  const udhar = await Udhar.findById(req.params.id);
+  if (!udhar) {
+    res.status(404);
+    throw new Error("Udhar entry not found");
+  }
+
+  const currentPaid = Number(udhar.paidAmount || 0);
+  const currentMaff = Number(udhar.maffAmount || 0);
+  const total = Number(udhar.totalAmount || 0);
+  const remainingBefore = Math.max(0, total - (currentPaid + currentMaff));
+
+  if (remainingBefore <= 0.01) {
+    res.status(400);
+    throw new Error("This udhar is already fully cleared / settled");
+  }
+
+  // If amount is not passed or empty, default to full remaining balance
+  const maffVal = (amount !== undefined && amount !== null && amount !== "") ? Number(amount) : remainingBefore;
+
+  if (isNaN(maffVal) || maffVal <= 0) {
+    res.status(400);
+    throw new Error("Valid Maaf amount is required");
+  }
+
+  if (maffVal > remainingBefore + 0.01) {
+    res.status(400);
+    throw new Error(`Cannot waive more than remaining balance of ₹${remainingBefore}`);
+  }
+
+  const cleanReason = reason.trim();
+  udhar.maffAmount = currentMaff + maffVal;
+  udhar.isMaff = true;
+  udhar.maffReason = cleanReason;
+
+  udhar.payments.push({
+    amount: maffVal,
+    date: new Date(),
+    note: `[MAAF / WAIVED]: ${cleanReason}`,
+    isMaff: true,
+    maffReason: cleanReason,
+  });
+
+  const remainingAfter = Math.max(0, total - (udhar.paidAmount + udhar.maffAmount));
+  if (remainingAfter <= 0.01) {
+    udhar.status = "CLEARED";
+  } else {
+    udhar.status = "PARTIAL";
+  }
+
+  await udhar.save();
+
+  // If linked to Order, also update order remarks
+  if (udhar.orderId) {
+    try {
+      const Order = require("../models/orderModel");
+      const existingOrder = await Order.findById(udhar.orderId);
+      if (existingOrder) {
+        existingOrder.remarks = existingOrder.remarks
+          ? `${existingOrder.remarks} | Maaf: ₹${maffVal} (${cleanReason})`
+          : `Udhar Maaf: ₹${maffVal} (${cleanReason})`;
+        await existingOrder.save();
+      }
+    } catch (orderErr) {
+      console.warn("Could not update linked order remarks:", orderErr);
+    }
+  }
+
+  // Generate WhatsApp confirmation message
+  const storeName = await getStoreName();
+  const whatsappMessage = buildUdharMaffMessage({
+    personName: udhar.personName,
+    totalAmount: udhar.totalAmount,
+    paidAmount: udhar.paidAmount,
+    maffAmount: maffVal,
+    maffReason: cleanReason,
+    remainingAmount: remainingAfter,
+    storeName,
+  });
+
+  const whatsappUrl = generateWhatsAppUrl({ phone: udhar.personPhone, messageText: whatsappMessage });
+
+  let whatsappSent = false;
+  if (udhar.personPhone) {
+    const apiResult = await sendMetaWhatsAppCloudApi({ phone: udhar.personPhone, messageText: whatsappMessage });
+    whatsappSent = apiResult.success;
+  }
+
+  res.json({
+    success: true,
+    message: `₹${maffVal} has been successfully waived (Maaf) for ${udhar.personName}.`,
     data: udhar,
     whatsappMessage,
     whatsappUrl,
@@ -181,11 +293,12 @@ const getAll = asyncHandler(async (req, res) => {
 
   let records = await Udhar.find(filter).sort({ createdAt: -1 });
 
-  // Auto-heal DB status if paidAmount >= totalAmount
+  // Auto-heal DB status if (paidAmount + maffAmount) >= totalAmount
   for (let r of records) {
     const paid = Number(r.paidAmount || 0);
+    const maff = Number(r.maffAmount || 0);
     const total = Number(r.totalAmount || 0);
-    if (total > 0 && paid >= total && r.status !== "CLEARED") {
+    if (total > 0 && (paid + maff) >= total && r.status !== "CLEARED") {
       r.status = "CLEARED";
       await Udhar.updateOne({ _id: r._id }, { $set: { status: "CLEARED" } });
     }
@@ -199,39 +312,45 @@ const getAll = asyncHandler(async (req, res) => {
     if (status === "PENDING_PARTIAL") {
       records = records.filter(r => {
         const paid = Number(r.paidAmount || 0);
+        const maff = Number(r.maffAmount || 0);
         const total = Number(r.totalAmount || 0);
-        const remaining = Math.max(0, total - paid);
+        const remaining = Math.max(0, total - (paid + maff));
         return r.status !== "CLEARED" && remaining > 0.01;
       });
     } else if (status === "PENDING") {
       records = records.filter(r => {
         const paid = Number(r.paidAmount || 0);
+        const maff = Number(r.maffAmount || 0);
         const total = Number(r.totalAmount || 0);
-        const remaining = Math.max(0, total - paid);
-        return (r.status === "PENDING" || paid === 0) && remaining > 0.01;
+        const remaining = Math.max(0, total - (paid + maff));
+        return (r.status === "PENDING" || (paid === 0 && maff === 0)) && remaining > 0.01;
       });
     } else if (status === "PARTIAL") {
       records = records.filter(r => {
         const paid = Number(r.paidAmount || 0);
+        const maff = Number(r.maffAmount || 0);
         const total = Number(r.totalAmount || 0);
-        const remaining = Math.max(0, total - paid);
-        return (r.status === "PARTIAL" || (paid > 0 && paid < total)) && remaining > 0.01;
+        const remaining = Math.max(0, total - (paid + maff));
+        return (r.status === "PARTIAL" || ((paid + maff) > 0 && (paid + maff) < total)) && remaining > 0.01;
       });
     } else if (status === "CLEARED") {
       records = records.filter(r => {
         const paid = Number(r.paidAmount || 0);
+        const maff = Number(r.maffAmount || 0);
         const total = Number(r.totalAmount || 0);
-        const remaining = Math.max(0, total - paid);
-        return r.status === "CLEARED" || remaining <= 0.01 || (total > 0 && paid >= total);
+        const remaining = Math.max(0, total - (paid + maff));
+        return r.status === "CLEARED" || remaining <= 0.01 || (total > 0 && (paid + maff) >= total);
       });
+    } else if (status === "MAAF") {
+      records = records.filter(r => Number(r.maffAmount || 0) > 0 || r.isMaff === true);
     }
   }
 
   // Compute overall total pending balance across all active, non-hidden records
   const allRecords = await Udhar.find();
   const totalPending = allRecords
-    .filter(r => r.isHidden !== true && r.status !== "CLEARED" && (Number(r.totalAmount || 0) - Number(r.paidAmount || 0)) > 0.01)
-    .reduce((s, r) => s + Math.max(0, Number(r.totalAmount || 0) - Number(r.paidAmount || 0)), 0);
+    .filter(r => r.isHidden !== true && r.status !== "CLEARED" && (Number(r.totalAmount || 0) - (Number(r.paidAmount || 0) + Number(r.maffAmount || 0))) > 0.01)
+    .reduce((s, r) => s + Math.max(0, Number(r.totalAmount || 0) - (Number(r.paidAmount || 0) + Number(r.maffAmount || 0))), 0);
 
   res.json({ success: true, data: records, totalPending });
 });
@@ -323,7 +442,7 @@ const sendCustomerReminder = asyncHandler(async (req, res) => {
   }).sort({ createdAt: 1 });
 
   const activeBills = bills.filter(b => {
-    const remaining = Math.max(0, Number(b.totalAmount || 0) - Number(b.paidAmount || 0));
+    const remaining = Math.max(0, Number(b.totalAmount || 0) - (Number(b.paidAmount || 0) + Number(b.maffAmount || 0)));
     return remaining > 0.01;
   });
 
@@ -357,7 +476,7 @@ const sendCustomerReminder = asyncHandler(async (req, res) => {
     whatsappSent = apiResult.success;
   }
 
-  const totalRemaining = activeBills.reduce((s, b) => s + Math.max(0, Number(b.totalAmount || 0) - Number(b.paidAmount || 0)), 0);
+  const totalRemaining = activeBills.reduce((s, b) => s + Math.max(0, Number(b.totalAmount || 0) - (Number(b.paidAmount || 0) + Number(b.maffAmount || 0))), 0);
 
   res.json({
     success: true,
@@ -382,7 +501,7 @@ const sendAllCustomerReminders = asyncHandler(async (req, res) => {
   // Group by customer key (phone or lowercased name)
   const customerMap = new Map();
   allRecords.forEach(r => {
-    const remaining = Math.max(0, Number(r.totalAmount || 0) - Number(r.paidAmount || 0));
+    const remaining = Math.max(0, Number(r.totalAmount || 0) - (Number(r.paidAmount || 0) + Number(r.maffAmount || 0)));
     if (remaining <= 0.01) return;
 
     const phoneKey = r.personPhone ? r.personPhone.trim().replace(/\D/g, "") : "";
@@ -422,7 +541,7 @@ const sendAllCustomerReminders = asyncHandler(async (req, res) => {
       whatsappSent = apiRes.success;
     }
 
-    const totalRemaining = cust.bills.reduce((s, b) => s + Math.max(0, Number(b.totalAmount || 0) - Number(b.paidAmount || 0)), 0);
+    const totalRemaining = cust.bills.reduce((s, b) => s + Math.max(0, Number(b.totalAmount || 0) - (Number(b.paidAmount || 0) + Number(b.maffAmount || 0))), 0);
 
     results.push({
       personName: cust.personName,
@@ -459,6 +578,7 @@ const deleteUdhar = asyncHandler(async (req, res) => {
 module.exports = {
   addUdhar,
   recordPayment,
+  maffUdhar,
   getAll,
   getOne,
   deleteUdhar,

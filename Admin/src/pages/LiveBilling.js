@@ -1953,6 +1953,7 @@ const LiveBilling = () => {
       setAmountPaid(""); // Reset payment received
       setPaymentNote("");
       setSelectedSellerStaff("");
+      setSelectedBilledByStaff("");
       setCustomIncentiveRate("");
     } catch (err) {
       console.error("Failed to complete sale:", err);

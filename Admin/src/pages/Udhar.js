@@ -6,6 +6,7 @@ import {
   fetchAllUdhar,
   addUdhar,
   recordUdharPayment,
+  maffUdhar,
   deleteUdhar,
   toggleHideUdhar,
   sendUdharCustomerReminder,
@@ -58,6 +59,21 @@ export default function Udhar() {
   const [payModal, setPayModal] = useState(null); // { id, personName, remaining }
   const [payAmount, setPayAmount] = useState("");
   const [payNote, setPayNote] = useState("");
+
+  // Maaf (Waive off) state
+  const [maffModal, setMaffModal] = useState(null); // { id, personName, remaining, totalAmount, paidAmount, existingMaff }
+  const [maffAmount, setMaffAmount] = useState("");
+  const [maffReason, setMaffReason] = useState("");
+
+  const MAAF_REASONS = [
+    "Round-off / Kasar (કસર / રાઉન્ડ ઓફ)",
+    "Regular / Loyal Customer Discount (રેગ્યુલર ગ્રાહક ડિસ્કાઉન્ટ)",
+    "Mutual Relationship / Known Family (સંબંધી / ઓળખાણ)",
+    "Item Defect / Return Adjustment (માલ વળતર / એડજસ્ટમેન્ટ)",
+    "Customer Requested Concession (ગ્રાહકની વિનંતી)",
+    "Full Settlement / Bad Debt Closure (હિસાબ પૂર્ણ પતાવટ)",
+  ];
+
   const [activeTab, setActiveTab] = useState("ALL"); // ALL | PRODUCT_SALE | PERSONAL_LOAN
   const [whatsappPrompt, setWhatsappPrompt] = useState({ open: false, title: "", personName: "", whatsappUrl: "", messageText: "", whatsappSent: false });
   const [bulkPrompt, setBulkPrompt] = useState({ open: false, title: "", customers: [], currentIndex: 0 });
@@ -113,25 +129,28 @@ export default function Udhar() {
     let totalBills = customerRecords.length;
     let totalAmount = 0;
     let totalPaid = 0;
+    let totalMaff = 0;
     let outstanding = 0;
     customerRecords.forEach(r => {
       const tot = Number(r.totalAmount || 0);
       const pd = Number(r.paidAmount || 0);
+      const mf = Number(r.maffAmount || 0);
       totalAmount += tot;
       totalPaid += pd;
-      if (!r.isHidden && r.status !== "CLEARED" && (tot - pd) > 0.01) {
-        outstanding += Math.max(0, tot - pd);
+      totalMaff += mf;
+      if (!r.isHidden && r.status !== "CLEARED" && (tot - (pd + mf)) > 0.01) {
+        outstanding += Math.max(0, tot - (pd + mf));
       }
     });
-    return { totalBills, totalAmount, totalPaid, outstanding };
+    return { totalBills, totalAmount, totalPaid, totalMaff, outstanding };
   }, [customerRecords, filters.selectedCustomer]);
 
   /* ── display total outstanding pending balance ── */
   const displayOutstanding = React.useMemo(() => {
     const targetList = filters.selectedCustomer ? customerRecords : records;
     return targetList
-      .filter(r => (filters.status === "HIDDEN" ? r.isHidden === true : !r.isHidden) && r.status !== "CLEARED" && (Number(r.totalAmount || 0) - Number(r.paidAmount || 0)) > 0.01)
-      .reduce((sum, r) => sum + Math.max(0, Number(r.totalAmount || 0) - Number(r.paidAmount || 0)), 0);
+      .filter(r => (filters.status === "HIDDEN" ? r.isHidden === true : !r.isHidden) && r.status !== "CLEARED" && (Number(r.totalAmount || 0) - (Number(r.paidAmount || 0) + Number(r.maffAmount || 0))) > 0.01)
+      .reduce((sum, r) => sum + Math.max(0, Number(r.totalAmount || 0) - (Number(r.paidAmount || 0) + Number(r.maffAmount || 0))), 0);
   }, [records, customerRecords, filters.selectedCustomer, filters.status]);
 
   /* ── client safety filter ── */
@@ -139,9 +158,10 @@ export default function Udhar() {
     const targetList = filters.selectedCustomer ? customerRecords : records;
     return targetList.filter(r => {
       const paid = Number(r.paidAmount || 0);
+      const maff = Number(r.maffAmount || 0);
       const total = Number(r.totalAmount || 0);
-      const remaining = Math.max(0, total - paid);
-      const isCleared = r.status === "CLEARED" || remaining <= 0.01 || (total > 0 && paid >= total);
+      const remaining = Math.max(0, total - (paid + maff));
+      const isCleared = r.status === "CLEARED" || remaining <= 0.01 || (total > 0 && (paid + maff) >= total);
 
       if (filters.status === "HIDDEN") {
         return r.isHidden === true;
@@ -153,11 +173,13 @@ export default function Udhar() {
       if (filters.status === "PENDING_PARTIAL") {
         if (isCleared) return false;
       } else if (filters.status === "PENDING") {
-        if (isCleared || paid > 0) return false;
+        if (isCleared || (paid + maff) > 0) return false;
       } else if (filters.status === "PARTIAL") {
-        if (isCleared || paid === 0) return false;
+        if (isCleared || (paid + maff) === 0) return false;
       } else if (filters.status === "CLEARED") {
         if (!isCleared) return false;
+      } else if (filters.status === "MAAF") {
+        return (Number(r.maffAmount || 0) > 0 || r.isMaff === true);
       }
       return true;
     });
@@ -165,9 +187,11 @@ export default function Udhar() {
 
   /* ── summary counts ── */
   const targetSummaryList = filters.selectedCustomer ? customerRecords : records;
-  const pendingCount = targetSummaryList.filter(r => !r.isHidden && r.status !== "CLEARED" && (Number(r.totalAmount || 0) - Number(r.paidAmount || 0)) > 0.01 && Number(r.paidAmount || 0) === 0).length;
-  const partialCount = targetSummaryList.filter(r => !r.isHidden && r.status !== "CLEARED" && (Number(r.totalAmount || 0) - Number(r.paidAmount || 0)) > 0.01 && Number(r.paidAmount || 0) > 0).length;
-  const clearedCount = targetSummaryList.filter(r => !r.isHidden && (r.status === "CLEARED" || (Number(r.totalAmount || 0) - Number(r.paidAmount || 0)) <= 0.01)).length;
+  const pendingCount = targetSummaryList.filter(r => !r.isHidden && r.status !== "CLEARED" && (Number(r.totalAmount || 0) - (Number(r.paidAmount || 0) + Number(r.maffAmount || 0))) > 0.01 && (Number(r.paidAmount || 0) + Number(r.maffAmount || 0)) === 0).length;
+  const partialCount = targetSummaryList.filter(r => !r.isHidden && r.status !== "CLEARED" && (Number(r.totalAmount || 0) - (Number(r.paidAmount || 0) + Number(r.maffAmount || 0))) > 0.01 && (Number(r.paidAmount || 0) + Number(r.maffAmount || 0)) > 0).length;
+  const clearedCount = targetSummaryList.filter(r => !r.isHidden && (r.status === "CLEARED" || (Number(r.totalAmount || 0) - (Number(r.paidAmount || 0) + Number(r.maffAmount || 0))) <= 0.01)).length;
+  const maffCount = targetSummaryList.filter(r => !r.isHidden && (Number(r.maffAmount || 0) > 0 || r.isMaff === true)).length;
+  const totalMaffAmount = targetSummaryList.filter(r => !r.isHidden).reduce((s, r) => s + Number(r.maffAmount || 0), 0);
   const hiddenCount = targetSummaryList.filter(r => r.isHidden === true).length;
 
   /* ── add form submit ── */
@@ -221,7 +245,7 @@ export default function Udhar() {
 
   /* ── 1-click direct full clear payment ── */
   const handleDirectClearFull = async (record) => {
-    const remaining = Math.max(0, Number(record.totalAmount || 0) - Number(record.paidAmount || 0));
+    const remaining = Math.max(0, Number(record.totalAmount || 0) - (Number(record.paidAmount || 0) + Number(record.maffAmount || 0)));
     if (remaining <= 0.01) return toast.info("This record is already cleared!");
 
     if (!window.confirm(`⚡ Confirm Direct Full Payment Clear?\n\nCustomer: ${record.personName}\nRemaining Balance: ₹${remaining}\n\nThis will record full payment and move customer to Cleared status.`)) {
@@ -245,6 +269,43 @@ export default function Udhar() {
       load();
     } else {
       toast.error(res.payload || "Failed to clear payment");
+    }
+  };
+
+  /* ── waive off (maff) with reason ── */
+  const handleMaff = async (e) => {
+    e.preventDefault();
+    if (!maffReason.trim()) {
+      return toast.error("Please enter or select a reason for Maaf (waiver)!");
+    }
+    const waiveVal = maffAmount ? Number(maffAmount) : maffModal.remaining;
+    if (isNaN(waiveVal) || waiveVal <= 0) {
+      return toast.error("Please enter a valid Maaf amount");
+    }
+    if (waiveVal > maffModal.remaining + 0.01) {
+      return toast.error(`Cannot waive more than remaining balance ₹${maffModal.remaining}`);
+    }
+
+    const res = await dispatch(maffUdhar({ id: maffModal.id, amount: waiveVal, reason: maffReason.trim() }));
+    if (res.meta.requestStatus === "fulfilled") {
+      toast.success(`₹${waiveVal} successfully waived (Maaf) for ${maffModal.personName}!`);
+      const payload = res.payload;
+      if (payload?.whatsappUrl) {
+        setWhatsappPrompt({
+          open: true,
+          title: "🎁 Udhar Maaf (Waiver) Confirmation Receipt",
+          personName: maffModal.personName,
+          whatsappUrl: payload.whatsappUrl,
+          messageText: payload.whatsappMessage || "",
+          whatsappSent: payload.whatsappSent || false,
+        });
+      }
+      setMaffModal(null);
+      setMaffAmount("");
+      setMaffReason("");
+      load();
+    } else {
+      toast.error(res.payload || "Failed to record Maaf");
     }
   };
 
@@ -423,6 +484,14 @@ export default function Udhar() {
             onClick={() => setFilters(f => ({ ...f, status: "CLEARED" }))}
           />
           <SummaryCard
+            label="Maaf / Waived (🎁)"
+            value={totalMaffAmount > 0 ? `${maffCount} (${fmt(totalMaffAmount)})` : maffCount}
+            color="#7c3aed"
+            icon="🎁"
+            active={filters.status === "MAAF"}
+            onClick={() => setFilters(f => ({ ...f, status: "MAAF" }))}
+          />
+          <SummaryCard
             label="Hidden Customers (🙈)"
             value={hiddenCount}
             color="#475569"
@@ -456,6 +525,7 @@ export default function Udhar() {
               <option value="PENDING">🔴 Pending Only</option>
               <option value="PARTIAL">🟡 Partial Only</option>
               <option value="CLEARED">🟢 Cleared Only</option>
+              <option value="MAAF">🎁 Maaf / Waived Only ({maffCount})</option>
               <option value="HIDDEN">🙈 Hidden Customers (Archived)</option>
             </select>
           </div>
@@ -644,13 +714,18 @@ export default function Udhar() {
         {!loading && displayRecords.length > 0 && (
           <div className="ud-cards-grid">
             {displayRecords.map(record => {
-              const remaining = Math.max(0, Number(record.totalAmount || 0) - Number(record.paidAmount || 0));
-              const pct = Math.min(100, Math.round((Number(record.paidAmount || 0) / Number(record.totalAmount || 1)) * 100));
+              const currentPaid = Number(record.paidAmount || 0);
+              const currentMaff = Number(record.maffAmount || 0);
+              const totalAmt = Number(record.totalAmount || 0);
+              const remaining = Math.max(0, totalAmt - (currentPaid + currentMaff));
+              const effectivePaid = currentPaid + currentMaff;
+              const pct = Math.min(100, Math.round((effectivePaid / (totalAmt || 1)) * 100));
               const sc = STATUS_CONFIG[record.status] || STATUS_CONFIG.PENDING;
               const isCleared = record.status === "CLEARED" || remaining <= 0.01;
+              const hasMaff = currentMaff > 0 || record.isMaff;
 
               return (
-                <div key={record._id} className="ud-card">
+                <div key={record._id} className="ud-card" style={hasMaff ? { borderTop: "3px solid #8b5cf6" } : {}}>
                   {/* Header */}
                   <div className="ud-card-head">
                     <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -669,7 +744,7 @@ export default function Udhar() {
 
                     <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 }}>
                       <span className="ud-badge" style={{ background: isCleared ? "#d1fae5" : sc.bg, color: isCleared ? "#166534" : sc.text, border: `1px solid ${isCleared ? "#86efac" : sc.border}` }}>
-                        {isCleared ? "🟢 Cleared" : sc.label}
+                        {isCleared ? (hasMaff ? `🟢 Cleared (🎁 Maaf: ${fmt(currentMaff)})` : "🟢 Cleared") : (hasMaff ? `${sc.label} (🎁 ${fmt(currentMaff)} Maaf)` : sc.label)}
                       </span>
                       <span className="ud-type-badge">
                         {record.type === "PRODUCT_SALE" ? "🛍 Sale" : "🤝 Loan"}
@@ -685,8 +760,19 @@ export default function Udhar() {
                     <div className="ud-card-detail" style={{ color: "#475569" }}>📝 {record.note}</div>
                   )}
 
-                  {/* 3-Column Amount Breakdown */}
-                  <div className="ud-amount-row">
+                  {/* Maaf Banner if waived */}
+                  {hasMaff && (
+                    <div className="ud-maff-banner">
+                      <span>🎁</span>
+                      <div>
+                        <strong>Maaf (Waived):</strong> <span style={{ fontWeight: 800 }}>{fmt(currentMaff)}</span>
+                        {record.maffReason && <span style={{ marginLeft: 6, fontStyle: "italic" }}>• Reason: {record.maffReason}</span>}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Amount Breakdown (3 or 4 columns if maff applied) */}
+                  <div className="ud-amount-row" style={{ gridTemplateColumns: currentMaff > 0 ? "repeat(4, 1fr)" : "repeat(3, 1fr)" }}>
                     <div className="ud-amount-box" style={{ borderLeft: "3px solid #3b82f6" }}>
                       <div className="ud-amount-label">Total Bill</div>
                       <div className="ud-amount-val" style={{ color: "#1d4ed8" }}>{fmt(record.totalAmount)}</div>
@@ -695,6 +781,12 @@ export default function Udhar() {
                       <div className="ud-amount-label">Paid</div>
                       <div className="ud-amount-val" style={{ color: "#166534" }}>{fmt(record.paidAmount)}</div>
                     </div>
+                    {currentMaff > 0 && (
+                      <div className="ud-amount-box" style={{ borderLeft: "3px solid #8b5cf6", background: "#faf5ff" }}>
+                        <div className="ud-amount-label" style={{ color: "#7c3aed" }}>🎁 Maaf</div>
+                        <div className="ud-amount-val" style={{ color: "#6d28d9" }}>{fmt(currentMaff)}</div>
+                      </div>
+                    )}
                     <div className="ud-amount-box" style={{ borderLeft: `3px solid ${remaining > 0 ? "#ef4444" : "#10b981"}` }}>
                       <div className="ud-amount-label">Remaining</div>
                       <div className="ud-amount-val" style={{ color: remaining > 0 ? "#991b1b" : "#166534" }}>{fmt(remaining)}</div>
@@ -706,7 +798,7 @@ export default function Udhar() {
                     <div className="ud-progress-bar" style={{ width: `${pct}%`, background: isCleared ? "#10b981" : "linear-gradient(90deg, #3b82f6, #8b5cf6)" }} />
                   </div>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-                    <span className="ud-progress-label">{pct}% Paid</span>
+                    <span className="ud-progress-label">{pct}% Settled {currentMaff > 0 && `(incl. ${fmt(currentMaff)} Maaf)`}</span>
                     {record.dueDate && (
                       <span style={{ fontSize: 11, fontWeight: 600, color: new Date(record.dueDate) < new Date() && !isCleared ? "#ef4444" : "#64748b" }}>
                         📅 Due: {fmtDate(record.dueDate)} {new Date(record.dueDate) < new Date() && !isCleared && "⚠️ Overdue"}
@@ -714,15 +806,23 @@ export default function Udhar() {
                     )}
                   </div>
 
-                  {/* Payment History */}
+                  {/* Payment & Maaf History */}
                   {record.payments?.length > 0 && (
                     <div className="ud-payments">
-                      <div className="ud-payments-title">Payment History ({record.payments.length})</div>
+                      <div className="ud-payments-title">Ledger & Payment History ({record.payments.length})</div>
                       {record.payments.map((p, i) => (
-                        <div key={i} className="ud-payment-row">
+                        <div key={i} className="ud-payment-row" style={p.isMaff ? { background: "#faf5ff", borderRadius: 6, padding: "4px 6px" } : {}}>
                           <span>{fmtDate(p.date)}</span>
-                          <span style={{ color: "#166534", fontWeight: 700 }}>+{fmt(p.amount)}</span>
-                          {p.note && <span style={{ color: "#64748b", fontSize: 11 }}>({p.note})</span>}
+                          {p.isMaff ? (
+                            <span style={{ color: "#7c3aed", fontWeight: 800 }}>🎁 Maaf: {fmt(p.amount)}</span>
+                          ) : (
+                            <span style={{ color: "#166534", fontWeight: 700 }}>+{fmt(p.amount)}</span>
+                          )}
+                          {(p.maffReason || p.note) && (
+                            <span style={{ color: p.isMaff ? "#6b21a8" : "#64748b", fontSize: 11 }}>
+                              ({p.maffReason ? `Reason: ${p.maffReason}` : p.note})
+                            </span>
+                          )}
                         </div>
                       ))}
                     </div>
@@ -734,9 +834,26 @@ export default function Udhar() {
                       <>
                         <button
                           className="ud-btn-pay"
-                          onClick={() => { setPayModal({ id: record._id, personName: record.personName, remaining }); setPayAmount(""); setPayNote(""); }}
+                          onClick={() => { setPayModal({ id: record._id, personName: record.personName, remaining, totalAmount: record.totalAmount, paidAmount: record.paidAmount }); setPayAmount(""); setPayNote(""); }}
                         >
                           💰 Record Payment
+                        </button>
+                        <button
+                          className="ud-btn-maff"
+                          onClick={() => {
+                            setMaffModal({
+                              id: record._id,
+                              personName: record.personName,
+                              remaining,
+                              totalAmount: record.totalAmount,
+                              paidAmount: record.paidAmount,
+                            });
+                            setMaffAmount(remaining.toString());
+                            setMaffReason("");
+                          }}
+                          title="Waive off (Maaf) remaining balance with mandatory reason"
+                        >
+                          🎁 Maaf (માફ)
                         </button>
                         <button
                           className="ud-btn-green"
@@ -787,6 +904,28 @@ export default function Udhar() {
                 <div style={{ fontSize: 13, color: "#991b1b", marginTop: 4 }}>
                   Remaining Udhar Balance: <strong>{fmt(payModal.remaining)}</strong>
                 </div>
+                <div style={{ marginTop: 8, paddingTop: 6, borderTop: "1px dashed #cbd5e1", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <span style={{ fontSize: 11, color: "#64748b" }}>Want to forgive / waive balance instead?</span>
+                  <button
+                    type="button"
+                    style={{ background: "none", border: "none", color: "#7c3aed", fontWeight: 700, cursor: "pointer", textDecoration: "underline", fontSize: 12 }}
+                    onClick={() => {
+                      const cur = { ...payModal };
+                      setPayModal(null);
+                      setMaffModal({
+                        id: cur.id,
+                        personName: cur.personName,
+                        remaining: cur.remaining,
+                        totalAmount: cur.totalAmount,
+                        paidAmount: cur.paidAmount,
+                      });
+                      setMaffAmount(cur.remaining.toString());
+                      setMaffReason("");
+                    }}
+                  >
+                    🎁 Switch to Maaf
+                  </button>
+                </div>
               </div>
               <form onSubmit={handlePay}>
                 <div className="ud-field" style={{ marginBottom: 14 }}>
@@ -829,6 +968,118 @@ export default function Udhar() {
                     {loading ? "Recording..." : "✓ Confirm Payment & Send WhatsApp"}
                   </button>
                   <button type="button" onClick={() => setPayModal(null)} className="ud-btn-outline">Cancel</button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* ── Maaf (Waive Off) Modal ── */}
+        {maffModal && (
+          <div className="ud-modal-overlay" onClick={() => setMaffModal(null)}>
+            <div className="ud-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 480 }}>
+              <div className="ud-modal-title" style={{ display: "flex", alignItems: "center", gap: 8, color: "#6d28d9" }}>
+                <span>🎁</span> Maaf Udhar Balance (ઉધાર માફી)
+              </div>
+              <p style={{ fontSize: 13, color: "#64748b", margin: "-6px 0 14px" }}>
+                Waive off customer remaining due balance with an audit-proof reason.
+              </p>
+
+              <div style={{ marginBottom: 14, background: "#faf5ff", padding: 14, borderRadius: 12, border: "1px solid #e9d5ff" }}>
+                <div style={{ fontSize: 16, fontWeight: 800, color: "#1e1b4b" }}>{maffModal.personName}</div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 8, fontSize: 12 }}>
+                  {maffModal.totalAmount !== undefined && (
+                    <div>Total Bill: <strong>{fmt(maffModal.totalAmount)}</strong></div>
+                  )}
+                  {maffModal.paidAmount !== undefined && (
+                    <div>Paid So Far: <strong style={{ color: "#166534" }}>{fmt(maffModal.paidAmount)}</strong></div>
+                  )}
+                </div>
+                <div style={{ fontSize: 14, color: "#991b1b", marginTop: 8, paddingTop: 8, borderTop: "1px dashed #d8b4fe" }}>
+                  Current Remaining Due: <strong style={{ fontSize: 16 }}>{fmt(maffModal.remaining)}</strong>
+                </div>
+              </div>
+
+              <form onSubmit={handleMaff}>
+                <div className="ud-field" style={{ marginBottom: 14 }}>
+                  <label style={{ color: "#4c1d95" }}>Amount to Maaf / Waive Off (₹) *</label>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <input
+                      type="number"
+                      min="1"
+                      max={maffModal.remaining}
+                      placeholder="Enter amount to waive"
+                      value={maffAmount}
+                      onChange={e => setMaffAmount(e.target.value)}
+                      className="ud-input"
+                      style={{ flex: 1, fontSize: 16, fontWeight: 700, borderColor: "#c084fc" }}
+                      autoFocus
+                      required
+                    />
+                    <button
+                      type="button"
+                      className="ud-btn-outline"
+                      style={{ fontSize: 12, padding: "8px 12px", background: "#f3e8ff", color: "#6b21a8", borderColor: "#d8b4fe", fontWeight: 700 }}
+                      onClick={() => setMaffAmount(maffModal.remaining.toString())}
+                    >
+                      Full Balance ({fmt(maffModal.remaining)})
+                    </button>
+                  </div>
+                </div>
+
+                <div className="ud-field" style={{ marginBottom: 16 }}>
+                  <label style={{ color: "#4c1d95" }}>Reason for Maaf (માફીનું કારણ) *</label>
+
+                  {/* Preset Quick Chips */}
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6, margin: "6px 0 10px" }}>
+                    {MAAF_REASONS.map(r => (
+                      <button
+                        key={r}
+                        type="button"
+                        onClick={() => setMaffReason(r)}
+                        className={`ud-chip ${maffReason === r ? "ud-chip-active" : ""}`}
+                      >
+                        {r}
+                      </button>
+                    ))}
+                  </div>
+
+                  <textarea
+                    rows={2}
+                    placeholder="Enter or select specific reason for forgiveness..."
+                    value={maffReason}
+                    onChange={e => setMaffReason(e.target.value)}
+                    className="ud-input"
+                    style={{ width: "100%", borderColor: "#c084fc", fontSize: 13, resize: "vertical" }}
+                    required
+                  />
+                </div>
+
+                <div style={{ fontSize: 12, background: "#f8fafc", padding: "10px 12px", borderRadius: 8, border: "1px solid #e2e8f0", color: "#475569", marginBottom: 16 }}>
+                  💡 <strong>What happens:</strong> Waiving <strong>₹{maffAmount || maffModal.remaining}</strong> will deduct from the customer's balance. If remaining becomes ₹0, this bill moves out of active pending debt into <strong>Cleared & Maaf</strong> tabs.
+                </div>
+
+                <div style={{ display: "flex", gap: 10 }}>
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="ud-btn-maff"
+                    style={{
+                      flex: 1,
+                      padding: "11px 16px",
+                      fontSize: 14,
+                      background: "linear-gradient(135deg, #7c3aed, #9333ea)",
+                      color: "#fff",
+                      border: "none",
+                      borderRadius: 8,
+                      fontWeight: 700,
+                      cursor: "pointer",
+                      boxShadow: "0 4px 6px -1px rgba(124, 58, 237, 0.3)",
+                    }}
+                  >
+                    {loading ? "Processing..." : "✓ Confirm Maaf & Send WhatsApp"}
+                  </button>
+                  <button type="button" onClick={() => setMaffModal(null)} className="ud-btn-outline">Cancel</button>
                 </div>
               </form>
             </div>
@@ -1310,6 +1561,56 @@ function UdharStyles() {
         transition: all 0.2s ease;
       }
       .ud-btn-pay:hover { opacity: 0.9; transform: translateY(-1px); }
+
+      .ud-btn-maff {
+        padding: 8px 12px;
+        background: linear-gradient(135deg, #7c3aed, #9333ea);
+        color: #fff;
+        border: none;
+        border-radius: 8px;
+        font-size: 13px;
+        font-weight: 700;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        box-shadow: 0 2px 4px rgba(124, 58, 237, 0.25);
+      }
+      .ud-btn-maff:hover { opacity: 0.92; transform: translateY(-1px); }
+
+      .ud-chip {
+        padding: 4px 10px;
+        border-radius: 99px;
+        font-size: 11px;
+        font-weight: 600;
+        background: #f3e8ff;
+        color: #6b21a8;
+        border: 1px solid #d8b4fe;
+        cursor: pointer;
+        transition: all 0.15s ease;
+      }
+      .ud-chip:hover {
+        background: #e9d5ff;
+      }
+      .ud-chip-active {
+        background: #7c3aed !important;
+        color: #ffffff !important;
+        border-color: #6d28d9 !important;
+      }
+
+      .ud-maff-banner {
+        background: #faf5ff;
+        border: 1px solid #e9d5ff;
+        border-radius: 8px;
+        padding: 6px 10px;
+        font-size: 12px;
+        color: #6b21a8;
+        margin-bottom: 8px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
       .ud-btn-del {
         padding: 8px 12px;
         background: #fef2f2;

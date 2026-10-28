@@ -55,6 +55,30 @@ export const recordPurchasePayment = createAsyncThunk("purchase/pay", async ({ i
   }
 });
 
+export const updatePurchasePayment = createAsyncThunk(
+  "purchase/updatePayment",
+  async ({ purchaseId, paymentId, ...payload }, { rejectWithValue }) => {
+    try {
+      const { data } = await api.put(`/purchase/${purchaseId}/payment/${paymentId}`, payload);
+      return data;
+    } catch (err) {
+      return rejectWithValue(err.response?.data?.message || err.message);
+    }
+  }
+);
+
+export const deletePurchasePayment = createAsyncThunk(
+  "purchase/deletePayment",
+  async ({ purchaseId, paymentId }, { rejectWithValue }) => {
+    try {
+      const { data } = await api.delete(`/purchase/${purchaseId}/payment/${paymentId}`);
+      return { purchaseId, paymentId, ...data };
+    } catch (err) {
+      return rejectWithValue(err.response?.data?.message || err.message);
+    }
+  }
+);
+
 export const fetchPurchaseSummary = createAsyncThunk("purchase/summary", async (params, { rejectWithValue }) => {
   try {
     const { data } = await api.get("/purchase/summary", { params });
@@ -200,6 +224,30 @@ const purchaseSlice = createSlice({
         state.currentPurchase = payload;
       })
       .addCase(recordPurchasePayment.rejected, rejected)
+
+      .addCase(updatePurchasePayment.pending, pending)
+      .addCase(updatePurchasePayment.fulfilled, (state, { payload }) => {
+        state.loading = false;
+        const purchase = payload?.purchase || payload;
+        if (purchase?._id) {
+          const idx = state.purchases.findIndex(p => p._id === purchase._id);
+          if (idx !== -1) state.purchases[idx] = purchase;
+          state.currentPurchase = purchase;
+        }
+      })
+      .addCase(updatePurchasePayment.rejected, rejected)
+
+      .addCase(deletePurchasePayment.pending, pending)
+      .addCase(deletePurchasePayment.fulfilled, (state, { payload }) => {
+        state.loading = false;
+        const purchase = payload?.purchase;
+        if (purchase?._id) {
+          const idx = state.purchases.findIndex(p => p._id === purchase._id);
+          if (idx !== -1) state.purchases[idx] = purchase;
+          state.currentPurchase = purchase;
+        }
+      })
+      .addCase(deletePurchasePayment.rejected, rejected)
 
       .addCase(fetchPurchaseSummary.pending, pending)
       .addCase(fetchPurchaseSummary.fulfilled, (state, { payload }) => {

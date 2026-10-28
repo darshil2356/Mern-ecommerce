@@ -11,6 +11,9 @@ import {
   fetchVendorLedger,
   clearVendorLedger,
   recordPurchasePayment,
+  updatePurchasePayment,
+  deletePurchasePayment,
+  deletePurchase,
   toggleVendorsVisible,
 } from "../features/purchase/purchaseSlice";
 import VendorStockAnalyticsModal from "../components/VendorStockAnalyticsModal";
@@ -225,6 +228,9 @@ export default function Vendors() {
   };
 
   const [ledgerPayForm, setLedgerPayForm] = useState(EMPTY_LEDGER_PAY_FORM);
+  const [editPaymentModal, setEditPaymentModal] = useState(null); // { purchaseId, paymentId, billNo, totalAmount, billDate }
+  const [editPaymentForm, setEditPaymentForm] = useState(EMPTY_LEDGER_PAY_FORM);
+  const [deleteLedgerEntryModal, setDeleteLedgerEntryModal] = useState(null); // { purchaseId, paymentId, type, billNo, amount, description }
   const [deleteConfirm, setDeleteConfirm] = useState(null);
 
   // WhatsApp Prompt State
@@ -341,6 +347,15 @@ export default function Vendors() {
     const paidAmt = parseFloat(ledgerPayForm.amount) || 0;
     const discVal = parseFloat(ledgerPayForm.discountValue) || 0;
     let discAmt = parseFloat(ledgerPayForm.discountAmount) || 0;
+
+    // Calculate effective discount amount based on discount type and value
+    if (!discAmt && discVal > 0) {
+      if (ledgerPayForm.discountType === "PERCENTAGE" && ledgerPayModal?.totalAmount) {
+        discAmt = (ledgerPayModal.totalAmount * discVal) / 100;
+      } else {
+        discAmt = discVal;
+      }
+    }
     const grAmt = parseFloat(ledgerPayForm.grAmount) || 0;
 
     if (paidAmt <= 0 && discAmt <= 0 && grAmt <= 0) {
@@ -367,7 +382,7 @@ export default function Vendors() {
       const vendor = vendorLedger?.vendor;
 
       const billNo = ledgerPayModal.billNo || payload?.billNo || "";
-      const effectiveDiscAmt = discAmt || (ledgerPayForm.discountType === "PERCENTAGE" && ledgerPayModal.totalAmount ? (ledgerPayModal.totalAmount * discVal) / 100 : (ledgerPayForm.discountType === "FLAT" ? discVal : 0));
+      const effectiveDiscAmt = discAmt;
       const totalSettlement = paidAmt + effectiveDiscAmt + grAmt;
       const remBillDue = Math.max(0, (ledgerPayModal.balanceDue !== undefined ? ledgerPayModal.balanceDue : ledgerPayModal.totalAmount || 0) - totalSettlement);
 
@@ -421,6 +436,108 @@ export default function Vendors() {
       load();
     } else {
       toast.error(res.payload || "Payment failed");
+    }
+  };
+
+  /* ── Open Edit Payment & Settlement Modal ── */
+  const openEditPayment = (entry) => {
+    const rawDiscType = entry.discountType && entry.discountType !== "NONE"
+      ? entry.discountType
+      : (entry.discountAmount ? "FLAT" : "NONE");
+    
+    setEditPaymentModal({
+      purchaseId: entry.purchaseId,
+      paymentId: entry.paymentId,
+      billNo: entry.billNo,
+      totalAmount: entry.billTotal,
+      billDate: entry.billDate,
+    });
+
+    setEditPaymentForm({
+      amount: entry.amount !== undefined && entry.amount !== null ? String(entry.amount) : "",
+      discountType: rawDiscType,
+      discountValue: entry.discountValue ? String(entry.discountValue) : (entry.discountAmount ? String(entry.discountAmount) : ""),
+      discountAmount: entry.discountAmount ? String(entry.discountAmount) : "",
+      grAmount: entry.grAmount ? String(entry.grAmount) : "",
+      grNote: entry.grNote || "",
+      mode: entry.paymentMode || "Cash",
+      referenceNo: entry.referenceNo || "",
+      note: entry.note || "",
+      date: entry.date ? new Date(entry.date).toISOString().split("T")[0] : new Date().toISOString().split("T")[0],
+    });
+  };
+
+  /* ── Submit Edit Payment & Settlement ── */
+  const handleUpdatePayment = async (e) => {
+    e.preventDefault();
+    const paidAmt = parseFloat(editPaymentForm.amount) || 0;
+    const discVal = parseFloat(editPaymentForm.discountValue) || 0;
+    let discAmt = parseFloat(editPaymentForm.discountAmount) || 0;
+
+    if (!discAmt && discVal > 0) {
+      if (editPaymentForm.discountType === "PERCENTAGE" && editPaymentModal?.totalAmount) {
+        discAmt = (editPaymentModal.totalAmount * discVal) / 100;
+      } else {
+        discAmt = discVal;
+      }
+    }
+    const grAmt = parseFloat(editPaymentForm.grAmount) || 0;
+
+    if (paidAmt <= 0 && discAmt <= 0 && grAmt <= 0) {
+      return toast.error("Please enter a valid paid, discount, or GR amount");
+    }
+
+    const res = await dispatch(updatePurchasePayment({
+      purchaseId: editPaymentModal.purchaseId,
+      paymentId: editPaymentModal.paymentId,
+      amount: paidAmt,
+      discountType: editPaymentForm.discountType,
+      discountValue: discVal,
+      discountAmount: discAmt,
+      grAmount: grAmt,
+      grNote: editPaymentForm.grNote,
+      mode: editPaymentForm.mode,
+      referenceNo: editPaymentForm.referenceNo,
+      note: editPaymentForm.note,
+      date: editPaymentForm.date,
+    }));
+
+    if (res.meta.requestStatus === "fulfilled") {
+      toast.success("Ledger entry updated successfully!");
+      setEditPaymentModal(null);
+      setEditPaymentForm(EMPTY_LEDGER_PAY_FORM);
+      dispatch(fetchVendorLedger({ id: ledgerModal, ...ledgerDates }));
+      load();
+    } else {
+      toast.error(res.payload || "Failed to update entry");
+    }
+  };
+
+  /* ── Confirm Delete Ledger Entry (Payment, Discount, GR, or Bill) ── */
+  const confirmDeleteLedgerEntry = async () => {
+    if (!deleteLedgerEntryModal) return;
+    const { purchaseId, paymentId, type } = deleteLedgerEntryModal;
+
+    if (type === "BILL") {
+      const res = await dispatch(deletePurchase(purchaseId));
+      if (res.meta.requestStatus === "fulfilled") {
+        toast.success("Purchase bill deleted!");
+        setDeleteLedgerEntryModal(null);
+        dispatch(fetchVendorLedger({ id: ledgerModal, ...ledgerDates }));
+        load();
+      } else {
+        toast.error(res.payload || "Failed to delete bill");
+      }
+    } else {
+      const res = await dispatch(deletePurchasePayment({ purchaseId, paymentId }));
+      if (res.meta.requestStatus === "fulfilled") {
+        toast.success("Payment / settlement entry deleted!");
+        setDeleteLedgerEntryModal(null);
+        dispatch(fetchVendorLedger({ id: ledgerModal, ...ledgerDates }));
+        load();
+      } else {
+        toast.error(res.payload || "Failed to delete entry");
+      }
     }
   };
 
@@ -828,14 +945,69 @@ export default function Vendors() {
 
       {/* Vendor Ledger Modal */}
       {ledgerModal && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 1001, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
-          <div style={{ background: "#fff", borderRadius: 16, width: "100%", maxWidth: 720, maxHeight: "90vh", overflow: "auto", boxShadow: "0 20px 60px rgba(0,0,0,0.3)" }}>
-            <div style={{ padding: "16px 24px", borderBottom: "1px solid #f3f4f6", position: "sticky", top: 0, background: "#fff", zIndex: 1 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
+        <div style={{
+          position: "fixed",
+          inset: 0,
+          background: "rgba(15, 23, 42, 0.65)",
+          backdropFilter: "blur(6px)",
+          zIndex: 1001,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          padding: 16,
+        }}>
+          <div style={{
+            background: "#ffffff",
+            borderRadius: 20,
+            width: "100%",
+            maxWidth: 1080,
+            maxHeight: "92vh",
+            display: "flex",
+            flexDirection: "column",
+            boxShadow: "0 25px 70px rgba(0,0,0,0.3), 0 0 0 1px rgba(0,0,0,0.06)",
+            overflow: "hidden",
+          }}>
+            {/* Modal Header */}
+            <div style={{
+              padding: "18px 24px",
+              borderBottom: "1px solid #f1f5f9",
+              background: "#ffffff",
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              gap: 16,
+              flexWrap: "wrap",
+            }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+                <div style={{
+                  width: 44,
+                  height: 44,
+                  borderRadius: 12,
+                  background: "linear-gradient(135deg, #4f46e5 0%, #3b82f6 100%)",
+                  color: "#fff",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: 22,
+                  boxShadow: "0 4px 12px rgba(79, 70, 229, 0.25)",
+                }}>
+                  📖
+                </div>
                 <div>
-                  <h3 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>{vendorLedger?.vendor?.name} — Ledger</h3>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <h3 style={{ margin: 0, fontSize: 19, fontWeight: 800, color: "#0f172a" }}>
+                      {vendorLedger?.vendor?.name || "Vendor"}
+                    </h3>
+                    <span style={{ fontSize: 11, background: "#f1f5f9", color: "#475569", padding: "2px 8px", borderRadius: 20, fontWeight: 700 }}>
+                      Account Ledger
+                    </span>
+                  </div>
                   <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 4, flexWrap: "wrap" }}>
-                    {vendorLedger?.vendor?.firmName && <span style={{ fontSize: 13, color: "#6b7280" }}>{vendorLedger.vendor.firmName}</span>}
+                    {vendorLedger?.vendor?.firmName && (
+                      <span style={{ fontSize: 13, color: "#64748b", fontWeight: 600 }}>
+                        🏢 {vendorLedger.vendor.firmName}
+                      </span>
+                    )}
                     {vendorLedger?.vendor?.phone && (
                       <span style={{ fontSize: 12, background: "#f0fdf4", color: "#166534", border: "1px solid #bbf7d0", padding: "2px 8px", borderRadius: 12, fontWeight: 600, display: "inline-flex", alignItems: "center", gap: 4 }}>
                         📞 {vendorLedger.vendor.phone}
@@ -843,218 +1015,482 @@ export default function Vendors() {
                     )}
                   </div>
                 </div>
-                <button onClick={closeLedger} style={{ background: "none", border: "none", fontSize: 22, cursor: "pointer", color: "#6b7280" }}>✕</button>
               </div>
-              <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center", justifyContent: "space-between" }}>
-                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-                  <input type="date" value={ledgerDates.startDate} onChange={e => setLedgerDates(d => ({ ...d, startDate: e.target.value }))}
-                    style={{ padding: "6px 10px", borderRadius: 7, border: "1px solid #d1d5db", fontSize: 13 }} />
-                  <span style={{ color: "#9ca3af", fontSize: 13 }}>to</span>
-                  <input type="date" value={ledgerDates.endDate} onChange={e => setLedgerDates(d => ({ ...d, endDate: e.target.value }))}
-                    style={{ padding: "6px 10px", borderRadius: 7, border: "1px solid #d1d5db", fontSize: 13 }} />
-                  <button onClick={applyLedgerDates} style={{ padding: "6px 14px", background: "#6366f1", color: "#fff", border: "none", borderRadius: 7, cursor: "pointer", fontSize: 13, fontWeight: 600 }}>Filter</button>
-                  {(ledgerDates.startDate || ledgerDates.endDate) && (
-                    <button onClick={() => { setLedgerDates({ startDate: "", endDate: "" }); dispatch(fetchVendorLedger({ id: ledgerModal })); }}
-                      style={{ padding: "6px 12px", background: "#fef2f2", color: "#dc2626", border: "1px solid #fecaca", borderRadius: 7, cursor: "pointer", fontSize: 13 }}>Clear</button>
-                  )}
-                </div>
 
-                {/* Sort Order Toggle Button */}
+              <button
+                onClick={closeLedger}
+                style={{
+                  background: "#f1f5f9",
+                  border: "none",
+                  width: 36,
+                  height: 36,
+                  borderRadius: "50%",
+                  fontSize: 18,
+                  cursor: "pointer",
+                  color: "#64748b",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  transition: "all 0.15s ease",
+                }}
+                title="Close Ledger"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Filter & Toolbar */}
+            <div style={{
+              padding: "10px 24px",
+              background: "#f8fafc",
+              borderBottom: "1px solid #e2e8f0",
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              flexWrap: "wrap",
+              gap: 12,
+            }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                <span style={{ fontSize: 12, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: 0.5 }}>
+                  Date Range:
+                </span>
+                <input
+                  type="date"
+                  value={ledgerDates.startDate}
+                  onChange={e => setLedgerDates(d => ({ ...d, startDate: e.target.value }))}
+                  style={{ padding: "6px 10px", borderRadius: 8, border: "1px solid #cbd5e1", fontSize: 13, background: "#fff" }}
+                />
+                <span style={{ color: "#94a3b8", fontSize: 12 }}>to</span>
+                <input
+                  type="date"
+                  value={ledgerDates.endDate}
+                  onChange={e => setLedgerDates(d => ({ ...d, endDate: e.target.value }))}
+                  style={{ padding: "6px 10px", borderRadius: 8, border: "1px solid #cbd5e1", fontSize: 13, background: "#fff" }}
+                />
                 <button
-                  type="button"
-                  onClick={() => setLedgerSortOrder(prev => (prev === "desc" ? "asc" : "desc"))}
+                  onClick={applyLedgerDates}
                   style={{
                     padding: "6px 14px",
-                    background: ledgerSortOrder === "desc" ? "#4f46e5" : "#f8fafc",
-                    color: ledgerSortOrder === "desc" ? "#fff" : "#1e293b",
-                    border: `1px solid ${ledgerSortOrder === "desc" ? "#4338ca" : "#cbd5e1"}`,
+                    background: "#4f46e5",
+                    color: "#fff",
+                    border: "none",
                     borderRadius: 8,
                     cursor: "pointer",
                     fontSize: 13,
                     fontWeight: 600,
-                    display: "inline-flex",
+                    boxShadow: "0 1px 3px rgba(79, 70, 229, 0.3)",
+                  }}
+                >
+                  Filter
+                </button>
+                {(ledgerDates.startDate || ledgerDates.endDate) && (
+                  <button
+                    onClick={() => { setLedgerDates({ startDate: "", endDate: "" }); dispatch(fetchVendorLedger({ id: ledgerModal })); }}
+                    style={{ padding: "6px 12px", background: "#fef2f2", color: "#dc2626", border: "1px solid #fecaca", borderRadius: 8, cursor: "pointer", fontSize: 13, fontWeight: 600 }}
+                  >
+                    Reset
+                  </button>
+                )}
+              </div>
+
+              {/* Sort Order Toggle */}
+              <button
+                type="button"
+                onClick={() => setLedgerSortOrder(prev => (prev === "desc" ? "asc" : "desc"))}
+                style={{
+                  padding: "6px 14px",
+                  background: ledgerSortOrder === "desc" ? "#4f46e5" : "#fff",
+                  color: ledgerSortOrder === "desc" ? "#fff" : "#1e293b",
+                  border: `1px solid ${ledgerSortOrder === "desc" ? "#4338ca" : "#cbd5e1"}`,
+                  borderRadius: 8,
+                  cursor: "pointer",
+                  fontSize: 12,
+                  fontWeight: 600,
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 6,
+                  boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
+                }}
+                title={ledgerSortOrder === "desc" ? "Showing last entry first. Click for oldest first." : "Showing oldest first. Click for newest first."}
+              >
+                <span>{ledgerSortOrder === "desc" ? "⬇️ Newest First" : "⬆️ Oldest First"}</span>
+              </button>
+            </div>
+
+            {/* Scrollable Modal Content */}
+            <div style={{ flex: 1, overflowY: "auto" }}>
+              {loading && !vendorLedger ? (
+                <div style={{ textAlign: "center", padding: 50, color: "#94a3b8" }}>Loading ledger...</div>
+              ) : vendorLedger ? (
+                <>
+                  {/* Financial Summary Cards */}
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 14, padding: "18px 24px 10px" }}>
+                    {[
+                      { label: "Total Purchases", value: fmt(vendorLedger.summary.totalPurchases), color: "#2563eb", bg: "#eff6ff", border: "#bfdbfe", icon: "📦" },
+                      { label: "Total Paid / Settled", value: fmt(vendorLedger.summary.totalPaid), color: "#16a34a", bg: "#f0fdf4", border: "#bbf7d0", icon: "✅" },
+                      {
+                        label: vendorLedger.summary.balanceDue > 0 ? "Remaining Due" : "Balance Due",
+                        value: fmt(vendorLedger.summary.balanceDue),
+                        color: vendorLedger.summary.balanceDue > 0 ? "#dc2626" : "#16a34a",
+                        bg: vendorLedger.summary.balanceDue > 0 ? "#fef2f2" : "#f0fdf4",
+                        border: vendorLedger.summary.balanceDue > 0 ? "#fecaca" : "#bbf7d0",
+                        icon: vendorLedger.summary.balanceDue > 0 ? "⏳" : "🎉",
+                      },
+                    ].map(s => (
+                      <div key={s.label} style={{
+                        padding: "14px 18px",
+                        background: s.bg,
+                        borderRadius: 14,
+                        border: `1px solid ${s.border}`,
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 14,
+                      }}>
+                        <div style={{ fontSize: 26 }}>{s.icon}</div>
+                        <div>
+                          <div style={{ fontSize: 12, color: "#64748b", fontWeight: 600 }}>{s.label}</div>
+                          <div style={{ fontSize: 20, fontWeight: 800, color: s.color, marginTop: 2 }}>{s.value}</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Ledger Table Container */}
+                  <div style={{ padding: "10px 24px 20px" }}>
+                    {vendorLedger.entries.length === 0 ? (
+                      <div style={{ textAlign: "center", padding: 50, color: "#9ca3af", background: "#f8fafc", borderRadius: 12, border: "1px dashed #cbd5e1" }}>
+                        <div style={{ fontSize: 36, marginBottom: 8 }}>📋</div>
+                        <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: "#64748b" }}>No ledger transactions recorded yet</p>
+                      </div>
+                    ) : (
+                      <>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                          <span style={{ fontSize: 12, color: "#64748b", fontWeight: 600 }}>
+                            {vendorLedger.entries.length} Transaction Records
+                          </span>
+                        </div>
+
+                        <div style={{
+                          overflowX: "auto",
+                          border: "1px solid #e2e8f0",
+                          borderRadius: 14,
+                          background: "#fff",
+                          boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
+                        }}>
+                          <table style={{ width: "100%", minWidth: 880, borderCollapse: "collapse" }}>
+                            <thead>
+                              <tr style={{ background: "#f8fafc", borderBottom: "1px solid #e2e8f0" }}>
+                                <th
+                                  onClick={() => setLedgerSortOrder(prev => (prev === "desc" ? "asc" : "desc"))}
+                                  style={{ padding: "12px 14px", textAlign: "left", fontSize: 12, color: "#4f46e5", fontWeight: 700, cursor: "pointer", userSelect: "none", width: 110 }}
+                                  title="Click to toggle sort order"
+                                >
+                                  Date {ledgerSortOrder === "desc" ? "▼" : "▲"}
+                                </th>
+                                <th style={{ padding: "12px 14px", textAlign: "left", fontSize: 12, color: "#475569", fontWeight: 700 }}>
+                                  Particulars / Details
+                                </th>
+                                <th style={{ padding: "12px 14px", textAlign: "right", fontSize: 12, color: "#dc2626", fontWeight: 700, width: 130 }}>
+                                  Debit (Due)
+                                </th>
+                                <th style={{ padding: "12px 14px", textAlign: "right", fontSize: 12, color: "#16a34a", fontWeight: 700, width: 130 }}>
+                                  Credit (Paid)
+                                </th>
+                                <th style={{ padding: "12px 14px", textAlign: "right", fontSize: 12, color: "#1e293b", fontWeight: 700, width: 130 }}>
+                                  Net Balance
+                                </th>
+                                <th style={{ padding: "12px 14px", textAlign: "center", fontSize: 12, color: "#475569", fontWeight: 700, width: 170 }}>
+                                  Actions
+                                </th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {displayedLedgerEntries.map((e, i) => {
+                                const typeTag = {
+                                  BILL:     { label: "Purchase Bill", bg: "#eff6ff", text: "#1d4ed8", border: "#bfdbfe", icon: "📄" },
+                                  PAYMENT:  { label: `Paid (${e.paymentMode || "Cash"})`, bg: "#f0fdf4", text: "#15803d", border: "#bbf7d0", icon: "💵" },
+                                  DISCOUNT: { label: "Discount / Kasar", bg: "#fffbeb", text: "#b45309", border: "#fde68a", icon: "🏷️" },
+                                  GR:       { label: "Goods Return (GR)", bg: "#ecfdf5", text: "#047857", border: "#a7f3d0", icon: "📦" },
+                                  OPENING:  { label: "Opening Balance", bg: "#fefce8", text: "#854d0e", border: "#fef08a", icon: "⭐" },
+                                }[e.type] || { label: e.type, bg: "#f1f5f9", text: "#475569", border: "#cbd5e1", icon: "•" };
+
+                                const rowBg = i % 2 === 0 ? "#ffffff" : "#fbfcfe";
+
+                                return (
+                                  <tr
+                                    key={i}
+                                    style={{
+                                      borderBottom: "1px solid #f1f5f9",
+                                      background: rowBg,
+                                      transition: "background 0.12s ease",
+                                    }}
+                                  >
+                                    {/* Date */}
+                                    <td style={{ padding: "12px 14px", fontSize: 13, color: "#475569", whiteSpace: "nowrap", fontWeight: 500 }}>
+                                      {fmtDate(e.date)}
+                                    </td>
+
+                                    {/* Particulars */}
+                                    <td style={{ padding: "12px 14px" }}>
+                                      <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 3 }}>
+                                        <span style={{
+                                          background: typeTag.bg,
+                                          color: typeTag.text,
+                                          border: `1px solid ${typeTag.border}`,
+                                          padding: "2px 7px",
+                                          borderRadius: 6,
+                                          fontSize: 11,
+                                          fontWeight: 700,
+                                          display: "inline-flex",
+                                          alignItems: "center",
+                                          gap: 4,
+                                          whiteSpace: "nowrap",
+                                        }}>
+                                          {typeTag.icon} {typeTag.label}
+                                        </span>
+                                        {e.billNo && (
+                                          <span style={{ fontSize: 11, color: "#64748b", fontWeight: 700, background: "#f8fafc", padding: "1px 6px", borderRadius: 4, border: "1px solid #e2e8f0" }}>
+                                            Bill #{e.billNo}
+                                          </span>
+                                        )}
+                                      </div>
+                                      <div style={{ fontSize: 13, color: "#1e293b", fontWeight: 600 }}>
+                                        {e.description}
+                                      </div>
+                                    </td>
+
+                                    {/* Debit */}
+                                    <td style={{ padding: "12px 14px", textAlign: "right", fontSize: 13, color: "#dc2626", fontWeight: e.debit ? 700 : 400 }}>
+                                      {e.debit ? fmt(e.debit) : "-"}
+                                    </td>
+
+                                    {/* Credit */}
+                                    <td style={{ padding: "12px 14px", textAlign: "right", fontSize: 13, color: "#16a34a", fontWeight: e.credit ? 700 : 400 }}>
+                                      {e.credit ? fmt(e.credit) : "-"}
+                                    </td>
+
+                                    {/* Balance */}
+                                    <td style={{ padding: "12px 14px", textAlign: "right", fontSize: 13, fontWeight: 800, color: e.balance > 0 ? "#dc2626" : "#16a34a" }}>
+                                      {fmt(e.balance)}
+                                    </td>
+
+                                    {/* Action */}
+                                    <td style={{ padding: "10px 14px", textAlign: "center" }}>
+                                      <div style={{ display: "inline-flex", gap: 6, alignItems: "center", justifyContent: "center", flexWrap: "nowrap" }}>
+                                        {e.type === "BILL" && (
+                                          <>
+                                            {e.status !== "PAID" && (
+                                              <button
+                                                type="button"
+                                                onClick={() => {
+                                                  setLedgerPayModal({
+                                                    purchaseId: e.purchaseId,
+                                                    billNo: e.billNo,
+                                                    totalAmount: e.debit,
+                                                    balanceDue: e.balanceDue !== undefined ? e.balanceDue : e.balance,
+                                                    billDate: e.date,
+                                                  });
+                                                  setLedgerPayForm(EMPTY_LEDGER_PAY_FORM);
+                                                }}
+                                                style={{
+                                                  padding: "5px 10px",
+                                                  background: "#f0fdf4",
+                                                  color: "#15803d",
+                                                  border: "1px solid #bbf7d0",
+                                                  borderRadius: 7,
+                                                  cursor: "pointer",
+                                                  fontSize: 12,
+                                                  fontWeight: 700,
+                                                  whiteSpace: "nowrap",
+                                                }}
+                                                title="Pay towards this bill"
+                                              >
+                                                💵 Pay
+                                              </button>
+                                            )}
+                                            <button
+                                              type="button"
+                                              onClick={() => {
+                                                closeLedger();
+                                                navigate(`/admin/add-purchase?edit=${e.purchaseId}`);
+                                              }}
+                                              style={{
+                                                padding: "5px 9px",
+                                                background: "#f8fafc",
+                                                color: "#475569",
+                                                border: "1px solid #cbd5e1",
+                                                borderRadius: 7,
+                                                cursor: "pointer",
+                                                fontSize: 12,
+                                                fontWeight: 600,
+                                                whiteSpace: "nowrap",
+                                              }}
+                                              title="Edit Purchase Bill"
+                                            >
+                                              ✏️ Edit
+                                            </button>
+                                            <button
+                                              type="button"
+                                              onClick={() => setDeleteLedgerEntryModal({
+                                                purchaseId: e.purchaseId,
+                                                type: "BILL",
+                                                billNo: e.billNo,
+                                                amount: e.debit,
+                                                description: e.description,
+                                              })}
+                                              style={{
+                                                padding: "5px 8px",
+                                                background: "#fef2f2",
+                                                color: "#dc2626",
+                                                border: "1px solid #fecaca",
+                                                borderRadius: 7,
+                                                cursor: "pointer",
+                                                fontSize: 12,
+                                                fontWeight: 600,
+                                                whiteSpace: "nowrap",
+                                              }}
+                                              title="Delete Purchase Bill"
+                                            >
+                                              🗑️
+                                            </button>
+                                          </>
+                                        )}
+
+                                        {(e.type === "PAYMENT" || e.type === "DISCOUNT" || e.type === "GR") && (
+                                          <>
+                                            {e.paymentId && (
+                                              <button
+                                                type="button"
+                                                onClick={() => openEditPayment(e)}
+                                                style={{
+                                                  padding: "5px 9px",
+                                                  background: "#eff6ff",
+                                                  color: "#1d4ed8",
+                                                  border: "1px solid #bfdbfe",
+                                                  borderRadius: 7,
+                                                  cursor: "pointer",
+                                                  fontSize: 12,
+                                                  fontWeight: 600,
+                                                  whiteSpace: "nowrap",
+                                                }}
+                                                title="Edit this payment / discount entry"
+                                              >
+                                                ✏️ Edit
+                                              </button>
+                                            )}
+                                            {e.paymentId && (
+                                              <button
+                                                type="button"
+                                                onClick={() => setDeleteLedgerEntryModal({
+                                                  purchaseId: e.purchaseId,
+                                                  paymentId: e.paymentId,
+                                                  type: e.type,
+                                                  billNo: e.billNo,
+                                                  amount: e.credit || e.amount || e.discountAmount || e.grAmount,
+                                                  description: e.description,
+                                                })}
+                                                style={{
+                                                  padding: "5px 8px",
+                                                  background: "#fef2f2",
+                                                  color: "#dc2626",
+                                                  border: "1px solid #fecaca",
+                                                  borderRadius: 7,
+                                                  cursor: "pointer",
+                                                  fontSize: 12,
+                                                  fontWeight: 600,
+                                                  whiteSpace: "nowrap",
+                                                }}
+                                                title="Delete this payment / discount entry"
+                                              >
+                                                🗑️
+                                              </button>
+                                            )}
+                                            <button
+                                              type="button"
+                                              onClick={() => handleSendPaymentWhatsapp(e)}
+                                              title="Share receipt / details via WhatsApp"
+                                              style={{
+                                                padding: "5px 9px",
+                                                background: "#25D366",
+                                                color: "#fff",
+                                                border: "none",
+                                                borderRadius: 7,
+                                                cursor: "pointer",
+                                                fontSize: 12,
+                                                fontWeight: 700,
+                                                display: "inline-flex",
+                                                alignItems: "center",
+                                                gap: 3,
+                                                whiteSpace: "nowrap",
+                                              }}
+                                            >
+                                              💬
+                                            </button>
+                                          </>
+                                        )}
+
+                                        {e.type === "OPENING" && (
+                                          <span style={{ fontSize: 12, color: "#9ca3af" }}>—</span>
+                                        )}
+                                      </div>
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </>
+              ) : null}
+            </div>
+
+            {/* Pinned Modal Footer */}
+            {vendorLedger && (
+              <div style={{
+                padding: "16px 24px",
+                borderTop: "1px solid #e2e8f0",
+                background: "#f8fafc",
+                display: "flex",
+                gap: 12,
+                justifyContent: "space-between",
+                alignItems: "center",
+                flexWrap: "wrap",
+              }}>
+                <button
+                  onClick={handleSendStatementWhatsapp}
+                  style={{
+                    padding: "10px 18px",
+                    background: "#25D366",
+                    color: "#fff",
+                    border: "none",
+                    borderRadius: 9,
+                    cursor: "pointer",
+                    fontWeight: 700,
+                    fontSize: 13,
+                    display: "flex",
                     alignItems: "center",
                     gap: 6,
-                    boxShadow: ledgerSortOrder === "desc" ? "0 2px 5px rgba(79, 70, 229, 0.25)" : "0 1px 2px rgba(0,0,0,0.05)",
-                    transition: "all 0.15s ease",
+                    boxShadow: "0 2px 6px rgba(37,211,102,0.25)",
                   }}
-                  title={ledgerSortOrder === "desc" ? "Currently showing last entry first (Newest). Click to show last entry last (Oldest)." : "Currently showing oldest first. Click to show last entry first (Newest)."}
                 >
-                  <span>{ledgerSortOrder === "desc" ? "⬇️ Last Entry First" : "⬆️ Last Entry Last"}</span>
-                  <span style={{ fontSize: 11, background: ledgerSortOrder === "desc" ? "rgba(255,255,255,0.25)" : "#e2e8f0", color: ledgerSortOrder === "desc" ? "#fff" : "#475569", padding: "1px 6px", borderRadius: 10 }}>
-                    {ledgerSortOrder === "desc" ? "Default" : "Oldest"}
-                  </span>
+                  💬 Send Statement via WhatsApp
                 </button>
-              </div>
-            </div>
-            {loading && !vendorLedger ? (
-              <div style={{ textAlign: "center", padding: 40, color: "#9ca3af" }}>Loading ledger...</div>
-            ) : vendorLedger ? (
-              <>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, padding: "16px 24px", background: "#f9fafb" }}>
-                  {[
-                    { label: "Total Purchases", value: fmt(vendorLedger.summary.totalPurchases), color: "#3b82f6" },
-                    { label: "Total Paid", value: fmt(vendorLedger.summary.totalPaid), color: "#22c55e" },
-                    { label: "Balance Due", value: fmt(vendorLedger.summary.balanceDue), color: vendorLedger.summary.balanceDue > 0 ? "#ef4444" : "#22c55e" },
-                  ].map(s => (
-                    <div key={s.label} style={{ textAlign: "center", padding: "12px 8px", background: "#fff", borderRadius: 10, boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
-                      <div style={{ fontSize: 18, fontWeight: 700, color: s.color }}>{s.value}</div>
-                      <div style={{ fontSize: 12, color: "#6b7280" }}>{s.label}</div>
-                    </div>
-                  ))}
-                </div>
-                <div style={{ padding: "0 24px 24px" }}>
-                  {vendorLedger.entries.length === 0 ? (
-                    <div style={{ textAlign: "center", padding: 40, color: "#9ca3af" }}>No transactions yet</div>
-                  ) : (
-                    <>
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 14, marginBottom: 8, flexWrap: "wrap", gap: 8 }}>
-                        <span style={{ fontSize: 12, color: "#64748b", fontWeight: 600 }}>
-                          Showing {vendorLedger.entries.length} entries · Order: <strong style={{ color: ledgerSortOrder === "desc" ? "#4f46e5" : "#0f172a" }}>{ledgerSortOrder === "desc" ? "Last Entry First (Newest to Oldest)" : "Last Entry Last (Oldest to Newest)"}</strong>
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => setLedgerSortOrder(prev => (prev === "desc" ? "asc" : "desc"))}
-                          style={{
-                            background: "none",
-                            border: "none",
-                            color: "#4f46e5",
-                            fontSize: 12,
-                            fontWeight: 600,
-                            cursor: "pointer",
-                            textDecoration: "underline",
-                            padding: 0,
-                          }}
-                        >
-                          Switch to {ledgerSortOrder === "desc" ? "Last Entry Last (Oldest First) ⬆️" : "Last Entry First (Newest First) ⬇️"}
-                        </button>
-                      </div>
-                      <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 4 }}>
-                        <thead>
-                          <tr style={{ background: "#f9fafb" }}>
-                            <th
-                              onClick={() => setLedgerSortOrder(prev => (prev === "desc" ? "asc" : "desc"))}
-                              style={{ padding: "10px 12px", textAlign: "left", fontSize: 12, color: "#4f46e5", fontWeight: 700, cursor: "pointer", userSelect: "none" }}
-                              title="Click to toggle sort order"
-                            >
-                              Date {ledgerSortOrder === "desc" ? "▼ (Newest)" : "▲ (Oldest)"}
-                            </th>
-                            <th style={{ padding: "10px 12px", textAlign: "left", fontSize: 12, color: "#6b7280", fontWeight: 600 }}>Particulars</th>
-                            <th style={{ padding: "10px 12px", textAlign: "right", fontSize: 12, color: "#ef4444", fontWeight: 600 }}>Debit (Due)</th>
-                            <th style={{ padding: "10px 12px", textAlign: "right", fontSize: 12, color: "#22c55e", fontWeight: 600 }}>Credit (Paid)</th>
-                            <th style={{ padding: "10px 12px", textAlign: "right", fontSize: 12, color: "#6b7280", fontWeight: 600 }}>Balance</th>
-                            <th style={{ width: 105, textAlign: "center", fontSize: 12, color: "#6b7280", fontWeight: 600 }}>Action</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {displayedLedgerEntries.map((e, i) => {
-                          const bg = e.type === "PAYMENT" ? "#f0fdf4" : e.type === "DISCOUNT" ? "#fffbeb" : e.type === "GR" ? "#ecfdf5" : e.type === "OPENING" ? "#fefce8" : "#fff";
-                          return (
-                            <tr key={i} style={{ borderBottom: "1px solid #f3f4f6", background: bg }}>
-                              <td style={{ padding: "10px 12px", fontSize: 13, color: "#374151" }}>{fmtDate(e.date)}</td>
-                              <td style={{ padding: "10px 12px", fontSize: 13, color: "#374151" }}>
-                                {e.type === "DISCOUNT" ? "🏷️ " : e.type === "GR" ? "📦 " : e.type === "PAYMENT" ? "💵 " : ""}
-                                <strong>{e.description}</strong>
-                                {e.billNo && <span style={{ fontSize: 11, color: "#6b7280", marginLeft: 6 }}>Bill #{e.billNo}</span>}
-                              </td>
-                              <td style={{ padding: "10px 12px", textAlign: "right", fontSize: 13, color: "#ef4444", fontWeight: e.debit ? 600 : 400 }}>{e.debit ? fmt(e.debit) : "-"}</td>
-                              <td style={{ padding: "10px 12px", textAlign: "right", fontSize: 13, color: e.type === "DISCOUNT" ? "#b45309" : e.type === "GR" ? "#166534" : "#22c55e", fontWeight: e.credit ? 600 : 400 }}>
-                                {e.credit ? fmt(e.credit) : "-"}
-                              </td>
-                              <td style={{ padding: "10px 12px", textAlign: "right", fontSize: 13, fontWeight: 700, color: e.balance > 0 ? "#ef4444" : "#22c55e" }}>{fmt(e.balance)}</td>
-                              <td style={{ padding: "10px 8px", textAlign: "center" }}>
-                                {e.type === "BILL" && e.status !== "PAID" && (
-                                  <button
-                                    onClick={() => {
-                                      setLedgerPayModal({
-                                        purchaseId: e.purchaseId,
-                                        billNo: e.billNo,
-                                        totalAmount: e.debit,
-                                        balanceDue: e.balanceDue !== undefined ? e.balanceDue : e.balance,
-                                        billDate: e.date,
-                                      });
-                                      setLedgerPayForm(EMPTY_LEDGER_PAY_FORM);
-                                    }}
-                                    style={{ padding: "4px 10px", background: "#f0fdf4", color: "#15803d", border: "1px solid #bbf7d0", borderRadius: 6, cursor: "pointer", fontSize: 11, fontWeight: 700 }}
-                                  >Pay</button>
-                                )}
-                                {e.type === "PAYMENT" && (
-                                  <button
-                                    onClick={() => handleSendPaymentWhatsapp(e)}
-                                    title="Send WhatsApp payment receipt to vendor"
-                                    style={{
-                                      padding: "4px 8px",
-                                      background: "#25D366",
-                                      color: "#fff",
-                                      border: "none",
-                                      borderRadius: 6,
-                                      cursor: "pointer",
-                                      fontSize: 11,
-                                      fontWeight: 700,
-                                      display: "inline-flex",
-                                      alignItems: "center",
-                                      gap: 3,
-                                      boxShadow: "0 1px 2px rgba(0,0,0,0.1)",
-                                    }}
-                                  >
-                                    💬 WhatsApp
-                                  </button>
-                                )}
-                                {(e.type === "DISCOUNT" || e.type === "GR") && (
-                                  <button
-                                    onClick={() => handleSendPaymentWhatsapp(e)}
-                                    title="Share details on WhatsApp"
-                                    style={{
-                                      padding: "3px 6px",
-                                      background: "#f0fdf4",
-                                      color: "#166534",
-                                      border: "1px solid #86efac",
-                                      borderRadius: 5,
-                                      cursor: "pointer",
-                                      fontSize: 10,
-                                      fontWeight: 600,
-                                      display: "inline-flex",
-                                      alignItems: "center",
-                                      gap: 2,
-                                    }}
-                                  >
-                                    💬 Share
-                                  </button>
-                                )}
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                    </>
-                  )}
-                </div>
-                <div style={{ padding: "16px 24px", borderTop: "1px solid #f3f4f6", display: "flex", gap: 12, justifyContent: "flex-end", flexWrap: "wrap" }}>
-                  <button
-                    onClick={handleSendStatementWhatsapp}
-                    style={{
-                      padding: "10px 18px",
-                      background: "#25D366",
-                      color: "#fff",
-                      border: "none",
-                      borderRadius: 8,
-                      cursor: "pointer",
-                      fontWeight: 700,
-                      fontSize: 13,
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 6,
-                      boxShadow: "0 2px 4px rgba(37,211,102,0.2)",
-                    }}
-                  >
-                    💬 Send Statement via WhatsApp
+                <div style={{ display: "flex", gap: 10 }}>
+                  <button onClick={() => window.print()} style={{ padding: "10px 18px", background: "#fff", border: "1px solid #cbd5e1", borderRadius: 9, cursor: "pointer", fontWeight: 600, fontSize: 13, color: "#334155" }}>
+                    🖨️ Print Ledger
                   </button>
-                  <button onClick={() => { closeLedger(); navigate(`/admin/add-purchase?vendor=${ledgerModal}`); }} style={{ padding: "10px 20px", background: "#6366f1", color: "#fff", border: "none", borderRadius: 8, cursor: "pointer", fontWeight: 600, fontSize: 14 }}>+ Add Bill</button>
-                  <button onClick={() => window.print()} style={{ padding: "10px 20px", background: "#f3f4f6", border: "1px solid #d1d5db", borderRadius: 8, cursor: "pointer", fontWeight: 600, fontSize: 14 }}>Print Ledger</button>
+                  <button onClick={() => { closeLedger(); navigate(`/admin/add-purchase?vendor=${ledgerModal}`); }} style={{ padding: "10px 20px", background: "#4f46e5", color: "#fff", border: "none", borderRadius: 9, cursor: "pointer", fontWeight: 700, fontSize: 13, boxShadow: "0 2px 6px rgba(79, 70, 229, 0.25)" }}>
+                    + Add Bill
+                  </button>
+                  <button onClick={closeLedger} style={{ padding: "10px 18px", background: "#e2e8f0", border: "none", borderRadius: 9, cursor: "pointer", fontWeight: 600, fontSize: 13, color: "#1e293b" }}>
+                    Close
+                  </button>
                 </div>
-              </>
-            ) : null}
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -1144,7 +1580,19 @@ export default function Vendors() {
                       <button
                         key={opt.value}
                         type="button"
-                        onClick={() => setLedgerPayForm(f => ({ ...f, discountType: opt.value, discountValue: "", discountAmount: "" }))}
+                        onClick={() => {
+                          setLedgerPayForm(f => {
+                            let calc = parseFloat(f.discountValue) || 0;
+                            if (opt.value === "PERCENTAGE" && ledgerPayModal?.totalAmount) {
+                              calc = (ledgerPayModal.totalAmount * calc) / 100;
+                            }
+                            return {
+                              ...f,
+                              discountType: opt.value,
+                              discountAmount: opt.value === "NONE" ? "" : (calc > 0 ? calc : ""),
+                            };
+                          });
+                        }}
                         style={{
                           flex: 1, padding: "5px 4px", borderRadius: 6, cursor: "pointer", fontWeight: 600, fontSize: 11,
                           border: ledgerPayForm.discountType === opt.value ? "2px solid #d97706" : "1px solid #fcd34d",
@@ -1162,11 +1610,24 @@ export default function Vendors() {
                       <input
                         type="number"
                         value={ledgerPayForm.discountValue}
-                        onChange={e => setLedgerPayForm(f => ({ ...f, discountValue: e.target.value }))}
+                        onChange={e => {
+                          const val = e.target.value;
+                          const num = parseFloat(val) || 0;
+                          let calc = num;
+                          if (ledgerPayForm.discountType === "PERCENTAGE" && ledgerPayModal?.totalAmount) {
+                            calc = (ledgerPayModal.totalAmount * num) / 100;
+                          }
+                          setLedgerPayForm(f => ({ ...f, discountValue: val, discountAmount: calc > 0 ? calc : "" }));
+                        }}
                         placeholder={ledgerPayForm.discountType === "PERCENTAGE" ? "e.g. 5 (%)" : "e.g. 5000 (₹)"}
                         min={0}
                         style={{ width: "100%", padding: "7px 10px", borderRadius: 6, border: "1px solid #fcd34d", fontSize: 14, fontWeight: 700, boxSizing: "border-box", background: "#fff" }}
                       />
+                      {ledgerPayForm.discountType === "PERCENTAGE" && discVal > 0 && (
+                        <div style={{ fontSize: 12, color: "#b45309", marginTop: 4, fontWeight: 600 }}>
+                          = {fmt(calcDiscAmt)} discount deduction
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -1222,6 +1683,251 @@ export default function Vendors() {
           </div>
         );
       })()}
+
+      {/* Edit Ledger Payment / Settlement Modal */}
+      {editPaymentModal && (() => {
+        const discVal = parseFloat(editPaymentForm.discountValue) || 0;
+        const calcDiscAmt = editPaymentForm.discountType === "PERCENTAGE" && editPaymentModal.totalAmount
+          ? (editPaymentModal.totalAmount * discVal) / 100
+          : (editPaymentForm.discountType === "FLAT" ? discVal : 0);
+        const effectiveDiscAmt = parseFloat(editPaymentForm.discountAmount) || calcDiscAmt;
+        const grAmt = parseFloat(editPaymentForm.grAmount) || 0;
+        const paidAmt = parseFloat(editPaymentForm.amount) || 0;
+        const totalSettlement = paidAmt + effectiveDiscAmt + grAmt;
+
+        return (
+          <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 1003, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+            <div style={{ background: "#fff", borderRadius: 16, padding: 24, maxWidth: 480, width: "100%", maxHeight: "90vh", overflow: "auto", boxShadow: "0 20px 60px rgba(0,0,0,0.3)" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 14 }}>
+                <div>
+                  <h3 style={{ margin: "0 0 4px", fontSize: 18, fontWeight: 700, color: "#1e293b" }}>✏️ Edit Payment & Settlement</h3>
+                  <p style={{ margin: 0, fontSize: 13, color: "#6b7280" }}>
+                    Bill #{editPaymentModal.billNo || "-"} · {vendorLedger?.vendor?.name}
+                  </p>
+                </div>
+                <button onClick={() => setEditPaymentModal(null)} style={{ background: "none", border: "none", fontSize: 22, cursor: "pointer", color: "#6b7280" }}>✕</button>
+              </div>
+
+              <form onSubmit={handleUpdatePayment} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                {/* 1. Cash / Online Paid */}
+                <div style={{ background: "#f9fafb", borderRadius: 10, padding: 12, border: "1px solid #e5e7eb" }}>
+                  <label style={{ display: "block", fontSize: 13, fontWeight: 700, marginBottom: 4, color: "#111" }}>💵 Money Paid (Cash / Bank)</label>
+                  <input
+                    type="number"
+                    value={editPaymentForm.amount}
+                    onChange={e => setEditPaymentForm(f => ({ ...f, amount: e.target.value }))}
+                    placeholder="0"
+                    min={0}
+                    style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "1px solid #d1d5db", fontSize: 15, fontWeight: 700, boxSizing: "border-box" }}
+                  />
+
+                  <div style={{ marginTop: 8 }}>
+                    <label style={{ display: "block", fontSize: 12, fontWeight: 600, marginBottom: 4, color: "#6b7280" }}>Payment Mode</label>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 6 }}>
+                      {[
+                        { value: "Cash",           icon: "💵", label: "Cash" },
+                        { value: "Online-Current", icon: "🏦", label: "Current" },
+                        { value: "Online-Saving",  icon: "📱", label: "Saving" },
+                        { value: "Cheque",         icon: "🧾", label: "Cheque" },
+                      ].map(({ value, icon, label }) => (
+                        <button
+                          key={value}
+                          type="button"
+                          onClick={() => setEditPaymentForm(f => ({ ...f, mode: value }))}
+                          style={{
+                            padding: "6px 4px", borderRadius: 6, cursor: "pointer", fontWeight: 600, fontSize: 11,
+                            border: editPaymentForm.mode === value ? "2px solid #6366f1" : "2px solid #e5e7eb",
+                            background: editPaymentForm.mode === value ? "#f8f9ff" : "#fff",
+                            color: editPaymentForm.mode === value ? "#6366f1" : "#374151",
+                          }}
+                        >
+                          {icon}<br />{label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {(editPaymentForm.mode === "Online-Current" || editPaymentForm.mode === "Online-Saving" || editPaymentForm.mode === "Cheque") && (
+                    <div style={{ marginTop: 8 }}>
+                      <input
+                        value={editPaymentForm.referenceNo}
+                        onChange={e => setEditPaymentForm(f => ({ ...f, referenceNo: e.target.value }))}
+                        placeholder={editPaymentForm.mode === "Cheque" ? "Cheque Number" : "UTR / Transaction ID"}
+                        style={{ width: "100%", padding: "6px 10px", borderRadius: 6, border: "1px solid #d1d5db", fontSize: 13, boxSizing: "border-box" }}
+                      />
+                    </div>
+                  )}
+                </div>
+
+                {/* 2. Vendor Discount (Kasur) */}
+                <div style={{ background: "#fffbeb", borderRadius: 10, padding: 12, border: "1px solid #fde68a" }}>
+                  <label style={{ display: "block", fontSize: 13, fontWeight: 700, marginBottom: 4, color: "#92400e" }}>🏷️ Vendor Discount (Kasur Cut)</label>
+                  <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
+                    {[
+                      { value: "NONE", label: "No Disc" },
+                      { value: "PERCENTAGE", label: "% Percentage" },
+                      { value: "FLAT", label: "₹ Flat Disc" },
+                    ].map(opt => (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        onClick={() => {
+                          setEditPaymentForm(f => {
+                            let calc = parseFloat(f.discountValue) || 0;
+                            if (opt.value === "PERCENTAGE" && editPaymentModal?.totalAmount) {
+                              calc = (editPaymentModal.totalAmount * calc) / 100;
+                            }
+                            return {
+                              ...f,
+                              discountType: opt.value,
+                              discountAmount: opt.value === "NONE" ? "" : (calc > 0 ? calc : ""),
+                            };
+                          });
+                        }}
+                        style={{
+                          flex: 1, padding: "5px 4px", borderRadius: 6, cursor: "pointer", fontWeight: 600, fontSize: 11,
+                          border: editPaymentForm.discountType === opt.value ? "2px solid #d97706" : "1px solid #fcd34d",
+                          background: editPaymentForm.discountType === opt.value ? "#fff" : "#fffbeb",
+                          color: editPaymentForm.discountType === opt.value ? "#b45309" : "#78350f",
+                        }}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  {editPaymentForm.discountType !== "NONE" && (
+                    <div>
+                      <input
+                        type="number"
+                        value={editPaymentForm.discountValue}
+                        onChange={e => {
+                          const val = e.target.value;
+                          const num = parseFloat(val) || 0;
+                          let calc = num;
+                          if (editPaymentForm.discountType === "PERCENTAGE" && editPaymentModal?.totalAmount) {
+                            calc = (editPaymentModal.totalAmount * num) / 100;
+                          }
+                          setEditPaymentForm(f => ({ ...f, discountValue: val, discountAmount: calc > 0 ? calc : "" }));
+                        }}
+                        placeholder={editPaymentForm.discountType === "PERCENTAGE" ? "e.g. 5 (%)" : "e.g. 5000 (₹)"}
+                        min={0}
+                        style={{ width: "100%", padding: "7px 10px", borderRadius: 6, border: "1px solid #fcd34d", fontSize: 14, fontWeight: 700, boxSizing: "border-box", background: "#fff" }}
+                      />
+                      {editPaymentForm.discountType === "PERCENTAGE" && discVal > 0 && (
+                        <div style={{ fontSize: 12, color: "#b45309", marginTop: 4, fontWeight: 600 }}>
+                          = {fmt(calcDiscAmt)} discount deduction
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* 3. Goods Return (GR) */}
+                <div style={{ background: "#f0fdf4", borderRadius: 10, padding: 12, border: "1px solid #bbf7d0" }}>
+                  <label style={{ display: "block", fontSize: 13, fontWeight: 700, marginBottom: 4, color: "#166534" }}>📦 Goods Return (GR Cut)</label>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1.5fr", gap: 8 }}>
+                    <input
+                      type="number"
+                      value={editPaymentForm.grAmount}
+                      onChange={e => setEditPaymentForm(f => ({ ...f, grAmount: e.target.value }))}
+                      placeholder="GR Amt (₹)"
+                      min={0}
+                      style={{ width: "100%", padding: "7px 10px", borderRadius: 6, border: "1px solid #86efac", fontSize: 14, fontWeight: 700, boxSizing: "border-box", background: "#fff" }}
+                    />
+                    <input
+                      value={editPaymentForm.grNote}
+                      onChange={e => setEditPaymentForm(f => ({ ...f, grNote: e.target.value }))}
+                      placeholder="GR Reason / Note"
+                      style={{ width: "100%", padding: "7px 10px", borderRadius: 6, border: "1px solid #86efac", fontSize: 12, boxSizing: "border-box", background: "#fff" }}
+                    />
+                  </div>
+                </div>
+
+                {/* Date */}
+                <div>
+                  <label style={{ display: "block", fontSize: 12, fontWeight: 600, marginBottom: 4 }}>Payment Date</label>
+                  <input
+                    type="date"
+                    value={editPaymentForm.date}
+                    onChange={e => setEditPaymentForm(f => ({ ...f, date: e.target.value }))}
+                    style={{ width: "100%", padding: "7px 10px", borderRadius: 6, border: "1px solid #d1d5db", fontSize: 13, boxSizing: "border-box" }}
+                  />
+                </div>
+
+                {/* Total Settlement Box */}
+                <div style={{ background: "#f8fafc", borderRadius: 8, padding: 10, border: "1px solid #cbd5e1" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, fontWeight: 700, color: "#1e293b" }}>
+                    <span>Updated Total Settlement:</span>
+                    <span>{fmt(totalSettlement)}</span>
+                  </div>
+                </div>
+
+                <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
+                  <button type="button" onClick={() => setEditPaymentModal(null)} style={{ flex: 1, padding: "10px", background: "#f3f4f6", border: "1px solid #d1d5db", borderRadius: 8, cursor: "pointer", fontWeight: 600 }}>Cancel</button>
+                  <button type="submit" disabled={loading} style={{ flex: 2, padding: "10px", background: "#4f46e5", color: "#fff", border: "none", borderRadius: 8, cursor: "pointer", fontWeight: 700, fontSize: 14 }}>
+                    {loading ? "Saving..." : "💾 Update Settlement"}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Delete Ledger Entry Confirmation Modal */}
+      {deleteLedgerEntryModal && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 1004, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+          <div style={{ background: "#fff", borderRadius: 16, padding: 28, maxWidth: 460, width: "100%", textAlign: "center", boxShadow: "0 25px 60px rgba(0,0,0,0.3)" }}>
+            <div style={{ fontSize: 44, marginBottom: 10 }}>🗑️</div>
+            <h3 style={{ margin: "0 0 8px", fontSize: 18, color: "#dc2626", fontWeight: 700 }}>
+              {deleteLedgerEntryModal.type === "BILL" ? "Delete Purchase Bill?" : "Delete Ledger Entry?"}
+            </h3>
+            <p style={{ color: "#475569", fontSize: 14, margin: "0 0 16px" }}>
+              {deleteLedgerEntryModal.description || "Entry"} {deleteLedgerEntryModal.billNo ? `(Bill #${deleteLedgerEntryModal.billNo})` : ""}
+            </p>
+
+            <div style={{ background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 10, padding: 14, marginBottom: 20, textAlign: "left" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6, fontSize: 13, fontWeight: 700, color: "#991b1b" }}>
+                <span>Entry Amount:</span>
+                <span>{fmt(deleteLedgerEntryModal.amount)}</span>
+              </div>
+              <div style={{ fontSize: 12, color: "#7f1d1d", lineHeight: 1.5 }}>
+                {deleteLedgerEntryModal.type === "BILL"
+                  ? "Deleting this bill will remove it from vendor ledger and reverse all attached records."
+                  : "Deleting this payment/settlement entry will reverse the deduction and increase the remaining due on the bill."}
+              </div>
+            </div>
+
+            <div style={{ display: "flex", gap: 12, justifyContent: "center" }}>
+              <button
+                type="button"
+                onClick={() => setDeleteLedgerEntryModal(null)}
+                style={{ padding: "10px 22px", background: "#f3f4f6", border: "1px solid #d1d5db", borderRadius: 8, cursor: "pointer", fontWeight: 600, fontSize: 13 }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={loading}
+                onClick={confirmDeleteLedgerEntry}
+                style={{
+                  padding: "10px 22px",
+                  background: "#dc2626",
+                  color: "#fff",
+                  border: "none",
+                  borderRadius: 8,
+                  cursor: "pointer",
+                  fontWeight: 700,
+                  fontSize: 13,
+                }}
+              >
+                {loading ? "Deleting..." : "Yes, Delete Entry"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Delete Confirmation */}
       {deleteConfirm && (

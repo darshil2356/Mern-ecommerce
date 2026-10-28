@@ -105,8 +105,12 @@ export default function PurchaseList() {
     const paidAmt = parseFloat(payForm.amount) || 0;
     const discVal = parseFloat(payForm.discountValue) || 0;
     let discAmt = parseFloat(payForm.discountAmount) || 0;
-    if (payForm.discountType === "PERCENTAGE" && discVal > 0 && !discAmt) {
-      discAmt = (payModal.totalAmount * discVal) / 100;
+    if (!discAmt && discVal > 0) {
+      if (payForm.discountType === "PERCENTAGE" && payModal.totalAmount) {
+        discAmt = (payModal.totalAmount * discVal) / 100;
+      } else {
+        discAmt = discVal;
+      }
     }
     const grAmt = parseFloat(payForm.grAmount) || 0;
 

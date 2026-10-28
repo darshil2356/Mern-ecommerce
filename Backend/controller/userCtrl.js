@@ -2468,6 +2468,17 @@ const getDailySales = asyncHandler(async (req, res) => {
       case 'today':
         start = new Date(new Date().setHours(0, 0, 0, 0));
         break;
+      case 'yesterday': {
+        const yStart = new Date();
+        yStart.setDate(yStart.getDate() - 1);
+        yStart.setHours(0, 0, 0, 0);
+        const yEnd = new Date();
+        yEnd.setDate(yEnd.getDate() - 1);
+        yEnd.setHours(23, 59, 59, 999);
+        start = yStart;
+        end = yEnd;
+        break;
+      }
       case '7days':
         start.setDate(start.getDate() - 7);
         start = new Date(start.setHours(0, 0, 0, 0));
@@ -2549,6 +2560,17 @@ const getDashboardStats = asyncHandler(async (req, res) => {
       start = new Date(new Date().setHours(0, 0, 0, 0));
       end = new Date();
       break;
+    case 'yesterday': {
+      const yStart = new Date();
+      yStart.setDate(yStart.getDate() - 1);
+      yStart.setHours(0, 0, 0, 0);
+      const yEnd = new Date();
+      yEnd.setDate(yEnd.getDate() - 1);
+      yEnd.setHours(23, 59, 59, 999);
+      start = yStart;
+      end = yEnd;
+      break;
+    }
     case '7days':
       start.setDate(start.getDate() - 7);
       start = new Date(start.setHours(0, 0, 0, 0));
@@ -2758,6 +2780,7 @@ const getDashboardStats = asyncHandler(async (req, res) => {
   // Udhar records created in selected date filter range
   let udharCreatedPeriod = 0;
   let udharCollectedPeriod = 0;
+  let udharMaffPeriod = 0;
 
   if (paymentFilter === "all" || paymentFilter === "cash") {
     const Udhar = require("../models/udharModel");
@@ -2777,7 +2800,7 @@ const getDashboardStats = asyncHandler(async (req, res) => {
       udharCreatedPeriod += originalCreditCreated;
     });
 
-    // Udhar cash payments collected/recovered in period (excluding initial bill payments & product return adjustments)
+    // Udhar cash payments collected/recovered in period (excluding initial bill payments, product return adjustments, and waived/maaf amounts)
     const allUdharsWithPayments = await Udhar.find({
       "payments.date": { $gte: start, $lte: end },
     });
@@ -2788,8 +2811,13 @@ const getDashboardStats = asyncHandler(async (req, res) => {
           const noteLower = (p.note || "").toLowerCase();
           const isInitial = p.isInitialPayment || noteLower.includes("initial") || noteLower.includes("partial payment at pos");
           const isReturn = p.isReturnAdjustment || noteLower.includes("return");
+          const isMaff = p.isMaff === true || String(p.isMaff) === "true" || noteLower.includes("maaf") || noteLower.includes("waiv");
 
-          if (!isReturn && !isInitial) {
+          if (isMaff) {
+            // Maaf / Waived money is NOT cash collected from customer; it is debt forgiveness / discount
+            udharMaffPeriod += (p.amount || 0);
+          } else if (!isReturn && !isInitial) {
+            // Actual cash received from customer
             udharCollectedPeriod += (p.amount || 0);
           }
         }
@@ -2838,6 +2866,7 @@ const getDashboardStats = asyncHandler(async (req, res) => {
     directSalesPaidPeriod,
     udharCreatedPeriod,
     udharCollectedPeriod,
+    udharMaffPeriod,
     totalHandPeriod,
     cashRefundsPeriod,
     posExchangeInflowPeriod,
@@ -2846,6 +2875,7 @@ const getDashboardStats = asyncHandler(async (req, res) => {
     cashRefundsGiven: cashRefundsPeriod,
     udharGiven: udharCreatedPeriod,
     udharRecovered: udharCollectedPeriod,
+    udharMaff: udharMaffPeriod,
     netCashInHand: totalHandPeriod,
     // Backward compatibility aliases
     totalSaleToday: grossSalePeriod,
@@ -2853,6 +2883,7 @@ const getDashboardStats = asyncHandler(async (req, res) => {
     directSalesPaidToday: directSalesPaidPeriod,
     udharCreatedToday: udharCreatedPeriod,
     udharCollectedToday: udharCollectedPeriod,
+    udharMaffToday: udharMaffPeriod,
     totalHandToday: totalHandPeriod,
   };
 

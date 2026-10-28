@@ -20,6 +20,7 @@ const { Option } = Select;
 
 const FILTERS = {
   TODAY: "today",
+  YESTERDAY: "yesterday",
   WEEK: "7days",
   MONTH: "month",
   YEAR: "year",
@@ -200,6 +201,8 @@ const Dashboard = () => {
         if (orderDate.isBefore(start.startOf("day")) || orderDate.isAfter(end.endOf("day"))) return false;
       } else if (selectedFilter === FILTERS.TODAY) {
         if (!orderDate.isSame(now, "day")) return false;
+      } else if (selectedFilter === FILTERS.YESTERDAY) {
+        if (!orderDate.isSame(now.subtract(1, "day"), "day")) return false;
       } else if (selectedFilter === FILTERS.WEEK) {
         if (orderDate.isBefore(now.subtract(7, "day").startOf("day"))) return false;
       } else if (selectedFilter === FILTERS.MONTH) {
@@ -718,6 +721,7 @@ const Dashboard = () => {
               </h2>
               <p style={{ margin:0, fontSize:13, color:"rgba(255,255,255,0.65)" }}>
                 {selectedFilter === FILTERS.TODAY && `Today — ${dayjs().format("ddd, DD MMM YYYY")}`}
+                {selectedFilter === FILTERS.YESTERDAY && `Yesterday — ${dayjs().subtract(1, "day").format("ddd, DD MMM YYYY")}`}
                 {selectedFilter === FILTERS.WEEK && "Last 7 days overview"}
                 {selectedFilter === FILTERS.MONTH && `${dayjs().format("MMMM YYYY")} overview`}
                 {selectedFilter === FILTERS.YEAR && `${dayjs().format("YYYY")} annual overview`}
@@ -761,7 +765,7 @@ const Dashboard = () => {
           {/* Filter Pills */}
           <div style={{ display:"flex", gap:8, flexWrap:"wrap", alignItems:"center", marginTop:16 }}>
             <div style={{ display:"flex", gap:4, background:"rgba(255,255,255,0.12)", padding:4, borderRadius:24, flexShrink:0, flexWrap:"wrap" }}>
-              {[{f:FILTERS.TODAY,l:"Today"},{f:FILTERS.WEEK,l:"7 Days"},{f:FILTERS.MONTH,l:"Month"},{f:FILTERS.YEAR,l:"Year"}].map(({f,l}) => (
+              {[{f:FILTERS.TODAY,l:"Today"},{f:FILTERS.YESTERDAY,l:"Yesterday"},{f:FILTERS.WEEK,l:"7 Days"},{f:FILTERS.MONTH,l:"Month"},{f:FILTERS.YEAR,l:"Year"}].map(({f,l}) => (
                 <button key={f} style={getFilterStyle(f)} onClick={() => { setSelectedFilter(f); setDateRange(null); }}>{l}</button>
               ))}
               <button
@@ -812,13 +816,14 @@ const Dashboard = () => {
               onClick={handleTitleClick}
             >
               <span>📊</span> {selectedFilter === FILTERS.TODAY ? "Today's Financial & Udhar Cashflow Summary" :
+                 selectedFilter === FILTERS.YESTERDAY ? "Yesterday's Financial & Udhar Cashflow Summary" :
                  selectedFilter === FILTERS.WEEK ? "7 Days Financial & Udhar Cashflow Summary" :
                  selectedFilter === FILTERS.MONTH ? "Monthly Financial & Udhar Cashflow Summary" :
                  selectedFilter === FILTERS.YEAR ? "Annual Financial & Udhar Cashflow Summary" : "Custom Period Financial & Udhar Cashflow Summary"}
               {showAll && <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#fbbf24", display: "inline-block" }} title="Triple-Click Active: All Data Unlocked" />}
             </h3>
             <p style={{ margin: "4px 0 0", fontSize: 12, color: "#94a3b8" }}>
-              Live statement for {selectedFilter === FILTERS.TODAY ? dayjs().format("DD MMMM YYYY") : selectedFilter === FILTERS.WEEK ? "last 7 days" : selectedFilter === FILTERS.MONTH ? dayjs().format("MMMM YYYY") : selectedFilter === FILTERS.YEAR ? dayjs().format("YYYY") : "selected custom date range"}
+              Live statement for {selectedFilter === FILTERS.TODAY ? dayjs().format("DD MMMM YYYY") : selectedFilter === FILTERS.YESTERDAY ? dayjs().subtract(1, "day").format("DD MMMM YYYY") : selectedFilter === FILTERS.WEEK ? "last 7 days" : selectedFilter === FILTERS.MONTH ? dayjs().format("MMMM YYYY") : selectedFilter === FILTERS.YEAR ? dayjs().format("YYYY") : "selected custom date range"}
             </p>
           </div>
           <Tag color="cyan" style={{ borderRadius: 14, padding: "6px 14px", fontWeight: 800, fontSize: 12, border: "none", background: "linear-gradient(135deg, rgba(6,182,212,0.2) 0%, rgba(14,165,233,0.3) 100%)", color: "#38bdf8", boxShadow: "0 4px 12px rgba(6,182,212,0.15)" }}>
@@ -832,8 +837,10 @@ const Dashboard = () => {
           const cashRefundsGiven = finSummary.cashRefundsPeriod ?? finSummary.cashRefundsGiven ?? 0;
           const udharGiven = finSummary.udharCreatedPeriod ?? finSummary.udharCreatedToday ?? 0;
           const udharRecovered = finSummary.udharCollectedPeriod ?? finSummary.udharCollectedToday ?? 0;
+          const udharMaff = finSummary.udharMaffPeriod ?? finSummary.udharMaff ?? finSummary.udharMaffToday ?? 0;
           const netCashInHand = finSummary.totalHandPeriod ?? finSummary.totalHandToday ?? 0;
           const netDirectSalesCash = (finSummary.directSalesPaidPeriod ?? finSummary.directSalesPaidToday ?? (newSalesBilled - udharGiven - cashRefundsGiven));
+          const filterPeriodLabel = selectedFilter === FILTERS.TODAY ? "Today" : selectedFilter === FILTERS.YESTERDAY ? "Yesterday" : "";
 
           return (
             <>
@@ -842,7 +849,7 @@ const Dashboard = () => {
                 <Col xs={24} sm={12} md={8} lg={4.8} style={{ flex: 1, minWidth: 200 }}>
                   <div className="pro-cash-card" style={{ background: "rgba(255, 255, 255, 0.05)", borderRadius: "18px", padding: "18px", border: "1px solid rgba(56, 189, 248, 0.2)" }}>
                     <div style={{ fontSize: 11, fontWeight: 700, color: "#38bdf8", textTransform: "uppercase", letterSpacing: "0.5px" }}>
-                      🛒 New Sales Billed {selectedFilter === FILTERS.TODAY ? "Today" : ""}
+                      🛒 New Sales Billed {filterPeriodLabel}
                     </div>
                     <div style={{ fontSize: 24, fontWeight: 800, color: "#38bdf8", marginTop: 6 }}>
                       {formatCurrency(newSalesBilled)}
@@ -857,7 +864,7 @@ const Dashboard = () => {
                 <Col xs={24} sm={12} md={8} lg={4.8} style={{ flex: 1, minWidth: 200 }}>
                   <div className="pro-cash-card" style={{ background: "rgba(244, 63, 94, 0.08)", borderRadius: "18px", padding: "18px", border: "1px solid rgba(244, 63, 94, 0.3)" }}>
                     <div style={{ fontSize: 11, fontWeight: 700, color: "#fb7185", textTransform: "uppercase", letterSpacing: "0.5px" }}>
-                      ↩️ Returns Refunded {selectedFilter === FILTERS.TODAY ? "Today" : ""}
+                      ↩️ Returns Refunded {filterPeriodLabel}
                     </div>
                     <div style={{ fontSize: 24, fontWeight: 800, color: "#f43f5e", marginTop: 6 }}>
                       {formatCurrency(cashRefundsGiven)}
@@ -872,7 +879,7 @@ const Dashboard = () => {
                 <Col xs={24} sm={12} md={8} lg={4.8} style={{ flex: 1, minWidth: 200 }}>
                   <div className="pro-cash-card" style={{ background: "rgba(255, 255, 255, 0.05)", borderRadius: "18px", padding: "18px", border: "1px solid rgba(248, 113, 113, 0.25)" }}>
                     <div style={{ fontSize: 11, fontWeight: 700, color: "#f87171", textTransform: "uppercase", letterSpacing: "0.5px" }}>
-                      📜 New Udhar Given {selectedFilter === FILTERS.TODAY ? "Today" : ""}
+                      📜 New Udhar Given {filterPeriodLabel}
                     </div>
                     <div style={{ fontSize: 24, fontWeight: 800, color: "#f87171", marginTop: 6 }}>
                       {formatCurrency(udharGiven)}
@@ -885,12 +892,17 @@ const Dashboard = () => {
                 <Col xs={24} sm={12} md={8} lg={4.8} style={{ flex: 1, minWidth: 200 }}>
                   <div className="pro-cash-card" style={{ background: "rgba(255, 255, 255, 0.05)", borderRadius: "18px", padding: "18px", border: "1px solid rgba(251, 191, 36, 0.25)" }}>
                     <div style={{ fontSize: 11, fontWeight: 700, color: "#fbbf24", textTransform: "uppercase", letterSpacing: "0.5px" }}>
-                      📥 Udhar Recovered {selectedFilter === FILTERS.TODAY ? "Today" : ""}
+                      📥 Udhar Recovered {filterPeriodLabel}
                     </div>
                     <div style={{ fontSize: 24, fontWeight: 800, color: "#fbbf24", marginTop: 6 }}>
                       {formatCurrency(udharRecovered)}
                     </div>
-                    <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 4 }}>Past credit payments collected</div>
+                    <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 4 }}>Past credit cash collected</div>
+                    {udharMaff > 0 && (
+                      <div style={{ fontSize: 11, color: "#c084fc", marginTop: 6, fontWeight: 600 }}>
+                        🎁 {formatCurrency(udharMaff)} Maaf (Excluded from cash)
+                      </div>
+                    )}
                   </div>
                 </Col>
 
@@ -898,7 +910,7 @@ const Dashboard = () => {
                 <Col xs={24} sm={12} md={8} lg={4.8} style={{ flex: 1, minWidth: 200 }}>
                   <div className="pro-featured-card" style={{ background: "linear-gradient(135deg, rgba(16, 185, 129, 0.3) 0%, rgba(5, 150, 105, 0.45) 100%)", borderRadius: "18px", padding: "18px", border: "1px solid #10b981", boxShadow: "0 10px 25px rgba(16, 185, 129, 0.25)" }}>
                     <div style={{ fontSize: 11, fontWeight: 800, color: "#a7f3d0", textTransform: "uppercase", letterSpacing: "0.5px" }}>
-                      💰 Net Cash In Hand {selectedFilter === FILTERS.TODAY ? "Today" : ""}
+                      💰 Net Cash In Hand {filterPeriodLabel}
                     </div>
                     <div style={{ fontSize: 26, fontWeight: 900, color: "#6ee7b7", marginTop: 6 }}>
                       {formatCurrency(netCashInHand)}
@@ -907,6 +919,30 @@ const Dashboard = () => {
                   </div>
                 </Col>
               </Row>
+
+              {/* Informative Maaf Waiver Note if Maaf was applied in this period */}
+              {udharMaff > 0 && (
+                <div style={{
+                  marginTop: 16,
+                  padding: "12px 16px",
+                  borderRadius: 14,
+                  background: "rgba(147, 51, 234, 0.12)",
+                  border: "1px solid rgba(168, 85, 247, 0.35)",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 12
+                }}>
+                  <span style={{ fontSize: 20 }}>🎁</span>
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 800, color: "#e9d5ff" }}>
+                      Udhar Maaf (Waived / Forgot Money): {formatCurrency(udharMaff)}
+                    </div>
+                    <div style={{ fontSize: 11, color: "#d8b4fe", marginTop: 2 }}>
+                      This amount was forgiven/waived as a customer discount. <b>No physical cash was received</b>, so it is strictly <b>excluded</b> from Udhar Recovered and Net Cash In Hand. Your counter cash drawer matches 100%.
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Live Step-by-Step Cash Calculation Explainer Banner */}
               <div style={{
@@ -954,7 +990,7 @@ const Dashboard = () => {
                   </div>
 
                   <div className="explainer-step-card" style={{ background: "rgba(255,255,255,0.04)", padding: "12px 14px", borderRadius: 14, border: "1px solid rgba(255,255,255,0.08)" }}>
-                    <div style={{ fontSize: 11, color: "#94a3b8", fontWeight: 600 }}>5. (+) Udhar Recovered</div>
+                    <div style={{ fontSize: 11, color: "#94a3b8", fontWeight: 600 }}>5. (+) Udhar Recovered (Cash)</div>
                     <div style={{ fontSize: 16, fontWeight: 800, color: "#fbbf24", marginTop: 2 }}>+ {formatCurrency(udharRecovered)}</div>
                   </div>
 
@@ -965,7 +1001,7 @@ const Dashboard = () => {
                 </div>
 
                 <div style={{ marginTop: 12, fontSize: 11, color: "#cbd5e1", borderTop: "1px dashed rgba(255,255,255,0.12)", paddingTop: 10, display: "flex", alignItems: "center", gap: 6 }}>
-                  <span>📌</span> <span><b>Formula Summary:</b> (Sales Billed {formatCurrency(newSalesBilled)}) - (New Udhar {formatCurrency(udharGiven)}) - (Returns Refunded {formatCurrency(cashRefundsGiven)}) + (Udhar Recovery {formatCurrency(udharRecovered)}) = <b>{formatCurrency(netCashInHand)}</b> total cash collected in hand.</span>
+                  <span>📌</span> <span><b>Formula Summary:</b> (Sales Billed {formatCurrency(newSalesBilled)}) - (New Udhar {formatCurrency(udharGiven)}) - (Returns Refunded {formatCurrency(cashRefundsGiven)}) + (Udhar Recovery {formatCurrency(udharRecovered)}) = <b>{formatCurrency(netCashInHand)}</b> total cash collected in hand.{udharMaff > 0 ? ` (Note: ${formatCurrency(udharMaff)} Maaf waiver correctly excluded from counter cash).` : ""}</span>
                 </div>
               </div>
             </>
@@ -1092,9 +1128,9 @@ const Dashboard = () => {
               <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
                 <div>
                   <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-                    <div style={{ width:8, height:8, borderRadius:"50%", background: (selectedFilter===FILTERS.TODAY||selectedFilter===FILTERS.WEEK) ? "#8b5cf6":"#6366f1" }} />
+                    <div style={{ width:8, height:8, borderRadius:"50%", background: (selectedFilter===FILTERS.TODAY||selectedFilter===FILTERS.YESTERDAY||selectedFilter===FILTERS.WEEK) ? "#8b5cf6":"#6366f1" }} />
                     <span style={{ fontWeight:700, fontSize:15, color:"#f8fafc" }}>
-                      {(selectedFilter===FILTERS.TODAY||selectedFilter===FILTERS.WEEK) ? `Daily Sales${selectedFilter===FILTERS.TODAY?" — Today":" (Last 7 Days)"}` : "Revenue Overview (Monthly)"}
+                      {(selectedFilter===FILTERS.TODAY||selectedFilter===FILTERS.YESTERDAY||selectedFilter===FILTERS.WEEK) ? `Daily Sales${selectedFilter===FILTERS.TODAY?" — Today":selectedFilter===FILTERS.YESTERDAY?" — Yesterday":" (Last 7 Days)"}` : "Revenue Overview (Monthly)"}
                     </span>
                   </div>
                   <p style={{ margin:0, fontSize:12, color:"#94a3b8", marginTop:2 }}>Revenue generated over time</p>
@@ -1103,7 +1139,7 @@ const Dashboard = () => {
               </div>
             }
           >
-            {(selectedFilter===FILTERS.TODAY||selectedFilter===FILTERS.WEEK) && dailyChartData.length > 0
+            {(selectedFilter===FILTERS.TODAY||selectedFilter===FILTERS.YESTERDAY||selectedFilter===FILTERS.WEEK) && dailyChartData.length > 0
               ? <Column {...dailyConfig} height={280} theme={chartTheme} />
               : dataMonthly.length > 0
                 ? <Column {...config} height={280} theme={chartTheme} />
@@ -1159,18 +1195,18 @@ const Dashboard = () => {
             title={
               <div>
                 <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-                  <div style={{ width:8, height:8, borderRadius:"50%", background: (selectedFilter===FILTERS.TODAY||selectedFilter===FILTERS.WEEK) ? "#f97316":"#10b981" }} />
+                  <div style={{ width:8, height:8, borderRadius:"50%", background: (selectedFilter===FILTERS.TODAY||selectedFilter===FILTERS.YESTERDAY||selectedFilter===FILTERS.WEEK) ? "#f97316":"#10b981" }} />
                   <span style={{ fontWeight:700, fontSize:15, color:"#f8fafc" }}>
-                    {(selectedFilter===FILTERS.TODAY||selectedFilter===FILTERS.WEEK) ? "Peak Hours Analysis" : "Sales Overview (Monthly)"}
+                    {(selectedFilter===FILTERS.TODAY||selectedFilter===FILTERS.YESTERDAY||selectedFilter===FILTERS.WEEK) ? "Peak Hours Analysis" : "Sales Overview (Monthly)"}
                   </span>
                 </div>
                 <p style={{ margin:0, fontSize:12, color:"#94a3b8", marginTop:2 }}>
-                  {(selectedFilter===FILTERS.TODAY||selectedFilter===FILTERS.WEEK) ? "Order volume by hour" : "Monthly order count"}
+                  {(selectedFilter===FILTERS.TODAY||selectedFilter===FILTERS.YESTERDAY||selectedFilter===FILTERS.WEEK) ? "Order volume by hour" : "Monthly order count"}
                 </p>
               </div>
             }
           >
-            {(selectedFilter===FILTERS.TODAY||selectedFilter===FILTERS.WEEK) && hourlyData.length > 0
+            {(selectedFilter===FILTERS.TODAY||selectedFilter===FILTERS.YESTERDAY||selectedFilter===FILTERS.WEEK) && hourlyData.length > 0
               ? <Bar {...hourlyConfig} height={260} />
               : dataMonthlySales.length > 0
                 ? <Column {...config2} height={260} theme={chartTheme} />

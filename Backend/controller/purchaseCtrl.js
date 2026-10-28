@@ -52,29 +52,61 @@ function calcItem(item, gstType, taxIncluded) {
   };
 }
 
-// Auto-heal purchase balanceDue and status fields if they are out of sync
+// Recalculate purchase settlement totals directly from payment records
+const recalcPurchaseTotals = (purchase) => {
+  const sumPaid = +(purchase.payments || []).reduce((a, p) => a + (Number(p.amount) || 0), 0).toFixed(2);
+  const sumDisc = +(purchase.payments || []).reduce((a, p) => a + (Number(p.discountAmount) || 0), 0).toFixed(2);
+  const sumGr = +(purchase.payments || []).reduce((a, p) => a + (Number(p.grAmount) || 0), 0).toFixed(2);
+
+  purchase.paidAmount = sumPaid;
+  purchase.settlementDiscount = sumDisc;
+  purchase.grAmount = sumGr;
+
+  const totalSettled = +(sumPaid + sumDisc + sumGr).toFixed(2);
+  purchase.balanceDue = Math.max(0, +(purchase.totalAmount - totalSettled).toFixed(2));
+  if (totalSettled >= purchase.totalAmount) purchase.status = "PAID";
+  else if (totalSettled > 0) purchase.status = "PARTIAL";
+  else purchase.status = "PENDING";
+};
+
+// Auto-heal purchase balanceDue, settlement totals, and payment discount fields if out of sync
 const autoHealPurchases = async () => {
   try {
     const purchases = await Purchase.find({});
-    const bulkOps = [];
     for (const p of purchases) {
-      const totalSettled = (p.paidAmount || 0) + (p.settlementDiscount || 0) + (p.grAmount || 0);
-      const expectedBalance = Math.max(0, p.totalAmount - totalSettled);
-      let expectedStatus = "PENDING";
-      if (totalSettled >= p.totalAmount) expectedStatus = "PAID";
-      else if (totalSettled > 0) expectedStatus = "PARTIAL";
+      let needsSave = false;
 
-      if (p.balanceDue !== expectedBalance || p.status !== expectedStatus) {
-        bulkOps.push({
-          updateOne: {
-            filter: { _id: p._id },
-            update: { $set: { balanceDue: expectedBalance, status: expectedStatus } },
-          },
-        });
+      // Fix any payment that had discountValue > 0 but discountAmount was 0 or missing
+      (p.payments || []).forEach(pay => {
+        if ((!pay.discountAmount || pay.discountAmount === 0) && pay.discountValue > 0) {
+          if (pay.discountType === "PERCENTAGE") {
+            pay.discountAmount = +((p.totalAmount * pay.discountValue) / 100).toFixed(2);
+          } else {
+            pay.discountAmount = pay.discountValue;
+            if (pay.discountType === "NONE") pay.discountType = "FLAT";
+          }
+          needsSave = true;
+        }
+      });
+
+      const oldPaid = p.paidAmount || 0;
+      const oldDisc = p.settlementDiscount || 0;
+      const oldGr = p.grAmount || 0;
+      const oldBal = p.balanceDue || 0;
+      const oldStatus = p.status;
+
+      recalcPurchaseTotals(p);
+
+      if (
+        needsSave ||
+        oldPaid !== p.paidAmount ||
+        oldDisc !== p.settlementDiscount ||
+        oldGr !== p.grAmount ||
+        oldBal !== p.balanceDue ||
+        oldStatus !== p.status
+      ) {
+        await p.save();
       }
-    }
-    if (bulkOps.length > 0) {
-      await Purchase.bulkWrite(bulkOps);
     }
   } catch (err) {
     console.error("Auto-heal purchases error:", err);
@@ -103,11 +135,20 @@ const createPurchase = asyncHandler(async (req, res) => {
   // Initial payment if provided
   const payments = [];
   const initialPaid = parseFloat(rest.initialPaidAmount) || 0;
-  const initialDiscType = rest.initialDiscountType || "NONE";
+  let initialDiscType = rest.initialDiscountType || "NONE";
   const initialDiscVal = parseFloat(rest.initialDiscountValue) || 0;
   let initialDiscAmt = parseFloat(rest.initialDiscountAmount) || 0;
-  if (initialDiscType === "PERCENTAGE" && initialDiscVal > 0 && !initialDiscAmt) {
-    initialDiscAmt = (totalAmount * initialDiscVal) / 100;
+
+  if (!initialDiscAmt && initialDiscVal > 0) {
+    if (initialDiscType === "PERCENTAGE") {
+      initialDiscAmt = (totalAmount * initialDiscVal) / 100;
+    } else {
+      initialDiscType = "FLAT";
+      initialDiscAmt = initialDiscVal;
+    }
+  } else if (initialDiscAmt > 0 && !initialDiscVal) {
+    initialDiscVal = initialDiscAmt;
+    if (initialDiscType === "NONE") initialDiscType = "FLAT";
   }
   const initialGrAmt = parseFloat(rest.initialGrAmount) || 0;
   const initialGrNote = rest.initialGrNote || "";
@@ -276,15 +317,24 @@ const recordPayment = asyncHandler(async (req, res) => {
   } = req.body;
 
   const paidAmt = parseFloat(amount) || 0;
-  const discVal = parseFloat(discountValue) || 0;
+  let discVal = parseFloat(discountValue) || 0;
   let discAmt = parseFloat(discountAmount) || 0;
   const grAmt = parseFloat(grAmount) || 0;
 
   const purchase = await Purchase.findById(id);
   if (!purchase) return res.status(404).json({ message: "Purchase not found" });
 
-  if (discountType === "PERCENTAGE" && discVal > 0 && !discAmt) {
-    discAmt = (purchase.totalAmount * discVal) / 100;
+  let effDiscType = discountType;
+  if (!discAmt && discVal > 0) {
+    if (effDiscType === "PERCENTAGE") {
+      discAmt = (purchase.totalAmount * discVal) / 100;
+    } else {
+      effDiscType = "FLAT";
+      discAmt = discVal;
+    }
+  } else if (discAmt > 0 && !discVal) {
+    discVal = discAmt;
+    if (effDiscType === "NONE") effDiscType = "FLAT";
   }
 
   if (paidAmt <= 0 && discAmt <= 0 && grAmt <= 0) {
@@ -293,7 +343,7 @@ const recordPayment = asyncHandler(async (req, res) => {
 
   const newPayment = {
     amount: paidAmt,
-    discountType,
+    discountType: effDiscType,
     discountValue: discVal,
     discountAmount: +discAmt.toFixed(2),
     grAmount: +grAmt.toFixed(2),
@@ -305,9 +355,7 @@ const recordPayment = asyncHandler(async (req, res) => {
   };
 
   purchase.payments.push(newPayment);
-  purchase.paidAmount = (purchase.paidAmount || 0) + paidAmt;
-  purchase.settlementDiscount = (purchase.settlementDiscount || 0) + +discAmt.toFixed(2);
-  purchase.grAmount = (purchase.grAmount || 0) + +grAmt.toFixed(2);
+  recalcPurchaseTotals(purchase);
 
   await purchase.save();
   await purchase.populate("vendor", "name firmName phone city openingBalance");
@@ -362,6 +410,93 @@ const recordPayment = asyncHandler(async (req, res) => {
   resData.vendorPhone = vendorPhone || "";
 
   res.json(resData);
+});
+
+// Update an existing payment entry in purchase
+const updatePayment = asyncHandler(async (req, res) => {
+  const { id, paymentId } = req.params;
+  validateMongoDbId(id);
+  validateMongoDbId(paymentId);
+
+  const purchase = await Purchase.findById(id);
+  if (!purchase) return res.status(404).json({ message: "Purchase not found" });
+
+  const payment = purchase.payments.id(paymentId);
+  if (!payment) return res.status(404).json({ message: "Payment entry not found" });
+
+  const {
+    amount,
+    discountType = "NONE",
+    discountValue = 0,
+    discountAmount = 0,
+    grAmount = 0,
+    grNote = "",
+    mode = "Cash",
+    referenceNo = "",
+    note = "",
+    date,
+  } = req.body;
+
+  const paidAmt = parseFloat(amount) || 0;
+  let discVal = parseFloat(discountValue) || 0;
+  let discAmt = parseFloat(discountAmount) || 0;
+  const grAmt = parseFloat(grAmount) || 0;
+
+  let effDiscType = discountType;
+  if (!discAmt && discVal > 0) {
+    if (effDiscType === "PERCENTAGE") {
+      discAmt = (purchase.totalAmount * discVal) / 100;
+    } else {
+      effDiscType = "FLAT";
+      discAmt = discVal;
+    }
+  } else if (discAmt > 0 && !discVal) {
+    discVal = discAmt;
+    if (effDiscType === "NONE") effDiscType = "FLAT";
+  }
+
+  if (paidAmt <= 0 && discAmt <= 0 && grAmt <= 0) {
+    return res.status(400).json({ message: "Enter a valid paid, discount, or GR amount" });
+  }
+
+  payment.amount = paidAmt;
+  payment.discountType = effDiscType;
+  payment.discountValue = discVal;
+  payment.discountAmount = +discAmt.toFixed(2);
+  payment.grAmount = +grAmt.toFixed(2);
+  payment.grNote = grNote || "";
+  payment.mode = mode || (paidAmt > 0 ? "Cash" : grAmt > 0 ? "GR" : "Discount");
+  payment.referenceNo = referenceNo || "";
+  payment.note = note || "";
+  if (date) payment.date = new Date(date);
+
+  recalcPurchaseTotals(purchase);
+
+  await purchase.save();
+  await purchase.populate("vendor", "name firmName phone city openingBalance");
+
+  res.json({ success: true, message: "Payment entry updated successfully", purchase });
+});
+
+// Delete an existing payment entry from purchase
+const deletePayment = asyncHandler(async (req, res) => {
+  const { id, paymentId } = req.params;
+  validateMongoDbId(id);
+  validateMongoDbId(paymentId);
+
+  const purchase = await Purchase.findById(id);
+  if (!purchase) return res.status(404).json({ message: "Purchase not found" });
+
+  const paymentIndex = purchase.payments.findIndex(p => p._id.toString() === paymentId);
+  if (paymentIndex === -1) return res.status(404).json({ message: "Payment entry not found" });
+
+  purchase.payments.splice(paymentIndex, 1);
+  recalcPurchaseTotals(purchase);
+
+  await purchase.save();
+  await purchase.populate("vendor", "name firmName phone city openingBalance");
+
+  res.json({ success: true, message: "Payment entry deleted successfully", purchase });
 });
 
 const getPurchaseSummary = asyncHandler(async (req, res) => {
@@ -433,5 +568,7 @@ module.exports = {
   updatePurchase,
   deletePurchase,
   recordPayment,
+  updatePayment,
+  deletePayment,
   getPurchaseSummary,
 };

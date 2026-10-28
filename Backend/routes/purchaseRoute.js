@@ -6,6 +6,8 @@ const {
   updatePurchase,
   deletePurchase,
   recordPayment,
+  updatePayment,
+  deletePayment,
   getPurchaseSummary,
 } = require("../controller/purchaseCtrl");
 const { authMiddleware, isAdmin } = require("../middlewares/authMiddleware");
@@ -18,5 +20,7 @@ router.get("/:id", authMiddleware, isAdmin, getPurchase);
 router.put("/:id", authMiddleware, isAdmin, updatePurchase);
 router.delete("/:id", authMiddleware, isAdmin, deletePurchase);
 router.post("/:id/pay", authMiddleware, isAdmin, recordPayment);
+router.put("/:id/payment/:paymentId", authMiddleware, isAdmin, updatePayment);
+router.delete("/:id/payment/:paymentId", authMiddleware, isAdmin, deletePayment);
 
 module.exports = router;

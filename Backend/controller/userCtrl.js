@@ -10,7 +10,7 @@ const ReturnExchange = require("../models/returnExchangeModel");
 const Rojmel = require("../models/rojmelModel");
 const uniqid = require("uniqid");
 const { notifyUser } = require("./notificationCtrl");
-const { createAutoEntry, recalculateBalances } = require("./rojmelCtrl");
+const { recalculateBalances } = require("./rojmelCtrl");
 const { ORDER_STATUS_EVENT_MAP } = require("../config/notificationConfig");
 
 const asyncHandler = require("express-async-handler");
@@ -285,21 +285,31 @@ const createOfflineOrder = asyncHandler(async (req, res) => {
   let purchaseCustomer = null;
   let newCustomer = null;
   let isNewCustomer = false;
+
+  // Validate customer details for offline billing
+  const customerName = (customer?.name || "").trim();
+  if (!customerName) {
+    res.status(400);
+    throw new Error("Customer name is required for POS billing");
+  }
+
+  const cleanContact = customer?.contact ? String(customer.contact).replace(/\D/g, "").slice(-10) : "";
+  if (!cleanContact || cleanContact.length !== 10) {
+    res.status(400);
+    throw new Error("Valid 10-digit customer mobile number is required for POS billing");
+  }
   
   // Extract referralContact from customer object
-  const referralContact = customer?.referralContact || null;
+  const referralContact = customer?.referralContact ? String(customer.referralContact).replace(/\D/g, "").slice(-10) : null;
 
-  // Step 1: Check if customer already exists
-  if (customer && customer.contact) {
-    actualCustomer = await User.findOne({
-      mobile: customer.contact,
-      role: "user",
-    });
+  // Step 1: Check if customer already exists (search by normalized 10-digit mobile)
+  actualCustomer = await User.findOne({
+    mobile: cleanContact,
+  });
 
-    if (actualCustomer) {
-      customerId = actualCustomer._id;
-      purchaseCustomer = actualCustomer;
-    }
+  if (actualCustomer) {
+    customerId = actualCustomer._id;
+    purchaseCustomer = actualCustomer;
   }
   
   // =====================================================
@@ -468,9 +478,22 @@ const createOfflineOrder = asyncHandler(async (req, res) => {
     finalIncentiveAmount = Math.round(((saleBase * calculatedIncentiveRate) / 100) * 100) / 100;
   }
 
-  // Step 3: Create order FIRST
+  const nameParts = customerName.split(" ").filter(Boolean);
+  const cFirstname = nameParts[0] || (actualCustomer?.firstname) || "Customer";
+  const cLastname = nameParts.slice(1).join(" ") || (actualCustomer?.lastname) || "";
+
+  // Step 3: Create order with user and shippingInfo snapshot
   const order = await Order.create({
     user: customerId || undefined,
+    shippingInfo: {
+      firstname: cFirstname,
+      lastname: cLastname,
+      phone: cleanContact,
+      address: (customer?.address || actualCustomer?.address || "").trim(),
+      city: "Rajkot",
+      state: "Gujarat",
+      pincode: 360001,
+    },
     orderItems,
     totalPrice,
     totalPriceAfterDiscount,
@@ -508,71 +531,59 @@ const createOfflineOrder = asyncHandler(async (req, res) => {
       : { offerDiscount: 0, offerType: "" },
   });
 
-  // Step 4: If customer does NOT exist → create AFTER order success
-  if (customer && customer.contact && !actualCustomer) {
-    // const nameParts = (customer.name || "Customer").split(" ");
+  // Step 4: If customer does NOT exist in DB → auto-create customer and link to order
+  if (!actualCustomer && cleanContact && cleanContact.length === 10) {
+    try {
+      // Build customer data object
+      const customerData = {
+        firstname: cFirstname,
+        lastname: cLastname || "NA",
+        mobile: cleanContact,
+        email: customer?.email || undefined,
+        address: (customer?.address || "").trim(),
+        password: null,
+        role: "user",
+        totalOrders: 1,
+        lastOrderDate: new Date(),
+      };
 
+      // Generate name-based referral code: e.g. JOHN123
+      const makeCode = (name) => {
+        const prefix = (name || 'USER').replace(/[^A-Z]/gi, '').toUpperCase().slice(0, 4);
+        const suffix = Math.floor(100 + Math.random() * 900);
+        return `${prefix}${suffix}`;
+      };
 
-    const fullName = (customer.name || "").trim();
-// alert("Customer name is ",customer.name);
-let firstname = "Customer";
-let lastname = "NA"; // fallback to avoid validation error
+      let newReferralCode = makeCode(cFirstname);
+      let existingCodeUser = await User.findOne({ referralCode: newReferralCode });
+      while (existingCodeUser) {
+        newReferralCode = makeCode(cFirstname);
+        existingCodeUser = await User.findOne({ referralCode: newReferralCode });
+      }
+      customerData.referralCode = newReferralCode;
 
-if (fullName.length > 0) {
-  const nameParts = fullName.split(" ");
+      // Link referral for new customer if provided
+      if (referrer) {
+        customerData.referredBy = referrer._id;
+        referralApplied = true;
+      }
 
-  firstname = nameParts[0];
+      newCustomer = await User.create(customerData);
 
-  if (nameParts.length > 1) {
-    lastname = nameParts.slice(1).join(" ");
-  }
-}
+      order.user = newCustomer._id;
+      await order.save();
+      purchaseCustomer = newCustomer;
 
-// Build customer data object
-const customerData = {
-  firstname,
-  lastname,
-  mobile: customer.contact,
-  email: customer.email || undefined,
-  address: customer.address || "",
-  password: null,
-  role: "user",
-  totalOrders: 1,
-  lastOrderDate: new Date(),
-};
-
-// Generate name-based referral code: e.g. JOHN123
-const makeCode = (name) => {
-  const prefix = (name || 'USER').replace(/[^A-Z]/gi, '').toUpperCase().slice(0, 4);
-  const suffix = Math.floor(100 + Math.random() * 900);
-  return `${prefix}${suffix}`;
-};
-
-let newReferralCode = makeCode(firstname);
-let existingCodeUser = await User.findOne({ referralCode: newReferralCode });
-while (existingCodeUser) {
-  newReferralCode = makeCode(firstname);
-  existingCodeUser = await User.findOne({ referralCode: newReferralCode });
-}
-customerData.referralCode = newReferralCode;
-
-// =====================================================
-// LINK REFERRAL FOR NEW CUSTOMER
-// =====================================================
-if (referrer) {
-  customerData.referredBy = referrer._id;
-  referralApplied = true;
-  console.log("New customer will be linked to referrer:", referrer._id);
-}
-// =====================================================
-
-    newCustomer = await User.create(customerData);
-
-    order.user = newCustomer._id;
-    await order.save();
-    purchaseCustomer = newCustomer;
-
-    isNewCustomer = true;
+      isNewCustomer = true;
+    } catch (createErr) {
+      console.error("Auto-creating customer in offline-order error:", createErr);
+      const fallbackUser = await User.findOne({ mobile: cleanContact });
+      if (fallbackUser) {
+        order.user = fallbackUser._id;
+        await order.save();
+        purchaseCustomer = fallbackUser;
+      }
+    }
   }
 
   // Step 5: If existing customer → update stats
@@ -2379,6 +2390,87 @@ const updateOrder = asyncHandler(async (req, res) => {
   } catch (error) {
     throw new Error(error);
   }
+});
+
+// Assign or update customer on an existing order (especially for bills created without customer)
+const assignCustomerToOrder = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { customerId, name, mobile, address } = req.body;
+
+  const order = await Order.findById(id);
+  if (!order) {
+    res.status(404);
+    throw new Error("Order not found");
+  }
+
+  let user = null;
+  if (customerId) {
+    user = await User.findById(customerId);
+  } else if (mobile) {
+    const cleanMobile = String(mobile).replace(/\D/g, "").slice(-10);
+    if (cleanMobile.length === 10) {
+      user = await User.findOne({ mobile: cleanMobile });
+      if (!user && name) {
+        const parts = name.trim().split(" ").filter(Boolean);
+        const cFirstname = parts[0] || "Customer";
+        const cLastname = parts.slice(1).join(" ") || "NA";
+        
+        const makeCode = (prefix) => `${(prefix || 'USER').replace(/[^A-Z]/gi, '').toUpperCase().slice(0, 4)}${Math.floor(100 + Math.random() * 900)}`;
+        let code = makeCode(cFirstname);
+        while (await User.findOne({ referralCode: code })) {
+          code = makeCode(cFirstname);
+        }
+        
+        user = await User.create({
+          firstname: cFirstname,
+          lastname: cLastname,
+          mobile: cleanMobile,
+          address: (address || "").trim(),
+          referralCode: code,
+          role: "user",
+          totalOrders: 1,
+          lastOrderDate: new Date(),
+        });
+      }
+    }
+  }
+
+  if (user) {
+    order.user = user._id;
+    order.shippingInfo = {
+      firstname: user.firstname,
+      lastname: user.lastname || "",
+      phone: user.mobile,
+      address: (address || user.address || order.shippingInfo?.address || "").trim(),
+      city: order.shippingInfo?.city || "Rajkot",
+      state: order.shippingInfo?.state || "Gujarat",
+      pincode: order.shippingInfo?.pincode || 360001,
+    };
+  } else if (name || mobile) {
+    const cleanMobile = mobile ? String(mobile).replace(/\D/g, "").slice(-10) : "";
+    const parts = (name || "").trim().split(" ").filter(Boolean);
+    order.shippingInfo = {
+      firstname: parts[0] || "Customer",
+      lastname: parts.slice(1).join(" ") || "",
+      phone: cleanMobile,
+      address: (address || order.shippingInfo?.address || "").trim(),
+      city: order.shippingInfo?.city || "Rajkot",
+      state: order.shippingInfo?.state || "Gujarat",
+      pincode: order.shippingInfo?.pincode || 360001,
+    };
+  }
+
+  await order.save();
+
+  const updatedOrder = await Order.findById(id)
+    .populate({
+      path: "orderItems.product",
+      select: "title brand price images barcode hsnCode purchasePrice",
+    })
+    .populate("orderItems.color")
+    .populate("user", "firstname lastname email mobile");
+
+  res.json({ success: true, order: updatedOrder });
 });
 
 // Get monthly order income (fixed aggregation)
@@ -4430,16 +4522,6 @@ const processPosReturnExchange = asyncHandler(async (req, res) => {
       });
     } else if (paymentMethod === "CASH" || paymentMethod === "ONLINE") {
       extraAmountPaid = differentialAmount;
-      const customerNameStr = `${customer.firstname || ""} ${customer.lastname || ""}`.trim() || customer.mobile || "Valued Customer";
-      const exchangeTitles = processedExchangeItems.map(i => i.title).join(", ");
-      rojmelDoc = await createAutoEntry({
-        particulars: `POS Exchange Extra Cash Payment - ${customerNameStr} (${exchangeTitles})`,
-        type: "INCOME",
-        amount: differentialAmount,
-        paymentMethod: paymentMethod === "CASH" ? "Cash" : "Online",
-        category: "Exchanges",
-        referenceId: customer._id,
-      }).catch(err => console.error("Rojmel exchange auto-entry failed:", err));
     }
   } else if (differentialAmount < 0) {
     const returnCredit = Math.abs(differentialAmount);
@@ -4508,16 +4590,6 @@ const processPosReturnExchange = asyncHandler(async (req, res) => {
     } else if (paymentMethod === "CASH" || paymentMethod === "ONLINE") {
       settlementType = paymentMethod === "CASH" ? "CASH_REFUND" : "ONLINE_REFUND";
       extraAmountPaid = -returnCredit;
-      const customerNameStr = `${customer.firstname || ""} ${customer.lastname || ""}`.trim() || customer.mobile || "Valued Customer";
-      const returnTitles = processedReturnedItems.map(i => i.title).join(", ");
-      rojmelDoc = await createAutoEntry({
-        particulars: `POS Return Cash Refund - ${customerNameStr} (${returnTitles})`,
-        type: "EXPENSE",
-        amount: returnCredit,
-        paymentMethod: paymentMethod === "CASH" ? "Cash" : "Online",
-        category: "Returns",
-        referenceId: customer._id,
-      }).catch(err => console.error("Rojmel return auto-entry failed:", err));
     } else {
       settlementType = "COIN_CREDIT";
       coinsCredited = returnCredit;
@@ -5112,5 +5184,6 @@ module.exports = {
   getReturnExchangesList,
   deleteReturnExchange,
   getCustomersByProductBarcode,
+  assignCustomerToOrder,
 };
 

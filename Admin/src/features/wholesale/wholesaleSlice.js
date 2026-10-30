@@ -103,6 +103,24 @@ export const deletePayment = createAsyncThunk("wholesale/deletePayment", async (
     return rejectWithValue(err.response?.data?.message || err.message);
   }
 });
+export const fetchBillWhatsApp = createAsyncThunk("wholesale/fetchBillWhatsApp", async (billId, { rejectWithValue }) => {
+  try {
+    const { data } = await api.get(`/wholesale/bills/${billId}/whatsapp`);
+    return data;
+  } catch (err) {
+    return rejectWithValue(err.response?.data?.message || err.message);
+  }
+});
+
+export const fetchCustomerStatementWhatsApp = createAsyncThunk("wholesale/fetchCustomerStatementWhatsApp", async (customerId, { rejectWithValue }) => {
+  try {
+    const { data } = await api.get(`/wholesale/customers/${customerId}/statement-whatsapp`);
+    return data;
+  } catch (err) {
+    return rejectWithValue(err.response?.data?.message || err.message);
+  }
+});
+
 export const fetchMonthlyReport = createAsyncThunk("wholesale/fetchMonthlyReport", async (params, { rejectWithValue }) => {
   try {
     const { data } = await api.get("/wholesale/monthly-report", { params });

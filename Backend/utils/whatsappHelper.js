@@ -338,6 +338,268 @@ const buildVendorStatementMessage = ({
 };
 
 /**
+ * Build Wholesale Sale Bill / Invoice WhatsApp message text
+ */
+const buildWholesaleBillCreatedMessage = ({
+  customerName,
+  firmName,
+  billNo,
+  billDate,
+  description = "",
+  billTotal,
+  initialPaid = 0,
+  initialMode = "",
+  initialGr = 0,
+  initialDiscount = 0,
+  billBalanceDue,
+  overallCustomerBalance,
+  storeName = "Yashoda Fashion",
+  storePhone = "",
+}) => {
+  const nameStr = firmName ? `${firmName} (${customerName || "Customer"})` : (customerName || "Wholesale Customer");
+  const dateFormatted = billDate
+    ? new Date(billDate).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })
+    : new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+
+  const isCleared = Number(billBalanceDue || 0) <= 0.01;
+  const statusStr = isCleared ? "Fully Paid 🎉" : Number(initialPaid) > 0 ? "Partially Paid ⏳" : "Unpaid (Baki) ⚠️";
+
+  const lines = [
+    `🛍️ *${storeName}* 🛍️`,
+    `*Wholesale Sale Bill / Invoice*`,
+    ``,
+    `Hello *${nameStr}*,`,
+    `Thank you for your business! A new wholesale bill has been created for your account:`,
+    ``,
+    `📋 *Bill Details:*`,
+    `• *Bill No:* ${billNo ? `#${billNo}` : "Wholesale Bill"}`,
+    `• *Bill Date:* ${dateFormatted}`,
+  ];
+
+  if (description) {
+    lines.push(`• *Items / Description:* ${description}`);
+  }
+
+  lines.push(`• *Bill Total Amount:* ₹${Number(billTotal || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`);
+  lines.push(`• *Bill Status:* ${statusStr}`);
+
+  if (Number(initialPaid) > 0 || Number(initialGr) > 0 || Number(initialDiscount) > 0) {
+    lines.push(``);
+    lines.push(`💵 *Initial Settlement:*`);
+    if (Number(initialPaid) > 0) {
+      lines.push(`• *Amount Paid:* ₹${Number(initialPaid).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}${initialMode ? ` (${initialMode})` : ""}`);
+    }
+    if (Number(initialGr) > 0) {
+      lines.push(`• *Goods Return (GR):* ₹${Number(initialGr).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`);
+    }
+    if (Number(initialDiscount) > 0) {
+      lines.push(`• *Discount / Kasar:* ₹${Number(initialDiscount).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`);
+    }
+  }
+
+  lines.push(``);
+  if (isCleared) {
+    lines.push(`✅ *Bill #${billNo || ""} is Fully Settled!*`);
+  } else {
+    lines.push(`⚠️ *Remaining Due for this Bill (#${billNo || ""}):* ₹${Number(billBalanceDue || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`);
+  }
+
+  if (overallCustomerBalance !== undefined && overallCustomerBalance !== null) {
+    lines.push(``);
+    lines.push(`----------------------------------`);
+    if (Number(overallCustomerBalance) <= 0.01) {
+      lines.push(`✅ *Account Status: Fully Cleared!* (No pending balance) 🎉`);
+    } else {
+      lines.push(`📊 *Total Overall Account Balance Due:* ₹${Number(overallCustomerBalance).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`);
+      lines.push(`(Including all pending bills & previous dues)`);
+    }
+    lines.push(`----------------------------------`);
+  }
+
+  lines.push(``);
+  lines.push(`Thank you for your valuable partnership! 🙏`);
+  if (storePhone) {
+    lines.push(`📞 Contact: ${storePhone}`);
+  }
+
+  return lines.join("\n");
+};
+
+/**
+ * Build Wholesale Payment Receipt WhatsApp message text
+ */
+const buildWholesalePaymentMessage = ({
+  customerName,
+  firmName,
+  billNo,
+  billDate,
+  paymentDate,
+  amountPaid,
+  cashAmount = 0,
+  onlineAmount = 0,
+  onlineMode = "",
+  onlineRef = "",
+  discountAmount = 0,
+  discountNote = "",
+  grAmount = 0,
+  grNote = "",
+  totalSettlement,
+  billTotal,
+  billBalanceDue,
+  billStatus,
+  overallCustomerBalance,
+  pendingBillsCount,
+  storeName = "Yashoda Fashion",
+  storePhone = "",
+}) => {
+  const nameStr = firmName ? `${firmName} (${customerName || "Customer"})` : (customerName || "Wholesale Customer");
+  const dateFormatted = paymentDate
+    ? new Date(paymentDate).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })
+    : new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+  const billDateFormatted = billDate
+    ? new Date(billDate).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })
+    : "";
+
+  const isBillCleared = billStatus === "PAID" || Number(billBalanceDue || 0) <= 0.01;
+  const billStatusStr = isBillCleared ? "Fully Cleared & Settled 🎉" : "Partially Cleared ⏳";
+
+  const isAccountFullyCleared = overallCustomerBalance !== undefined && overallCustomerBalance !== null && Number(overallCustomerBalance) <= 0.01;
+
+  const lines = [
+    `🛍️ *${storeName}* 🛍️`,
+    `*Wholesale Payment Receipt*`,
+    ``,
+    `Hello *${nameStr}*,`,
+    `We have received your payment. Here are the payment settlement details:`,
+    ``,
+    `📋 *Bill Details Being Paid:*`,
+    `• *Bill No:* ${billNo ? `#${billNo}` : "Wholesale Bill"}`,
+  ];
+
+  if (billDateFormatted) {
+    lines.push(`• *Bill Date:* ${billDateFormatted}`);
+  }
+
+  if (billTotal !== undefined && billTotal !== null && Number(billTotal) > 0) {
+    lines.push(`• *Bill Total:* ₹${Number(billTotal || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`);
+  }
+
+  lines.push(`• *Bill Status:* ${billStatusStr}`);
+  lines.push(``);
+  lines.push(`💵 *Payment & Settlement Details:*`);
+  lines.push(`• *Payment Date:* ${dateFormatted}`);
+
+  // Payment Breakdown
+  const payParts = [];
+  if (Number(cashAmount) > 0) payParts.push(`Cash: ₹${Number(cashAmount).toLocaleString("en-IN")}`);
+  if (Number(onlineAmount) > 0) {
+    payParts.push(`Online${onlineMode ? ` (${onlineMode})` : ""}: ₹${Number(onlineAmount).toLocaleString("en-IN")}${onlineRef ? ` (Ref: ${onlineRef})` : ""}`);
+  }
+  if (payParts.length > 0) {
+    lines.push(`• *Payment Mode:* ${payParts.join(" | ")}`);
+  }
+
+  const effectivePaid = Number(amountPaid || 0) || (Number(cashAmount || 0) + Number(onlineAmount || 0));
+  lines.push(`• *Amount Paid:* ₹${effectivePaid.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`);
+
+  if (Number(discountAmount) > 0) {
+    lines.push(`• *Discount / Kasar / Maff:* ₹${Number(discountAmount).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}${discountNote ? ` (${discountNote})` : ""}`);
+  }
+
+  if (Number(grAmount) > 0) {
+    lines.push(`• *Goods Return (GR):* ₹${Number(grAmount).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}${grNote ? ` (${grNote})` : ""}`);
+  }
+
+  const effectiveSettlement = Number(totalSettlement || 0) || (effectivePaid + Number(discountAmount || 0) + Number(grAmount || 0));
+  if (effectiveSettlement > effectivePaid) {
+    lines.push(`• *Total Settlement for this Bill:* ₹${effectiveSettlement.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`);
+  }
+
+  lines.push(``);
+
+  // Bill-level status
+  if (isBillCleared) {
+    lines.push(`✅ *Bill #${billNo || ""}${billDateFormatted ? ` (Dated: ${billDateFormatted})` : ""} is now Fully Cleared & Settled!*`);
+  } else {
+    lines.push(`⚠️ *Remaining Balance for this Bill (#${billNo || ""}):* ₹${Number(billBalanceDue || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`);
+  }
+
+  // Overall Customer Account Status across ALL bills
+  if (overallCustomerBalance !== undefined && overallCustomerBalance !== null) {
+    lines.push(``);
+    lines.push(`----------------------------------`);
+    lines.push(`📊 *Customer Overall Account Status:*`);
+    if (isAccountFullyCleared) {
+      lines.push(`🎉 *CONGRATULATIONS! Your entire wholesale account is FULLY CLEARED with us!*`);
+      lines.push(`✅ *All bills are settled. Remaining Balance: ₹0.00*`);
+    } else {
+      lines.push(`💰 *Total Remaining Account Balance Due:* ₹${Number(overallCustomerBalance).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`);
+      if (pendingBillsCount && pendingBillsCount > 0) {
+        lines.push(`⚠️ *You have ${pendingBillsCount} other unpaid/pending bill(s) in your account.*`);
+      }
+    }
+    lines.push(`----------------------------------`);
+  }
+
+  lines.push(``);
+  lines.push(`Thank you for your prompt payment and continued partnership! 🙏`);
+  if (storePhone) {
+    lines.push(`📞 Contact: ${storePhone}`);
+  }
+
+  return lines.join("\n");
+};
+
+/**
+ * Build Wholesale Customer Account Statement WhatsApp message text
+ */
+const buildWholesaleStatementMessage = ({
+  customerName,
+  firmName,
+  summary,
+  storeName = "Yashoda Fashion",
+  storePhone = "",
+}) => {
+  const nameStr = firmName ? `${firmName} (${customerName || "Customer"})` : (customerName || "Wholesale Customer");
+  const totSales = Number(summary?.totalSales || 0);
+  const totPaid = Number(summary?.totalPaid || 0);
+  const totGR = Number(summary?.totalGR || 0);
+  const totDiscount = Number(summary?.totalDiscount || 0);
+  const balDue = Number(summary?.totalDue || 0);
+
+  const lines = [
+    `🛍️ *${storeName}* 🛍️`,
+    `*Wholesale Customer Account Statement*`,
+    ``,
+    `Hello *${nameStr}*,`,
+    `Here is the latest financial ledger summary of your wholesale account with us:`,
+    ``,
+    `📊 *Account Summary:*`,
+    `• *Total Purchases / Bills:* ₹${totSales.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+    `• *Total Paid:* ₹${totPaid.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+  ];
+
+  if (totGR > 0) {
+    lines.push(`• *Total Goods Return (GR):* ₹${totGR.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`);
+  }
+  if (totDiscount > 0) {
+    lines.push(`• *Total Kasar / Round Off / Maff:* ₹${totDiscount.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`);
+  }
+
+  lines.push(`• *Current Outstanding Balance Due:* ₹${balDue.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${balDue <= 0.01 ? "✅ (Fully Clear 🎉)" : "⚠️ (Due)"}`);
+  lines.push(``);
+  if (balDue <= 0.01) {
+    lines.push(`✅ *Your Entire Wholesale Account is Fully Cleared & Settled!*`);
+  }
+  lines.push(`Thank you for your valuable business and partnership! 🙏`);
+  if (storePhone) {
+    lines.push(`📞 Contact: ${storePhone}`);
+  }
+
+  return lines.join("\n");
+};
+
+/**
  * Helper to fetch store contact details from admin user
  */
 const getStoreContact = async () => {
@@ -372,6 +634,9 @@ module.exports = {
   buildConsolidatedUdharMessage,
   buildVendorPaymentMessage,
   buildVendorStatementMessage,
+  buildWholesaleBillCreatedMessage,
+  buildWholesalePaymentMessage,
+  buildWholesaleStatementMessage,
   sendMetaWhatsAppCloudApi,
   generateWhatsAppUrl,
   getStoreName,

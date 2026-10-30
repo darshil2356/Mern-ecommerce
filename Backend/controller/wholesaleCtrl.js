@@ -1,6 +1,14 @@
 const asyncHandler = require("express-async-handler");
 const WholesaleCustomer = require("../models/wholesaleCustomerModel");
 const WholesaleBill = require("../models/wholesaleBillModel");
+const {
+  buildWholesaleBillCreatedMessage,
+  buildWholesalePaymentMessage,
+  buildWholesaleStatementMessage,
+  sendMetaWhatsAppCloudApi,
+  generateWhatsAppUrl,
+  getStoreContact,
+} = require("../utils/whatsappHelper");
 
 // ─── CUSTOMERS ────────────────────────────────────────────────────────────────
 
@@ -162,8 +170,60 @@ const createBill = asyncHandler(async (req, res) => {
     note: note || "",
   });
 
-  const populated = await WholesaleBill.findById(bill._id).populate("customer", "name firmName phone city");
-  res.status(201).json({ success: true, data: populated });
+  const populated = await WholesaleBill.findById(bill._id).populate("customer", "name firmName phone city openingBalance");
+
+  // Calculate customer overall balance across all bills + openingBalance
+  const allCustomerBills = await WholesaleBill.find({ customer: populated.customer?._id });
+  const totalBillsDue = allCustomerBills.reduce((acc, b) => acc + (b.balanceDue || 0), 0);
+  const overallCustomerBalance = (populated.customer?.openingBalance || 0) + totalBillsDue;
+
+  const { storeName, storePhone } = await getStoreContact();
+
+  const initCash = payments[0]?.cashAmount || 0;
+  const initOnline = payments[0]?.onlineAmount || 0;
+  const initGr = payments[0]?.grAmount || 0;
+  const initDiscount = payments[0]?.discountAmount || 0;
+  const initialPaid = initCash + initOnline;
+  const initialMode = [
+    initCash > 0 ? "Cash" : "",
+    initOnline > 0 ? (payments[0]?.onlineMode || "Online") : "",
+  ].filter(Boolean).join(" + ");
+
+  const whatsappMessage = buildWholesaleBillCreatedMessage({
+    customerName: populated.customer?.name,
+    firmName: populated.customer?.firmName,
+    billNo: populated.billNo,
+    billDate: populated.billDate,
+    description: populated.description,
+    billTotal: populated.totalAmount,
+    initialPaid,
+    initialMode,
+    initialGr,
+    initialDiscount,
+    billBalanceDue: populated.balanceDue,
+    overallCustomerBalance,
+    storeName,
+    storePhone,
+  });
+
+  const customerPhone = populated.customer?.phone;
+  const whatsappUrl = generateWhatsAppUrl({ phone: customerPhone, messageText: whatsappMessage });
+
+  let whatsappSent = false;
+  if (customerPhone) {
+    const apiResult = await sendMetaWhatsAppCloudApi({ phone: customerPhone, messageText: whatsappMessage });
+    whatsappSent = apiResult.success;
+  }
+
+  res.status(201).json({
+    success: true,
+    data: populated,
+    whatsappMessage,
+    whatsappUrl,
+    whatsappSent,
+    customerPhone: customerPhone || "",
+    overallCustomerBalance,
+  });
 });
 
 // PUT /api/wholesale/bills/:id
@@ -240,8 +300,63 @@ const addPayment = asyncHandler(async (req, res) => {
   });
 
   await bill.save();
-  await bill.populate("customer", "name firmName phone city");
-  res.json({ success: true, data: bill });
+  await bill.populate("customer", "name firmName phone city openingBalance");
+
+  // Calculate overall balance across all bills + opening balance
+  const allCustomerBills = await WholesaleBill.find({ customer: bill.customer?._id });
+  const totalBillsDue = allCustomerBills.reduce((acc, b) => acc + (b.balanceDue || 0), 0);
+  const overallCustomerBalance = (bill.customer?.openingBalance || 0) + totalBillsDue;
+  const pendingOtherBills = allCustomerBills.filter((b) => b._id.toString() !== bill._id.toString() && b.balanceDue > 0.01);
+  const pendingBillsCount = pendingOtherBills.length;
+
+  const { storeName, storePhone } = await getStoreContact();
+
+  const totalSettlement = cash + online + gr + discount;
+  const amountPaid = cash + online;
+
+  const whatsappMessage = buildWholesalePaymentMessage({
+    customerName: bill.customer?.name,
+    firmName: bill.customer?.firmName,
+    billNo: bill.billNo,
+    billDate: bill.billDate,
+    paymentDate: date || new Date(),
+    amountPaid,
+    cashAmount: cash,
+    onlineAmount: online,
+    onlineMode,
+    onlineRef,
+    discountAmount: discount,
+    discountNote,
+    grAmount: gr,
+    grNote,
+    totalSettlement,
+    billTotal: bill.totalAmount,
+    billBalanceDue: bill.balanceDue,
+    billStatus: bill.status,
+    overallCustomerBalance,
+    pendingBillsCount,
+    storeName,
+    storePhone,
+  });
+
+  const customerPhone = bill.customer?.phone;
+  const whatsappUrl = generateWhatsAppUrl({ phone: customerPhone, messageText: whatsappMessage });
+
+  let whatsappSent = false;
+  if (customerPhone) {
+    const apiResult = await sendMetaWhatsAppCloudApi({ phone: customerPhone, messageText: whatsappMessage });
+    whatsappSent = apiResult.success;
+  }
+
+  res.json({
+    success: true,
+    data: bill,
+    whatsappMessage,
+    whatsappUrl,
+    whatsappSent,
+    customerPhone: customerPhone || "",
+    overallCustomerBalance,
+  });
 });
 
 // DELETE /api/wholesale/bills/:billId/payment/:paymentId
@@ -630,8 +745,113 @@ const getMonthlyReport = asyncHandler(async (req, res) => {
   });
 });
 
+// GET /api/wholesale/bills/:id/whatsapp
+const getBillWhatsApp = asyncHandler(async (req, res) => {
+  const bill = await WholesaleBill.findById(req.params.id).populate("customer", "name firmName phone city openingBalance");
+  if (!bill) { res.status(404); throw new Error("Bill not found"); }
+
+  const allCustomerBills = await WholesaleBill.find({ customer: bill.customer?._id });
+  const totalBillsDue = allCustomerBills.reduce((acc, b) => acc + (b.balanceDue || 0), 0);
+  const overallCustomerBalance = (bill.customer?.openingBalance || 0) + totalBillsDue;
+
+  const { storeName, storePhone } = await getStoreContact();
+
+  const lastPayment = bill.payments[bill.payments.length - 1];
+  let whatsappMessage;
+  if (bill.payments.length > 0 && lastPayment) {
+    const pendingOtherBills = allCustomerBills.filter((b) => b._id.toString() !== bill._id.toString() && b.balanceDue > 0.01);
+    whatsappMessage = buildWholesalePaymentMessage({
+      customerName: bill.customer?.name,
+      firmName: bill.customer?.firmName,
+      billNo: bill.billNo,
+      billDate: bill.billDate,
+      paymentDate: lastPayment.date,
+      amountPaid: (lastPayment.cashAmount || 0) + (lastPayment.onlineAmount || 0),
+      cashAmount: lastPayment.cashAmount || 0,
+      onlineAmount: lastPayment.onlineAmount || 0,
+      onlineMode: lastPayment.onlineMode,
+      onlineRef: lastPayment.onlineRef,
+      discountAmount: lastPayment.discountAmount || 0,
+      discountNote: lastPayment.discountNote,
+      grAmount: lastPayment.grAmount || 0,
+      grNote: lastPayment.grNote,
+      totalSettlement: lastPayment.totalAmount,
+      billTotal: bill.totalAmount,
+      billBalanceDue: bill.balanceDue,
+      billStatus: bill.status,
+      overallCustomerBalance,
+      pendingBillsCount: pendingOtherBills.length,
+      storeName,
+      storePhone,
+    });
+  } else {
+    whatsappMessage = buildWholesaleBillCreatedMessage({
+      customerName: bill.customer?.name,
+      firmName: bill.customer?.firmName,
+      billNo: bill.billNo,
+      billDate: bill.billDate,
+      description: bill.description,
+      billTotal: bill.totalAmount,
+      initialPaid: 0,
+      billBalanceDue: bill.balanceDue,
+      overallCustomerBalance,
+      storeName,
+      storePhone,
+    });
+  }
+
+  const customerPhone = bill.customer?.phone;
+  const whatsappUrl = generateWhatsAppUrl({ phone: customerPhone, messageText: whatsappMessage });
+
+  res.json({
+    success: true,
+    billNo: bill.billNo,
+    customerName: bill.customer?.name,
+    customerPhone: customerPhone || "",
+    whatsappMessage,
+    whatsappUrl,
+    overallCustomerBalance,
+  });
+});
+
+// GET /api/wholesale/customers/:id/statement-whatsapp
+const getCustomerStatementWhatsApp = asyncHandler(async (req, res) => {
+  const customer = await WholesaleCustomer.findById(req.params.id);
+  if (!customer) { res.status(404); throw new Error("Customer not found"); }
+
+  const bills = await WholesaleBill.find({ customer: req.params.id });
+  const totalSales = bills.reduce((s, b) => s + b.totalAmount, 0);
+  const totalPaid = bills.reduce((s, b) => s + b.paidAmount, 0);
+  const totalGR = bills.reduce((s, b) => s + (b.grAmount || 0), 0);
+  const totalDiscount = bills.reduce((s, b) => s + (b.discountAmount || 0), 0);
+  const totalDue = bills.reduce((s, b) => s + b.balanceDue, 0) + (customer.openingBalance || 0);
+
+  const { storeName, storePhone } = await getStoreContact();
+
+  const whatsappMessage = buildWholesaleStatementMessage({
+    customerName: customer.name,
+    firmName: customer.firmName,
+    summary: { totalSales, totalPaid, totalGR, totalDiscount, totalDue },
+    storeName,
+    storePhone,
+  });
+
+  const customerPhone = customer.phone;
+  const whatsappUrl = generateWhatsAppUrl({ phone: customerPhone, messageText: whatsappMessage });
+
+  res.json({
+    success: true,
+    customerName: customer.name,
+    customerPhone: customerPhone || "",
+    whatsappMessage,
+    whatsappUrl,
+    summary: { totalSales, totalPaid, totalGR, totalDiscount, totalDue },
+  });
+});
+
 module.exports = {
   getAllCustomers, createCustomer, updateCustomer, deleteCustomer,
   getAllBills, getBill, createBill, updateBill, deleteBill,
   addPayment, deletePayment, getCustomerLedger, getDashboard, getDueAlerts, getMonthlyReport,
+  getBillWhatsApp, getCustomerStatementWhatsApp,
 };

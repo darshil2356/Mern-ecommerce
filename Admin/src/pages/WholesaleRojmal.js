@@ -9,6 +9,7 @@ import {
   fetchCustomers, createCustomer, updateCustomer, deleteCustomer,
   fetchCustomerLedger, fetchBills, createBill, updateBill, deleteBill,
   addPayment, deletePayment, fetchDashboard, fetchAlerts, fetchMonthlyReport, clearError, clearLedger,
+  fetchBillWhatsApp, fetchCustomerStatementWhatsApp,
 } from "../features/wholesale/wholesaleSlice";
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
@@ -492,6 +493,17 @@ export default function WholesaleRojmal() {
   const [payForm, setPayForm] = useState(EMPTY_PAY);
   const [expandedBill, setExpandedBill] = useState(null);
 
+  // WhatsApp Prompt State
+  const [whatsappPrompt, setWhatsappPrompt] = useState({
+    open: false,
+    title: "",
+    customerName: "",
+    customerPhone: "",
+    whatsappUrl: "",
+    messageText: "",
+    whatsappSent: false,
+  });
+
   // Ledger state
   const [ledgerCustId, setLedgerCustId] = useState("");
 
@@ -588,6 +600,20 @@ export default function WholesaleRojmal() {
       loadCustomers();
       loadDashboard();
       if (ledgerCustId) dispatch(fetchCustomerLedger(ledgerCustId));
+
+      // Open WhatsApp modal prompt
+      const payloadData = res.payload;
+      if (payloadData?.whatsappMessage || payloadData?.whatsappUrl) {
+        setWhatsappPrompt({
+          open: true,
+          title: `Wholesale Bill #${payloadData.data?.billNo || payload.billNo}`,
+          customerName: payloadData.data?.customer?.name || "Customer",
+          customerPhone: payloadData.customerPhone || payloadData.data?.customer?.phone || "",
+          whatsappUrl: payloadData.whatsappUrl || "",
+          messageText: payloadData.whatsappMessage || "",
+          whatsappSent: payloadData.whatsappSent || false,
+        });
+      }
     }
   };
 
@@ -631,6 +657,55 @@ export default function WholesaleRojmal() {
       if (ledgerCustId) {
         dispatch(fetchCustomerLedger(ledgerCustId));
       }
+
+      // Open WhatsApp modal prompt
+      const payloadData = res.payload;
+      if (payloadData?.whatsappMessage || payloadData?.whatsappUrl) {
+        setWhatsappPrompt({
+          open: true,
+          title: `Payment Receipt — Bill #${payloadData.data?.billNo || payModal.billNo}`,
+          customerName: payloadData.data?.customer?.name || payModal.customer?.name || "Customer",
+          customerPhone: payloadData.customerPhone || payloadData.data?.customer?.phone || payModal.customer?.phone || "",
+          whatsappUrl: payloadData.whatsappUrl || "",
+          messageText: payloadData.whatsappMessage || "",
+          whatsappSent: payloadData.whatsappSent || false,
+        });
+      }
+    }
+  };
+
+  const handleOpenBillWhatsApp = async (bill) => {
+    const res = await dispatch(fetchBillWhatsApp(bill._id));
+    if (!res.error && res.payload) {
+      setWhatsappPrompt({
+        open: true,
+        title: `Bill #${res.payload.billNo || bill.billNo}`,
+        customerName: res.payload.customerName || bill.customer?.name || "Customer",
+        customerPhone: res.payload.customerPhone || bill.customer?.phone || "",
+        whatsappUrl: res.payload.whatsappUrl || "",
+        messageText: res.payload.whatsappMessage || "",
+        whatsappSent: false,
+      });
+    } else {
+      toast.error(res.payload || "Could not generate WhatsApp message");
+    }
+  };
+
+  const handleSendStatementWhatsApp = async () => {
+    if (!ledgerCustId) { toast.warn("Select a customer first"); return; }
+    const res = await dispatch(fetchCustomerStatementWhatsApp(ledgerCustId));
+    if (!res.error && res.payload) {
+      setWhatsappPrompt({
+        open: true,
+        title: `Ledger Statement — ${res.payload.customerName || "Customer"}`,
+        customerName: res.payload.customerName || "Customer",
+        customerPhone: res.payload.customerPhone || "",
+        whatsappUrl: res.payload.whatsappUrl || "",
+        messageText: res.payload.whatsappMessage || "",
+        whatsappSent: false,
+      });
+    } else {
+      toast.error(res.payload || "Could not generate statement message");
     }
   };
 
@@ -1458,6 +1533,28 @@ export default function WholesaleRojmal() {
                           <div style={{ fontWeight: 700, color: b.balanceDue > 0 ? "#dc2626" : "#16a34a", fontSize: 14 }}>{fmt(b.balanceDue)}</div>
                         </div>
                         <Badge status={b.status} />
+                        <button
+                          style={{
+                            background: "#25D366",
+                            color: "#fff",
+                            border: "none",
+                            borderRadius: 6,
+                            padding: "4px 8px",
+                            fontSize: 12,
+                            fontWeight: 700,
+                            cursor: "pointer",
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: 4,
+                          }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleOpenBillWhatsApp(b);
+                          }}
+                          title="Share Bill on WhatsApp"
+                        >
+                          📱
+                        </button>
                         <span style={{ fontSize: 16, color: "#94a3b8" }}>{isExpanded ? "▲" : "▼"}</span>
                       </div>
 
@@ -1482,6 +1579,12 @@ export default function WholesaleRojmal() {
                               {b.status !== "PAID" && (
                                 <button style={{ ...btn("#16a34a"), padding: "5px 12px", fontSize: 12 }} onClick={(e) => { e.stopPropagation(); openPayModal(b); }}>+ Payment / GR / Maff</button>
                               )}
+                              <button
+                                style={{ ...btn("#25D366"), padding: "5px 12px", fontSize: 12, display: "inline-flex", alignItems: "center", gap: 5 }}
+                                onClick={(e) => { e.stopPropagation(); handleOpenBillWhatsApp(b); }}
+                              >
+                                📱 WhatsApp Bill
+                              </button>
                               <button style={{ ...btn("#f59e0b"), padding: "5px 12px", fontSize: 12 }} onClick={(e) => { e.stopPropagation(); openEditBill(b); }}>✏️ Edit Bill</button>
                               <button style={{ ...btn("#ef4444"), padding: "5px 12px", fontSize: 12 }} onClick={(e) => { e.stopPropagation(); handleDeleteBill(b); }}>🗑 Delete</button>
                             </div>
@@ -1578,6 +1681,27 @@ export default function WholesaleRojmal() {
                       📞 {ledger.customer.phone}
                       {ledger.customer.city && <span> · 📍 {ledger.customer.city}</span>}
                       {ledger.customer.gstin && <span> · GST: {ledger.customer.gstin}</span>}
+                    </div>
+                    <div style={{ marginTop: 8 }}>
+                      <button
+                        style={{
+                          background: "#25D366",
+                          color: "#fff",
+                          border: "none",
+                          borderRadius: 7,
+                          padding: "6px 12px",
+                          fontSize: 12,
+                          fontWeight: 700,
+                          cursor: "pointer",
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 5,
+                          boxShadow: "0 2px 4px rgba(37,211,102,0.25)",
+                        }}
+                        onClick={handleSendStatementWhatsApp}
+                      >
+                        📱 Send Statement on WhatsApp
+                      </button>
                     </div>
                   </div>
                   <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
@@ -1715,6 +1839,30 @@ export default function WholesaleRojmal() {
                             )
                           ) : (
                             <span style={{ color: "#cbd5e1" }}>—</span>
+                          )}
+                          {e.billId && (
+                            <button
+                              style={{
+                                marginLeft: 8,
+                                background: "none",
+                                border: "none",
+                                cursor: "pointer",
+                                fontSize: 15,
+                                color: "#25D366",
+                              }}
+                              title="Share on WhatsApp"
+                              onClick={() => {
+                                handleOpenBillWhatsApp(
+                                  e.bill || (ledger.bills && ledger.bills.find((b) => b._id === e.billId)) || {
+                                    _id: e.billId,
+                                    billNo: e.billNo,
+                                    customer: ledger.customer,
+                                  }
+                                );
+                              }}
+                            >
+                              📱
+                            </button>
                           )}
                         </td>
                       </tr>
@@ -1859,6 +2007,191 @@ export default function WholesaleRojmal() {
             <button style={btn("#16a34a")} onClick={handleAddPayment} disabled={actionLoading}>{actionLoading ? "Saving…" : "✅ Record Settlement"}</button>
           </div>
         </Modal>
+      )}
+
+      {/* WhatsApp Prompt Modal */}
+      {whatsappPrompt.open && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: "rgba(0,0,0,0.6)",
+            zIndex: 9999,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 20,
+          }}
+        >
+          <div
+            style={{
+              background: "#fff",
+              borderRadius: 16,
+              width: "100%",
+              maxWidth: 540,
+              padding: 24,
+              boxShadow: "0 20px 40px rgba(0,0,0,0.25)",
+              animation: "fadeIn 0.2s ease-in-out",
+            }}
+          >
+            {/* Header */}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 14 }}>
+              <div>
+                <h3 style={{ margin: "0 0 4px", fontSize: 18, fontWeight: 700, color: "#15803d", display: "flex", alignItems: "center", gap: 8 }}>
+                  <span style={{ fontSize: 22 }}>📱</span> {whatsappPrompt.title || "Wholesale Bill Receipt"}
+                </h3>
+                <p style={{ margin: 0, fontSize: 13, color: "#6b7280" }}>
+                  Customer: <strong>{whatsappPrompt.customerName}</strong>
+                </p>
+              </div>
+              <button
+                onClick={() => setWhatsappPrompt(p => ({ ...p, open: false }))}
+                style={{ background: "none", border: "none", fontSize: 22, cursor: "pointer", color: "#6b7280" }}
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Status indicator */}
+            <div style={{ marginBottom: 14 }}>
+              {whatsappPrompt.whatsappSent ? (
+                <div style={{ padding: "10px 14px", background: "#f0fdf4", border: "1px solid #86efac", borderRadius: 10, color: "#166534", fontWeight: 700, fontSize: 13 }}>
+                  ✅ Automatically dispatched to customer via WhatsApp Cloud API!
+                </div>
+              ) : (
+                <div style={{ padding: "10px 14px", background: "#fefce8", border: "1px solid #fde047", borderRadius: 10, color: "#854d0e", fontWeight: 600, fontSize: 13 }}>
+                  💡 Send WhatsApp bill / receipt to <strong>{whatsappPrompt.customerName}</strong>
+                </div>
+              )}
+            </div>
+
+            {/* Customer WhatsApp Phone Number Input */}
+            <div style={{ marginBottom: 14 }}>
+              <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "#374151", marginBottom: 4 }}>
+                Customer WhatsApp Number
+              </label>
+              <div style={{ display: "flex", gap: 8 }}>
+                <input
+                  type="text"
+                  value={whatsappPrompt.customerPhone}
+                  onChange={(e) => {
+                    const newPhone = e.target.value;
+                    const clean = newPhone.replace(/\D/g, "");
+                    const intlPhone = clean.length === 10 ? `91${clean}` : clean;
+                    const newUrl = intlPhone ? `https://api.whatsapp.com/send?phone=${intlPhone}&text=${encodeURIComponent(whatsappPrompt.messageText)}` : "";
+                    setWhatsappPrompt(p => ({ ...p, customerPhone: newPhone, whatsappUrl: newUrl }));
+                  }}
+                  placeholder="e.g. 9876543210 (10 digits)"
+                  style={{
+                    flex: 1,
+                    padding: "8px 12px",
+                    borderRadius: 8,
+                    border: "1px solid #d1d5db",
+                    fontSize: 14,
+                    fontWeight: 600,
+                  }}
+                />
+              </div>
+              {!whatsappPrompt.customerPhone && (
+                <span style={{ fontSize: 11, color: "#ef4444", marginTop: 4, display: "block" }}>
+                  ⚠️ Enter customer phone number to open WhatsApp
+                </span>
+              )}
+            </div>
+
+            {/* Message Preview Box */}
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                <span style={{ fontSize: 12, fontWeight: 700, color: "#6b7280" }}>Message Preview:</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigator.clipboard.writeText(whatsappPrompt.messageText);
+                    toast.success("Receipt message copied to clipboard!");
+                  }}
+                  style={{ background: "none", border: "none", color: "#6366f1", fontSize: 12, cursor: "pointer", fontWeight: 600 }}
+                >
+                  📋 Copy Message
+                </button>
+              </div>
+              <div
+                style={{
+                  background: "#f8fafc",
+                  padding: 14,
+                  borderRadius: 10,
+                  fontSize: 12,
+                  fontFamily: "monospace",
+                  whiteSpace: "pre-wrap",
+                  color: "#1e293b",
+                  maxHeight: 180,
+                  overflowY: "auto",
+                  border: "1px solid #cbd5e1",
+                  lineHeight: 1.55,
+                }}
+              >
+                {whatsappPrompt.messageText}
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div style={{ display: "flex", gap: 10 }}>
+              <button
+                type="button"
+                onClick={() => {
+                  let targetUrl = whatsappPrompt.whatsappUrl;
+                  if (!targetUrl && whatsappPrompt.customerPhone) {
+                    const clean = whatsappPrompt.customerPhone.replace(/\D/g, "");
+                    const intl = clean.length === 10 ? `91${clean}` : clean;
+                    targetUrl = `https://api.whatsapp.com/send?phone=${intl}&text=${encodeURIComponent(whatsappPrompt.messageText)}`;
+                  }
+                  if (!targetUrl) {
+                    toast.warn("Please enter a WhatsApp phone number first");
+                    return;
+                  }
+                  window.open(targetUrl, "_blank");
+                  setWhatsappPrompt(p => ({ ...p, open: false }));
+                }}
+                style={{
+                  flex: 2,
+                  padding: "12px",
+                  background: "#25D366",
+                  color: "#fff",
+                  border: "none",
+                  borderRadius: 8,
+                  cursor: "pointer",
+                  fontWeight: 700,
+                  fontSize: 14,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 8,
+                  boxShadow: "0 2px 6px rgba(37,211,102,0.3)",
+                }}
+              >
+                💬 Open WhatsApp Now
+              </button>
+              <button
+                type="button"
+                onClick={() => setWhatsappPrompt(p => ({ ...p, open: false }))}
+                style={{
+                  flex: 1,
+                  padding: "12px",
+                  background: "#f3f4f6",
+                  border: "1px solid #d1d5db",
+                  borderRadius: 8,
+                  cursor: "pointer",
+                  fontWeight: 600,
+                  fontSize: 14,
+                }}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

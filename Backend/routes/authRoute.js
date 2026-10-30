@@ -59,6 +59,7 @@ const {
   validateCartStock,
   validateShippingAddress,
   getCustomersByProductBarcode,
+  assignCustomerToOrder,
 } = require("../controller/userCtrl");
 
 const router = express.Router();
@@ -144,6 +145,7 @@ router.get("/getallorders", authMiddleware, isAdmin, getAllOrders);
 router.get("/getaOrder/:id", authMiddleware, isAdmin, getsingleOrder);
 router.get("/getmyorder/:id", authMiddleware, getMySingleOrder);
 router.put("/updateOrder/:id", authMiddleware, isAdmin, updateOrder);
+router.put("/order/:id/assign-customer", authMiddleware, isAdmin, assignCustomerToOrder);
 router.put("/cancel-order/:id", authMiddleware, cancelOrder);
 router.put("/admin-cancel-order/:id", authMiddleware, isAdmin, adminCancelOrder);
 

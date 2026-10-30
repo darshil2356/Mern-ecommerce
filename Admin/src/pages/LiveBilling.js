@@ -1361,6 +1361,18 @@ const LiveBilling = () => {
       return;
     }
 
+    // 2b. Customer contact number is required (10 digits)
+    const rawContact = (customer.contact || '').replace(/\D/g, '');
+    if (!rawContact || rawContact.length !== 10) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Valid Mobile Number Required',
+        text: 'Please enter a valid 10-digit customer mobile number before completing the sale.',
+        confirmButtonColor: '#d4af37',
+      });
+      return;
+    }
+
     // 3. Billed By (Counter Operator) is REQUIRED
     if (!selectedBilledByStaff) {
       Swal.fire({
@@ -1747,6 +1759,18 @@ const LiveBilling = () => {
         icon: 'warning',
         title: 'Customer Details Required',
         text: 'Please select or enter customer details before completing the sale.',
+        confirmButtonColor: '#d4af37',
+      });
+      return;
+    }
+
+    // Customer mobile number is required (10 digits)
+    const rawContact = (customer.contact || '').replace(/\D/g, '');
+    if (!rawContact || rawContact.length !== 10) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Valid Mobile Number Required',
+        text: 'Please enter a valid 10-digit customer mobile number before completing the sale.',
         confirmButtonColor: '#d4af37',
       });
       return;
@@ -2889,18 +2913,23 @@ tbody td{padding:6px 4px;vertical-align:top}
                 {/* Contact */}
                 <div className="relative">
                   <label className="block text-xs font-medium text-gray-500 mb-1">
-                    Contact Number
+                    Contact Number <span className="text-red-500">*</span>
                   </label>
                   <div className="relative flex items-center gap-2">
                     <div className="relative flex-1">
                       <FaPhone className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                       <input
-                        className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none transition-all"
+                        className={`w-full pl-10 pr-4 py-3 bg-gray-50 border rounded-xl focus:bg-white focus:ring-2 outline-none transition-all ${
+                          (!customer.contact || customer.contact.replace(/\D/g, '').length !== 10) && Object.keys(cart).length > 0
+                            ? 'border-red-400 focus:border-red-500 focus:ring-red-100'
+                            : 'border-gray-200 focus:border-indigo-500 focus:ring-indigo-100'
+                        }`}
                         value={customer.contact}
-                        placeholder="Type 2+ digits to search..."
+                        placeholder="Enter 10-digit mobile number..."
+                        maxLength={10}
                         autoComplete="off"
                         onChange={(e) => {
-                          const value = e.target.value;
+                          const value = e.target.value.replace(/\D/g, '').slice(0, 10);
                           setCustomer(prev => ({ ...prev, contact: value }));
                           setContactSearch(value);
                           setShowContactDropdown(true);
@@ -3774,9 +3803,15 @@ tbody td{padding:6px 4px;vertical-align:top}
                 </div>
 
                 {/* Inline warnings */}
-                {Object.keys(cart).length > 0 && !customer.name.trim() && (
+                {Object.keys(cart).length > 0 && !customer.name?.trim() && (
                   <div className="flex items-center gap-2 bg-red-500/20 border border-red-400/40 rounded-xl px-3 py-2.5">
                     <span className="text-red-300 text-sm">⚠️ Customer name is required</span>
+                  </div>
+                )}
+
+                {Object.keys(cart).length > 0 && (!customer.contact || customer.contact.replace(/\D/g, '').length !== 10) && (
+                  <div className="flex items-center gap-2 bg-red-500/20 border border-red-400/40 rounded-xl px-3 py-2.5">
+                    <span className="text-red-300 text-sm">⚠️ Valid 10-digit customer mobile number is required</span>
                   </div>
                 )}
 
@@ -3788,7 +3823,7 @@ tbody td{padding:6px 4px;vertical-align:top}
 
                 <button
                   onClick={handleCompleteSale}
-                  disabled={!Object.keys(cart).length || !customer.name?.trim() || !selectedBilledByStaff || isProcessingSale}
+                  disabled={!Object.keys(cart).length || !customer.name?.trim() || (customer.contact || '').replace(/\D/g, '').length !== 10 || !selectedBilledByStaff || isProcessingSale}
                   className="w-full py-4 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 rounded-xl font-bold flex items-center justify-center gap-2 transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isProcessingSale ? (

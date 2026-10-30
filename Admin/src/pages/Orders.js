@@ -431,9 +431,11 @@ tbody td{padding:14px 14px;font-size:13px;color:#333}
       key: order._id,
       sno: index + 1,
       orderId: order._id,
-      name: order?.user?.firstname || "N/A",
+      name: (order?.user?.firstname ? `${order.user.firstname} ${order.user.lastname || ""}`.trim() : "") ||
+        (order?.shippingInfo?.firstname ? `${order.shippingInfo.firstname} ${order.shippingInfo.lastname || ""}`.trim() : "") ||
+        "Walk-in Customer",
       email: order?.user?.email || "N/A",
-      mobile: order?.user?.mobile || "N/A",
+      mobile: order?.user?.mobile || order?.shippingInfo?.phone || "N/A",
       items: order?.orderItems?.length || 0,
       amount: order?.totalPrice,
       finalAmount: order?.totalPriceAfterDiscount,

@@ -184,25 +184,9 @@ const deleteEntry = asyncHandler(async (req, res) => {
   res.json({ success: true, message: "Entry deleted" });
 });
 
-// Utility: called from order hooks
-const createAutoEntry = async ({ particulars, type, amount, paymentMethod, referenceId, category }) => {
-  const prevEntry = await Rojmel.findOne().sort({ date: -1, createdAt: -1 });
-  const prevBalance = prevEntry ? prevEntry.balance : 0;
-  const newBalance = type === "INCOME" ? prevBalance + amount : prevBalance - amount;
-
-  return Rojmel.create({
-    date: new Date(),
-    particulars,
-    voucherNo: `AUTO-${Date.now()}`,
-    type,
-    amount,
-    paymentMethod: paymentMethod || "Online",
-    category: category || "Orders",
-    referenceId: referenceId || null,
-    referenceModel: referenceId ? "Order" : null,
-    entrySource: "AUTO",
-    balance: newBalance,
-  });
+// Utility: Auto entry disabled (Rojmel is managed manually by user)
+const createAutoEntry = async () => {
+  return null;
 };
 
 module.exports = { addEntry, getTodayEntries, getByDate, getSummary, deleteEntry, createAutoEntry, recalculateBalances };

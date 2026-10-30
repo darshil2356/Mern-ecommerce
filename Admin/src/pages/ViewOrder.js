@@ -2,7 +2,7 @@ import React, { useEffect, useState, useMemo } from "react";
 import {
   Card, Row, Col, Tag, Button, Divider, Descriptions, Timeline,
   Space, Alert, Typography, Progress, Avatar, List, Table,
-  Badge, Steps, Statistic, Modal, Input, message, Popconfirm
+  Badge, Steps, Statistic, Modal, Input, message, Popconfirm, Spin
 } from "antd";
 import { useDispatch, useSelector } from "react-redux";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
@@ -12,7 +12,8 @@ import {
   ExclamationCircleOutlined, PhoneOutlined, MailOutlined, GlobalOutlined,
   PrinterOutlined, RocketOutlined, EnvironmentOutlined, DollarOutlined,
   ThunderboltOutlined, GiftOutlined, StarOutlined, SyncOutlined,
-  ShoppingOutlined, CloseCircleOutlined, StopOutlined, DeleteOutlined
+  ShoppingOutlined, CloseCircleOutlined, StopOutlined, DeleteOutlined,
+  SearchOutlined, PlusCircleOutlined, CheckOutlined
 } from "@ant-design/icons";
 import { getaOrder, adminCancelAOrder } from "../features/auth/authSlice";
 import dayjs from "dayjs";
@@ -319,6 +320,83 @@ const ViewOrder = () => {
   const [cancelReason, setCancelReason] = useState("");
   const [isMobile, setIsMobile] = useState(typeof window !== "undefined" && window.innerWidth < 768);
 
+  // Assign Customer state
+  const [assignCustModalOpen, setAssignCustModalOpen] = useState(false);
+  const [assignCustLoading, setAssignCustLoading] = useState(false);
+  const [activeCustTab, setActiveCustTab] = useState("existing"); // "existing" | "new"
+  const [custSearchText, setCustSearchText] = useState("");
+  const [custSearchResults, setCustSearchResults] = useState([]);
+  const [custSearching, setCustSearching] = useState(false);
+  const [selectedCustomer, setSelectedCustomer] = useState(null);
+  const [newCustForm, setNewCustForm] = useState({ name: "", mobile: "", address: "" });
+
+  const handleSearchCustomers = async (q) => {
+    setCustSearchText(q);
+    if (!q || q.trim().length < 2) {
+      setCustSearchResults([]);
+      return;
+    }
+    setCustSearching(true);
+    try {
+      const res = await axios.get(`${base_url}user/search?query=${encodeURIComponent(q.trim())}`, config);
+      setCustSearchResults(Array.isArray(res.data) ? res.data : []);
+    } catch (err) {
+      console.error("Customer search error:", err);
+    } finally {
+      setCustSearching(false);
+    }
+  };
+
+  const handleAssignCustomerSubmit = async () => {
+    setAssignCustLoading(true);
+    try {
+      let payload = {};
+      if (activeCustTab === "existing") {
+        if (!selectedCustomer?._id) {
+          message.warning("Please select a customer first");
+          setAssignCustLoading(false);
+          return;
+        }
+        payload = { customerId: selectedCustomer._id };
+      } else {
+        if (!newCustForm.name.trim()) {
+          message.warning("Customer name is required");
+          setAssignCustLoading(false);
+          return;
+        }
+        const cleanMobile = newCustForm.mobile.replace(/\D/g, "");
+        if (cleanMobile.length !== 10) {
+          message.warning("Valid 10-digit mobile number is required");
+          setAssignCustLoading(false);
+          return;
+        }
+        payload = {
+          name: newCustForm.name.trim(),
+          mobile: cleanMobile,
+          address: newCustForm.address.trim(),
+        };
+      }
+
+      const res = await axios.put(`${base_url}user/order/${orderId}/assign-customer`, payload, config);
+      if (res.data?.success) {
+        message.success("Customer successfully assigned to this order!");
+        dispatch(getaOrder(orderId));
+        setAssignCustModalOpen(false);
+        setSelectedCustomer(null);
+        setCustSearchText("");
+        setCustSearchResults([]);
+        setNewCustForm({ name: "", mobile: "", address: "" });
+      } else {
+        message.error(res.data?.message || "Failed to assign customer");
+      }
+    } catch (err) {
+      console.error("Assign customer error:", err);
+      message.error(err.response?.data?.message || "Failed to assign customer to order");
+    } finally {
+      setAssignCustLoading(false);
+    }
+  };
+
   useEffect(() => {
     const h = () => setIsMobile(window.innerWidth < 768);
     window.addEventListener("resize", h);
@@ -336,7 +414,10 @@ const ViewOrder = () => {
       const settings = settingsRes.data;
       const invoiceNum = order._id.slice(-8).toUpperCase();
       const dateStr = new Date(order.createdAt).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
-      const customerName = order.user ? `${order.user.firstname || ""} ${order.user.lastname || ""}`.trim() : "Walk-in Customer";
+      const customerName = order.user
+        ? `${order.user.firstname || ""} ${order.user.lastname || ""}`.trim()
+        : (order.shippingInfo?.firstname ? `${order.shippingInfo.firstname} ${order.shippingInfo.lastname || ""}`.trim() : "Walk-in Customer");
+      const customerPhone = order.user?.mobile || order.shippingInfo?.phone || "";
       const storeName = settings.storeName || "Yashoda Fashion";
       const storeAddress = settings.storeAddress || (pickup ? `${pickup.address}, ${pickup.city}, ${pickup.state} - ${pickup.pincode}` : "");
       const storePhone = settings.storePhone || pickup?.phone || "";
@@ -468,7 +549,7 @@ tbody td{padding:12px 14px;font-size:13px;vertical-align:top}
     <div class="addr-box">
       <div class="addr-label">Ship To</div>
       <div class="addr-name">${customerName}</div>
-      <div class="addr-text">${shippingAddr}${order.user?.mobile ? '<br>📞 '+order.user.mobile : ''}</div>
+      <div class="addr-text">${shippingAddr}${customerPhone ? '<br>📞 '+customerPhone : ''}</div>
     </div>
   </div>
 
@@ -865,6 +946,176 @@ tbody td{padding:12px 14px;font-size:13px;vertical-align:top}
         )}
       </Modal>
 
+      {/* Assign / Change Customer Modal */}
+      <Modal
+        title={
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <UserOutlined style={{ color: '#2563eb', fontSize: 20 }} />
+            <span style={{ fontWeight: 700, fontSize: 16 }}>
+              {orderState?.user ? "Change Customer for Order" : "Assign Customer to Order"}
+            </span>
+          </div>
+        }
+        open={assignCustModalOpen}
+        onCancel={() => {
+          setAssignCustModalOpen(false);
+          setSelectedCustomer(null);
+          setCustSearchText("");
+          setCustSearchResults([]);
+        }}
+        footer={[
+          <Button key="cancel" onClick={() => setAssignCustModalOpen(false)}>Cancel</Button>,
+          <Button
+            key="save"
+            type="primary"
+            loading={assignCustLoading}
+            disabled={activeCustTab === "existing" ? !selectedCustomer : (!newCustForm.name.trim() || newCustForm.mobile.replace(/\D/g, '').length !== 10)}
+            onClick={handleAssignCustomerSubmit}
+            style={{ background: "#2563eb" }}
+          >
+            Save & Link Customer
+          </Button>
+        ]}
+      >
+        <div style={{ marginBottom: 16 }}>
+          <div style={{ display: "flex", gap: 8, background: "#f1f5f9", padding: 4, borderRadius: 10 }}>
+            <button
+              type="button"
+              onClick={() => setActiveCustTab("existing")}
+              style={{
+                flex: 1, padding: "8px 12px", border: "none", borderRadius: 8,
+                fontWeight: 600, fontSize: 13, cursor: "pointer",
+                background: activeCustTab === "existing" ? "#fff" : "transparent",
+                color: activeCustTab === "existing" ? "#2563eb" : "#64748b",
+                boxShadow: activeCustTab === "existing" ? "0 1px 3px rgba(0,0,0,0.1)" : "none",
+                transition: "all 0.2s"
+              }}
+            >
+              Search Existing Customer
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveCustTab("new")}
+              style={{
+                flex: 1, padding: "8px 12px", border: "none", borderRadius: 8,
+                fontWeight: 600, fontSize: 13, cursor: "pointer",
+                background: activeCustTab === "new" ? "#fff" : "transparent",
+                color: activeCustTab === "new" ? "#2563eb" : "#64748b",
+                boxShadow: activeCustTab === "new" ? "0 1px 3px rgba(0,0,0,0.1)" : "none",
+                transition: "all 0.2s"
+              }}
+            >
+              Add New Customer
+            </button>
+          </div>
+        </div>
+
+        {activeCustTab === "existing" ? (
+          <div>
+            <div style={{ marginBottom: 12 }}>
+              <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#374151", marginBottom: 4 }}>
+                Search by Customer Name or Mobile
+              </label>
+              <Input
+                prefix={<SearchOutlined style={{ color: "#9ca3af" }} />}
+                placeholder="Type 2+ characters or digits..."
+                value={custSearchText}
+                onChange={e => handleSearchCustomers(e.target.value)}
+                allowClear
+                style={{ borderRadius: 8 }}
+              />
+            </div>
+
+            {custSearching && (
+              <div style={{ textAlign: "center", padding: "16px 0" }}>
+                <Spin size="small" /> Searching customers...
+              </div>
+            )}
+
+            {custSearchResults.length > 0 && (
+              <div style={{ maxHeight: 200, overflowY: "auto", border: "1px solid #e2e8f0", borderRadius: 8, marginBottom: 12 }}>
+                {custSearchResults.map(c => {
+                  const isSelected = selectedCustomer?._id === c._id;
+                  return (
+                    <div
+                      key={c._id}
+                      onClick={() => setSelectedCustomer(c)}
+                      style={{
+                        padding: "10px 12px",
+                        borderBottom: "1px solid #f1f5f9",
+                        cursor: "pointer",
+                        background: isSelected ? "#eff6ff" : "#fff",
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        transition: "background 0.15s"
+                      }}
+                    >
+                      <div>
+                        <div style={{ fontWeight: 600, color: isSelected ? "#1d4ed8" : "#1e293b", fontSize: 13 }}>
+                          {c.firstname} {c.lastname}
+                        </div>
+                        <div style={{ fontSize: 12, color: "#64748b" }}>
+                          📞 {c.mobile} {c.address ? `· ${c.address}` : ""}
+                        </div>
+                      </div>
+                      {isSelected && <CheckOutlined style={{ color: "#2563eb", fontWeight: "bold" }} />}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {selectedCustomer && (
+              <div style={{ background: "#ecfdf5", border: "1px solid #a7f3d0", borderRadius: 8, padding: 12, marginTop: 8 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: "#065f46", textTransform: "uppercase" }}>Selected Customer:</div>
+                <div style={{ fontWeight: 700, color: "#065f46", fontSize: 14, marginTop: 2 }}>
+                  {selectedCustomer.firstname} {selectedCustomer.lastname}
+                </div>
+                <div style={{ fontSize: 12, color: "#047857" }}>📞 {selectedCustomer.mobile}</div>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            <div>
+              <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#374151", marginBottom: 4 }}>
+                Customer Full Name <span style={{ color: "#dc2626" }}>*</span>
+              </label>
+              <Input
+                placeholder="e.g. Ramesh Patel"
+                value={newCustForm.name}
+                onChange={e => setNewCustForm(prev => ({ ...prev, name: e.target.value }))}
+                style={{ borderRadius: 8 }}
+              />
+            </div>
+            <div>
+              <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#374151", marginBottom: 4 }}>
+                Mobile Number <span style={{ color: "#dc2626" }}>*</span>
+              </label>
+              <Input
+                placeholder="10-digit mobile number"
+                maxLength={10}
+                value={newCustForm.mobile}
+                onChange={e => setNewCustForm(prev => ({ ...prev, mobile: e.target.value.replace(/\D/g, '').slice(0, 10) }))}
+                style={{ borderRadius: 8 }}
+              />
+            </div>
+            <div>
+              <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#374151", marginBottom: 4 }}>
+                Address (Optional)
+              </label>
+              <Input
+                placeholder="Customer address"
+                value={newCustForm.address}
+                onChange={e => setNewCustForm(prev => ({ ...prev, address: e.target.value }))}
+                style={{ borderRadius: 8 }}
+              />
+            </div>
+          </div>
+        )}
+      </Modal>
+
       <Row gutter={[24, 24]}>
         {/* Cancelled Order Info Banner */}
         {isCancelledOrder && (
@@ -894,43 +1145,78 @@ tbody td{padding:12px 14px;font-size:13px;vertical-align:top}
 
         {/* Customer Information Card */}
         <Col xs={24} lg={8}>
-          <Card
-            title={
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <div style={{ width: 28, height: 28, borderRadius: 8, background: "#0f172a", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                  <UserOutlined style={{ color: "#fff", fontSize: 13 }} />
-                </div>
-                <span style={{ fontWeight: 700, color: "#0f172a" }}>Customer</span>
-              </div>
-            }
-            size="small"
-            style={{ height: "100%", borderRadius: 16, boxShadow: "0 1px 8px rgba(0,0,0,0.07)", border: "1px solid #e5e7eb" }}
-          >
-            <div style={{ padding: "8px 0" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
-                <Avatar size={48} style={{ background: "linear-gradient(135deg,#059669,#34d399)", fontSize: 18, fontWeight: "bold" }}>
-                  {orderState?.user?.firstname?.charAt(0)?.toUpperCase() || "U"}
-                </Avatar>
-                <div>
-                  <div style={{ fontSize: 15, fontWeight: 700, color: "#0f172a" }}>
-                    {orderState?.user?.firstname} {orderState?.user?.lastname}
+          {(() => {
+            const customerDisplayName = (orderState?.user?.firstname ? `${orderState.user.firstname} ${orderState.user.lastname || ""}`.trim() : "") ||
+              (orderState?.shippingInfo?.firstname ? `${orderState.shippingInfo.firstname} ${orderState.shippingInfo.lastname || ""}`.trim() : "") ||
+              "Unlinked Customer";
+            const customerDisplayPhone = orderState?.user?.mobile || orderState?.shippingInfo?.phone || "N/A";
+            const customerDisplayEmail = orderState?.user?.email || "N/A";
+            const customerDisplayLocation = [orderState?.shippingInfo?.address, orderState?.shippingInfo?.city, orderState?.shippingInfo?.state].filter(Boolean).join(", ") || "N/A";
+
+            return (
+              <Card
+                title={
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <div style={{ width: 28, height: 28, borderRadius: 8, background: "#0f172a", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                        <UserOutlined style={{ color: "#fff", fontSize: 13 }} />
+                      </div>
+                      <span style={{ fontWeight: 700, color: "#0f172a" }}>Customer</span>
+                    </div>
+                    <Button
+                      size="small"
+                      type={orderState?.user ? "default" : "primary"}
+                      style={{
+                        borderRadius: 8,
+                        fontSize: 11,
+                        height: 26,
+                        background: orderState?.user ? "#f1f5f9" : "#2563eb",
+                        color: orderState?.user ? "#0f172a" : "#fff",
+                        fontWeight: 600,
+                      }}
+                      onClick={() => setAssignCustModalOpen(true)}
+                    >
+                      {orderState?.user ? "Change Customer" : "Assign Customer"}
+                    </Button>
                   </div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 4, color: "#64748b", fontSize: 12, marginTop: 2 }}>
-                    <MailOutlined /> {orderState?.user?.email || "N/A"}
+                }
+                size="small"
+                style={{ height: "100%", borderRadius: 16, boxShadow: "0 1px 8px rgba(0,0,0,0.07)", border: "1px solid #e5e7eb" }}
+              >
+                <div style={{ padding: "8px 0" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
+                    <Avatar size={48} style={{ background: "linear-gradient(135deg,#059669,#34d399)", fontSize: 18, fontWeight: "bold" }}>
+                      {(customerDisplayName?.charAt(0) || "U").toUpperCase()}
+                    </Avatar>
+                    <div>
+                      <div style={{ fontSize: 15, fontWeight: 700, color: "#0f172a" }}>
+                        {customerDisplayName}
+                      </div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 4, color: "#64748b", fontSize: 12, marginTop: 2 }}>
+                        <MailOutlined /> {customerDisplayEmail}
+                      </div>
+                    </div>
                   </div>
+                  <Divider style={{ margin: "12px 0" }} />
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+                    <PhoneOutlined style={{ color: "#059669" }} />
+                    <Text strong>{customerDisplayPhone}</Text>
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <EnvironmentOutlined style={{ color: "#f59e0b" }} />
+                    <Text style={{ color: "#64748b" }}>{customerDisplayLocation}</Text>
+                  </div>
+                  {!orderState?.user && (
+                    <div style={{ marginTop: 12, padding: "8px 12px", background: "#fef3c7", borderRadius: 8, border: "1px solid #fde68a" }}>
+                      <Text style={{ fontSize: 11, color: "#92400e", display: "block" }}>
+                        ⚠️ <b>No Customer Linked:</b> This bill was saved without an attached customer account. Click <b>Assign Customer</b> above to link a customer now.
+                      </Text>
+                    </div>
+                  )}
                 </div>
-              </div>
-              <Divider style={{ margin: "12px 0" }} />
-              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
-                <PhoneOutlined style={{ color: "#059669" }} />
-                <Text strong>{orderState?.user?.mobile || "N/A"}</Text>
-              </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <EnvironmentOutlined style={{ color: "#f59e0b" }} />
-                <Text style={{ color: "#64748b" }}>{orderState?.shippingInfo?.city}, {orderState?.shippingInfo?.state}</Text>
-              </div>
-            </div>
-          </Card>
+              </Card>
+            );
+          })()}
         </Col>
 
         {/* Order Timeline Card */}

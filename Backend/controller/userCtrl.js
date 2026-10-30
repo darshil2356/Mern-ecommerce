@@ -218,6 +218,20 @@ const deductStockFromProduct = async (product, item) => {
     if (deducted) return { deducted, barcode };
   }
 
+  // Match by size in variants if color was not provided or not matched
+  if (!deducted && item.size && product.variants && product.variants.length > 0) {
+    for (const variant of product.variants) {
+      const sizeEntry = (variant.sizeStock || []).find((s) => s.size === item.size);
+      if (sizeEntry && sizeEntry.quantity >= item.quantity) {
+        sizeEntry.quantity -= item.quantity;
+        barcode = sizeEntry.barcode || barcode;
+        deducted = true;
+        break;
+      }
+    }
+    if (deducted) return { deducted, barcode };
+  }
+
   // Fallback: no color specified but product only has variants — deduct from any available slot
   if (!deducted && product.variants && product.variants.length > 0) {
     let remainingQty = item.quantity;
@@ -1110,6 +1124,14 @@ const _restoreStock = async (product, item) => {
   if (colorId && item.size && product.variants && product.variants.length > 0) {
     const variant = product.variants.find(v => String(v.color?._id || v.color) === colorId);
     if (variant) {
+      const se = (variant.sizeStock || []).find(s => s.size === item.size);
+      if (se) { se.quantity += qty; return; }
+    }
+  }
+
+  // 2b. Size match in variants (if color wasn't matched)
+  if (item.size && product.variants && product.variants.length > 0) {
+    for (const variant of product.variants) {
       const se = (variant.sizeStock || []).find(s => s.size === item.size);
       if (se) { se.quantity += qty; return; }
     }
@@ -4423,9 +4445,18 @@ const processPosReturnExchange = asyncHandler(async (req, res) => {
     const qcStatus = item.qcStatus === "DAMAGED" ? "DAMAGED" : "RESELLABLE";
 
     if (qcStatus === "RESELLABLE") {
-      await Product.findByIdAndUpdate(item.productId, { $inc: { quantity: qty } });
+      await _restoreStock(prodDoc, {
+        color: item.colorId || item.color,
+        size: item.size,
+        barcode: item.barcode,
+        quantity: qty,
+      });
+      prodDoc.sold = Math.max(0, (prodDoc.sold || 0) - qty);
+      prodDoc.quantity = normalizeProductQuantity(prodDoc);
+      await prodDoc.save();
     } else if (typeof prodDoc.damagedQuantity !== "undefined") {
-      await Product.findByIdAndUpdate(item.productId, { $inc: { damagedQuantity: qty } });
+      prodDoc.damagedQuantity = (prodDoc.damagedQuantity || 0) + qty;
+      await prodDoc.save();
     }
 
     processedReturnedItems.push({
@@ -4452,19 +4483,36 @@ const processPosReturnExchange = asyncHandler(async (req, res) => {
     }
 
     const qty = Math.max(1, Number(item.quantity) || 1);
-    if (prodDoc.quantity < qty) {
-      return res.status(400).json({ message: `Insufficient stock for exchange item (${prodDoc.title}). Available: ${prodDoc.quantity}, Requested: ${qty}` });
+    const hasVariantsOrSizeStock = (prodDoc.variants && prodDoc.variants.length > 0) || (prodDoc.sizeStock && prodDoc.sizeStock.length > 0);
+
+    const { deducted, barcode: db } = await deductStockFromProduct(prodDoc, {
+      color: item.colorId || item.color,
+      size: item.size,
+      barcode: item.barcode,
+      quantity: qty,
+    });
+
+    if (!deducted) {
+      if (hasVariantsOrSizeStock || (prodDoc.quantity || 0) < qty) {
+        return res.status(400).json({
+          message: `Insufficient stock for exchange item (${prodDoc.title}${item.size ? ` - ${item.size}` : ""}). Available: ${prodDoc.quantity}, Requested: ${qty}`,
+        });
+      }
+      prodDoc.quantity = Math.max(0, (prodDoc.quantity || 0) - qty);
+    } else {
+      prodDoc.quantity = normalizeProductQuantity(prodDoc);
     }
+
+    prodDoc.sold = (prodDoc.sold || 0) + qty;
+    await prodDoc.save();
 
     const unitPrice = Number(item.price) || Number(prodDoc.price) || 0;
     const lineTotal = unitPrice * qty;
     exchangeTotal += lineTotal;
 
-    await Product.findByIdAndUpdate(item.productId, { $inc: { quantity: -qty } });
-
     processedExchangeItems.push({
       product: prodDoc._id,
-      barcode: item.barcode || prodDoc.barcode || "",
+      barcode: db || item.barcode || prodDoc.barcode || "",
       title: item.title || prodDoc.title,
       color: resolveItemColor(item.colorId, prodDoc.color),
       size: item.size || "",
@@ -4770,19 +4818,34 @@ const deleteReturnExchange = asyncHandler(async (req, res) => {
   for (const item of retItems) {
     const prodId = item.product?._id || item.product;
     if (!prodId) continue;
+    const prodDoc = await Product.findById(prodId);
+    if (!prodDoc) continue;
     const qty = Math.max(1, Number(item.quantity) || 1);
     const qcStatus = item.qcStatus === "DAMAGED" ? "DAMAGED" : "RESELLABLE";
 
     if (qcStatus === "RESELLABLE") {
-      await Product.findByIdAndUpdate(prodId, { $inc: { quantity: -qty } });
-    } else {
-      await Product.findByIdAndUpdate(prodId, { $inc: { damagedQuantity: -qty } });
+      const { deducted } = await deductStockFromProduct(prodDoc, {
+        color: item.color,
+        size: item.size,
+        barcode: item.barcode,
+        quantity: qty,
+      });
+      if (!deducted) {
+        prodDoc.quantity = Math.max(0, (prodDoc.quantity || 0) - qty);
+      } else {
+        prodDoc.quantity = normalizeProductQuantity(prodDoc);
+      }
+      prodDoc.sold = (prodDoc.sold || 0) + qty;
+      await prodDoc.save();
+    } else if (typeof prodDoc.damagedQuantity !== "undefined") {
+      prodDoc.damagedQuantity = Math.max(0, (prodDoc.damagedQuantity || 0) - qty);
+      await prodDoc.save();
     }
   }
 
   // 2. Reverse Exchange Items inventory
   // When exchange was created:
-  // - Product.findByIdAndUpdate(productId, { $inc: { quantity: -qty } })
+  // - Deducted from stock
   // So on delete: increment the exchange item stock back
   const exItems = Array.isArray(returnDoc.exchangeItems) && returnDoc.exchangeItems.length > 0
     ? returnDoc.exchangeItems
@@ -4791,8 +4854,18 @@ const deleteReturnExchange = asyncHandler(async (req, res) => {
   for (const item of exItems) {
     const prodId = item.product?._id || item.product;
     if (!prodId) continue;
+    const prodDoc = await Product.findById(prodId);
+    if (!prodDoc) continue;
     const qty = Math.max(1, Number(item.quantity) || 1);
-    await Product.findByIdAndUpdate(prodId, { $inc: { quantity: qty } });
+    await _restoreStock(prodDoc, {
+      color: item.color,
+      size: item.size,
+      barcode: item.barcode,
+      quantity: qty,
+    });
+    prodDoc.sold = Math.max(0, (prodDoc.sold || 0) - qty);
+    prodDoc.quantity = normalizeProductQuantity(prodDoc);
+    await prodDoc.save();
   }
 
   // 3. Reverse Rojmel Ledger Entry

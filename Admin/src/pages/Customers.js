@@ -87,20 +87,47 @@ const Customers = () => {
   };
 
   const handleSubmit = (values) => {
+    const cleanMobile = String(values.mobile || "").replace(/\D/g, "").slice(-10);
+    if (!cleanMobile || cleanMobile.length !== 10) {
+      message.error("Please enter a valid 10-digit mobile number");
+      return;
+    }
+
+    // Check if mobile number already exists in customer list under a different customer
+    const existing = (customerState || []).find((c) => {
+      const cMob = String(c.mobile || "").replace(/\D/g, "").slice(-10);
+      return cMob === cleanMobile && (!editingCustomer || c._id !== editingCustomer._id);
+    });
+
+    if (existing) {
+      const regName = `${existing.firstname || ""} ${existing.lastname || ""}`.trim() || existing.mobile;
+      message.error(
+        `Mobile number ${cleanMobile} is already registered to "${regName}". One mobile number cannot be registered with a different name.`
+      );
+      return;
+    }
+
+    const payload = {
+      ...values,
+      mobile: cleanMobile,
+    };
+
     if (editingCustomer) {
-      dispatch(updateCustomer({ id: editingCustomer._id, customerData: values })).then((action) => {
+      dispatch(updateCustomer({ id: editingCustomer._id, customerData: payload })).then((action) => {
         if (action.type.endsWith("/rejected")) {
           message.error(action.payload || "Failed to update customer");
           return;
         }
+        message.success("Customer updated successfully");
         setOpen(false); form.resetFields(); setEditingCustomer(null);
       });
     } else {
-      dispatch(createCustomer(values)).then((action) => {
+      dispatch(createCustomer(payload)).then((action) => {
         if (action.type.endsWith("/rejected")) {
           message.error(action.payload || "Failed to create customer");
           return;
         }
+        message.success("Customer registered successfully");
         setOpen(false); form.resetFields();
       });
     }
@@ -363,7 +390,32 @@ const Customers = () => {
           <Form.Item name="email" label={<span className="text-gray-600 text-sm font-medium">Email Address <span className="text-gray-400 font-normal">(optional)</span></span>} rules={[{ type: "email", message: "Invalid email" }]}>
             <Input prefix={<FaEnvelope className="text-gray-300" size={12} />} placeholder="email@example.com" size="large" className="rounded-xl" />
           </Form.Item>
-          <Form.Item name="mobile" label={<span className="text-gray-600 text-sm font-medium">Mobile Number</span>} rules={[{ required: true, message: "Required" }, { pattern: /^[0-9]{10}$/, message: "Must be 10 digits" }]}>
+          <Form.Item
+            name="mobile"
+            label={<span className="text-gray-600 text-sm font-medium">Mobile Number</span>}
+            rules={[
+              { required: true, message: "Required" },
+              { pattern: /^[0-9]{10}$/, message: "Must be 10 digits" },
+              {
+                validator: (_, value) => {
+                  if (!value) return Promise.resolve();
+                  const clean = String(value).replace(/\D/g, "").slice(-10);
+                  if (clean.length !== 10) return Promise.resolve();
+                  const existing = (customerState || []).find((c) => {
+                    const cMob = String(c.mobile || "").replace(/\D/g, "").slice(-10);
+                    return cMob === clean && (!editingCustomer || c._id !== editingCustomer._id);
+                  });
+                  if (existing) {
+                    const regName = `${existing.firstname || ""} ${existing.lastname || ""}`.trim() || existing.mobile;
+                    return Promise.reject(
+                      new Error(`Already registered to "${regName}". One number cannot have two different names!`)
+                    );
+                  }
+                  return Promise.resolve();
+                },
+              },
+            ]}
+          >
             <Input prefix={<FaPhone className="text-gray-300" size={12} />} placeholder="10-digit mobile" size="large" maxLength={10} className="rounded-xl" />
           </Form.Item>
           <Form.Item name="address" label={<span className="text-gray-600 text-sm font-medium">Address <span className="text-gray-400 font-normal">(optional)</span></span>}>

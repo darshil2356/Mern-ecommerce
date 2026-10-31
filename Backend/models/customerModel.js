@@ -19,6 +19,8 @@ const customerSchema = new mongoose.Schema(
     contactNumber: {
       type: String,
       required: true,
+      unique: true,
+      trim: true,
     },
   },
   { timestamps: true }

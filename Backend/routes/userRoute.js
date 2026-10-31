@@ -18,6 +18,7 @@ const {
   validatePincodeCtrl,
   manualDeductCoins,
   manualAddCoins,
+  checkCustomerByMobile,
 } = require("../controller/userCtrl");
 const { authMiddleware, isAdmin } = require("../middlewares/authMiddleware");
 const { checkout, paymentVerification } = require("../controller/paymentCtrl");
@@ -27,6 +28,9 @@ const { checkout, paymentVerification } = require("../controller/paymentCtrl");
 
 const router = express.Router();
 router.get("/", authMiddleware, isAdmin, searchUsers);
+
+// Check customer by exact mobile number (prevents duplicate names for same number)
+router.get("/check-mobile/:mobile", authMiddleware, isAdmin, checkCustomerByMobile);
 
 // Get all users (for admin panel)
 router.get("/all-users", authMiddleware, isAdmin, getallUser);

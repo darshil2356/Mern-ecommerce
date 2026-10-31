@@ -1281,6 +1281,27 @@ const LiveBilling = () => {
     setCustomer(prev => ({ ...prev, referralContact: "", referralCode: "" }));
   };
 
+  const handleClearCustomer = () => {
+    setCustomer({
+      name: "",
+      address: "",
+      contact: "",
+      referralContact: "",
+      referralCode: "",
+      coins: 0,
+    });
+    setSearchTerm("");
+    setContactSearch("");
+    setNameResults([]);
+    setContactResults([]);
+    setContactSearchDone(false);
+    setNameSearchDone(false);
+    clearReferrer();
+    setCustomerOffer({ hasOffer: false, offerDiscount: 0, offerType: "" });
+    setCustomerCoins(0);
+    setRetCustSearchInput("");
+  };
+
   // Clear referral when customer contact changes (to prevent self-referral)
   useEffect(() => {
     if (customer.contact && customer.referralContact) {
@@ -1453,9 +1474,35 @@ const LiveBilling = () => {
   };
 
   const handleAddCustomerSubmit = async (values) => {
+    const cleanMobile = String(values.mobile || "").replace(/\D/g, "").slice(-10);
+    if (!cleanMobile || cleanMobile.length !== 10) {
+      Swal.fire({
+        icon: "warning",
+        title: "Invalid Mobile",
+        text: "Please enter a valid 10-digit mobile number.",
+        confirmButtonColor: "#d4af37",
+      });
+      return;
+    }
+
+    // Verify if mobile is already registered to another customer
+    try {
+      const checkRes = await axios.get(`${base_url}user/check-mobile/${cleanMobile}`, config);
+      if (checkRes.data?.exists) {
+        const existing = checkRes.data.customer;
+        Swal.fire({
+          icon: "error",
+          title: "Mobile Already Registered",
+          html: `Mobile number <b>${cleanMobile}</b> is already registered to <b>${existing.fullName}</b>.<br/><br/>One mobile number cannot be registered with two different names!`,
+          confirmButtonColor: "#d4af37",
+        });
+        return;
+      }
+    } catch (_) {}
+
     setAddCustomerLoading(true);
     try {
-      const res = await axios.post(`${base_url}user/create-customer`, values, config);
+      const res = await axios.post(`${base_url}user/create-customer`, { ...values, mobile: cleanMobile }, config);
       const newUser = res.data;
       await selectCustomerWithReferral({
         _id: newUser._id,
@@ -1533,10 +1580,10 @@ const LiveBilling = () => {
 
   // Show + Add button: typed 10 digits, search done, no results, no confirmed customer
   const [contactSearchDone, setContactSearchDone] = useState(false);
-  const showAddButton = contactSearch.trim().length >= 10 && contactSearchDone && contactResults.length === 0;
+  const showAddButton = !customer._id && contactSearch.trim().length >= 10 && contactSearchDone && contactResults.length === 0;
 
   const [nameSearchDone, setNameSearchDone] = useState(false);
-  const showAddButtonByName = searchTerm.trim().length >= 2 && nameSearchDone && nameResults.length === 0;
+  const showAddButtonByName = !customer._id && searchTerm.trim().length >= 2 && nameSearchDone && nameResults.length === 0;
 
   // Search by name
   useEffect(() => {
@@ -1567,7 +1614,45 @@ const LiveBilling = () => {
     const delay = setTimeout(async () => {
       try {
         const res = await axios.get(`${base_url}user/search?query=${encodeURIComponent(contactSearch.trim())}`, config);
-        setContactResults(res.data || []);
+        const results = res.data || [];
+        setContactResults(results);
+
+        // AUTO-DETECT & RESTRICT: When 10 digits are entered, check if exact mobile match exists
+        const clean10 = contactSearch.replace(/\D/g, '').slice(-10);
+        if (clean10.length === 10) {
+          let matchedUser = results.find(u => {
+            const uMob = String(u.mobile || '').replace(/\D/g, '').slice(-10);
+            return uMob === clean10;
+          });
+
+          if (!matchedUser) {
+            try {
+              const checkRes = await axios.get(`${base_url}user/check-mobile/${clean10}`, config);
+              if (checkRes.data?.exists) {
+                matchedUser = checkRes.data.customer;
+              }
+            } catch (_) {}
+          }
+
+          if (matchedUser && (!customer._id || customer._id !== matchedUser._id)) {
+            const registeredName = `${matchedUser.firstname || ''} ${matchedUser.lastname || ''}`.trim() || matchedUser.mobile;
+            const currentNameClean = (customer.name || '').toLowerCase().replace(/[\s\.\-_]+/g, '');
+            const regNameClean = registeredName.toLowerCase().replace(/[\s\.\-_]+/g, '');
+
+            if (currentNameClean && currentNameClean !== regNameClean) {
+              Swal.fire({
+                icon: "warning",
+                title: "Customer Already Registered",
+                html: `Mobile number <b>${clean10}</b> is already registered to <b>${registeredName}</b>.<br/><br/>One mobile number cannot be registered with two different names (you entered <i>"${customer.name}"</i>).<br/><br/><b>${registeredName}</b> has been automatically selected.`,
+                confirmButtonColor: "#d4af37",
+              });
+            }
+
+            await selectCustomerWithReferral(matchedUser);
+            setShowContactDropdown(false);
+            setShowDropdown(false);
+          }
+        }
       } catch (err) { console.error(err); }
       finally { setContactSearchDone(true); }
     }, 300);
@@ -1775,6 +1860,26 @@ const LiveBilling = () => {
       });
       return;
     }
+
+    // Strict restriction: Verify mobile number is not registered to a different customer name
+    try {
+      const checkRes = await axios.get(`${base_url}user/check-mobile/${rawContact}`, config);
+      if (checkRes.data?.exists) {
+        const reg = checkRes.data.customer;
+        const cleanTyped = (customer.name || '').toLowerCase().replace(/[\s\.\-_]+/g, '');
+        const cleanReg = (reg.fullName || '').toLowerCase().replace(/[\s\.\-_]+/g, '');
+        if (cleanTyped && cleanReg && cleanTyped !== cleanReg) {
+          Swal.fire({
+            icon: 'error',
+            title: 'Customer Name Conflict',
+            html: `Mobile number <b>${rawContact}</b> is already registered to <b>${reg.fullName}</b>.<br/><br/>You cannot save this bill with a different name (<b>${customer.name}</b>).<br/><br/>One mobile number cannot have two different names. Applying registered customer <b>${reg.fullName}</b>.`,
+            confirmButtonColor: '#d4af37',
+          });
+          await selectCustomerWithReferral(reg);
+          return;
+        }
+      }
+    } catch (_) {}
 
     // Billed By (Counter Operator) is REQUIRED
     if (!selectedBilledByStaff) {
@@ -2851,9 +2956,16 @@ tbody td{padding:6px 4px;vertical-align:top}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {/* Customer Name */}
                 <div className="relative">
-                  <label className="block text-xs font-medium text-gray-500 mb-1">
-                    Customer Name <span className="text-red-500">*</span>
-                  </label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs font-medium text-gray-500">
+                      Customer Name <span className="text-red-500">*</span>
+                    </label>
+                    {customer._id && (
+                      <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                        <FaCheckCircle size={10} className="text-emerald-600" /> Registered Customer
+                      </span>
+                    )}
+                  </div>
                   <div className="relative flex items-center gap-2">
                     <div className="relative flex-1">
                       <FaUser className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
@@ -2861,18 +2973,22 @@ tbody td{padding:6px 4px;vertical-align:top}
                         className={`w-full pl-10 pr-4 py-3 bg-gray-50 border rounded-xl focus:bg-white focus:ring-2 outline-none transition-all ${
                           !customer.name.trim() && Object.keys(cart).length > 0
                             ? 'border-red-400 focus:border-red-500 focus:ring-red-100'
+                            : customer._id
+                            ? 'border-emerald-300 bg-emerald-50/30 font-medium text-gray-800'
                             : 'border-gray-200 focus:border-indigo-500 focus:ring-indigo-100'
                         }`}
                         value={customer.name}
                         placeholder="Type 2+ chars to search..."
                         autoComplete="off"
+                        readOnly={Boolean(customer._id)}
                         onChange={(e) => {
+                          if (customer._id) return;
                           const value = e.target.value;
                           setCustomer(prev => ({ ...prev, name: value }));
                           setSearchTerm(value);
                           setShowDropdown(true);
                         }}
-                        onFocus={() => { if (searchTerm.trim()) setShowDropdown(true); }}
+                        onFocus={() => { if (!customer._id && searchTerm.trim()) setShowDropdown(true); }}
                         onBlur={() => setTimeout(() => setShowDropdown(false), 150)}
                       />
                     </div>
@@ -2885,8 +3001,23 @@ tbody td{padding:6px 4px;vertical-align:top}
                         <FaUserPlus size={12} /> Add
                       </button>
                     )}
+                    {customer._id && (
+                      <button
+                        type="button"
+                        onClick={handleClearCustomer}
+                        title="Clear customer to change"
+                        className="flex items-center gap-1 px-3 py-3 bg-gray-100 hover:bg-red-50 hover:text-red-600 text-gray-600 border border-gray-200 rounded-xl text-xs font-semibold transition-all whitespace-nowrap shadow-sm"
+                      >
+                        Clear
+                      </button>
+                    )}
                   </div>
-                  {showDropdown && nameResults.length > 0 && (
+                  {customer._id && (
+                    <p className="text-[11px] text-emerald-600 mt-1 font-medium">
+                      🔒 Name locked to registered customer: <b>{customer.name}</b>. Click <b>Clear</b> to change.
+                    </p>
+                  )}
+                  {showDropdown && nameResults.length > 0 && !customer._id && (
                     <div className="absolute top-full left-0 w-full bg-white border border-gray-200 rounded-xl shadow-xl max-h-52 overflow-y-auto mt-1" style={{zIndex:9999}}>
                       {nameResults.map((cust) => (
                         <div
@@ -2905,16 +3036,23 @@ tbody td{padding:6px 4px;vertical-align:top}
                       ))}
                     </div>
                   )}
-                  {showAddButtonByName && (
+                  {showAddButtonByName && !customer._id && (
                     <p className="text-xs text-blue-500 mt-1">No customer found — click <b>Add</b> to register</p>
                   )}
                 </div>
 
                 {/* Contact */}
                 <div className="relative">
-                  <label className="block text-xs font-medium text-gray-500 mb-1">
-                    Contact Number <span className="text-red-500">*</span>
-                  </label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs font-medium text-gray-500">
+                      Contact Number <span className="text-red-500">*</span>
+                    </label>
+                    {customer.contact && customer.contact.replace(/\D/g, '').length === 10 && (
+                      <span className="text-[11px] text-gray-400 font-normal">
+                        10 digits
+                      </span>
+                    )}
+                  </div>
                   <div className="relative flex items-center gap-2">
                     <div className="relative flex-1">
                       <FaPhone className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
@@ -2922,6 +3060,8 @@ tbody td{padding:6px 4px;vertical-align:top}
                         className={`w-full pl-10 pr-4 py-3 bg-gray-50 border rounded-xl focus:bg-white focus:ring-2 outline-none transition-all ${
                           (!customer.contact || customer.contact.replace(/\D/g, '').length !== 10) && Object.keys(cart).length > 0
                             ? 'border-red-400 focus:border-red-500 focus:ring-red-100'
+                            : customer._id
+                            ? 'border-emerald-300 bg-emerald-50/30 font-medium text-gray-800'
                             : 'border-gray-200 focus:border-indigo-500 focus:ring-indigo-100'
                         }`}
                         value={customer.contact}
@@ -2930,7 +3070,11 @@ tbody td{padding:6px 4px;vertical-align:top}
                         autoComplete="off"
                         onChange={(e) => {
                           const value = e.target.value.replace(/\D/g, '').slice(0, 10);
-                          setCustomer(prev => ({ ...prev, contact: value }));
+                          setCustomer(prev => ({
+                            ...prev,
+                            contact: value,
+                            ...(prev._id && prev.contact !== value ? { _id: undefined, coins: 0 } : {})
+                          }));
                           setContactSearch(value);
                           setShowContactDropdown(true);
                         }}
@@ -2948,7 +3092,7 @@ tbody td{padding:6px 4px;vertical-align:top}
                       </button>
                     )}
                   </div>
-                  {showContactDropdown && contactResults.length > 0 && (
+                  {showContactDropdown && contactResults.length > 0 && !customer._id && (
                     <div className="absolute top-full left-0 w-full bg-white border border-gray-200 rounded-xl shadow-xl max-h-52 overflow-y-auto mt-1" style={{zIndex:9999}}>
                       {contactResults.map((cust) => (
                         <div
@@ -2973,7 +3117,7 @@ tbody td{padding:6px 4px;vertical-align:top}
                     </div>
                   )}
                   {showAddButton && (
-                    <p className="text-xs text-indigo-500 mt-1">No customer found — click <b>Add</b> to register</p>
+                    <p className="text-xs text-indigo-500 mt-1">New number — click <b>Add</b> to register or proceed to bill directly</p>
                   )}
                 </div>
 
@@ -4137,7 +4281,27 @@ tbody td{padding:6px 4px;vertical-align:top}
           <Form.Item
             name="mobile"
             label={<span className="text-gray-600 text-sm font-medium">Mobile Number</span>}
-            rules={[{ required: true, message: "Required" }, { pattern: /^[0-9]{10}$/, message: "Must be 10 digits" }]}
+            rules={[
+              { required: true, message: "Required" },
+              { pattern: /^[0-9]{10}$/, message: "Must be 10 digits" },
+              {
+                validator: async (_, value) => {
+                  if (!value) return Promise.resolve();
+                  const clean = String(value).replace(/\D/g, '').slice(-10);
+                  if (clean.length !== 10) return Promise.resolve();
+                  try {
+                    const checkRes = await axios.get(`${base_url}user/check-mobile/${clean}`, config);
+                    if (checkRes.data?.exists) {
+                      const regName = checkRes.data.customer?.fullName || clean;
+                      return Promise.reject(
+                        new Error(`Already registered to "${regName}". One number cannot have two different names!`)
+                      );
+                    }
+                  } catch (_) {}
+                  return Promise.resolve();
+                },
+              },
+            ]}
           >
             <Input prefix={<FaPhone className="text-gray-300" size={12} />} placeholder="10-digit mobile" size="large" maxLength={10} className="rounded-xl" />
           </Form.Item>

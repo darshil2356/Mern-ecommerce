@@ -492,9 +492,25 @@ const createOfflineOrder = asyncHandler(async (req, res) => {
     finalIncentiveAmount = Math.round(((saleBase * calculatedIncentiveRate) / 100) * 100) / 100;
   }
 
-  const nameParts = customerName.split(" ").filter(Boolean);
-  const cFirstname = nameParts[0] || (actualCustomer?.firstname) || "Customer";
-  const cLastname = nameParts.slice(1).join(" ") || (actualCustomer?.lastname) || "";
+  let cFirstname = "Customer";
+  let cLastname = "";
+
+  if (actualCustomer) {
+    // ALWAYS enforce the registered customer's authoritative name
+    cFirstname = actualCustomer.firstname || "Customer";
+    cLastname = actualCustomer.lastname || "";
+
+    const registeredFullName = `${actualCustomer.firstname || ""} ${actualCustomer.lastname || ""}`.trim();
+    const cleanCustomerName = customerName.toLowerCase().replace(/[\s\.\-_]+/g, "");
+    const cleanRegName = registeredFullName.toLowerCase().replace(/[\s\.\-_]+/g, "");
+    if (cleanCustomerName && cleanRegName && cleanCustomerName !== cleanRegName) {
+      console.warn(`[Offline Billing] Name mismatch for ${cleanContact}: sent "${customerName}", registered is "${registeredFullName}". Enforcing registered name.`);
+    }
+  } else {
+    const nameParts = customerName.split(" ").filter(Boolean);
+    cFirstname = nameParts[0] || "Customer";
+    cLastname = nameParts.slice(1).join(" ") || "";
+  }
 
   // Step 3: Create order with user and shippingInfo snapshot
   const order = await Order.create({
@@ -838,9 +854,27 @@ const createUser = asyncHandler(async (req, res) => {
   const { email, firstname, lastname, mobile, referralCode: customReferralCode, referredByMobile } = req.body;
   const safeEmail = email && typeof email === 'string' && email.trim() ? email.trim() : undefined;
 
+  // Clean and validate 10-digit mobile number
+  const cleanMobile = String(mobile || "").replace(/\D/g, "").slice(-10);
+  if (!cleanMobile || cleanMobile.length !== 10) {
+    res.status(400);
+    throw new Error("Valid 10-digit customer mobile number is required");
+  }
+
+  // Strict restriction: One mobile number cannot be registered with different names
+  const existingMobileUser = await User.findOne({ mobile: cleanMobile });
+  if (existingMobileUser) {
+    const regName = `${existingMobileUser.firstname || ""} ${existingMobileUser.lastname || ""}`.trim() || existingMobileUser.mobile;
+    res.status(400);
+    throw new Error(`Mobile number ${cleanMobile} is already registered to "${regName}". One mobile number cannot be registered with a different name.`);
+  }
+
   if (safeEmail) {
     const existingUser = await User.findOne({ email: safeEmail });
-    if (existingUser) throw new Error("User already exists");
+    if (existingUser) {
+      res.status(400);
+      throw new Error("User with this email already exists");
+    }
   }
 
   // Validate custom referral code uniqueness
@@ -877,10 +911,10 @@ const createUser = asyncHandler(async (req, res) => {
   }
 
   const newUser = await User.create({
-    firstname,
-    lastname: lastname || "",
+    firstname: firstname ? firstname.trim() : "",
+    lastname: lastname ? lastname.trim() : "",
     email: safeEmail,
-    mobile,
+    mobile: cleanMobile,
     password: null,
     role: "user",
     referralCode,
@@ -3238,6 +3272,40 @@ const searchUsers = asyncHandler(async (req, res) => {
   res.json(users.map(u => ({ ...u, coins: u.coins || 0 })));
 });
 
+// Check customer by exact mobile number (prevents duplicate names for same number)
+const checkCustomerByMobile = asyncHandler(async (req, res) => {
+  const { mobile } = req.params;
+  const cleanMobile = String(mobile || "").replace(/\D/g, "").slice(-10);
+  if (!cleanMobile || cleanMobile.length !== 10) {
+    return res.json({ exists: false, customer: null });
+  }
+
+  const user = await User.findOne({ mobile: cleanMobile }).select(
+    "firstname lastname mobile address coins referralCode offerDiscount offerType totalOrders"
+  );
+
+  if (user) {
+    return res.json({
+      exists: true,
+      customer: {
+        _id: user._id,
+        firstname: user.firstname || "",
+        lastname: user.lastname || "",
+        fullName: `${user.firstname || ""} ${user.lastname || ""}`.trim() || user.mobile,
+        mobile: user.mobile,
+        address: user.address || "",
+        coins: user.coins || 0,
+        referralCode: user.referralCode || "",
+        offerDiscount: user.offerDiscount || 0,
+        offerType: user.offerType || "",
+        totalOrders: user.totalOrders || 0,
+      },
+    });
+  }
+
+  res.json({ exists: false, customer: null });
+});
+
 // Get customer offer details
 const getCustomerOffer = asyncHandler(async (req, res) => {
   const { mobile } = req.query;
@@ -4266,9 +4334,24 @@ const updateCustomerById = asyncHandler(async (req, res) => {
   validateMongoDbId(id);
   const { firstname, lastname, email, mobile, address, referralCode, referredByMobile } = req.body;
 
+  // Clean and validate 10-digit mobile number
+  const cleanMobile = String(mobile || "").replace(/\D/g, "").slice(-10);
+  if (!cleanMobile || cleanMobile.length !== 10) {
+    res.status(400);
+    throw new Error("Valid 10-digit customer mobile number is required");
+  }
+
+  // Check if mobile is already used by another customer
+  const existingMobileUser = await User.findOne({ mobile: cleanMobile, _id: { $ne: id } });
+  if (existingMobileUser) {
+    const regName = `${existingMobileUser.firstname || ""} ${existingMobileUser.lastname || ""}`.trim() || existingMobileUser.mobile;
+    res.status(400);
+    throw new Error(`Mobile number ${cleanMobile} is already registered to "${regName}". One mobile number cannot be registered with a different name.`);
+  }
+
   // Validate custom referral code uniqueness
   if (referralCode) {
-    const existing = await User.findOne({ referralCode, _id: { $ne: id } });
+    const existing = await User.findOne({ referralCode: referralCode.toUpperCase(), _id: { $ne: id } });
     if (existing) {
       res.status(400);
       throw new Error(`Referral code "${referralCode}" is already assigned to another customer`);
@@ -4287,7 +4370,13 @@ const updateCustomerById = asyncHandler(async (req, res) => {
     }
   }
 
-  const updateData = { firstname, lastname, email, mobile, address };
+  const updateData = {
+    firstname: firstname ? firstname.trim() : "",
+    lastname: lastname ? lastname.trim() : "",
+    email: email && typeof email === 'string' && email.trim() ? email.trim() : undefined,
+    mobile: cleanMobile,
+    address: (address || "").trim(),
+  };
   if (referralCode) updateData.referralCode = referralCode.toUpperCase();
   if (referredBy !== undefined) updateData.referredBy = referredBy;
 
@@ -5258,5 +5347,6 @@ module.exports = {
   deleteReturnExchange,
   getCustomersByProductBarcode,
   assignCustomerToOrder,
+  checkCustomerByMobile,
 };
 

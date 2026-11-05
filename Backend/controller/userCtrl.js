@@ -312,6 +312,28 @@ const createOfflineOrder = asyncHandler(async (req, res) => {
     res.status(400);
     throw new Error("Valid 10-digit customer mobile number is required for POS billing");
   }
+
+  // ── Idempotency / Duplicate Submission Guard ──
+  // Check if an identical offline order was created for this customer mobile in the last 10 seconds
+  const tenSecondsAgo = new Date(Date.now() - 10000);
+  const recentDuplicate = await Order.findOne({
+    "shippingInfo.phone": cleanContact,
+    mode: "OFFLINE",
+    createdAt: { $gte: tenSecondsAgo },
+  }).sort({ createdAt: -1 });
+
+  if (recentDuplicate) {
+    const incomingItemsCount = items ? items.length : 0;
+    const existingItemsCount = recentDuplicate.orderItems ? recentDuplicate.orderItems.length : 0;
+    if (incomingItemsCount === existingItemsCount) {
+      console.warn(`[Duplicate Blocked] Identical offline order already created recently for ${cleanContact}: Order ID ${recentDuplicate._id}`);
+      return res.status(200).json({
+        success: true,
+        order: recentDuplicate,
+        duplicatePrevented: true,
+      });
+    }
+  }
   
   // Extract referralContact from customer object
   const referralContact = customer?.referralContact ? String(customer.referralContact).replace(/\D/g, "").slice(-10) : null;
@@ -2098,6 +2120,17 @@ const createOrder = asyncHandler(async (req, res) => {
   const { _id } = req.user;
   const adminConfig = await User.findOne({ role: "admin" }).select("onlinePaymentDestination");
   const onlinePaymentDestination = adminConfig?.onlinePaymentDestination || "CURRENT_ACCOUNT";
+
+  // ── Online Payment Duplicate Guard ──
+  if (paymentInfo?.razorpayPaymentId && paymentInfo.razorpayPaymentId !== "OFFLINE") {
+    const existingPaymentOrder = await Order.findOne({
+      "paymentInfo.razorpayPaymentId": paymentInfo.razorpayPaymentId,
+    });
+    if (existingPaymentOrder) {
+      console.warn(`[Duplicate Blocked] Online order already exists for payment ID ${paymentInfo.razorpayPaymentId}: Order ID ${existingPaymentOrder._id}`);
+      return res.status(200).json(existingPaymentOrder);
+    }
+  }
   try {
     // Decrease stock for each ordered item (skip bundle items - stock handled separately)
     for (const item of orderItems) {

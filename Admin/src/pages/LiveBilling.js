@@ -175,6 +175,7 @@ const LiveBilling = () => {
   // Sale processing state
   const [isProcessingSale, setIsProcessingSale] = useState(false);
   const isProcessingSaleRef = useRef(false);
+  const lastEnterPressTimeRef = useRef(0);
 
   // Scanner input ref
   const scannerRef = useRef(null);
@@ -777,6 +778,12 @@ const LiveBilling = () => {
     if (e.key !== "Enter") return;
 
     if (buffer.trim() === "") {
+      const now = Date.now();
+      if (now - lastEnterPressTimeRef.current < 1500) {
+        return; // Debounce rapid Enter key presses (scanner / keyboard)
+      }
+      lastEnterPressTimeRef.current = now;
+
       if (!isProcessingSaleRef.current) {
         await handleCompleteSale();
       }
@@ -1837,6 +1844,13 @@ const LiveBilling = () => {
      ========================= */
   const finalizeSale = async () => {
     if (isProcessingSaleRef.current) return; // Prevent multiple calls using ref
+    isProcessingSaleRef.current = true; // Lock immediately synchronously
+    setIsProcessingSale(true); // Disable buttons immediately
+
+    const resetProcessing = () => {
+      isProcessingSaleRef.current = false;
+      setIsProcessingSale(false);
+    };
 
     // Customer name is required to finalize sale
     if (!customer.name || !customer.name.trim()) {
@@ -1846,6 +1860,7 @@ const LiveBilling = () => {
         text: 'Please select or enter customer details before completing the sale.',
         confirmButtonColor: '#d4af37',
       });
+      resetProcessing();
       return;
     }
 
@@ -1858,6 +1873,7 @@ const LiveBilling = () => {
         text: 'Please enter a valid 10-digit customer mobile number before completing the sale.',
         confirmButtonColor: '#d4af37',
       });
+      resetProcessing();
       return;
     }
 
@@ -1875,6 +1891,7 @@ const LiveBilling = () => {
             html: `Mobile number <b>${rawContact}</b> is already registered to <b>${reg.fullName}</b>.<br/><br/>You cannot save this bill with a different name (<b>${customer.name}</b>).<br/><br/>One mobile number cannot have two different names. Applying registered customer <b>${reg.fullName}</b>.`,
             confirmButtonColor: '#d4af37',
           });
+          resetProcessing();
           await selectCustomerWithReferral(reg);
           return;
         }
@@ -1889,6 +1906,7 @@ const LiveBilling = () => {
         text: 'Please select who is creating this bill (Billed By / Counter Operator).',
         confirmButtonColor: '#d4af37',
       });
+      resetProcessing();
       return;
     }
 
@@ -1903,7 +1921,10 @@ const LiveBilling = () => {
       manual: String(data.pkey || "").startsWith("MANUAL"),
     }));
 
-    if (!items.length) return;
+    if (!items.length) {
+      resetProcessing();
+      return;
+    }
 
     // Store cart and customer data BEFORE making API call
     // because we need this data for WhatsApp message after sale is complete
@@ -1913,10 +1934,10 @@ const LiveBilling = () => {
     const appliedAmount = appliedOfferAmount;
 
     // Additional check: if cart becomes empty during processing, abort
-    if (Object.keys(cart).length === 0) return;
-
-    setIsProcessingSale(true); // Set loading state
-    isProcessingSaleRef.current = true; // Set ref immediately
+    if (Object.keys(cart).length === 0) {
+      resetProcessing();
+      return;
+    }
 
     try {
       await axios.post(

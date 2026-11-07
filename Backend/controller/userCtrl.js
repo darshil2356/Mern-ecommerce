@@ -272,6 +272,7 @@ const createOfflineOrder = asyncHandler(async (req, res) => {
     paymentMethod,
     paymentDestination: reqPaymentDestination,
     customer,
+    billDate,
     discount,
     offerDiscount: offerDiscountAmt,
     coinsUsed,
@@ -313,14 +314,28 @@ const createOfflineOrder = asyncHandler(async (req, res) => {
     throw new Error("Valid 10-digit customer mobile number is required for POS billing");
   }
 
+  // Parse custom bill date if provided (supports backdating for missed bills)
+  let orderCreatedAt = new Date();
+  if (billDate) {
+    const parsedDate = new Date(billDate);
+    if (!isNaN(parsedDate.getTime())) {
+      const now = new Date();
+      // Clamp to current time if a future date is supplied
+      orderCreatedAt = parsedDate > now ? now : parsedDate;
+    }
+  }
+
   // ── Idempotency / Duplicate Submission Guard ──
   // Check if an identical offline order was created for this customer mobile in the last 10 seconds
   const tenSecondsAgo = new Date(Date.now() - 10000);
   const recentDuplicate = await Order.findOne({
     "shippingInfo.phone": cleanContact,
     mode: "OFFLINE",
-    createdAt: { $gte: tenSecondsAgo },
-  }).sort({ createdAt: -1 });
+    $or: [
+      { createdAt: { $gte: tenSecondsAgo } },
+      { updatedAt: { $gte: tenSecondsAgo } },
+    ],
+  }).sort({ updatedAt: -1, createdAt: -1 });
 
   if (recentDuplicate) {
     const incomingItemsCount = items ? items.length : 0;
@@ -569,7 +584,7 @@ const createOfflineOrder = asyncHandler(async (req, res) => {
     orderStatus: "Delivered",
     mode: "OFFLINE",
     paymentDestination: paymentMethod === "CASH" ? "CASH" : (reqPaymentDestination || "CURRENT_ACCOUNT"),
-    statusHistory: [{ status: "Delivered", date: new Date() }],
+    statusHistory: [{ status: "Delivered", date: orderCreatedAt }],
     sellerStaff: finalSellerStaff,
     sellerStaffName: finalSellerStaffName,
     billedByStaff: finalBilledByStaff,
@@ -581,6 +596,7 @@ const createOfflineOrder = asyncHandler(async (req, res) => {
     offerApplied: offerDiscountAmount > 0 && actualCustomer
       ? { offerDiscount: actualCustomer.offerDiscount || 0, offerType: actualCustomer.offerType || "" }
       : { offerDiscount: 0, offerType: "" },
+    createdAt: orderCreatedAt,
   });
 
   // Step 4: If customer does NOT exist in DB → auto-create customer and link to order
@@ -596,7 +612,7 @@ const createOfflineOrder = asyncHandler(async (req, res) => {
         password: null,
         role: "user",
         totalOrders: 1,
-        lastOrderDate: new Date(),
+        lastOrderDate: orderCreatedAt,
       };
 
       // Generate name-based referral code: e.g. JOHN123
@@ -642,7 +658,9 @@ const createOfflineOrder = asyncHandler(async (req, res) => {
   if (actualCustomer) {
     actualCustomer.totalOrders =
       (actualCustomer.totalOrders || 0) + 1;
-    actualCustomer.lastOrderDate = new Date();
+    if (!actualCustomer.lastOrderDate || orderCreatedAt > new Date(actualCustomer.lastOrderDate)) {
+      actualCustomer.lastOrderDate = orderCreatedAt;
+    }
     
     // =====================================================
     // DEDUCT COINS IF USED FOR PAYMENT
@@ -717,9 +735,10 @@ const createOfflineOrder = asyncHandler(async (req, res) => {
         productDetails: Object.values(req.body.items || []).map(i => i.barcode).join(", "),
         totalAmount: totalPriceAfterDiscount,
         paidAmount: paidNow,
-        payments: paidNow > 0 ? [{ amount: paidNow, date: new Date(), note: paymentNote || "Partial payment at POS", isInitialPayment: true }] : [],
+        payments: paidNow > 0 ? [{ amount: paidNow, date: orderCreatedAt, note: paymentNote || "Partial payment at POS", isInitialPayment: true }] : [],
         note: paymentNote || "",
         status: paidNow === 0 ? "PENDING" : "PARTIAL",
+        createdAt: orderCreatedAt,
       }).catch(err => console.error("Udhar auto-entry failed:", err))
     );
   }

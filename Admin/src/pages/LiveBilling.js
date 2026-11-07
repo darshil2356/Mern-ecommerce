@@ -47,6 +47,74 @@ const LiveBilling = () => {
   const [selectedBilledByStaff, setSelectedBilledByStaff] = useState("");
   const [customIncentiveRate, setCustomIncentiveRate] = useState("");
 
+  // ── Bill Date & Time State (supports backdating for missed bills) ──
+  const getTodayDateStr = () => {
+    const d = new Date();
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  };
+
+  const getYesterdayDateStr = () => {
+    const d = new Date();
+    d.setDate(d.getDate() - 1);
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  };
+
+  const getCurrentTimeStr = () => {
+    const d = new Date();
+    const hours = String(d.getHours()).padStart(2, "0");
+    const minutes = String(d.getMinutes()).padStart(2, "0");
+    return `${hours}:${minutes}`;
+  };
+
+  const [billDate, setBillDate] = useState(getTodayDateStr);
+  const [billTime, setBillTime] = useState(getCurrentTimeStr);
+  const [isCustomBillDate, setIsCustomBillDate] = useState(false);
+
+  const todayDateStr = useMemo(() => getTodayDateStr(), []);
+  const yesterdayDateStr = useMemo(() => getYesterdayDateStr(), []);
+
+  const isBackdatedBill = useMemo(() => {
+    if (!billDate) return false;
+    return billDate < todayDateStr || isCustomBillDate;
+  }, [billDate, todayDateStr, isCustomBillDate]);
+
+  const formattedBillDateDisplay = useMemo(() => {
+    if (!billDate) return "";
+    if (billDate === todayDateStr && !isCustomBillDate) return "Today";
+    if (billDate === yesterdayDateStr) {
+      const d = new Date(yesterdayDateStr + "T00:00:00");
+      return `Yesterday (${d.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })})`;
+    }
+    const d = new Date(billDate + "T00:00:00");
+    return d.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+  }, [billDate, todayDateStr, yesterdayDateStr, isCustomBillDate]);
+
+  const getSelectedBillDateTime = () => {
+    if (!isCustomBillDate && billDate === todayDateStr) {
+      return new Date();
+    }
+    const [year, month, day] = (billDate || todayDateStr).split("-").map(Number);
+    const [hours, minutes] = (billTime || getCurrentTimeStr()).split(":").map(Number);
+    return new Date(year, month - 1, day, hours || 0, minutes || 0, 0);
+  };
+
+  const handleSetQuickDate = (mode) => {
+    if (mode === "TODAY") {
+      setBillDate(todayDateStr);
+      setBillTime(getCurrentTimeStr());
+      setIsCustomBillDate(false);
+    } else if (mode === "YESTERDAY") {
+      setBillDate(yesterdayDateStr);
+      setIsCustomBillDate(true);
+    }
+  };
+
   // Tab mode: "BILLING" | "RETURN_EXCHANGE"
   const [posTabMode, setPosTabMode] = useState("BILLING");
   const [barcodeLookupModalOpen, setBarcodeLookupModalOpen] = useState(false);
@@ -1412,6 +1480,17 @@ const LiveBilling = () => {
       return;
     }
 
+    // 3b. Bill Date cannot be in the future
+    if (billDate && billDate > todayDateStr) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Invalid Bill Date',
+        text: 'Bill date cannot be in the future. Please select today or a past date.',
+        confirmButtonColor: '#d4af37',
+      });
+      return;
+    }
+
     // 4. Online payment requires UPI ID
     if (paymentMethod === 'ONLINE' && !upiIdA && !upiIdB) {
       Swal.fire({
@@ -1712,12 +1791,12 @@ const LiveBilling = () => {
   /* =========================
      GENERATE WHATSAPP MESSAGE
      ========================= */
-  const generateWhatsAppMessage = (activeCart, activeCustomer, activeOffer, activeAppliedAmount, activeWonOffer, coinsEarned = 0, newCoinBalance = 0, paidAmount = null, dueBalance = null) => {
-    const now = new Date();
+  const generateWhatsAppMessage = (activeCart, activeCustomer, activeOffer, activeAppliedAmount, activeWonOffer, coinsEarned = 0, newCoinBalance = 0, paidAmount = null, dueBalance = null, customBillDate = null) => {
+    const billD = customBillDate ? new Date(customBillDate) : new Date();
     let msg = `🧾 *Bill Receipt - ${storeName}*\n\n`;
     msg += `👤 *${activeCustomer.name || "Walk-in Customer"}*\n`;
     if (activeCustomer.contact) msg += `📞 ${activeCustomer.contact}\n`;
-    msg += `📅 ${now.toLocaleDateString('en-GB')} | 🕐 ${now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}\n\n`;
+    msg += `📅 ${billD.toLocaleDateString('en-GB')} | 🕐 ${billD.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}\n\n`;
 
     msg += `🛍️ *Items Purchased:*\n`;
     Object.values(activeCart).forEach((item) => {
@@ -1932,6 +2011,9 @@ const LiveBilling = () => {
     const customerData = { ...customer };
     const offerData = { ...customerOffer };
     const appliedAmount = appliedOfferAmount;
+    const billSnapshotDate = getSelectedBillDateTime();
+    const isBackdatedSale = isBackdatedBill;
+    const formattedDateForAlert = formattedBillDateDisplay;
 
     // Additional check: if cart becomes empty during processing, abort
     if (Object.keys(cart).length === 0) {
@@ -1945,6 +2027,7 @@ const LiveBilling = () => {
         {
           customer,
           items,
+          billDate: billSnapshotDate.toISOString(),
           taxPercent: cgstPercent + sgstPercent + igstPercent,
           discount: discountAmount,
           offerDiscount: appliedOfferAmount + offerModelDiscount,
@@ -2040,22 +2123,23 @@ const LiveBilling = () => {
           coinsEarned,
           newCoinBalance,
           billPaidAmt,
-          billBalanceDue
+          billBalanceDue,
+          billSnapshotDate
         );
         openWhatsApp(message, customerData);
         Swal.fire({
           icon: 'success',
           title: 'Sale Completed! 🎉',
-          text: 'Bill sent to WhatsApp!',
+          text: isBackdatedSale ? `Bill recorded for ${formattedDateForAlert} and sent to WhatsApp!` : 'Bill sent to WhatsApp!',
           confirmButtonColor: '#d4af37'
         });
       } else {
         Swal.fire({
           icon: 'success',
           title: 'Sale Completed',
-          text: 'SALE COMPLETED SUCCESSFULLY!',
+          text: isBackdatedSale ? `SALE COMPLETED FOR ${formattedDateForAlert.toUpperCase()}!` : 'SALE COMPLETED SUCCESSFULLY!',
           confirmButtonColor: '#d4af37',
-          timer: 1500,
+          timer: 2000,
           showConfirmButton: false
         });
       }
@@ -2065,7 +2149,8 @@ const LiveBilling = () => {
         billCart, billCustomer, billPayable, billGstin,
         billCgst, billSgst, billIgst, billGstType,
         billDiscount, billSubtotal, billCoinDiscount, billCoinsUsed,
-        billPaymentMethod, billAc, billPaidAmt, billBalanceDue, billChangeToReturn
+        billPaymentMethod, billAc, billPaidAmt, billBalanceDue, billChangeToReturn,
+        billSnapshotDate
       );
 
       setCart({});
@@ -2105,6 +2190,9 @@ const LiveBilling = () => {
       setSelectedSellerStaff("");
       setSelectedBilledByStaff("");
       setCustomIncentiveRate("");
+      setBillDate(getTodayDateStr());
+      setBillTime(getCurrentTimeStr());
+      setIsCustomBillDate(false);
     } catch (err) {
       console.error("Failed to complete sale:", err);
       Swal.fire({
@@ -2139,7 +2227,8 @@ const LiveBilling = () => {
     activeAc = ac,
     paidAmt = parsedAmountPaid,
     balAmt = balanceDue,
-    changeAmt = changeToReturn
+    changeAmt = changeToReturn,
+    customBillDate = null
   ) => {
     const activeCart = cartData;
     const activeCustomer = customerData;
@@ -2159,10 +2248,10 @@ const LiveBilling = () => {
       return;
     }
 
+    const billD = customBillDate ? new Date(customBillDate) : new Date();
     const invoiceNo = (() => {
-      const d = new Date();
       const r = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
-      return `INV-${d.getFullYear()}${(d.getMonth()+1).toString().padStart(2,'0')}${d.getDate().toString().padStart(2,'0')}-${r}`;
+      return `INV-${billD.getFullYear()}${(billD.getMonth()+1).toString().padStart(2,'0')}${billD.getDate().toString().padStart(2,'0')}-${r}`;
     })();
 
     const payLabel = activePaymentMethod === "CASH"
@@ -2200,9 +2289,8 @@ const LiveBilling = () => {
     const win = window.open("", "_blank");
     if (!win) return;
 
-    const now = new Date();
-    const dateStr = now.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
-    const timeStr = now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+    const dateStr = billD.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+    const timeStr = billD.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
 
     const gstTotal = activeCgst + activeSgst + activeIgst;
 
@@ -2287,7 +2375,7 @@ tbody td{padding:6px 4px;vertical-align:top}
   <hr class="divider">
 
   <div class="inv-row"><span>Invoice #${invoiceNo}</span><span>${dateStr}</span></div>
-  <div class="inv-row"><span>POS Sale</span><span>${timeStr}</span></div>
+  <div class="inv-row"><span>POS Sale${customBillDate ? ' (Backdated)' : ''}</span><span>${timeStr}</span></div>
 
   <div class="cust-block">
     <div class="cust-name">${activeCustomer.name || "Walk-in Customer"}</div>
@@ -2389,7 +2477,20 @@ tbody td{padding:6px 4px;vertical-align:top}
           </button>
         </div>
 
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
+          <div className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-bold border transition-all ${
+            isBackdatedBill
+              ? "bg-amber-100 text-amber-900 border-amber-300 shadow-sm"
+              : "bg-gray-100 text-gray-700 border-gray-200"
+          }`}>
+            <FaCalendarAlt className={isBackdatedBill ? "text-amber-600" : "text-gray-500"} />
+            <span>Bill Date: {formattedBillDateDisplay}</span>
+            {isBackdatedBill && (
+              <span className="bg-amber-600 text-white text-[10px] px-1.5 py-0.5 rounded-md font-extrabold uppercase tracking-wide">
+                Backdated
+              </span>
+            )}
+          </div>
           {customer?._id && (
             <div className="flex items-center gap-2 bg-amber-50 px-3.5 py-1.5 rounded-xl border border-amber-200">
               <FaCoins className="text-amber-500" />
@@ -2966,11 +3067,21 @@ tbody td{padding:6px 4px;vertical-align:top}
         <div className="xl:col-span-2 space-y-6">
           {/* CUSTOMER DETAILS CARD */}
           <div className="bg-white rounded-2xl shadow-lg border border-gray-100">
-            <div className="bg-gradient-to-r from-gray-50 to-white px-6 py-4 border-b border-gray-100">
+            <div className="bg-gradient-to-r from-gray-50 to-white px-6 py-4 border-b border-gray-100 flex items-center justify-between">
               <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2">
                 <FaUser className="text-indigo-600" />
                 Customer Details
               </h2>
+              <div className="flex items-center gap-2">
+                <span className={`text-xs font-semibold px-2.5 py-1 rounded-lg border flex items-center gap-1.5 ${
+                  isBackdatedBill
+                    ? "bg-amber-50 text-amber-800 border-amber-300 font-bold"
+                    : "bg-gray-50 text-gray-600 border-gray-200"
+                }`}>
+                  <FaCalendarAlt className={isBackdatedBill ? "text-amber-600" : "text-gray-400"} />
+                  <span>Bill Date: <strong>{formattedBillDateDisplay}</strong></span>
+                </span>
+              </div>
             </div>
             
             <div className="p-6">
@@ -3739,6 +3850,7 @@ tbody td{padding:6px 4px;vertical-align:top}
                   ac={ac}
                   sellerStaffName={sellerStaffObj?.name || ""}
                   billedByStaffName={billedByStaffObj?.name || ""}
+                  billDate={getSelectedBillDateTime()}
                 />
                 
                 {/* Payment Method + Received Panel */}
@@ -3874,6 +3986,114 @@ tbody td{padding:6px 4px;vertical-align:top}
                   </div>
                 </div>
 
+                {/* ── Bill Date & Time Selection Card (Backdating) ── */}
+                <div className="bg-white/10 backdrop-blur-md rounded-xl p-3 border border-white/20 space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-amber-300 uppercase tracking-wider flex items-center gap-1.5">
+                      <FaCalendarAlt className="text-amber-400" /> Bill Date & Time
+                    </span>
+                    {isBackdatedBill && (
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/30 text-amber-200 border border-amber-400/40 animate-pulse">
+                        ⚠️ Backdated Bill
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Quick selection buttons */}
+                  <div className="grid grid-cols-3 gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => handleSetQuickDate("TODAY")}
+                      className={`py-1.5 text-xs rounded-lg font-medium transition-all border ${
+                        !isCustomBillDate && billDate === todayDateStr
+                          ? "bg-amber-500 border-amber-400 text-white shadow font-bold"
+                          : "bg-white/10 border-white/20 text-indigo-200 hover:bg-white/20"
+                      }`}
+                    >
+                      Today
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleSetQuickDate("YESTERDAY")}
+                      className={`py-1.5 text-xs rounded-lg font-medium transition-all border ${
+                        billDate === yesterdayDateStr
+                          ? "bg-amber-500 border-amber-400 text-white shadow font-bold"
+                          : "bg-white/10 border-white/20 text-indigo-200 hover:bg-white/20"
+                      }`}
+                    >
+                      Yesterday
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setIsCustomBillDate(true)}
+                      className={`py-1.5 text-xs rounded-lg font-medium transition-all border ${
+                        isCustomBillDate && billDate !== yesterdayDateStr && billDate !== todayDateStr
+                          ? "bg-amber-500 border-amber-400 text-white shadow font-bold"
+                          : "bg-white/10 border-white/20 text-indigo-200 hover:bg-white/20"
+                      }`}
+                    >
+                      Pick Date
+                    </button>
+                  </div>
+
+                  {/* Date and Time Inputs */}
+                  <div className="grid grid-cols-2 gap-2 pt-1">
+                    <div>
+                      <label className="block text-[10px] text-indigo-200 mb-0.5 font-medium flex items-center gap-1">
+                        <FaCalendarAlt size={9} /> Date
+                      </label>
+                      <input
+                        type="date"
+                        max={todayDateStr}
+                        value={billDate}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setBillDate(val);
+                          setIsCustomBillDate(val !== todayDateStr);
+                        }}
+                        className={`w-full px-2.5 py-1.5 bg-slate-900/95 border rounded-lg text-white text-xs outline-none font-medium transition-all ${
+                          isBackdatedBill
+                            ? "border-amber-400/80 shadow-[0_0_8px_rgba(251,191,36,0.2)]"
+                            : "border-white/25 focus:border-amber-400"
+                        }`}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] text-indigo-200 mb-0.5 font-medium flex items-center gap-1">
+                        <FaClock size={9} /> Time
+                      </label>
+                      <input
+                        type="time"
+                        value={billTime}
+                        onChange={(e) => {
+                          setBillTime(e.target.value);
+                          setIsCustomBillDate(true);
+                        }}
+                        className="w-full px-2.5 py-1.5 bg-slate-900/95 border border-white/25 rounded-lg text-white text-xs outline-none focus:border-amber-400 font-medium"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Backdated warning notice */}
+                  {isBackdatedBill && (
+                    <div className="bg-amber-500/15 border border-amber-400/30 rounded-lg p-2 text-[11px] text-amber-200 flex items-start justify-between gap-1.5">
+                      <div>
+                        <span>⚠️ Bill will be recorded for <strong>{formattedBillDateDisplay}</strong> at {billTime}.</span>
+                        <div className="text-[10px] text-amber-300/80 mt-0.5">
+                          Order, receipts, reports & ledger will use this date.
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleSetQuickDate("TODAY")}
+                        className="text-xs text-amber-300 underline hover:text-white font-bold whitespace-nowrap ml-1"
+                      >
+                        Reset
+                      </button>
+                    </div>
+                  )}
+                </div>
+
                 {/* Staff & Incentive Attribution Card */}
                 <div className="bg-white/10 backdrop-blur-md rounded-xl p-3 border border-white/20 space-y-2.5">
                   <div className="flex items-center justify-between">
@@ -3999,7 +4219,7 @@ tbody td{padding:6px 4px;vertical-align:top}
                   ) : (
                     <>
                       <FaCheckCircle />
-                      Complete Sale
+                      {isBackdatedBill ? `Complete Sale (${formattedBillDateDisplay})` : "Complete Sale"}
                     </>
                   )}
                 </button>
